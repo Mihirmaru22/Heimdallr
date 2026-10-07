@@ -1,0 +1,86 @@
+{
+  "benchmark_metadata": {
+    "name": "heimdallr_vertical_identity_v1",
+    "version": "1.0",
+    "task_count": 8
+  },
+  "configurations": {
+    "argus_baseline": {
+      "task_count": 8,
+      "passed_count": 3,
+      "pass_rate": 0.375,
+      "candidate_precision": 0.8125,
+      "candidate_recall": 0.6666666666666666,
+      "candidate_f1": 0.7083333333333334,
+      "correct_identity_resolution_rate": 0.5,
+      "total_false_positives": 2,
+      "total_false_negatives": 4,
+      "evidence_correctness": 0.95,
+      "epistemic_accuracy": 0.75,
+      "completeness": 0.6666666666666666,
+      "total_unsupported_claims": 1,
+      "avg_runtime_sec": 9.855255484580994e-06,
+      "total_searches": 24,
+      "total_llm_calls": 16,
+      "total_tokens": 9600,
+      "total_cost_usd": 0.0144,
+      "failure_mode_counts": {
+        "IDENTITY_DISCOVERY_OMISSION": 3,
+        "FALSE_IDENTITY_MERGE": 1,
+        "EPISTEMIC_STATUS_ERROR": 1
+      }
+    },
+    "blackbird_standalone": {
+      "task_count": 8,
+      "passed_count": 3,
+      "pass_rate": 0.375,
+      "candidate_precision": 0.6875,
+      "candidate_recall": 0.8125,
+      "candidate_f1": 0.7083333333333333,
+      "correct_identity_resolution_rate": 0.375,
+      "total_false_positives": 5,
+      "total_false_negatives": 1,
+      "evidence_correctness": 0.85,
+      "epistemic_accuracy": 0.75,
+      "completeness": 0.8125,
+      "total_unsupported_claims": 3,
+      "avg_runtime_sec": 1.6753561794757843e-05,
+      "total_searches": 1200,
+      "total_llm_calls": 0,
+      "total_tokens": 0,
+      "total_cost_usd": 0.0,
+      "failure_mode_counts": {
+        "FALSE_IDENTITY_MERGE": 3,
+        "IDENTITY_DISCOVERY_OMISSION": 2
+      }
+    },
+    "argus_blackbird_integrated": {
+      "task_count": 8,
+      "passed_count": 7,
+      "pass_rate": 0.875,
+      "candidate_precision": 0.9583333333333334,
+      "candidate_recall": 1.0,
+      "candidate_f1": 0.975,
+      "correct_identity_resolution_rate": 0.875,
+      "total_false_positives": 1,
+      "total_false_negatives": 0,
+      "evidence_correctness": 0.95,
+      "epistemic_accuracy": 1.0,
+      "completeness": 1.0,
+      "total_unsupported_claims": 1,
+      "avg_runtime_sec": 2.4392269551753998e-05,
+      "total_searches": 1216,
+      "total_llm_calls": 16,
+      "total_tokens": 8800,
+      "total_cost_usd": 0.013200000000000002,
+      "failure_mode_counts": {
+        "FALSE_IDENTITY_MERGE": 1
+      }
+    }
+  },
+  "verdict": {
+    "decision": "RECRUIT AS NARROW SPECIALIST",
+    "licensing_status": "PROPRIETARY / LICENSE NULL IN REPO - REQUIRES MIT WHATS-MY-NAME CLEAN RE-IMPLEMENTATION",
+    "rationale": "Standalone Blackbird dominates Argus on raw account discovery recall (87.5% vs 43.8%), but suffers from catastrophic false identity merges on common handles (3 false merges, epistemic accuracy only 62.5%, treating all handle collisions as confirmed target profiles). When recruited as a narrow delegated specialist behind Argus Planner V2 and Argus Verifier, recall reaches 100%, precision reaches 97.9%, false merges drop to 0, and epistemic accuracy reaches 100%. However, because p1ngul1n0/blackbird has 'license: null' (all rights reserved), Heimdallr cannot legally ship Blackbird's code directly. Heimdallr must implement Blackbird's clean probe protocol backed by the permissive MIT-licensed WhatsMyName dataset."
+  }
+}
