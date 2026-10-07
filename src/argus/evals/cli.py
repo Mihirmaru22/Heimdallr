@@ -46,9 +46,9 @@ def main() -> None:
     )
     run_parser.add_argument(
         "--brain",
-        choices=["argus", "openplanter"],
+        choices=["argus", "openplanter", "planner_v2"],
         default="argus",
-        help="Research brain engine (argus or openplanter)",
+        help="Research brain engine (argus, openplanter, or planner_v2)",
     )
     run_parser.add_argument(
         "--discovery",

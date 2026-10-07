@@ -21,6 +21,11 @@ from argus.brain.openplanter_adapter import (
     OpenPlanterSubtask,
 )
 from argus.brain.planner import ResearchBrain
+from argus.brain.planner_v2 import (
+    ArgusPlannerV2,
+    PlannedTaskV2,
+    TaskPlanningPayloadV2,
+)
 from argus.brain.system1 import System1DecisionEngine
 from argus.core.controller import ArgusController
 from argus.crawler.engine import CrawlExecutionEngine
@@ -138,6 +143,34 @@ class DeterministicEvalLLM(LLMProvider):
                     )
                 ],
                 investigation_hypothesis="Decompose target into facilities and corporate footprint.",
+            )
+
+        # 1c. Planner V2 Structured Subtask Planning with Acceptance Criteria
+        if response_model == TaskPlanningPayloadV2:
+            target = "Automotive Entity"
+            if "target:" in prompt_lower:
+                for line in prompt.splitlines():
+                    if "target:" in line.lower():
+                        target = line.split(":", 1)[1].strip()
+                        break
+
+            return TaskPlanningPayloadV2(
+                planned_tasks=[
+                    PlannedTaskV2(
+                        title=f"Investigate facilities and operations for {target}",
+                        target_entity=target,
+                        required_output="manufacturing plants, corporate details, operations",
+                        acceptance_criteria=f"Identified core facilities, plant leadership, and headquarters for {target}",
+                        description=f"Map manufacturing plants and corporate details for {target}.",
+                        search_queries=[
+                            f"{target} manufacturing operations facilities",
+                            f"{target} plant leadership corporate headquarters",
+                        ],
+                        priority=9,
+                        max_search_budget=4,
+                    )
+                ],
+                strategic_rationale="Decompose target into facilities and corporate footprint with explicit acceptance criteria.",
             )
 
         # 2. Worker Extraction
@@ -381,6 +414,8 @@ class ArgusEvalRunner:
 
         if self.brain_mode == "openplanter":
             brain = OpenPlanterAdapter(repo=repo, llm=self.llm)
+        elif self.brain_mode in ("planner_v2", "plannerv2", "v2"):
+            brain = ArgusPlannerV2(repo=repo, llm=self.llm, system1=system1)
         else:
             brain = ResearchBrain(repo=repo, llm=self.llm, system1=system1)
 
