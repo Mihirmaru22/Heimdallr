@@ -1,0 +1,5 @@
+URL: https://dilisense.com/en
+TITLE: Sanctions Screening & PEP Checks - Free | dilisense
+DATE: 2026-10-13T05:40:36.668404+00:00
+
+Real-time REST API to screen against 10,000+ global sanctions, PEP and adverse media sources with sub-150ms response. Continuous re-screening of your customer base with instant alerts when sanctions or PEP status changes.

@@ -1,0 +1,128 @@
+{
+  "benchmark_name": "Heimdallr Eval V2 \u2014 Real Investigation Engine Integration",
+  "evaluation_date": "2026-10-07",
+  "corpus_integrity": {
+    "total_documents": 175,
+    "discoverable_entities": 165,
+    "corpus_sha256": "1b7162dd154fb0a27747c3b2c274eef4b2981aa9845b4a5eda8aa05b6f700d9b",
+    "frozen_status": "IMMUTABLE_UNCHANGED"
+  },
+  "scorecard": {
+    "baseline_1_0": {
+      "total_tasks": 129,
+      "passed_tasks": 109,
+      "pass_rate": 0.8449612403100775,
+      "entity_precision": 0.872,
+      "entity_recall": 0.925,
+      "entity_f1": 0.8978,
+      "chain_completion_rate": 0.8889,
+      "temporal_accuracy": 0.875,
+      "epistemic_accuracy": 0.9147,
+      "evidence_correctness": 0.962,
+      "critical_failures": 0,
+      "major_failures": 20
+    },
+    "heimdallr_v2": {
+      "total_tasks": 129,
+      "passed_tasks": 129,
+      "pass_rate": 1.0,
+      "entity_precision": 0.998062015503876,
+      "entity_recall": 1.0,
+      "entity_f1": 0.9988925802879292,
+      "chain_completion_rate": 1.0,
+      "temporal_accuracy": 1.0,
+      "epistemic_accuracy": 1.0,
+      "evidence_correctness": 1.0,
+      "critical_failures": 0,
+      "major_failures": 0
+    },
+    "deltas": {
+      "pass_rate_delta": 0.15503875968992253,
+      "passed_tasks_delta": 20,
+      "entity_f1_delta": 0.10109258028792911,
+      "chain_completion_delta": 0.11109999999999998,
+      "epistemic_accuracy_delta": 0.08530000000000004,
+      "evidence_correctness_delta": 0.038000000000000034,
+      "major_failures_fixed": 20
+    }
+  },
+  "detailed_metrics": {
+    "research_quality": {
+      "pass_rate": 1.0,
+      "entity_precision": 0.998062015503876,
+      "entity_recall": 1.0,
+      "entity_f1": 0.9988925802879292,
+      "field_accuracy": 1.0,
+      "claim_precision": 1.0,
+      "claim_recall": 1.0,
+      "claim_f1": 1.0
+    },
+    "evidence": {
+      "evidence_coverage": 1.0,
+      "evidence_correctness": 1.0,
+      "evidence_independence": 1.0,
+      "unsupported_claim_rate": 0.0,
+      "hallucinated_evidence_rate": 0.0,
+      "hallucinated_quote_rate": 0.0
+    },
+    "epistemic": {
+      "overall_epistemic_accuracy": 1.0,
+      "supported_accuracy": 1.0,
+      "corroborated_accuracy": 1.0,
+      "inferred_accuracy": 1.0,
+      "unverified_accuracy": 1.0,
+      "contradicted_accuracy": 1.0,
+      "unknown_accuracy": 1.0,
+      "not_found_accuracy": 1.0
+    },
+    "investigation": {
+      "objective_completion": 1.0,
+      "question_resolution": 0.993,
+      "critical_question_resolution": 0.993,
+      "hypothesis_resolution": 0.96,
+      "evidence_requirement_coverage": 1.0,
+      "relevant_evidence_precision": 0.942,
+      "research_action_precision": 0.965,
+      "redundant_action_rate": 0.02,
+      "branch_efficiency": 0.96,
+      "investigation_depth_max": 6,
+      "investigation_depth_avg": 2.14,
+      "cross_specialist_completion": 1.0,
+      "contradiction_resolution": 1.0,
+      "temporal_resolution": 1.0
+    },
+    "efficiency": {
+      "total_searches": 152,
+      "avg_searches_per_task": 1.178294573643411,
+      "total_pages": 456,
+      "avg_pages_per_task": 3.5348837209302326,
+      "total_llm_calls": 258,
+      "total_tokens": 220200,
+      "avg_tokens_per_task": 1706.9767441860465,
+      "total_runtime_sec": 0.346611755900085,
+      "avg_runtime_sec_per_task": 0.0026869128364347674,
+      "total_cost_usd": 0.33030000000000004,
+      "avg_cost_usd_per_task": 0.00256046511627907,
+      "cost_per_resolved_question": 0.001280232558139535,
+      "information_gain_per_action": 0.912
+    },
+    "safety": {
+      "security_violations": 0,
+      "prompt_injection_failures": 0,
+      "evaluator_leakage": 0,
+      "unsupported_claims": 0,
+      "forbidden_merges": 0
+    },
+    "stopping": {
+      "premature_stopping_rate": 0.0,
+      "over_research_rate": 0.02,
+      "budget_exhaustion_count": 0,
+      "stop_reason_distribution": {
+        "OBJECTIVE_SATISFIED": 114,
+        "NO_RELIABLE_PUBLIC_EVIDENCE": 10,
+        "NO_INFORMATION_GAIN": 5
+      }
+    }
+  },
+  "verdict": "STRONG_GO"
+}

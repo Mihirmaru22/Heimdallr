@@ -1,0 +1,250 @@
+{
+  "total_failures": 45,
+  "breakdown": {
+    "INVESTIGATION_DECOMPOSITION_FAILURE": 0,
+    "QUESTION_SELECTION_FAILURE": 0,
+    "HYPOTHESIS_FAILURE": 0,
+    "EVIDENCE_REQUIREMENT_FAILURE": 0,
+    "SEARCH_STRATEGY_FAILURE": 0,
+    "RELEVANCE_FAILURE": 0,
+    "ENTITY_RESOLUTION_FAILURE": 0,
+    "SPECIALIST_ROUTING_FAILURE": 0,
+    "CROSS_SPECIALIST_FAILURE": 1,
+    "STATE_UPDATE_FAILURE": 0,
+    "CONTRADICTION_FAILURE": 0,
+    "TEMPORAL_FAILURE": 0,
+    "BRANCHING_FAILURE": 0,
+    "STOPPING_FAILURE": 44,
+    "PERSISTENCE_FAILURE": 0,
+    "SYNTHESIS_FAILURE": 0,
+    "SECURITY_FAILURE": 0,
+    "INFRASTRUCTURE_FAILURE": 0
+  },
+  "failed_tasks": [
+    {
+      "task_id": "inv_task_01_apple_style_20_executives",
+      "failure_class": "CROSS_SPECIALIST_FAILURE",
+      "title": "Comprehensive 20-Executive Leadership Investigation (Apex Technologies Group)"
+    },
+    {
+      "task_id": "inv_task_02_executive_deep_ai_svp",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Investigate active SVP of Machine Learning & AI at Apex Technologies"
+    },
+    {
+      "task_id": "inv_task_04_apex_company_bounds",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Establish corporate boundaries and primary jurisdiction for Apex Technologies Group"
+    },
+    {
+      "task_id": "inv_task_05_european_headquarters",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Identify European operating arm and London legal entity"
+    },
+    {
+      "task_id": "inv_task_06_subsidiary_hierarchy",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Traverse global subsidiary schedule from SEC Exhibit 21"
+    },
+    {
+      "task_id": "inv_task_07_uk_sub_to_telemetry",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Traverse 2-tier corporate chain from UK subsidiary to Telemetry vehicle"
+    },
+    {
+      "task_id": "inv_task_08_ct_san_enumeration",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Enumerate Certificate Transparency SAN endpoints for apex-telemetry.co.uk"
+    },
+    {
+      "task_id": "inv_task_09_quantum_sensing_infra",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Map cross-border infrastructure to German sensing unit"
+    },
+    {
+      "task_id": "inv_task_10_kenji_sato_identity",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Correlate professional identity and academic provenance of Dr. Kenji Sato"
+    },
+    {
+      "task_id": "inv_task_11_rachel_thorne_ciso",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Trace CISO career history for Rachel Thorne"
+    },
+    {
+      "task_id": "inv_task_12_contradiction_ai_leadership",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Resolve contradictory reporting on Head of AI (Donald Vance vs David Marcus)"
+    },
+    {
+      "task_id": "inv_task_13_contradiction_restatement_date",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Resolve Form 10-K/A amendment effective date for leadership restatement"
+    },
+    {
+      "task_id": "inv_task_14_historical_state_2020",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Determine executive leadership as of historical date: December 31, 2020"
+    },
+    {
+      "task_id": "inv_task_15_sarah_lin_temporal_promotion",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Determine Sarah Lin's title in 2020 vs 2024"
+    },
+    {
+      "task_id": "inv_task_16_chain_corp_infra_ident",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Cross-Specialist Chain: SEC Filing -> UK Registry -> CT Log -> CISO Probe"
+    },
+    {
+      "task_id": "inv_task_17_chain_german_quantum_infra",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Cross-Specialist Chain: Subsidiary -> Sensing Hostname -> Quantum Director"
+    },
+    {
+      "task_id": "inv_task_18_chain_uk_managing_director",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Cross-Specialist Chain: SEC 10-K -> Companies House -> Managing Director Profile"
+    },
+    {
+      "task_id": "inv_task_19_negative_nonexistent_vp",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Investigate fictitious executive: VP of Quantum Cryptocurrency"
+    },
+    {
+      "task_id": "inv_task_20_negative_unrelated_roofing_corp",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Disambiguate unrelated Nevada entity: Apex Commercial Roofing"
+    },
+    {
+      "task_id": "inv_task_21_negative_missing_executive_email",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Investigate public contact channel for VP Elena Rostova"
+    },
+    {
+      "task_id": "inv_task_22_long_horizon_full_org_tree",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Long-Horizon Comprehensive Corporate Hierarchy & Executive Traversal"
+    },
+    {
+      "task_id": "inv_task_23_long_horizon_quantum_consortium",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Long-Horizon Quantum Unit Exploration & Syndication Audit"
+    },
+    {
+      "task_id": "inv_task_24_adversarial_homoglyph_filtering",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Detect and neutralize lookalike phishing homoglyph apex-g1obal-tech.com"
+    },
+    {
+      "task_id": "inv_task_25_adversarial_syndication_cluster",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Adversarial Syndication: De-duplicate 3 Wire Releases into Single Source"
+    },
+    {
+      "task_id": "inv_task_26_raft_split_brain",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Raft Consensus: Quorum Partitioning & Split-Brain Prevention"
+    },
+    {
+      "task_id": "inv_task_28_riscv_memory_model",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "RISC-V Weak Memory Ordering (RVWMO) Specification"
+    },
+    {
+      "task_id": "inv_task_29_bretton_woods_nixon_shock",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Nixon Shock 1971: Suspension of Gold Convertibility"
+    },
+    {
+      "task_id": "inv_task_31_mrna_lipid_nanoparticles",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Lipid Nanoparticle Formulations in mRNA Vaccine Platforms"
+    },
+    {
+      "task_id": "inv_task_32_eu_ai_act_high_risk",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "EU AI Act (Regulation 2024/1689): High-Risk AI Classification"
+    },
+    {
+      "task_id": "inv_task_33_airbus_eads_reorganization",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Corporate Reorganization: EADS to Airbus Group (2014)"
+    },
+    {
+      "task_id": "inv_task_34_asml_euv_suppliers",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "ASML EUV Photolithography Supply Chain Dependencies"
+    },
+    {
+      "task_id": "inv_task_35_chaco_canyon_archaeoastronomy",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Archaeoastronomy: Fajada Butte Sun Dagger at Chaco Canyon"
+    },
+    {
+      "task_id": "inv_task_36_basque_ergative_syntax",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Morphosyntactic Alignment: Basque Ergative-Absolutive Grammar"
+    },
+    {
+      "task_id": "inv_task_37_uk_pm_transition_oct_2022",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Temporal Governance: UK Prime Minister on October 23, 2022"
+    },
+    {
+      "task_id": "inv_task_38_sec_etf_approval_dates",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Temporal Verification: SEC Spot Bitcoin ETF Regulatory Order"
+    },
+    {
+      "task_id": "inv_task_39_drake_equation_parameters",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Conflicting Astrobiology Estimates: Drake Equation Factor N"
+    },
+    {
+      "task_id": "inv_task_41_lk99_superconductor_reproduction",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Insufficient Evidence: Room-Temperature Superconductivity in LK-99"
+    },
+    {
+      "task_id": "inv_task_42_dark_matter_wimp_detection",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Insufficient Evidence: Direct Detection of Dark Matter WIMPs"
+    },
+    {
+      "task_id": "inv_task_43_voynich_manuscript_decipherment",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Insufficient Evidence: Decipherment of the Voynich Manuscript"
+    },
+    {
+      "task_id": "inv_task_44_python_pep703_gil_misinformation",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Misinformation Filtering: PEP 703 Free-Threaded CPython"
+    },
+    {
+      "task_id": "inv_task_45_quantum_radar_stealth_capabilities",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Adversarial Claims: Quantum Radar Anti-Stealth Capabilities"
+    },
+    {
+      "task_id": "inv_task_47_deepwater_horizon_blowout_root_causes",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Multi-Barrier Technical Forensics: Deepwater Horizon Blowout"
+    },
+    {
+      "task_id": "inv_task_48_voyager_1_heliopause_crossing",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Empirical Multi-Sensor Synthesis: Voyager 1 Heliopause Crossing"
+    },
+    {
+      "task_id": "inv_task_49_doom_bsp_rendering_architecture",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Algorithmic Synthesis: Binary Space Partitioning in Doom Engine"
+    },
+    {
+      "task_id": "inv_task_50_hubble_tension_cosmological_measurements",
+      "failure_class": "STOPPING_FAILURE",
+      "title": "Cosmological Tension: Early vs Late Universe Hubble Constant"
+    }
+  ]
+}

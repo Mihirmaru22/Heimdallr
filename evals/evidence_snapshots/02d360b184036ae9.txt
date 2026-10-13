@@ -1,0 +1,5 @@
+URL: https://handwiki.org/wiki/Physics:Avogadro_constant
+TITLE: Physics:Avogadro constant - HandWiki
+DATE: 2026-10-13T06:39:50.656489+00:00
+
+Jan 28, 2026 · The Avogadro constant, commonly denoted NA, is an SI defining constant with an exact value of 6.02214076×1023 mol−1 when expressed in reciprocal...

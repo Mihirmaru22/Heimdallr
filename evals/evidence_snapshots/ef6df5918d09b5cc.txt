@@ -1,0 +1,5 @@
+URL: https://en.wikipedia.org/wiki/Google_DeepMind
+TITLE: Google DeepMind - Wikipedia
+DATE: 2026-10-13T06:51:41.872448+00:00
+
+DeepMind Technologies Limited, trading as Google DeepMind or simply DeepMind, is a British-American artificial intelligence (AI) research laboratory which serves as a subsidiary of Alphabet Inc. Founded in the UK in 2010, it was acquired by Google in 2014, [10] and merged with Google AI 's Google Brain division to become Google DeepMind in ...

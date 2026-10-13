@@ -1,0 +1,208 @@
+{
+  "benchmark_version": "2.0.0",
+  "evaluated_at": "2026-10-13T07:07:27.070644+00:00",
+  "global_runtime_seconds": 114.21,
+  "total_tasks": 100,
+  "task_level_success": {
+    "numerator": 30,
+    "denominator": 100,
+    "percentage": 30.0,
+    "ci_95": [
+      21.89,
+      39.59
+    ]
+  },
+  "epistemic_status_accuracy": {
+    "numerator": 30,
+    "denominator": 100,
+    "percentage": 30.0,
+    "ci_95": [
+      21.89,
+      39.59
+    ]
+  },
+  "structural_provenance_rate": {
+    "numerator": 815,
+    "denominator": 815,
+    "percentage": 100.0,
+    "ci_95": [
+      99.53,
+      100.0
+    ]
+  },
+  "semantic_claim_support_rate": {
+    "numerator": 815,
+    "denominator": 815,
+    "percentage": 100.0,
+    "ci_95": [
+      99.53,
+      100.0
+    ]
+  },
+  "categories": {
+    "ORGANIZATIONAL_CORPORATE": {
+      "numerator": 7,
+      "denominator": 15,
+      "percentage": 46.67,
+      "ci_95": [
+        24.81,
+        69.88
+      ]
+    },
+    "INFRASTRUCTURE_INVESTIGATION": {
+      "numerator": 1,
+      "denominator": 6,
+      "percentage": 16.67,
+      "ci_95": [
+        3.01,
+        56.35
+      ]
+    },
+    "IDENTITY_INVESTIGATION": {
+      "numerator": 0,
+      "denominator": 1,
+      "percentage": 0.0,
+      "ci_95": [
+        0.0,
+        79.35
+      ]
+    },
+    "CORPORATE_RELATIONSHIP": {
+      "numerator": 2,
+      "denominator": 7,
+      "percentage": 28.57,
+      "ci_95": [
+        8.22,
+        64.11
+      ]
+    },
+    "INTERDISCIPLINARY": {
+      "numerator": 1,
+      "denominator": 6,
+      "percentage": 16.67,
+      "ci_95": [
+        3.01,
+        56.35
+      ]
+    },
+    "CONFLICTING_AMBIGUOUS": {
+      "numerator": 4,
+      "denominator": 15,
+      "percentage": 26.67,
+      "ci_95": [
+        10.9,
+        51.95
+      ]
+    },
+    "NEGATIVE_NOT_FOUND": {
+      "numerator": 2,
+      "denominator": 9,
+      "percentage": 22.22,
+      "ci_95": [
+        6.32,
+        54.74
+      ]
+    },
+    "INSUFFICIENT_EVIDENCE": {
+      "numerator": 4,
+      "denominator": 6,
+      "percentage": 66.67,
+      "ci_95": [
+        30.0,
+        90.32
+      ]
+    },
+    "TECHNICAL_ENGINEERING": {
+      "numerator": 3,
+      "denominator": 11,
+      "percentage": 27.27,
+      "ci_95": [
+        9.75,
+        56.57
+      ]
+    },
+    "SCIENTIFIC_POLICY": {
+      "numerator": 0,
+      "denominator": 4,
+      "percentage": 0.0,
+      "ci_95": [
+        0.0,
+        48.99
+      ]
+    },
+    "HISTORICAL": {
+      "numerator": 2,
+      "denominator": 10,
+      "percentage": 20.0,
+      "ci_95": [
+        5.67,
+        50.98
+      ]
+    },
+    "ADVERSARIAL_INVESTIGATION": {
+      "numerator": 3,
+      "denominator": 4,
+      "percentage": 75.0,
+      "ci_95": [
+        30.06,
+        95.44
+      ]
+    },
+    "MISLEADING_RESULTS": {
+      "numerator": 1,
+      "denominator": 6,
+      "percentage": 16.67,
+      "ci_95": [
+        3.01,
+        56.35
+      ]
+    }
+  },
+  "failure_taxonomy_distribution": {
+    "FALSE_CONTRADICTION": 17,
+    "INCORRECT_ANSWER_SYNTHESIS": 30,
+    "CONTRADICTION_MISSED": 14,
+    "INCORRECT_NOT_FOUND": 7,
+    "INCORRECT_INSUFFICIENT_EVIDENCE": 2
+  },
+  "efficiency": {
+    "mean_steps_per_task": 1.0,
+    "mean_runtime_seconds": 1.142,
+    "total_evidence_collected": 672
+  },
+  "acceptance_gates": {
+    "overall_status": "FAIL",
+    "gates": {
+      "task_count": {
+        "target": 100,
+        "measured": 100,
+        "passed": true
+      },
+      "structural_provenance": {
+        "target": 100.0,
+        "measured": 100.0,
+        "passed": true
+      },
+      "semantic_claim_support": {
+        "target": 90.0,
+        "measured": 100.0,
+        "passed": true
+      },
+      "overall_task_success": {
+        "target": 85.0,
+        "measured": 30.0,
+        "passed": false
+      },
+      "epistemic_status_accuracy": {
+        "target": 90.0,
+        "measured": 30.0,
+        "passed": false
+      },
+      "category_floor": {
+        "target": 75.0,
+        "measured": 0.0,
+        "passed": false
+      }
+    }
+  }
+}

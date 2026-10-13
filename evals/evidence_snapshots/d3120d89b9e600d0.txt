@@ -1,0 +1,5 @@
+URL: https://redshed.ai/papers/deepseek-v3/
+TITLE: DeepSeek-V3 Technical Report — Red Shed
+DATE: 2026-10-13T05:42:00.457648+00:00
+
+The Big Idea DeepSeek-V3 is a 671B parameter Mixture-of-Experts language model — with only 37B parameters activated per token — that matches or beats GPT-4o and Claude-3.5-Sonnet across most benchmarks while costing only $5.576M to train.

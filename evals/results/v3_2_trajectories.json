@@ -1,0 +1,3104 @@
+[
+  {
+    "task_id": "inv_task_01_apple_style_20_executives",
+    "objective": "Research Apex Technologies Group. Identify 20 current VP/SVP-level executives. For each executive determine: name, current title, responsibility, organization, current status, career history, professional identity, and publicly documented business contact channel. Do NOT invent contact information. Distinguish SUPPORTED, UNKNOWN, and NOT_FOUND.",
+    "specialist_invocations": [
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Research Apex Technologies Group 20 VP/SVP-level executives each commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.812197+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Research Apex Technologies Group 20 VP/SVP-level executives each commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.821206+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Research Apex Technologies Group 20 VP/SVP-level executives each executive officers leadership",
+        "timestamp": "2026-10-08T09:11:06.829517+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Research Apex Technologies Group 20 VP/SVP-level executives each domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.834342+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Research Apex Technologies Group 20 VP/SVP-level executives each domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.842079+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Research Apex Technologies Group 20 VP/SVP-level executives each subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:06.849393+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_8c6d486e1f",
+        "timestamp": "2026-10-08T09:11:06.817219+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_nadia_o'connor",
+          "executive": "Nadia O'Connor",
+          "title": "Vice President, User Experience & Design"
+        },
+        "rationale": "Successfully verified leadership dossier for Nadia O'Connor."
+      },
+      {
+        "entry_id": "audit_03e8d7df75",
+        "timestamp": "2026-10-08T09:11:06.817284+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_liam_gallagher",
+          "executive": "Liam Gallagher",
+          "title": "Vice President, Global Communications & Media"
+        },
+        "rationale": "Successfully verified leadership dossier for Liam Gallagher."
+      },
+      {
+        "entry_id": "audit_3f15fe7f9c",
+        "timestamp": "2026-10-08T09:11:06.817349+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_ingrid_lindstrom",
+          "executive": "Ingrid Lindstrom",
+          "title": "Vice President, Sustainable Energy & Green Data Centers"
+        },
+        "rationale": "Successfully verified leadership dossier for Ingrid Lindstrom."
+      },
+      {
+        "entry_id": "audit_6689b445d1",
+        "timestamp": "2026-10-08T09:11:06.817414+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_zackary_taylor",
+          "executive": "Zackary Taylor",
+          "title": "Vice President, Strategic M&A"
+        },
+        "rationale": "Successfully verified leadership dossier for Zackary Taylor."
+      },
+      {
+        "entry_id": "audit_1b2dd09ee5",
+        "timestamp": "2026-10-08T09:11:06.817480+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_maya_krishnan",
+          "executive": "Maya Krishnan",
+          "title": "Vice President, Healthcare & Biometrics"
+        },
+        "rationale": "Successfully verified leadership dossier for Maya Krishnan."
+      },
+      {
+        "entry_id": "audit_fefd023168",
+        "timestamp": "2026-10-08T09:11:06.817545+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_gregory_houseman",
+          "executive": "Gregory Houseman",
+          "title": "Senior Vice President, Enterprise Solutions"
+        },
+        "rationale": "Successfully verified leadership dossier for Gregory Houseman."
+      },
+      {
+        "entry_id": "audit_0613132555",
+        "timestamp": "2026-10-08T09:11:06.817612+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_oliver_queenan",
+          "executive": "Oliver Queenan",
+          "title": "Vice President, Audio Engineering & Spatial Acoustics"
+        },
+        "rationale": "Successfully verified leadership dossier for Oliver Queenan."
+      },
+      {
+        "entry_id": "audit_2634785d4c",
+        "timestamp": "2026-10-08T09:11:06.817780+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_2563bf5f"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_4f52e025d0",
+        "timestamp": "2026-10-08T09:11:06.817878+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_981a7915"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_92d582c6b8",
+        "timestamp": "2026-10-08T09:11:06.853876+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 107,
+    "entities_count": 30,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_02_executive_deep_ai_svp",
+    "objective": "Determine current active leader of Machine Learning & AI at Apex Technologies, their career background, and public contact.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Technologies Group leader Machine Learning AI Apex Technologies career background commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.858812+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group leader Machine Learning AI Apex Technologies career background commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.866494+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group leader Machine Learning AI Apex Technologies career background executive officers leadership",
+        "timestamp": "2026-10-08T09:11:06.874492+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group leader Machine Learning AI Apex Technologies career background subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:06.878374+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited leader Machine Learning AI Apex Technologies career background domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.883234+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH leader Machine Learning AI Apex Technologies career background domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.886995+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_5a176078ce",
+        "timestamp": "2026-10-08T09:11:06.855844+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_0104b09b",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_37428382f4",
+        "timestamp": "2026-10-08T09:11:06.856089+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Determine current active leader of Machine Learning & AI at Apex Technologies, their career background, and public contact.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Group"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_ce85107769",
+        "timestamp": "2026-10-08T09:11:06.879641+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_a72632a9"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_a28956ebd2",
+        "timestamp": "2026-10-08T09:11:06.879755+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_b25f6a73"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_45874ea176",
+        "timestamp": "2026-10-08T09:11:06.888153+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 109,
+    "entities_count": 32,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_03_executive_cloud_ops",
+    "objective": "Establish Sarah Lin's operational remit, corporate organization, and previous leadership position.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Sarah Lin Apex Technologies Group Establish Sarah Lin's operational remit corporate organization previous commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.892347+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Sarah Lin Establish Sarah Lin's operational remit corporate organization previous commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.899750+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Sarah Lin Establish Sarah Lin's operational remit corporate organization previous executive officers leadership",
+        "timestamp": "2026-10-08T09:11:06.907481+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Sarah Lin Establish Sarah Lin's operational remit corporate organization previous subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:06.911228+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Sarah Lin Establish Sarah Lin's operational remit corporate organization previous domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.917910+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_a04f797b18",
+        "timestamp": "2026-10-08T09:11:06.889624+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_3dd7cd86",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_ffade719d0",
+        "timestamp": "2026-10-08T09:11:06.889816+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Establish Sarah Lin's operational remit, corporate organization, and previous leadership position.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Sarah Lin"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_4fd5a5d420",
+        "timestamp": "2026-10-08T09:11:06.922296+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "OBJECTIVE_SATISFIED"
+        },
+        "rationale": "All 5 investigation questions successfully resolved."
+      }
+    ],
+    "claims_count": 103,
+    "entities_count": 25,
+    "stop_reason": "OBJECTIVE_SATISFIED"
+  },
+  {
+    "task_id": "inv_task_04_apex_company_bounds",
+    "objective": "Identify primary legal entity name, CIK identifier, state of incorporation, and headquarters for Apex Technologies Group.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Technologies Group primary legal entity name CIK identifier state incorporation commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.926467+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group primary legal entity name CIK identifier state incorporation commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.933658+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group primary legal entity name CIK identifier state incorporation executive officers leadership",
+        "timestamp": "2026-10-08T09:11:06.941430+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group primary legal entity name CIK identifier state incorporation subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:06.945141+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited primary legal entity name CIK identifier state incorporation domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.953107+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH primary legal entity name CIK identifier state incorporation domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.960631+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_0714fbf561",
+        "timestamp": "2026-10-08T09:11:06.923721+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_ae7c30a2",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_bda34fff98",
+        "timestamp": "2026-10-08T09:11:06.923913+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Identify primary legal entity name, CIK identifier, state of incorporation, and headquarters for Apex Technologies Group.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Group"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_f187607e2a",
+        "timestamp": "2026-10-08T09:11:06.949438+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_0c00c183"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_464b95db5a",
+        "timestamp": "2026-10-08T09:11:06.949544+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_e3b35306"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_5cd6a0fd47",
+        "timestamp": "2026-10-08T09:11:06.964835+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 110,
+    "entities_count": 31,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_05_european_headquarters",
+    "objective": "Identify the UK operating subsidiary of Apex Technologies Group and its managing director.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Technologies Group UK operating subsidiary Apex Technologies Group its managing commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.969164+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group UK operating subsidiary Apex Technologies Group its managing commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:06.977528+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group UK operating subsidiary Apex Technologies Group its managing executive officers leadership",
+        "timestamp": "2026-10-08T09:11:06.985647+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited UK operating subsidiary Apex Technologies Group its managing domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.990724+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH UK operating subsidiary Apex Technologies Group its managing domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:06.998295+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group UK operating subsidiary Apex Technologies Group its managing subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.005346+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_ba3b102025",
+        "timestamp": "2026-10-08T09:11:06.966481+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_a21d7d6f",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_4b16bd4702",
+        "timestamp": "2026-10-08T09:11:06.966649+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Identify the UK operating subsidiary of Apex Technologies Group and its managing director.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Group"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_82a2502516",
+        "timestamp": "2026-10-08T09:11:06.974242+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_7c5c59a9"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_282c242c73",
+        "timestamp": "2026-10-08T09:11:06.974345+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_83c2adf4"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_76f1cdc178",
+        "timestamp": "2026-10-08T09:11:07.009496+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 107,
+    "entities_count": 28,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_06_subsidiary_hierarchy",
+    "objective": "Extract all active first-tier international subsidiaries disclosed by Apex Technologies Group.",
+    "specialist_invocations": [
+      {
+        "specialist": "sanctions",
+        "capability_id": "sanctions_and_beneficial_ownership",
+        "implementation_id": "impl_opensanctions_probe_v1",
+        "query": "Apex Technologies Group sanctions screening beneficial ownership PEP offshore",
+        "timestamp": "2026-10-08T09:11:07.013686+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Extract all first-tier international subsidiaries disclosed Apex Technologies commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.022380+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Extract all first-tier international subsidiaries disclosed Apex Technologies executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.030762+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Extract all first-tier international subsidiaries disclosed Apex Technologies domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.035607+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Extract all first-tier international subsidiaries disclosed Apex Technologies domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.039997+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Extract all first-tier international subsidiaries disclosed Apex Technologies subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.043805+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_fde9afb49e",
+        "timestamp": "2026-10-08T09:11:07.011046+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_30154be6",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_2b80c76864",
+        "timestamp": "2026-10-08T09:11:07.011271+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Extract all active first-tier international subsidiaries disclosed by Apex Technologies Group.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Group"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_819f6ed791",
+        "timestamp": "2026-10-08T09:11:07.018934+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_36922ef6"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_ad039960c4",
+        "timestamp": "2026-10-08T09:11:07.019035+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_e51d47c1"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_02bb8d3a3b",
+        "timestamp": "2026-10-08T09:11:07.047942+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 109,
+    "entities_count": 29,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_07_uk_sub_to_telemetry",
+    "objective": "Identify the dedicated technical infrastructure subsidiary held by Apex Technologies Europe Ltd.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Technologies Europe Ltd dedicated technical infrastructure subsidiary held Apex Technologies Europe commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.052260+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Europe Ltd dedicated technical infrastructure subsidiary held Apex Technologies Europe commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.060490+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Europe Ltd dedicated technical infrastructure subsidiary held Apex Technologies Europe executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.068730+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited dedicated technical infrastructure subsidiary held Apex Technologies Europe domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.073506+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH dedicated technical infrastructure subsidiary held Apex Technologies Europe domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.077844+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Europe Ltd dedicated technical infrastructure subsidiary held Apex Technologies Europe subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.081693+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_b72b54cf5d",
+        "timestamp": "2026-10-08T09:11:07.049444+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_f824c830",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_b76d986fe0",
+        "timestamp": "2026-10-08T09:11:07.049656+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Identify the dedicated technical infrastructure subsidiary held by Apex Technologies Europe Ltd.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Europe Ltd"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_25f18ae930",
+        "timestamp": "2026-10-08T09:11:07.057110+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_5a96a24f"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_b600757d78",
+        "timestamp": "2026-10-08T09:11:07.057223+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_57d2d087"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_3b0da10be3",
+        "timestamp": "2026-10-08T09:11:07.085930+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 109,
+    "entities_count": 29,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_08_ct_san_enumeration",
+    "objective": "Discover all SAN hostnames and technical administrator contacts registered under apex-telemetry.co.uk.",
+    "specialist_invocations": [
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "apex-telemetry.co.uk Discover all SAN hostnames technical administrator contacts registered commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.089934+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "apex-telemetry.co.uk Discover all SAN hostnames technical administrator contacts registered commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.097413+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "apex-telemetry.co.uk Discover all SAN hostnames technical administrator contacts registered executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.104987+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "apex-telemetry.co.uk Discover all SAN hostnames technical administrator contacts registered subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.109019+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Discover all SAN hostnames technical administrator contacts registered domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.113428+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Discover all SAN hostnames technical administrator contacts registered domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.120289+00:00"
+      },
+      {
+        "specialist": "identity",
+        "capability_id": "identity_resolution",
+        "implementation_id": "impl_identity_probe_specialist_v1",
+        "query": "Rachel Thorne What is Rachel Thorne's professional identity and previous corporate employer?",
+        "timestamp": "2026-10-08T09:11:07.127211+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_23434a9be0",
+        "timestamp": "2026-10-08T09:11:07.087385+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_89bcc1fc",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_96a5c07b8a",
+        "timestamp": "2026-10-08T09:11:07.087577+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Discover all SAN hostnames and technical administrator contacts registered under apex-telemetry.co.uk.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "apex-telemetry.co.uk"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_de0c7ea5d5",
+        "timestamp": "2026-10-08T09:11:07.094865+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "infrastructure",
+          "next_specialist": "identity",
+          "question_id": "q_4a873cc8"
+        },
+        "rationale": "Infrastructure CT log attribution chained to Identity Specialist biographical probe."
+      },
+      {
+        "entry_id": "audit_c19aac75bb",
+        "timestamp": "2026-10-08T09:11:07.110166+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_f080ed30"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_7d7355f5bd",
+        "timestamp": "2026-10-08T09:11:07.131885+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "OBJECTIVE_SATISFIED"
+        },
+        "rationale": "All 7 investigation questions successfully resolved."
+      }
+    ],
+    "claims_count": 108,
+    "entities_count": 30,
+    "stop_reason": "OBJECTIVE_SATISFIED"
+  },
+  {
+    "task_id": "inv_task_09_quantum_sensing_infra",
+    "objective": "Trace quantum monitor infrastructure endpoint back to German operating subsidiary.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace quantum monitor infrastructure endpoint back German operating commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.136458+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Trace quantum monitor infrastructure endpoint back German operating domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.144670+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace quantum monitor infrastructure endpoint back German operating commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.151345+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace quantum monitor infrastructure endpoint back German operating executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.159144+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace quantum monitor infrastructure endpoint back German operating subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.163170+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace quantum monitor infrastructure endpoint back German operating domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.169783+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_29d3cdf2e1",
+        "timestamp": "2026-10-08T09:11:07.133609+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_fcd3efbd",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_8c9cf1ae8f",
+        "timestamp": "2026-10-08T09:11:07.133787+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Trace quantum monitor infrastructure endpoint back to German operating subsidiary.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Quantum Sensing GmbH"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_dde5b08187",
+        "timestamp": "2026-10-08T09:11:07.141806+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_71698be4"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_06afd66480",
+        "timestamp": "2026-10-08T09:11:07.173878+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "OBJECTIVE_SATISFIED"
+        },
+        "rationale": "All 6 investigation questions successfully resolved."
+      }
+    ],
+    "claims_count": 112,
+    "entities_count": 32,
+    "stop_reason": "OBJECTIVE_SATISFIED"
+  },
+  {
+    "task_id": "inv_task_10_kenji_sato_identity",
+    "objective": "Establish Dr. Kenji Sato's academic affiliation, prior university role, and current quantum research scope.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Dr. Kenji Sato Establish Dr Kenji Sato's academic affiliation prior university commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.178250+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Dr. Kenji Sato Establish Dr Kenji Sato's academic affiliation prior university commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.185212+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Dr. Kenji Sato Establish Dr Kenji Sato's academic affiliation prior university executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.192594+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Dr. Kenji Sato Establish Dr Kenji Sato's academic affiliation prior university subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.196285+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Establish Dr Kenji Sato's academic affiliation prior university domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.204062+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Establish Dr Kenji Sato's academic affiliation prior university domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.208124+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_15a6223cce",
+        "timestamp": "2026-10-08T09:11:07.175484+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_716afe33",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_4a096f81a6",
+        "timestamp": "2026-10-08T09:11:07.175670+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Establish Dr. Kenji Sato's academic affiliation, prior university role, and current quantum research scope.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Dr. Kenji Sato"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_06f396b8d7",
+        "timestamp": "2026-10-08T09:11:07.200516+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_017f0fb3"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_46ecc4e441",
+        "timestamp": "2026-10-08T09:11:07.200630+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_d47c6bba"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_ded92b4b21",
+        "timestamp": "2026-10-08T09:11:07.209179+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 112,
+    "entities_count": 31,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_11_rachel_thorne_ciso",
+    "objective": "Identify Rachel Thorne's former employer prior to assuming SVP Security at Apex Technologies.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Rachel Thorne Rachel Thorne's former employer prior assuming SVP Security commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.213427+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Rachel Thorne Rachel Thorne's former employer prior assuming SVP Security commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.220333+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Rachel Thorne Rachel Thorne's former employer prior assuming SVP Security executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.227772+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Rachel Thorne Rachel Thorne's former employer prior assuming SVP Security subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.231444+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Rachel Thorne's former employer prior assuming SVP Security domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.239148+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Rachel Thorne's former employer prior assuming SVP Security domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.243342+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_7621092fe6",
+        "timestamp": "2026-10-08T09:11:07.210660+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_da0347a0",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_aa90bf6fe2",
+        "timestamp": "2026-10-08T09:11:07.210870+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Identify Rachel Thorne's former employer prior to assuming SVP Security at Apex Technologies.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Rachel Thorne"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_8087a83d2b",
+        "timestamp": "2026-10-08T09:11:07.235581+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_a7a17730"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_1714ea12c4",
+        "timestamp": "2026-10-08T09:11:07.235687+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_22e04236"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_1fdebcefe6",
+        "timestamp": "2026-10-08T09:11:07.247384+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 112,
+    "entities_count": 32,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_12_contradiction_ai_leadership",
+    "objective": "Form 10-K from 2020 lists Donald Vance as SVP of AI, while current report lists David Marcus. Resolve which individual is currently authoritative.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Technologies Group Form 10-K 2020 lists Donald Vance SVP AI commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.251748+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Form 10-K 2020 lists Donald Vance SVP AI commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.259652+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Form 10-K 2020 lists Donald Vance SVP AI executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.267276+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Form 10-K 2020 lists Donald Vance SVP AI subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.274491+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Form 10-K 2020 lists Donald Vance SVP AI domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.282242+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Form 10-K 2020 lists Donald Vance SVP AI domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.286799+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_f2e1964361",
+        "timestamp": "2026-10-08T09:11:07.256968+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_nadia_o'connor",
+          "executive": "Nadia O'Connor",
+          "title": "Vice President, User Experience & Design"
+        },
+        "rationale": "Successfully verified leadership dossier for Nadia O'Connor."
+      },
+      {
+        "entry_id": "audit_f433055640",
+        "timestamp": "2026-10-08T09:11:07.257031+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_liam_gallagher",
+          "executive": "Liam Gallagher",
+          "title": "Vice President, Global Communications & Media"
+        },
+        "rationale": "Successfully verified leadership dossier for Liam Gallagher."
+      },
+      {
+        "entry_id": "audit_9d73283f93",
+        "timestamp": "2026-10-08T09:11:07.257113+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_ingrid_lindstrom",
+          "executive": "Ingrid Lindstrom",
+          "title": "Vice President, Sustainable Energy & Green Data Centers"
+        },
+        "rationale": "Successfully verified leadership dossier for Ingrid Lindstrom."
+      },
+      {
+        "entry_id": "audit_62068098e7",
+        "timestamp": "2026-10-08T09:11:07.257179+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_zackary_taylor",
+          "executive": "Zackary Taylor",
+          "title": "Vice President, Strategic M&A"
+        },
+        "rationale": "Successfully verified leadership dossier for Zackary Taylor."
+      },
+      {
+        "entry_id": "audit_1815cff85e",
+        "timestamp": "2026-10-08T09:11:07.257246+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_maya_krishnan",
+          "executive": "Maya Krishnan",
+          "title": "Vice President, Healthcare & Biometrics"
+        },
+        "rationale": "Successfully verified leadership dossier for Maya Krishnan."
+      },
+      {
+        "entry_id": "audit_06c69eb052",
+        "timestamp": "2026-10-08T09:11:07.257314+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_gregory_houseman",
+          "executive": "Gregory Houseman",
+          "title": "Senior Vice President, Enterprise Solutions"
+        },
+        "rationale": "Successfully verified leadership dossier for Gregory Houseman."
+      },
+      {
+        "entry_id": "audit_f7f28391fe",
+        "timestamp": "2026-10-08T09:11:07.257382+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_oliver_queenan",
+          "executive": "Oliver Queenan",
+          "title": "Vice President, Audio Engineering & Spatial Acoustics"
+        },
+        "rationale": "Successfully verified leadership dossier for Oliver Queenan."
+      },
+      {
+        "entry_id": "audit_22caef4c9c",
+        "timestamp": "2026-10-08T09:11:07.278555+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_c1eaaba7"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_7519493b79",
+        "timestamp": "2026-10-08T09:11:07.278659+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_c9e7a01b"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_ed437c22ed",
+        "timestamp": "2026-10-08T09:11:07.291130+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 108,
+    "entities_count": 31,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_13_contradiction_restatement_date",
+    "objective": "Identify the specific effective date when David Marcus succeeded Donald Vance per Form 10-K/A amendment.",
+    "specialist_invocations": [
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "David Marcus specific effective date David Marcus succeeded Donald Vance commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.295604+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "David Marcus specific effective date David Marcus succeeded Donald Vance commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.303092+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "David Marcus specific effective date David Marcus succeeded Donald Vance executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.310733+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "David Marcus specific effective date David Marcus succeeded Donald Vance subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.314378+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "David Marcus specific effective date David Marcus succeeded Donald Vance domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.317739+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_52eac7eeff",
+        "timestamp": "2026-10-08T09:11:07.292895+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_509cce2d",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_5925f42f66",
+        "timestamp": "2026-10-08T09:11:07.293096+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Identify the specific effective date when David Marcus succeeded Donald Vance per Form 10-K/A amendment.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "David Marcus"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_2d0674dc16",
+        "timestamp": "2026-10-08T09:11:07.318837+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "OBJECTIVE_SATISFIED"
+        },
+        "rationale": "All 5 investigation questions successfully resolved."
+      }
+    ],
+    "claims_count": 103,
+    "entities_count": 27,
+    "stop_reason": "OBJECTIVE_SATISFIED"
+  },
+  {
+    "task_id": "inv_task_14_historical_state_2020",
+    "objective": "What individual authoritatively served as SVP of Machine Learning & AI at Apex Technologies as of December 31, 2020?",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "What SVP Machine individual authoritatively served SVP Machine Learning AI Apex commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.322812+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "What SVP Machine individual authoritatively served SVP Machine Learning AI Apex commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.330508+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "What SVP Machine individual authoritatively served SVP Machine Learning AI Apex executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.337998+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "What SVP Machine individual authoritatively served SVP Machine Learning AI Apex subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.341946+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited individual authoritatively served SVP Machine Learning AI Apex domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.350042+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH individual authoritatively served SVP Machine Learning AI Apex domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.357561+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_65aadc18b6",
+        "timestamp": "2026-10-08T09:11:07.327811+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_nadia_o'connor",
+          "executive": "Nadia O'Connor",
+          "title": "Vice President, User Experience & Design"
+        },
+        "rationale": "Successfully verified leadership dossier for Nadia O'Connor."
+      },
+      {
+        "entry_id": "audit_ae4246abfe",
+        "timestamp": "2026-10-08T09:11:07.327877+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_liam_gallagher",
+          "executive": "Liam Gallagher",
+          "title": "Vice President, Global Communications & Media"
+        },
+        "rationale": "Successfully verified leadership dossier for Liam Gallagher."
+      },
+      {
+        "entry_id": "audit_1f24e51910",
+        "timestamp": "2026-10-08T09:11:07.327943+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_ingrid_lindstrom",
+          "executive": "Ingrid Lindstrom",
+          "title": "Vice President, Sustainable Energy & Green Data Centers"
+        },
+        "rationale": "Successfully verified leadership dossier for Ingrid Lindstrom."
+      },
+      {
+        "entry_id": "audit_f5c61bff35",
+        "timestamp": "2026-10-08T09:11:07.328010+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_zackary_taylor",
+          "executive": "Zackary Taylor",
+          "title": "Vice President, Strategic M&A"
+        },
+        "rationale": "Successfully verified leadership dossier for Zackary Taylor."
+      },
+      {
+        "entry_id": "audit_08ad62db2b",
+        "timestamp": "2026-10-08T09:11:07.328087+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_maya_krishnan",
+          "executive": "Maya Krishnan",
+          "title": "Vice President, Healthcare & Biometrics"
+        },
+        "rationale": "Successfully verified leadership dossier for Maya Krishnan."
+      },
+      {
+        "entry_id": "audit_b462b9fe27",
+        "timestamp": "2026-10-08T09:11:07.328160+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_gregory_houseman",
+          "executive": "Gregory Houseman",
+          "title": "Senior Vice President, Enterprise Solutions"
+        },
+        "rationale": "Successfully verified leadership dossier for Gregory Houseman."
+      },
+      {
+        "entry_id": "audit_e8f6cd38c4",
+        "timestamp": "2026-10-08T09:11:07.328227+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_oliver_queenan",
+          "executive": "Oliver Queenan",
+          "title": "Vice President, Audio Engineering & Spatial Acoustics"
+        },
+        "rationale": "Successfully verified leadership dossier for Oliver Queenan."
+      },
+      {
+        "entry_id": "audit_74f6d0f38f",
+        "timestamp": "2026-10-08T09:11:07.346383+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_ff90fa08"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_e5f9572170",
+        "timestamp": "2026-10-08T09:11:07.346497+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_c7fb11ef"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_29b3850516",
+        "timestamp": "2026-10-08T09:11:07.361814+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 113,
+    "entities_count": 36,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_15_sarah_lin_temporal_promotion",
+    "objective": "Verify whether Sarah Lin held the Senior Vice President title in 2020 or was promoted at a later date.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Sarah Lin Senior whether Sarah Lin held Senior Vice President title commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.366836+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Sarah Lin Senior whether Sarah Lin held Senior Vice President title commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.374950+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Sarah Lin Senior whether Sarah Lin held Senior Vice President title executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.382885+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Sarah Lin Senior whether Sarah Lin held Senior Vice President title subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.386829+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Sarah Lin Senior whether Sarah Lin held Senior Vice President title domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.393966+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_17e5b74c61",
+        "timestamp": "2026-10-08T09:11:07.371986+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_sofia_rodriguez",
+          "executive": "Sofia Rodriguez",
+          "title": "Vice President, People & Engineering Culture"
+        },
+        "rationale": "Successfully verified leadership dossier for Sofia Rodriguez."
+      },
+      {
+        "entry_id": "audit_c908dc2b4c",
+        "timestamp": "2026-10-08T09:11:07.372068+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_arthur_pendelton",
+          "executive": "Arthur Pendelton",
+          "title": "Senior Vice President, General Counsel"
+        },
+        "rationale": "Successfully verified leadership dossier for Arthur Pendelton."
+      },
+      {
+        "entry_id": "audit_e9113b667a",
+        "timestamp": "2026-10-08T09:11:07.372150+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_nadia_o'connor",
+          "executive": "Nadia O'Connor",
+          "title": "Vice President, User Experience & Design"
+        },
+        "rationale": "Successfully verified leadership dossier for Nadia O'Connor."
+      },
+      {
+        "entry_id": "audit_8b8e07d6f0",
+        "timestamp": "2026-10-08T09:11:07.372221+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_liam_gallagher",
+          "executive": "Liam Gallagher",
+          "title": "Vice President, Global Communications & Media"
+        },
+        "rationale": "Successfully verified leadership dossier for Liam Gallagher."
+      },
+      {
+        "entry_id": "audit_5a1a6a40ce",
+        "timestamp": "2026-10-08T09:11:07.372291+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_ingrid_lindstrom",
+          "executive": "Ingrid Lindstrom",
+          "title": "Vice President, Sustainable Energy & Green Data Centers"
+        },
+        "rationale": "Successfully verified leadership dossier for Ingrid Lindstrom."
+      },
+      {
+        "entry_id": "audit_bc34540a3b",
+        "timestamp": "2026-10-08T09:11:07.372361+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_zackary_taylor",
+          "executive": "Zackary Taylor",
+          "title": "Vice President, Strategic M&A"
+        },
+        "rationale": "Successfully verified leadership dossier for Zackary Taylor."
+      },
+      {
+        "entry_id": "audit_1981f5e4d9",
+        "timestamp": "2026-10-08T09:11:07.372433+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_maya_krishnan",
+          "executive": "Maya Krishnan",
+          "title": "Vice President, Healthcare & Biometrics"
+        },
+        "rationale": "Successfully verified leadership dossier for Maya Krishnan."
+      },
+      {
+        "entry_id": "audit_6b2728c50e",
+        "timestamp": "2026-10-08T09:11:07.372505+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_gregory_houseman",
+          "executive": "Gregory Houseman",
+          "title": "Senior Vice President, Enterprise Solutions"
+        },
+        "rationale": "Successfully verified leadership dossier for Gregory Houseman."
+      },
+      {
+        "entry_id": "audit_33133bcd79",
+        "timestamp": "2026-10-08T09:11:07.372578+00:00",
+        "action_type": "BRANCH_COMPLETED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_exec_oliver_queenan",
+          "executive": "Oliver Queenan",
+          "title": "Vice President, Audio Engineering & Spatial Acoustics"
+        },
+        "rationale": "Successfully verified leadership dossier for Oliver Queenan."
+      },
+      {
+        "entry_id": "audit_bbf0da0628",
+        "timestamp": "2026-10-08T09:11:07.395118+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "OBJECTIVE_SATISFIED"
+        },
+        "rationale": "All 5 investigation questions successfully resolved."
+      }
+    ],
+    "claims_count": 103,
+    "entities_count": 26,
+    "stop_reason": "OBJECTIVE_SATISFIED"
+  },
+  {
+    "task_id": "inv_task_16_chain_corp_infra_ident",
+    "objective": "Starting from Apex Technologies Group, discover its UK subsidiary, the telemetry domain SAN, and verify the administrative contact CISO.",
+    "specialist_invocations": [
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Technologies Group Starting Apex Technologies Group discover its UK subsidiary commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.399426+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Starting Apex Technologies Group discover its UK subsidiary commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.407799+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Starting Apex Technologies Group discover its UK subsidiary executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.416508+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Starting Apex Technologies Group discover its UK subsidiary domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.421390+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Starting Apex Technologies Group discover its UK subsidiary domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.428958+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Starting Apex Technologies Group discover its UK subsidiary subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.435847+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_12ec875df4",
+        "timestamp": "2026-10-08T09:11:07.396713+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_d37a1ba0",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_4a38fe0205",
+        "timestamp": "2026-10-08T09:11:07.396883+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Starting from Apex Technologies Group, discover its UK subsidiary, the telemetry domain SAN, and verify the administrative contact CISO.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Group"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_342508553a",
+        "timestamp": "2026-10-08T09:11:07.404495+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_5d6cb7e4"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_f8ee0d28ef",
+        "timestamp": "2026-10-08T09:11:07.404604+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_aca51bf2"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_3200951fd5",
+        "timestamp": "2026-10-08T09:11:07.440156+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 107,
+    "entities_count": 28,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_17_chain_german_quantum_infra",
+    "objective": "Trace German subsidiary to its quantum monitoring hostname, and verify the responsible Senior Vice President.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace German subsidiary its quantum monitoring hostname responsible commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.444683+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Trace German subsidiary its quantum monitoring hostname responsible domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.452283+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace German subsidiary its quantum monitoring hostname responsible commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.455781+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace German subsidiary its quantum monitoring hostname responsible executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.463547+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace German subsidiary its quantum monitoring hostname responsible subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.467607+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace German subsidiary its quantum monitoring hostname responsible domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.474316+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_f3602699e7",
+        "timestamp": "2026-10-08T09:11:07.441798+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_f3a2f3ee",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_1e062b0069",
+        "timestamp": "2026-10-08T09:11:07.441984+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Trace German subsidiary to its quantum monitoring hostname, and verify the responsible Senior Vice President.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Quantum Sensing GmbH"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_2e28512737",
+        "timestamp": "2026-10-08T09:11:07.449502+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_648c71ca"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_789f458b61",
+        "timestamp": "2026-10-08T09:11:07.478407+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "OBJECTIVE_SATISFIED"
+        },
+        "rationale": "All 6 investigation questions successfully resolved."
+      }
+    ],
+    "claims_count": 112,
+    "entities_count": 31,
+    "stop_reason": "OBJECTIVE_SATISFIED"
+  },
+  {
+    "task_id": "inv_task_18_chain_uk_managing_director",
+    "objective": "Identify UK subsidiary from US filing, retrieve statutory director Tobias Richter, and map his European regulatory scope.",
+    "specialist_invocations": [
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group UK subsidiary US filing retrieve statutory director Tobias commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.482638+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited UK subsidiary US filing retrieve statutory director Tobias domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.491191+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH UK subsidiary US filing retrieve statutory director Tobias domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.495078+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group UK subsidiary US filing retrieve statutory director Tobias commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.498356+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group UK subsidiary US filing retrieve statutory director Tobias executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.506190+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group UK subsidiary US filing retrieve statutory director Tobias subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.510279+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_dc5fdc67cd",
+        "timestamp": "2026-10-08T09:11:07.479908+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_381a5ec7",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_09fa4c0698",
+        "timestamp": "2026-10-08T09:11:07.480139+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Identify UK subsidiary from US filing, retrieve statutory director Tobias Richter, and map his European regulatory scope.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Group"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_91d20a20f2",
+        "timestamp": "2026-10-08T09:11:07.487852+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_adf0018e"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_df939ef082",
+        "timestamp": "2026-10-08T09:11:07.487963+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_74ddfbae"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_c5ced392c5",
+        "timestamp": "2026-10-08T09:11:07.514670+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 109,
+    "entities_count": 30,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_19_negative_nonexistent_vp",
+    "objective": "Verify whether Apex Technologies employs a 'Vice President of Quantum Cryptocurrency'. Do NOT invent or infer.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Technologies Group whether Apex Technologies employs Vice President Quantum Cryptocurrency commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.519182+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited whether Apex Technologies employs Vice President Quantum Cryptocurrency domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.527936+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH whether Apex Technologies employs Vice President Quantum Cryptocurrency domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.535039+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group whether Apex Technologies employs Vice President Quantum Cryptocurrency commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.541582+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group whether Apex Technologies employs Vice President Quantum Cryptocurrency executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.549364+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group whether Apex Technologies employs Vice President Quantum Cryptocurrency subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.553393+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_2d9699137a",
+        "timestamp": "2026-10-08T09:11:07.516348+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_b6c25523",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_ffae0ea25c",
+        "timestamp": "2026-10-08T09:11:07.516558+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Verify whether Apex Technologies employs a 'Vice President of Quantum Cryptocurrency'. Do NOT invent or infer.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Group"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_39050c4d0d",
+        "timestamp": "2026-10-08T09:11:07.524501+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_f7b27ffb"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_07a18b6699",
+        "timestamp": "2026-10-08T09:11:07.524623+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_e3d9d7ef"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_d5eb729b0a",
+        "timestamp": "2026-10-08T09:11:07.557689+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 111,
+    "entities_count": 31,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_20_negative_unrelated_roofing_corp",
+    "objective": "Investigate whether Apex Commercial Roofing LLC in Nevada is a subsidiary of Apex Technologies Group.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Commercial Roofing LLC whether Apex Commercial Roofing LLC Nevada subsidiary Apex commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.562080+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Commercial Roofing LLC whether Apex Commercial Roofing LLC Nevada subsidiary Apex commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.570306+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Commercial Roofing LLC whether Apex Commercial Roofing LLC Nevada subsidiary Apex executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.578527+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited whether Apex Commercial Roofing LLC Nevada subsidiary Apex domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.583271+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH whether Apex Commercial Roofing LLC Nevada subsidiary Apex domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.587541+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Commercial Roofing LLC whether Apex Commercial Roofing LLC Nevada subsidiary Apex subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.591315+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_043915eca5",
+        "timestamp": "2026-10-08T09:11:07.559333+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_b50dc9df",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_079b2d01bc",
+        "timestamp": "2026-10-08T09:11:07.559511+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Investigate whether Apex Commercial Roofing LLC in Nevada is a subsidiary of Apex Technologies Group.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Commercial Roofing LLC"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_164b3a0245",
+        "timestamp": "2026-10-08T09:11:07.567039+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_26c7cc0e"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_4bc0ced7d8",
+        "timestamp": "2026-10-08T09:11:07.567159+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_656fa1bf"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_91ab37f985",
+        "timestamp": "2026-10-08T09:11:07.592475+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 115,
+    "entities_count": 30,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_21_negative_missing_executive_email",
+    "objective": "Retrieve public business contact email for Elena Rostova. Return NOT_FOUND if undisclosed.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Elena Rostova Retrieve public business contact email Elena Rostova Return commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.596524+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Elena Rostova Retrieve public business contact email Elena Rostova Return commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.603865+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Elena Rostova Retrieve public business contact email Elena Rostova Return executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.611575+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Elena Rostova Retrieve public business contact email Elena Rostova Return subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.615309+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Retrieve public business contact email Elena Rostova Return domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.623586+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Retrieve public business contact email Elena Rostova Return domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.631147+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_af775c3d5b",
+        "timestamp": "2026-10-08T09:11:07.593812+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_1add6059",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_90821fe240",
+        "timestamp": "2026-10-08T09:11:07.594021+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Retrieve public business contact email for Elena Rostova. Return NOT_FOUND if undisclosed.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Elena Rostova"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_cb2b809f53",
+        "timestamp": "2026-10-08T09:11:07.619947+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_ed2a848e"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_a58d64e0f5",
+        "timestamp": "2026-10-08T09:11:07.620074+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_a474fb14"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_2c73e2cb88",
+        "timestamp": "2026-10-08T09:11:07.635560+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 109,
+    "entities_count": 30,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_22_long_horizon_full_org_tree",
+    "objective": "Trace complete 4-tier tree: Apex US -> Apex UK -> Apex Telemetry UK -> CISO Contact -> Identity Carrier.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Technologies Group Trace complete 4-tier tree Apex US -> Apex commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.640012+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Trace complete 4-tier tree Apex US -> Apex domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.648760+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Trace complete 4-tier tree Apex US -> Apex domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.652645+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Trace complete 4-tier tree Apex US -> Apex commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.659077+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Trace complete 4-tier tree Apex US -> Apex executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.666815+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Trace complete 4-tier tree Apex US -> Apex subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.670685+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_a206d9c094",
+        "timestamp": "2026-10-08T09:11:07.637247+00:00",
+        "action_type": "BRANCH_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "branch_id": "br_ea720ecd",
+          "purpose": "Root Investigation Line"
+        },
+        "rationale": "Initialized primary investigation tree branch."
+      },
+      {
+        "entry_id": "audit_648fcc09f9",
+        "timestamp": "2026-10-08T09:11:07.637430+00:00",
+        "action_type": "INVESTIGATION_INITIALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "objective": "Trace complete 4-tier tree: Apex US -> Apex UK -> Apex Telemetry UK -> CISO Contact -> Identity Carrier.",
+          "initial_questions_count": 5,
+          "initial_hypotheses_count": 1,
+          "primary_entity": "Apex Technologies Group"
+        },
+        "rationale": "Decomposed objective into initial 4-question topology with dependencies."
+      },
+      {
+        "entry_id": "audit_7f0eac592d",
+        "timestamp": "2026-10-08T09:11:07.645379+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_0df5fbba"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_b7755e326c",
+        "timestamp": "2026-10-08T09:11:07.645490+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_b31d305a"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_a1e1fa094c",
+        "timestamp": "2026-10-08T09:11:07.675033+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 111,
+    "entities_count": 31,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  },
+  {
+    "task_id": "inv_task_23_long_horizon_quantum_consortium",
+    "objective": "Investigate Apex quantum unit, cluster press wire releases, and verify Dr. Kenji Sato's academic roots.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Quantum Sensing GmbH Apex quantum unit cluster press wire releases Dr commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.679406+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Apex quantum unit cluster press wire releases Dr commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.686491+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Apex quantum unit cluster press wire releases Dr executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.694145+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Apex quantum unit cluster press wire releases Dr subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.697862+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Apex quantum unit cluster press wire releases Dr domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.701690+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Apex quantum unit cluster press wire releases Dr domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.705143+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_ae14c44406",
+        "timestamp": "2026-10-08T09:11:07.686604+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.businesswire.com/news/home/20240315005112/en/Apex-Quantum-512",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_269aee718d",
+        "timestamp": "2026-10-08T09:11:07.686633+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.prnewswire.com/news-releases/apex-technologies-quantum-512-882910.html",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_d62e361c72",
+        "timestamp": "2026-10-08T09:11:07.697928+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.businesswire.com/news/home/20240315005112/en/Apex-Quantum-512",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_2e8958d6fc",
+        "timestamp": "2026-10-08T09:11:07.697954+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.prnewswire.com/news-releases/apex-technologies-quantum-512-882910.html",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_8f2854d836",
+        "timestamp": "2026-10-08T09:11:07.698872+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_60e84846"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_328df4937e",
+        "timestamp": "2026-10-08T09:11:07.701756+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.businesswire.com/news/home/20240315005112/en/Apex-Quantum-512",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_aee584dad8",
+        "timestamp": "2026-10-08T09:11:07.701783+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.prnewswire.com/news-releases/apex-technologies-quantum-512-882910.html",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_d67e56c77f",
+        "timestamp": "2026-10-08T09:11:07.705210+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.businesswire.com/news/home/20240315005112/en/Apex-Quantum-512",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_7e1af5e8a9",
+        "timestamp": "2026-10-08T09:11:07.705237+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.prnewswire.com/news-releases/apex-technologies-quantum-512-882910.html",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_72eb32a400",
+        "timestamp": "2026-10-08T09:11:07.706009+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "OBJECTIVE_SATISFIED"
+        },
+        "rationale": "All 6 investigation questions successfully resolved."
+      }
+    ],
+    "claims_count": 108,
+    "entities_count": 30,
+    "stop_reason": "OBJECTIVE_SATISFIED"
+  },
+  {
+    "task_id": "inv_task_24_adversarial_homoglyph_filtering",
+    "objective": "Investigate apex-g1obal-tech.com. Verify if it belongs to Apex Technologies Group or represents an adversarial imposter.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "apex-g1obal-tech.com apex-g1obal-tech.com if it belongs Apex Technologies Group represents commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.710154+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "apex-g1obal-tech.com apex-g1obal-tech.com if it belongs Apex Technologies Group represents commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.713556+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "apex-g1obal-tech.com apex-g1obal-tech.com if it belongs Apex Technologies Group represents executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.717724+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited apex-g1obal-tech.com if it belongs Apex Technologies Group represents domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.721783+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "apex-g1obal-tech.com apex-g1obal-tech.com if it belongs Apex Technologies Group represents subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.725250+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH apex-g1obal-tech.com if it belongs Apex Technologies Group represents domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.729112+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-g1obal-tech.com apex-g1obal-tech.com if it belongs Apex Technologies Group represents domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.736633+00:00"
+      },
+      {
+        "specialist": "identity",
+        "capability_id": "identity_resolution",
+        "implementation_id": "impl_identity_probe_specialist_v1",
+        "query": "Rachel Thorne What is Rachel Thorne's professional identity and previous corporate employer?",
+        "timestamp": "2026-10-08T09:11:07.739976+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_ec0a6dd114",
+        "timestamp": "2026-10-08T09:11:07.711117+00:00",
+        "action_type": "ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "domain": "apex-g1obal-tech.com",
+          "finding": "Lookalike homoglyph"
+        },
+        "rationale": "Neutralized phishing lookalike from verified entity registry."
+      },
+      {
+        "entry_id": "audit_7e6c93fc15",
+        "timestamp": "2026-10-08T09:11:07.711280+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_6304803b"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_b7cc7db07b",
+        "timestamp": "2026-10-08T09:11:07.714452+00:00",
+        "action_type": "ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "domain": "apex-g1obal-tech.com",
+          "finding": "Lookalike homoglyph"
+        },
+        "rationale": "Neutralized phishing lookalike from verified entity registry."
+      },
+      {
+        "entry_id": "audit_dc9b595c36",
+        "timestamp": "2026-10-08T09:11:07.718731+00:00",
+        "action_type": "ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "domain": "apex-g1obal-tech.com",
+          "finding": "Lookalike homoglyph"
+        },
+        "rationale": "Neutralized phishing lookalike from verified entity registry."
+      },
+      {
+        "entry_id": "audit_8bc5ab119d",
+        "timestamp": "2026-10-08T09:11:07.722760+00:00",
+        "action_type": "ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "domain": "apex-g1obal-tech.com",
+          "finding": "Lookalike homoglyph"
+        },
+        "rationale": "Neutralized phishing lookalike from verified entity registry."
+      },
+      {
+        "entry_id": "audit_1a996b2d37",
+        "timestamp": "2026-10-08T09:11:07.726227+00:00",
+        "action_type": "ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "domain": "apex-g1obal-tech.com",
+          "finding": "Lookalike homoglyph"
+        },
+        "rationale": "Neutralized phishing lookalike from verified entity registry."
+      },
+      {
+        "entry_id": "audit_d11bfc9c08",
+        "timestamp": "2026-10-08T09:11:07.726397+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_22e95833"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_73b7d8fd53",
+        "timestamp": "2026-10-08T09:11:07.733837+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "infrastructure",
+          "next_specialist": "identity",
+          "question_id": "q_9e179b55"
+        },
+        "rationale": "Infrastructure CT log attribution chained to Identity Specialist biographical probe."
+      },
+      {
+        "entry_id": "audit_6cfad20773",
+        "timestamp": "2026-10-08T09:11:07.737570+00:00",
+        "action_type": "ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "domain": "apex-g1obal-tech.com",
+          "finding": "Lookalike homoglyph"
+        },
+        "rationale": "Neutralized phishing lookalike from verified entity registry."
+      },
+      {
+        "entry_id": "audit_80a774a444",
+        "timestamp": "2026-10-08T09:11:07.744547+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "OBJECTIVE_SATISFIED"
+        },
+        "rationale": "All 8 investigation questions successfully resolved."
+      }
+    ],
+    "claims_count": 118,
+    "entities_count": 32,
+    "stop_reason": "OBJECTIVE_SATISFIED"
+  },
+  {
+    "task_id": "inv_task_25_adversarial_syndication_cluster",
+    "objective": "Analyze reports on 512-qubit demonstration across Business Wire, PR Newswire, and MarketWatch. Verify source independence.",
+    "specialist_invocations": [
+      {
+        "specialist": "none",
+        "capability_id": "general_web_research",
+        "implementation_id": "impl_argus_generalist_v1",
+        "query": "Apex Technologies Group Analyze reports on 512-qubit demonstration across Business Wire commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.748911+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Analyze reports on 512-qubit demonstration across Business Wire commercial registry legal entity",
+        "timestamp": "2026-10-08T09:11:07.756191+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Analyze reports on 512-qubit demonstration across Business Wire executive officers leadership",
+        "timestamp": "2026-10-08T09:11:07.763972+00:00"
+      },
+      {
+        "specialist": "corporate",
+        "capability_id": "corporate_registry_intelligence",
+        "implementation_id": "impl_corporate_registry_specialist_v1",
+        "query": "Apex Technologies Group Analyze reports on 512-qubit demonstration across Business Wire subsidiaries schedule",
+        "timestamp": "2026-10-08T09:11:07.767579+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "apex-telemetry.co.uk Apex Telemetry UK Limited Analyze reports on 512-qubit demonstration across Business Wire domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.771960+00:00"
+      },
+      {
+        "specialist": "infrastructure",
+        "capability_id": "infrastructure_discovery",
+        "implementation_id": "impl_infrastructure_probe_specialist_v1",
+        "query": "Apex Quantum Sensing GmbH Analyze reports on 512-qubit demonstration across Business Wire domains certificate transparency telemetry",
+        "timestamp": "2026-10-08T09:11:07.775736+00:00"
+      }
+    ],
+    "audit_trail": [
+      {
+        "entry_id": "audit_264c6ee166",
+        "timestamp": "2026-10-08T09:11:07.764026+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.businesswire.com/news/home/20240315005112/en/Apex-Quantum-512",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_046ed01ad8",
+        "timestamp": "2026-10-08T09:11:07.767636+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.businesswire.com/news/home/20240315005112/en/Apex-Quantum-512",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_aac2b1b077",
+        "timestamp": "2026-10-08T09:11:07.767668+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.prnewswire.com/news-releases/apex-technologies-quantum-512-882910.html",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_7677972b73",
+        "timestamp": "2026-10-08T09:11:07.768622+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_e1cb82b7"
+        },
+        "rationale": "Corporate discovery of UK telemetry subsidiary chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_99924e3a36",
+        "timestamp": "2026-10-08T09:11:07.768727+00:00",
+        "action_type": "SPECIALIST_CHAIN_TRIGGERED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "origin_specialist": "corporate",
+          "next_specialist": "infrastructure",
+          "question_id": "q_35e6626a"
+        },
+        "rationale": "Corporate discovery of German sensing unit chained to Infrastructure Specialist."
+      },
+      {
+        "entry_id": "audit_37791f552d",
+        "timestamp": "2026-10-08T09:11:07.772022+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.businesswire.com/news/home/20240315005112/en/Apex-Quantum-512",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_d6d3b5779f",
+        "timestamp": "2026-10-08T09:11:07.772046+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.prnewswire.com/news-releases/apex-technologies-quantum-512-882910.html",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_680a4db2ba",
+        "timestamp": "2026-10-08T09:11:07.775801+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.businesswire.com/news/home/20240315005112/en/Apex-Quantum-512",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_ddd7902100",
+        "timestamp": "2026-10-08T09:11:07.775827+00:00",
+        "action_type": "SYNDICATED_SOURCE_RECORDED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "url": "https://www.prnewswire.com/news-releases/apex-technologies-quantum-512-882910.html",
+          "cluster": "synd_cluster_quantum_apex_01"
+        },
+        "rationale": "Recorded syndicated mirror under origin cluster ID."
+      },
+      {
+        "entry_id": "audit_1c686c394d",
+        "timestamp": "2026-10-08T09:11:07.776634+00:00",
+        "action_type": "INVESTIGATION_STOPPED",
+        "actor": "InvestigationEngine",
+        "details": {
+          "stop_reason": "SUFFICIENT_EVIDENCE"
+        },
+        "rationale": "Resolved 6/7 questions with 0 unresolved critical questions."
+      }
+    ],
+    "claims_count": 107,
+    "entities_count": 28,
+    "stop_reason": "SUFFICIENT_EVIDENCE"
+  }
+]

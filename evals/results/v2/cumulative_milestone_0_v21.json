@@ -1,0 +1,18 @@
+{
+  "milestone": 0,
+  "name": "cumulative_milestone_0_argus",
+  "task_count": 129,
+  "metrics": {
+    "pass_rate": 0.3411,
+    "passed_count": 44,
+    "entity_precision": 0.724,
+    "entity_recall": 0.468,
+    "entity_f1": 0.542,
+    "chain_completion_rate": 0.125,
+    "temporal_accuracy": 0.375,
+    "epistemic_accuracy": 0.612,
+    "evidence_correctness": 0.884,
+    "critical_failures": 3,
+    "major_failures": 82
+  }
+}

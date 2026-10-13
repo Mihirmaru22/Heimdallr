@@ -1,0 +1,5 @@
+URL: https://home.web.cern.ch/science/physics/higgs-boson/how/
+TITLE: How did we discover the Higgs boson? - Home | CERN
+DATE: 2026-10-13T05:39:07.477184+00:00
+
+The Higgs boson was discovered, almost 50 years after first being proposed, by the ATLAS and CMS collaborations at CERN in 2012. But why did it take so long to find it? With a mass of more than 120 times that of the proton, the Higgs boson is the second-heaviest particle known today. This large mass, combined with an extremely short lifetime (10 -22 seconds) means that the particle cannot be ...

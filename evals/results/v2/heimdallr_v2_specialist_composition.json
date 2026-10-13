@@ -1,0 +1,112 @@
+{
+  "composition_architecture": "Dynamic Question-Driven Specialist Routing (Corporate -> Infrastructure -> Identity)",
+  "total_cross_specialist_tasks": 14,
+  "flagship_6hop_composition": [
+    "CORPORATE",
+    "INFRASTRUCTURE",
+    "IDENTITY"
+  ],
+  "correct_specialist_invocations": 28,
+  "missed_invocations": 0,
+  "unnecessary_invocations": 0,
+  "wrong_invocations": 0,
+  "cross_specialist_completion_rate": 1.0,
+  "specialist_output_to_downstream_question_rate": 1.0,
+  "composition_chains_sample": [
+    {
+      "task_id": "v2_cat08_task01_flagship_6hop",
+      "category": "MULTI_HOP_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "CORPORATE",
+        "INFRASTRUCTURE",
+        "IDENTITY",
+        "CORPORATE"
+      ],
+      "actions_count": 5
+    },
+    {
+      "task_id": "v2_cat08_task02",
+      "category": "MULTI_HOP_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "CORPORATE"
+      ],
+      "actions_count": 2
+    },
+    {
+      "task_id": "v2_cat08_task03",
+      "category": "MULTI_HOP_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "CORPORATE"
+      ],
+      "actions_count": 2
+    },
+    {
+      "task_id": "v2_cat08_task04",
+      "category": "MULTI_HOP_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "CORPORATE"
+      ],
+      "actions_count": 2
+    },
+    {
+      "task_id": "v2_cat08_task05",
+      "category": "MULTI_HOP_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "CORPORATE"
+      ],
+      "actions_count": 2
+    },
+    {
+      "task_id": "v2_cat08_task06",
+      "category": "MULTI_HOP_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "CORPORATE"
+      ],
+      "actions_count": 2
+    },
+    {
+      "task_id": "v2_cat08_task07",
+      "category": "MULTI_HOP_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "CORPORATE"
+      ],
+      "actions_count": 2
+    },
+    {
+      "task_id": "v2_cat08_task08",
+      "category": "MULTI_HOP_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "CORPORATE"
+      ],
+      "actions_count": 2
+    },
+    {
+      "task_id": "v2_cat15_task01",
+      "category": "CROSS_SPECIALIST_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "INFRASTRUCTURE",
+        "IDENTITY"
+      ],
+      "actions_count": 3
+    },
+    {
+      "task_id": "v2_cat15_task02",
+      "category": "CROSS_SPECIALIST_INVESTIGATION",
+      "specialists_chain": [
+        "CORPORATE",
+        "INFRASTRUCTURE",
+        "IDENTITY"
+      ],
+      "actions_count": 3
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+URL: https://cms.cern/physics/higgs-boson
+TITLE: Higgs Boson | CMS Experiment - CERN
+DATE: 2026-10-13T05:39:07.477581+00:00
+
+The Higgs boson is the fundamental particle predicted by the Brout-Englert-Higgs mechanism. This theory explains how fundamental particles acquire their mass. The search for the Higgs boson is one of the most fascinating scientific adventures. It started about 50 years ago and was considered impossible for decades, which is one of the main reasons the LHC was built. The need for the Higgs Our ...

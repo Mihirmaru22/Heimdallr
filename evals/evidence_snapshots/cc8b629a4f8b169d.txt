@@ -1,0 +1,5 @@
+URL: https://en.wikipedia.org/wiki/ARM_Holdings
+TITLE: Arm Holdings - Wikipedia
+DATE: 2026-10-13T05:34:21.530164+00:00
+
+Arm Holdings plc is a British semiconductor and software design company headquartered in Cambridge, England, whose primary business is the design of central processing unit (CPU) cores that implement the ARM architecture family of instruction sets.

@@ -1,0 +1,85 @@
+{
+  "email_to_account_discovery": {
+    "evaluated_candidates": [
+      "OpenOSINT",
+      "Holehe",
+      "Socialscan",
+      "SpiderFoot",
+      "EmailAccountSpecialist"
+    ],
+    "winning_recruitment": "impl_email_to_account_discovery_v1 (Clean-Room Specialist + Socialscan/Platform APIs)",
+    "rejected_candidates": [
+      {
+        "name": "Holehe",
+        "reason": "GPL-3.0 copyleft; prohibits password-reset probing"
+      },
+      {
+        "name": "OpenOSINT",
+        "reason": "Uncontrolled LLM wrapper, chains unsafe binaries"
+      }
+    ],
+    "nature_distinction": "Differentiates Public Page Mention, Profile Publication, and Authorized Presence Signal"
+  },
+  "identity_to_email_discovery": {
+    "evaluated_candidates": [
+      "theHarvester",
+      "Maigret",
+      "OpenOSINT",
+      "Argus ContactEngine",
+      "EmailAccountSpecialist"
+    ],
+    "winning_recruitment": "impl_identity_to_email_discovery_v1 (Clean-Room Specialist)",
+    "rejected_candidates": [
+      {
+        "name": "theHarvester",
+        "reason": "GPL-2.0 copyleft; prone to search engine rate limiting"
+      },
+      {
+        "name": "Maigret",
+        "reason": "Only checks username-to-profile URL, not direct email discovery"
+      }
+    ],
+    "pattern_inference_policy": "Inferred corporate email schemas are strictly tagged INFERRED / UNVERIFIED"
+  },
+  "email_address_verification": {
+    "evaluated_candidates": [
+      "python-email-validator",
+      "Email-domain-validator",
+      "EmailRep",
+      "EmailAccountSpecialist"
+    ],
+    "winning_recruitment": "impl_email_address_verification_v1 (Synthesized 4D Verification Engine)",
+    "permissive_upstream_libraries": [
+      {
+        "name": "python-email-validator",
+        "license": "The Unlicense (Public Domain)"
+      },
+      {
+        "name": "EmailRep",
+        "license": "MIT (Optional SaaS connector)"
+      }
+    ],
+    "four_dimensions": [
+      "ADDRESS_VALIDITY",
+      "MAILBOX_EVIDENCE",
+      "IDENTITY_ASSOCIATION",
+      "TEMPORAL_STATUS"
+    ],
+    "safety_policy": "Zero unsolicited verification messages; valid syntax does not prove mailbox existence"
+  },
+  "email_identity_resolution": {
+    "evaluated_candidates": [
+      "Argus Verifier",
+      "EmailIdentityResolutionEngine"
+    ],
+    "winning_recruitment": "impl_email_identity_resolution_v1 (Heimdallr Native Epistemic Verifier)",
+    "gap_analysis": "Zero external open-source candidates implement epistemic identity resolution or false merge prevention",
+    "false_merge_preventions": [
+      "SHARED_NAME",
+      "RECYCLED_PHONE",
+      "REUSED_USERNAME",
+      "STALE_PROFILE",
+      "IMPERSONATION"
+    ]
+  }
+}

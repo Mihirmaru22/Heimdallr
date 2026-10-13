@@ -1,0 +1,5 @@
+URL: https://zanehambly.com/voyager
+TITLE: Voyager FDS - Zane Hambly
+DATE: 2026-10-13T05:41:42.907221+00:00
+
+There is an interactive debugger where you can step through instructions one at a time, dump the CPU state, and inspect memory, which is more debugging capability than the original engineers had when they were pointing this thing at Jupiter.

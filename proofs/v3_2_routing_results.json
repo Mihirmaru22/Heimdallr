@@ -1,0 +1,8 @@
+{
+  "evaluation_subset": "Frozen 140 tasks (Zero sanctions ground truth)",
+  "true_negatives": 140,
+  "false_positive_invocations": 0,
+  "missed_invocations": 0,
+  "keyword_magnet_detected": false,
+  "clean_routing_confirmed": true
+}

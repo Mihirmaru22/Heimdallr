@@ -1,0 +1,5 @@
+URL: https://deepwiki.com/deepseek-ai/DeepSeek-V3/1.2-model-architecture-overview
+TITLE: Model Architecture Overview | deepseek-ai/DeepSeek-V3 | DeepWiki
+DATE: 2026-10-13T05:42:00.456014+00:00
+
+Jan 24, 2026 · Model Architecture Overview Relevant source files DeepSeek-V3 is a 671B parameter Mixture-of-Experts (MoE) language model that activates only 37B parameters per token, combining efficiency with capability. This page introduces the four key architectural innovations that enable this performance: Multi-head Latent Attention (MLA) - Reduces KV cache memory usage through latent compression ...

@@ -1,0 +1,5 @@
+URL: https://forum.nasaspaceflight.com/index.php?topic=64661.0
+TITLE: Technical Brief: Voyager 1 FDS 0x1200 Stabilization & Plasma ...
+DATE: 2026-10-13T05:41:46.914820+00:00
+
+Mar 25, 2026 · Source: Direct Raw FDS telemetry frames (Unprocessed Binary) 1. Real-Time Engineering Diagnostics (Decoded) Bus Voltage: 18.82V (Stable. The spacecraft’s electrical state is nominal; the apparent "noise" is purely a phase-shift artifact in the ground-segment reading) FDS Memory State: Sector 0x1200 recovered and aligned 2.

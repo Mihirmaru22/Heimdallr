@@ -1,0 +1,349 @@
+task_id,objective_id,parent_task_id,title,description,status,priority,depth,retry_count,max_retries,error_message,created_at,updated_at
+tsk_fdc797ab,obj_8c73cce7,,Identify active US-origin automotive manufacturers and major OEMs,"Compile a list of active US-origin or US-headquartered automotive manufacturers and major OEMs operating in the United States, including legacy automakers, EV manufacturers, and major joint-venture or foreign-owned manufacturers with US assembly operations. Prioritize companies with active US manufacturing facilities.
+
+Search Queries:
+- US automotive manufacturers list 2025
+- major US car manufacturers headquarters
+- US electric vehicle manufacturers list
+- foreign automakers with US assembly plants
+- active US automobile manufacturers",running,10,0,0,3,,2026-10-05T07:41:53.868530+00:00,2026-10-05T07:41:53.874409+00:00
+tsk_d4a3a1c5,obj_8c73cce7,,Map US manufacturing plants and assembly facilities for each manufacturer,"For each identified manufacturer, identify active US manufacturing plants, assembly facilities, and major production sites. Record plant name, city, state, and primary production focus where available.
+
+Search Queries:
+- Ford US manufacturing plants list
+- General Motors US assembly plants locations
+- Stellantis US manufacturing plants
+- Toyota US manufacturing plants list
+- Honda US manufacturing plants locations
+- Hyundai US manufacturing plants
+- Kia US manufacturing plants
+- Subaru US manufacturing plants
+- Rivian US manufacturing plants
+- Lucid Motors US manufacturing plants
+- Tesla US manufacturing plants",ready,10,0,0,3,,2026-10-05T07:41:53.870028+00:00,2026-10-05T07:41:53.870034+00:00
+tsk_5c76b990,obj_8c73cce7,,Identify plant heads and plant managers for major US auto plants,"For each identified US manufacturing plant, find the current plant head, plant manager, general manager, or facility director. Prioritize publicly listed leadership from official company pages, press releases, news articles, and professional profiles.
+
+Search Queries:
+- Ford plant manager [plant name] [city] [state]
+- General Motors plant manager [plant name] [city] [state]
+- Stellantis plant manager [plant name] [city] [state]
+- Toyota plant manager [plant name] [city] [state]
+- Honda plant manager [plant name] [city] [state]
+- Hyundai plant manager [plant name] [city] [state]
+- Kia plant manager [plant name] [city] [state]
+- Subaru plant manager [plant name] [city] [state]
+- Rivian plant manager [plant name] [city] [state]
+- Lucid plant manager [plant name] [city] [state]
+- Tesla plant manager [plant name] [city] [state]",ready,9,0,0,3,,2026-10-05T07:41:53.870856+00:00,2026-10-05T07:41:53.870859+00:00
+tsk_fa36dfb9,obj_8c73cce7,,Identify technology leads and engineering leaders for major US auto plants,"For each identified US manufacturing plant, find the technology lead, engineering manager, manufacturing engineering director, plant engineering lead, or equivalent technical leadership role. Prioritize publicly available names from company leadership pages, press releases, and professional networks.
+
+Search Queries:
+- Ford plant engineering manager [plant name] [city] [state]
+- General Motors manufacturing engineering director [plant name] [city] [state]
+- Stellantis plant engineering lead [plant name] [city] [state]
+- Toyota plant engineering manager [plant name] [city] [state]
+- Honda plant engineering director [plant name] [city] [state]
+- Hyundai plant engineering manager [plant name] [city] [state]
+- Kia plant engineering lead [plant name] [city] [state]
+- Subaru plant engineering manager [plant name] [city] [state]
+- Rivian plant engineering director [plant name] [city] [state]
+- Lucid plant engineering manager [plant name] [city] [state]
+- Tesla plant engineering lead [plant name] [city] [state]",ready,8,0,0,3,,2026-10-05T07:41:53.871641+00:00,2026-10-05T07:41:53.871644+00:00
+tsk_d5a183ee,obj_8c73cce7,,Collect public contact information for plant leadership,"For each identified plant head and technology lead, collect publicly available contact information such as official company email addresses, phone numbers, mailing addresses, or public contact forms. Prioritize official company contact channels and publicly listed professional contact details.
+
+Search Queries:
+- [plant head name] [manufacturer] plant contact email
+- [plant head name] [manufacturer] plant phone number
+- [technology lead name] [manufacturer] plant contact email
+- [technology lead name] [manufacturer] plant phone number
+- [manufacturer] [plant name] leadership contact information
+- [manufacturer] [plant name] public contact address",ready,7,0,0,3,,2026-10-05T07:41:53.871950+00:00,2026-10-05T07:41:53.871952+00:00
+tsk_222b2876,obj_8c73cce7,,Validate plant leadership roles and current employment status,"Verify that identified plant heads and technology leads are currently associated with the specified US manufacturing plant. Cross-check names across official company pages, recent news articles, press releases, and professional profiles to confirm current roles.
+
+Search Queries:
+- [plant head name] [manufacturer] plant manager current
+- [technology lead name] [manufacturer] engineering manager current
+- [plant head name] [manufacturer] appointment
+- [technology lead name] [manufacturer] appointment
+- [manufacturer] [plant name] leadership news",ready,6,0,0,3,,2026-10-05T07:41:53.872373+00:00,2026-10-05T07:41:53.872375+00:00
+tsk_5170f748,obj_8c73cce7,,Identify major US auto manufacturing regions and high-value plants,"Identify major US automotive manufacturing regions and high-value plants, such as Michigan, Ohio, Tennessee, Texas, and Georgia. Prioritize plants with high production volume, major model lines, or strategic importance to the manufacturer.
+
+Search Queries:
+- major US auto manufacturing regions
+- largest US car assembly plants
+- Michigan auto manufacturing plants
+- Ohio auto manufacturing plants
+- Tennessee auto manufacturing plants
+- Texas auto manufacturing plants
+- Georgia auto manufacturing plants",ready,5,0,0,3,,2026-10-05T07:41:53.872740+00:00,2026-10-05T07:41:53.872742+00:00
+tsk_7b2a2b96,obj_8c73cce7,,Identify US auto parts and component manufacturing facilities,"Identify major US automotive parts and component manufacturing facilities that support vehicle assembly, including engine, transmission, battery, and chassis plants. Record manufacturer, plant name, location, and primary product focus.
+
+Search Queries:
+- US automotive parts manufacturing plants
+- US auto engine manufacturing plants
+- US auto transmission manufacturing plants
+- US EV battery manufacturing plants
+- US auto chassis manufacturing plants",ready,4,0,0,3,,2026-10-05T07:41:53.873000+00:00,2026-10-05T07:41:53.873002+00:00
+tsk_759410a3,obj_04f2231b,,Map major US-headquartered automotive manufacturers and their US assembly plants,"Identify active US-headquartered or US-origin automotive manufacturers and list their current US assembly, final assembly, and major component manufacturing plants. Prioritize General Motors, Ford, Stellantis US operations, Tesla, Rivian, and Lucid. Record manufacturer name, plant name, city/state, and whether the facility is active.
+
+Search Queries:
+- General Motors US assembly plants list active
+- Ford Motor Company US manufacturing plants list
+- Stellantis US assembly plants list
+- Tesla US manufacturing plants list
+- Rivian US manufacturing plants list
+- Lucid Motors US manufacturing plants list",completed,10,0,1,3,,2026-10-05T07:45:55.347613+00:00,2026-10-05T07:56:17.272423+00:00
+tsk_587cafb3,obj_04f2231b,,Identify major foreign-headquartered OEMs with active US assembly plants,"Identify non-US-headquartered automotive manufacturers that operate active assembly or final assembly plants in the United States. Include Honda, Toyota, Nissan, Subaru, Mazda, Hyundai, Kia, BMW, Mercedes-Benz, Porsche, and Volvo if applicable. Record manufacturer, plant name, location, and production status.
+
+Search Queries:
+- Honda US assembly plants list
+- Toyota US manufacturing plants list
+- Nissan US assembly plants list
+- Subaru US manufacturing plants list
+- Mazda US assembly plants list
+- Hyundai US assembly plants list
+- Kia US assembly plants list
+- BMW US assembly plants list
+- Mercedes-Benz US assembly plants list
+- Porsche US assembly plants list",ready,9,0,0,3,,2026-10-05T07:45:55.348871+00:00,2026-10-05T07:45:55.348875+00:00
+tsk_616a071f,obj_04f2231b,,Create a plant-level inventory for US auto assembly facilities,"Build a structured inventory of US automotive assembly and major manufacturing facilities. For each facility, capture manufacturer, plant name, address or city/state, primary vehicle models produced, and whether it is an assembly plant, component plant, or battery/electric vehicle plant. Focus on facilities likely to have identifiable plant leadership.
+
+Search Queries:
+- US automotive assembly plants list by state
+- major US car assembly plants locations
+- US electric vehicle assembly plants list
+- US truck and SUV assembly plants list
+- US automotive manufacturing facilities plant manager",ready,9,0,0,3,,2026-10-05T07:45:55.349520+00:00,2026-10-05T07:45:55.349523+00:00
+tsk_28b4e16d,obj_04f2231b,,Find plant heads or plant managers for major US auto plants,"For each identified US manufacturing plant, search for the current plant head, plant manager, general manager, or facility director. Prioritize high-volume or strategically important plants such as GM, Ford, Stellantis, Tesla, Rivian, and major foreign OEM US assembly facilities. Record name, title, and source.
+
+Search Queries:
+- plant manager [manufacturer] [plant name] US
+- general manager [manufacturer] [plant name] US
+- facility director [manufacturer] [plant name] US
+- site leader [manufacturer] [plant name] US
+- plant head [manufacturer] [plant name] US",completed,10,0,0,3,,2026-10-05T07:45:55.349958+00:00,2026-10-05T07:56:50.034855+00:00
+tsk_a8fa8544,obj_04f2231b,,Find technology leads or engineering leaders for major US auto plants,"For each identified US manufacturing plant, search for the technology lead, plant engineering manager, manufacturing engineering lead, process engineering manager, or chief engineer responsible for plant operations. Record name, title, and source. If no plant-level tech lead is public, identify the regional or divisional engineering leader responsible for the plant.
+
+Search Queries:
+- plant engineering manager [manufacturer] [plant name] US
+- manufacturing engineering lead [manufacturer] [plant name] US
+- process engineering manager [manufacturer] [plant name] US
+- chief engineer [manufacturer] [plant name] US
+- technology lead [manufacturer] [plant name] US",ready,9,0,0,3,,2026-10-05T07:45:55.350399+00:00,2026-10-05T07:45:55.350402+00:00
+tsk_0d3122d8,obj_04f2231b,,Collect public contact information for identified plant leadership,"For each identified plant head and technology lead, collect publicly available contact information such as corporate email, phone number, mailing address, or official company contact page. Prefer official corporate directories, press releases, conference bios, LinkedIn public profiles, and government or supplier directories. Do not use private or non-public contact data.
+
+Search Queries:
+- [plant head name] [manufacturer] contact email
+- [plant head name] [manufacturer] phone number
+- [technology lead name] [manufacturer] contact email
+- [technology lead name] [manufacturer] phone number
+- [manufacturer] plant leadership directory contact",ready,8,0,0,3,,2026-10-05T07:45:55.350803+00:00,2026-10-05T07:45:55.350807+00:00
+tsk_248df0ee,obj_04f2231b,,Verify leadership titles and employment status,"Validate that identified plant heads and technology leads are currently associated with the target plant or manufacturer. Use recent press releases, company newsrooms, LinkedIn, industry publications, and supplier/customer announcements. Flag stale or unverified records.
+
+Search Queries:
+- [name] [manufacturer] plant manager appointed
+- [name] [manufacturer] engineering manager news
+- [name] [manufacturer] LinkedIn
+- [name] [manufacturer] press release
+- [name] [manufacturer] industry award",ready,8,0,0,3,,2026-10-05T07:45:55.351351+00:00,2026-10-05T07:45:55.351354+00:00
+tsk_ac5b97e5,obj_04f2231b,,Identify US auto manufacturing leadership through press releases and news,"Search recent automotive news, company press releases, and industry publications for announcements of plant leadership changes, new plant openings, production launches, and executive appointments. Extract names, titles, plants, and contact details where available.
+
+Search Queries:
+- US auto plant manager appointment news
+- US automotive plant leadership announcement
+- US car plant new general manager
+- US auto manufacturing engineering leader appointment
+- US EV plant leadership announcement",ready,8,0,0,3,,2026-10-05T07:45:55.351786+00:00,2026-10-05T07:45:55.351788+00:00
+tsk_27d1a031,obj_04f2231b,,Use official corporate directories and investor relations pages,"Search official manufacturer websites, investor relations pages, sustainability reports, supplier portals, and corporate leadership directories for plant leadership and engineering leadership. Prioritize pages that list regional manufacturing leaders, plant managers, or technical directors.
+
+Search Queries:
+- site:gm.com plant manager
+- site:ford.com plant manager
+- site:stellantis.com US plant leadership
+- site:tesla.com manufacturing leadership
+- site:rivian.com plant leadership
+- site:toyota.com US plant leadership
+- site:honda.com US plant leadership",ready,7,0,0,3,,2026-10-05T07:45:55.352158+00:00,2026-10-05T07:45:55.352160+00:00
+tsk_53281001,obj_04f2231b,,Use LinkedIn and professional networks for leadership discovery,"Search professional networking sources for individuals with titles such as plant manager, general manager, facility director, plant engineering manager, manufacturing engineering manager, or technology lead at US automotive plants. Record public profile URLs, titles, and locations. Do not scrape private data.
+
+Search Queries:
+- LinkedIn plant manager US automotive
+- LinkedIn general manager US car plant
+- LinkedIn facility director US auto manufacturing
+- LinkedIn plant engineering manager US automotive
+- LinkedIn manufacturing engineering lead US auto plant",ready,7,0,0,3,,2026-10-05T07:45:55.352518+00:00,2026-10-05T07:45:55.352520+00:00
+tsk_dd913dc1,obj_04f2231b,,Identify US auto component and battery plants with leadership,"Identify major US automotive component, powertrain, battery, and EV platform manufacturing facilities that may be included in the target industry. Search for plant heads and technology leads for these facilities, especially if they are major supplier or OEM-operated plants.
+
+Search Queries:
+- US EV battery plant plant manager
+- US automotive component plant manager
+- US powertrain plant leadership
+- US EV manufacturing plant engineering lead
+- major US auto supplier plant leadership",ready,6,0,0,3,,2026-10-05T07:45:55.352866+00:00,2026-10-05T07:45:55.352868+00:00
+tsk_7091d7ef,obj_04f2231b,,Compile final structured dataset with required fields,"Consolidate findings into a structured dataset containing manufacturer, manufacturing_plant, plant_head, tech_lead, and contact_info. Mark missing fields as unknown and include source confidence. Ensure each record is tied to an active US manufacturing facility.
+
+Search Queries:
+- US automotive plant leadership database
+- US auto manufacturing plant manager directory
+- US automotive engineering leadership directory",ready,6,0,0,3,,2026-10-05T07:45:55.353230+00:00,2026-10-05T07:45:55.353233+00:00
+tsk_82e91c23,obj_04f2231b,tsk_759410a3,"Disambiguate: Verify current operational status of Factory Zero / Detroit-Hamtramck Assembly, including whether the reported late-2025 idling and November 24, 2025 restart are accurate.","Resolve factual contradiction: Verify current operational status of Factory Zero / Detroit-Hamtramck Assembly, including whether the reported late-2025 idling and November 24, 2025 restart are accurate.
+
+Search Queries:
+- Verify current operational status of Factory Zero / Detroit-Hamtramck Assembly, including whether the reported late-2025 idling and November 24, 2025 restart are accurate.",completed,10,1,0,3,,2026-10-05T07:56:17.270115+00:00,2026-10-05T07:58:28.057768+00:00
+tsk_f5a9f001,obj_04f2231b,tsk_759410a3,"Disambiguate: Verify current production plans for Orion Assembly, including whether the reported 2023 idling and 2027 restart are accurate.","Resolve factual contradiction: Verify current production plans for Orion Assembly, including whether the reported 2023 idling and 2027 restart are accurate.
+
+Search Queries:
+- Verify current production plans for Orion Assembly, including whether the reported 2023 idling and 2027 restart are accurate.",completed,10,1,1,3,,2026-10-05T07:56:17.270361+00:00,2026-10-05T08:00:52.464546+00:00
+tsk_9f38fce0,obj_04f2231b,tsk_759410a3,Disambiguate: Verify Fairfax Assembly's reported transition to Chevrolet Bolt EV production in November 2025 and gas Chevrolet Equinox production in mid-2027.,"Resolve factual contradiction: Verify Fairfax Assembly's reported transition to Chevrolet Bolt EV production in November 2025 and gas Chevrolet Equinox production in mid-2027.
+
+Search Queries:
+- Verify Fairfax Assembly's reported transition to Chevrolet Bolt EV production in November 2025 and gas Chevrolet Equinox production in mid-2027.",completed,10,1,0,3,,2026-10-05T07:56:17.270513+00:00,2026-10-05T08:03:18.960248+00:00
+tsk_5eb064bf,obj_04f2231b,tsk_759410a3,Disambiguate: Verify Spring Hill Manufacturing's reported 2025 expansion and future Chevrolet Blazer production starting around 2027.,"Resolve factual contradiction: Verify Spring Hill Manufacturing's reported 2025 expansion and future Chevrolet Blazer production starting around 2027.
+
+Search Queries:
+- Verify Spring Hill Manufacturing's reported 2025 expansion and future Chevrolet Blazer production starting around 2027.",completed,10,1,0,3,,2026-10-05T07:56:17.270657+00:00,2026-10-05T08:05:39.830979+00:00
+tsk_52d03f3b,obj_04f2231b,tsk_759410a3,Disambiguate: Verify the exact municipal boundary or official GM plant address for Factory Zero / Detroit-Hamtramck Assembly to confirm whether the facility is officially listed in both Hamtramck and Detroit or primarily in one municipality.,"Resolve factual contradiction: Verify the exact municipal boundary or official GM plant address for Factory Zero / Detroit-Hamtramck Assembly to confirm whether the facility is officially listed in both Hamtramck and Detroit or primarily in one municipality.
+
+Search Queries:
+- Verify the exact municipal boundary or official GM plant address for Factory Zero / Detroit-Hamtramck Assembly to confirm whether the facility is officially listed in both Hamtramck and Detroit or primarily in one municipality.",completed,10,1,0,3,,2026-10-05T07:56:17.270792+00:00,2026-10-05T08:07:23.294572+00:00
+tsk_0e74efd3,obj_04f2231b,tsk_759410a3,"Disambiguate: Retrieve the official General Motors plant address or corporate facility listing for Lansing Delta Township Assembly to determine whether the precise civil location is Delta Township, Michigan, or the city of Lansing, Michigan.","Resolve factual contradiction: Retrieve the official General Motors plant address or corporate facility listing for Lansing Delta Township Assembly to determine whether the precise civil location is Delta Township, Michigan, or the city of Lansing, Michigan.
+
+Search Queries:
+- Retrieve the official General Motors plant address or corporate facility listing for Lansing Delta Township Assembly to determine whether the precise civil location is Delta Township, Michigan, or the city of Lansing, Michigan.",completed,10,1,0,3,,2026-10-05T07:56:17.270924+00:00,2026-10-05T08:10:46.342969+00:00
+tsk_7f7f0e41,obj_04f2231b,tsk_759410a3,Disambiguate: Check authoritative Michigan geographic or county records for the plant's address to confirm whether it lies within Delta Township or within the city limits of Lansing.,"Resolve factual contradiction: Check authoritative Michigan geographic or county records for the plant's address to confirm whether it lies within Delta Township or within the city limits of Lansing.
+
+Search Queries:
+- Check authoritative Michigan geographic or county records for the plant's address to confirm whether it lies within Delta Township or within the city limits of Lansing.",completed,10,1,0,3,,2026-10-05T07:56:17.271114+00:00,2026-10-05T08:11:18.348601+00:00
+tsk_6765c61e,obj_04f2231b,tsk_759410a3,"Disambiguate: Determine whether 'Lansing, MI' in the conflicting source is intended as a postal/mailing address, metropolitan-area designation, or precise municipal location.","Resolve factual contradiction: Determine whether 'Lansing, MI' in the conflicting source is intended as a postal/mailing address, metropolitan-area designation, or precise municipal location.
+
+Search Queries:
+- Determine whether 'Lansing, MI' in the conflicting source is intended as a postal/mailing address, metropolitan-area designation, or precise municipal location.",completed,10,1,0,3,,2026-10-05T07:56:17.271253+00:00,2026-10-05T08:13:19.823932+00:00
+tsk_ad2cb89b,obj_04f2231b,tsk_759410a3,Disambiguate: Verify the official street address or municipal jurisdiction of GM Orion Assembly using GM corporate facility listings or official Michigan municipal records.,"Resolve factual contradiction: Verify the official street address or municipal jurisdiction of GM Orion Assembly using GM corporate facility listings or official Michigan municipal records.
+
+Search Queries:
+- Verify the official street address or municipal jurisdiction of GM Orion Assembly using GM corporate facility listings or official Michigan municipal records.",completed,10,1,0,3,,2026-10-05T07:56:17.271395+00:00,2026-10-05T08:13:58.958892+00:00
+tsk_2b5cf5cd,obj_04f2231b,tsk_759410a3,Disambiguate: Check authoritative automotive or industrial facility databases for the precise location of Orion Assembly and whether it is in Lake Orion city or Orion Township,"Resolve factual contradiction: Check authoritative automotive or industrial facility databases for the precise location of Orion Assembly and whether it is in Lake Orion city or Orion Township
+
+Search Queries:
+- Check authoritative automotive or industrial facility databases for the precise location of Orion Assembly and whether it is in Lake Orion city or Orion Township",completed,10,1,0,3,,2026-10-05T07:56:17.271524+00:00,2026-10-05T08:14:21.708921+00:00
+tsk_0097f03e,obj_04f2231b,tsk_759410a3,"Disambiguate: Review recent GM press releases, plant signage, or local government records to confirm the current legal municipality for Orion Assembly","Resolve factual contradiction: Review recent GM press releases, plant signage, or local government records to confirm the current legal municipality for Orion Assembly
+
+Search Queries:
+- Review recent GM press releases, plant signage, or local government records to confirm the current legal municipality for Orion Assembly",completed,10,1,0,3,,2026-10-05T07:56:17.271681+00:00,2026-10-05T08:15:39.057751+00:00
+tsk_ecd78fc8,obj_04f2231b,tsk_759410a3,"Disambiguate: Verify current operational status of each listed GM plant as of the target reference date, because some facilities may have closed, been repurposed, or changed ownership.","Resolve factual contradiction: Verify current operational status of each listed GM plant as of the target reference date, because some facilities may have closed, been repurposed, or changed ownership.
+
+Search Queries:
+- Verify current operational status of each listed GM plant as of the target reference date, because some facilities may have closed, been repurposed, or changed ownership.",ready,10,1,0,3,,2026-10-05T07:56:17.271827+00:00,2026-10-05T07:56:17.271827+00:00
+tsk_eb356412,obj_04f2231b,tsk_759410a3,"Disambiguate: Confirm whether 'DMAX Ltd.' and 'DMAX Ltd. Components Plant' refer to the same facility, two distinct facilities, or a parent/sub-plant relationship.","Resolve factual contradiction: Confirm whether 'DMAX Ltd.' and 'DMAX Ltd. Components Plant' refer to the same facility, two distinct facilities, or a parent/sub-plant relationship.
+
+Search Queries:
+- Confirm whether 'DMAX Ltd.' and 'DMAX Ltd. Components Plant' refer to the same facility, two distinct facilities, or a parent/sub-plant relationship.",ready,10,1,0,3,,2026-10-05T07:56:17.271958+00:00,2026-10-05T07:56:17.271959+00:00
+tsk_845520ff,obj_04f2231b,tsk_759410a3,Disambiguate: Check whether 'Lansing Regional Stamping' and 'Lansing Service Parts Operation' are distinct operations or administrative aliases for overlapping Delta Township facilities.,"Resolve factual contradiction: Check whether 'Lansing Regional Stamping' and 'Lansing Service Parts Operation' are distinct operations or administrative aliases for overlapping Delta Township facilities.
+
+Search Queries:
+- Check whether 'Lansing Regional Stamping' and 'Lansing Service Parts Operation' are distinct operations or administrative aliases for overlapping Delta Township facilities.",ready,10,1,0,3,,2026-10-05T07:56:17.272125+00:00,2026-10-05T07:56:17.272126+00:00
+tsk_e1d86164,obj_04f2231b,tsk_759410a3,Disambiguate: Validate whether 'Grand Rapids Operations' and 'Rochester Operations' are current GM manufacturing operations or legacy/indirect references that should be excluded from a strict HAS_MANUFACTURING_PLANT relation.,"Resolve factual contradiction: Validate whether 'Grand Rapids Operations' and 'Rochester Operations' are current GM manufacturing operations or legacy/indirect references that should be excluded from a strict HAS_MANUFACTURING_PLANT relation.
+
+Search Queries:
+- Validate whether 'Grand Rapids Operations' and 'Rochester Operations' are current GM manufacturing operations or legacy/indirect references that should be excluded from a strict HAS_MANUFACTURING_PLANT relation.",ready,10,1,0,3,,2026-10-05T07:56:17.272257+00:00,2026-10-05T07:56:17.272258+00:00
+tsk_8a6b62f7,obj_04f2231b,tsk_82e91c23,Disambiguate: Confirm the official GM address or primary city designation for Factory Zero to establish a canonical LOCATED_IN value.,"Resolve factual contradiction: Confirm the official GM address or primary city designation for Factory Zero to establish a canonical LOCATED_IN value.
+
+Search Queries:
+- Confirm the official GM address or primary city designation for Factory Zero to establish a canonical LOCATED_IN value.",ready,10,2,0,3,,2026-10-05T07:58:28.056605+00:00,2026-10-05T07:58:28.056607+00:00
+tsk_8dc7c418,obj_04f2231b,tsk_82e91c23,Disambiguate: Find a second independent source confirming that Factory Zero assembles the GMC Hummer EV.,"Resolve factual contradiction: Find a second independent source confirming that Factory Zero assembles the GMC Hummer EV.
+
+Search Queries:
+- Find a second independent source confirming that Factory Zero assembles the GMC Hummer EV.",ready,10,2,0,3,,2026-10-05T07:58:28.056874+00:00,2026-10-05T07:58:28.056876+00:00
+tsk_4758d128,obj_04f2231b,tsk_82e91c23,Disambiguate: Find a second independent source confirming that Factory Zero assembles the GMC Sierra EV.,"Resolve factual contradiction: Find a second independent source confirming that Factory Zero assembles the GMC Sierra EV.
+
+Search Queries:
+- Find a second independent source confirming that Factory Zero assembles the GMC Sierra EV.",ready,10,2,0,3,,2026-10-05T07:58:28.057080+00:00,2026-10-05T07:58:28.057082+00:00
+tsk_38203a24,obj_04f2231b,tsk_82e91c23,Disambiguate: Find a second independent source confirming that Factory Zero assembles the Chevrolet Silverado EV.,"Resolve factual contradiction: Find a second independent source confirming that Factory Zero assembles the Chevrolet Silverado EV.
+
+Search Queries:
+- Find a second independent source confirming that Factory Zero assembles the Chevrolet Silverado EV.",ready,10,2,0,3,,2026-10-05T07:58:28.057262+00:00,2026-10-05T07:58:28.057263+00:00
+tsk_1c3807e3,obj_04f2231b,tsk_82e91c23,Disambiguate: Find a second independent source confirming that Factory Zero assembles the Cadillac Escalade IQ.,"Resolve factual contradiction: Find a second independent source confirming that Factory Zero assembles the Cadillac Escalade IQ.
+
+Search Queries:
+- Find a second independent source confirming that Factory Zero assembles the Cadillac Escalade IQ.",ready,10,2,0,3,,2026-10-05T07:58:28.057416+00:00,2026-10-05T07:58:28.057417+00:00
+tsk_19804d1c,obj_04f2231b,tsk_82e91c23,Disambiguate: Check GM official production or plant information for the current vehicle lineup assembled at Factory Zero.,"Resolve factual contradiction: Check GM official production or plant information for the current vehicle lineup assembled at Factory Zero.
+
+Search Queries:
+- Check GM official production or plant information for the current vehicle lineup assembled at Factory Zero.",ready,10,2,0,3,,2026-10-05T07:58:28.057566+00:00,2026-10-05T07:58:28.057567+00:00
+tsk_c5ef5fff,obj_04f2231b,tsk_5eb064bf,"Disambiguate: Search for GM official announcements or press releases confirming Spring Hill production of the Chevrolet Blazer, Cadillac LYRIQ, LYRIQ-V, VISTIQ, and next-generation XT5.","Resolve factual contradiction: Search for GM official announcements or press releases confirming Spring Hill production of the Chevrolet Blazer, Cadillac LYRIQ, LYRIQ-V, VISTIQ, and next-generation XT5.
+
+Search Queries:
+- Search for GM official announcements or press releases confirming Spring Hill production of the Chevrolet Blazer, Cadillac LYRIQ, LYRIQ-V, VISTIQ, and next-generation XT5.",ready,10,2,0,3,,2026-10-05T08:05:39.829641+00:00,2026-10-05T08:05:39.829644+00:00
+tsk_4427b4b6,obj_04f2231b,tsk_5eb064bf,Disambiguate: Find independent automotive industry sources corroborating the 2027 Spring Hill production portfolio.,"Resolve factual contradiction: Find independent automotive industry sources corroborating the 2027 Spring Hill production portfolio.
+
+Search Queries:
+- Find independent automotive industry sources corroborating the 2027 Spring Hill production portfolio.",ready,10,2,0,3,,2026-10-05T08:05:39.830004+00:00,2026-10-05T08:05:39.830007+00:00
+tsk_64a490bf,obj_04f2231b,tsk_5eb064bf,Disambiguate: Verify whether any of these vehicles are currently in production at Spring Hill or whether the evidence only describes future production plans.,"Resolve factual contradiction: Verify whether any of these vehicles are currently in production at Spring Hill or whether the evidence only describes future production plans.
+
+Search Queries:
+- Verify whether any of these vehicles are currently in production at Spring Hill or whether the evidence only describes future production plans.",ready,10,2,0,3,,2026-10-05T08:05:39.830314+00:00,2026-10-05T08:05:39.830316+00:00
+tsk_5e9be9c0,obj_04f2231b,tsk_5eb064bf,Disambiguate: Check for updated GM plant production schedules that may supersede the 2025 confirmation referenced in the source.,"Resolve factual contradiction: Check for updated GM plant production schedules that may supersede the 2025 confirmation referenced in the source.
+
+Search Queries:
+- Check for updated GM plant production schedules that may supersede the 2025 confirmation referenced in the source.",ready,10,2,0,3,,2026-10-05T08:05:39.830622+00:00,2026-10-05T08:05:39.830624+00:00
+tsk_e1ad1ed1,obj_04f2231b,tsk_0e74efd3,Disambiguate: Verify the exact municipal or township address of Lansing Delta Township Assembly using General Motors official plant information or a reliable geographic source.,"Resolve factual contradiction: Verify the exact municipal or township address of Lansing Delta Township Assembly using General Motors official plant information or a reliable geographic source.
+
+Search Queries:
+- Verify the exact municipal or township address of Lansing Delta Township Assembly using General Motors official plant information or a reliable geographic source.",ready,10,2,0,3,,2026-10-05T08:10:46.341597+00:00,2026-10-05T08:10:46.341600+00:00
+tsk_11600e3e,obj_04f2231b,tsk_0e74efd3,"Disambiguate: Determine whether 'Lansing, Michigan' is being used as a metropolitan-area reference rather than a precise municipal location for this plant.","Resolve factual contradiction: Determine whether 'Lansing, Michigan' is being used as a metropolitan-area reference rather than a precise municipal location for this plant.
+
+Search Queries:
+- Determine whether 'Lansing, Michigan' is being used as a metropolitan-area reference rather than a precise municipal location for this plant.",ready,10,2,0,3,,2026-10-05T08:10:46.342022+00:00,2026-10-05T08:10:46.342024+00:00
+tsk_09ef21ea,obj_04f2231b,tsk_0e74efd3,"Disambiguate: Check whether the plant's address falls within the city limits of Lansing or within Delta Township, Michigan.","Resolve factual contradiction: Check whether the plant's address falls within the city limits of Lansing or within Delta Township, Michigan.
+
+Search Queries:
+- Check whether the plant's address falls within the city limits of Lansing or within Delta Township, Michigan.",ready,10,2,0,3,,2026-10-05T08:10:46.342354+00:00,2026-10-05T08:10:46.342356+00:00
+tsk_fd92072c,obj_04f2231b,tsk_0e74efd3,Disambiguate: Confirm whether 'LRS' in the American Auto Worker source refers to a separate Lansing River Shore facility and whether its 2004 opening date should be excluded from claims about Lansing Delta Township Assembly.,"Resolve factual contradiction: Confirm whether 'LRS' in the American Auto Worker source refers to a separate Lansing River Shore facility and whether its 2004 opening date should be excluded from claims about Lansing Delta Township Assembly.
+
+Search Queries:
+- Confirm whether 'LRS' in the American Auto Worker source refers to a separate Lansing River Shore facility and whether its 2004 opening date should be excluded from claims about Lansing Delta Township Assembly.",ready,10,2,0,3,,2026-10-05T08:10:46.342625+00:00,2026-10-05T08:10:46.342627+00:00
+tsk_9c0ec02e,obj_04f2231b,tsk_0097f03e,Disambiguate: Search for additional primary or reputable secondary sources confirming GM's USD 275 million investment at the Spring Hill Manufacturing complex.,"Resolve factual contradiction: Search for additional primary or reputable secondary sources confirming GM's USD 275 million investment at the Spring Hill Manufacturing complex.
+
+Search Queries:
+- Search for additional primary or reputable secondary sources confirming GM's USD 275 million investment at the Spring Hill Manufacturing complex.",ready,10,2,0,3,,2026-10-05T08:15:39.056778+00:00,2026-10-05T08:15:39.056780+00:00
+tsk_2c7978d0,obj_04f2231b,tsk_0097f03e,Disambiguate: Search for additional primary or reputable secondary sources confirming GM's $4 billion investment associated with the Orion Assembly Plant.,"Resolve factual contradiction: Search for additional primary or reputable secondary sources confirming GM's $4 billion investment associated with the Orion Assembly Plant.
+
+Search Queries:
+- Search for additional primary or reputable secondary sources confirming GM's $4 billion investment associated with the Orion Assembly Plant.",ready,10,2,0,3,,2026-10-05T08:15:39.057161+00:00,2026-10-05T08:15:39.057163+00:00
+tsk_ee9c37a6,obj_04f2231b,tsk_0097f03e,"Disambiguate: Determine whether the $4 billion Orion Assembly investment includes or excludes the USD 275 million Spring Hill investment, and clarify the scope of each announced investment.","Resolve factual contradiction: Determine whether the $4 billion Orion Assembly investment includes or excludes the USD 275 million Spring Hill investment, and clarify the scope of each announced investment.
+
+Search Queries:
+- Determine whether the $4 billion Orion Assembly investment includes or excludes the USD 275 million Spring Hill investment, and clarify the scope of each announced investment.",ready,10,2,0,3,,2026-10-05T08:15:39.057455+00:00,2026-10-05T08:15:39.057457+00:00
+task_tc_audit_001,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at SpaceX,OSINT audit of SpaceX (Aerospace & Space Exploration) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:07.221929+00:00,2026-10-05T11:18:58.494183+00:00
+task_tc_audit_002,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at General Motors,OSINT audit of General Motors (Automotive OEM) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.495924+00:00,2026-10-05T11:18:58.495926+00:00
+task_tc_audit_003,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Boeing,OSINT audit of Boeing (Commercial & Defense Aerospace) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.496920+00:00,2026-10-05T11:18:58.496921+00:00
+task_tc_audit_004,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at ASML,OSINT audit of ASML (Semiconductor Equipment) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.497776+00:00,2026-10-05T11:18:58.497778+00:00
+task_tc_audit_005,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Ford Motor Company,OSINT audit of Ford Motor Company (Automotive OEM) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.498509+00:00,2026-10-05T11:18:58.498510+00:00
+task_tc_audit_006,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Nissan Motor Corporation,OSINT audit of Nissan Motor Corporation (Automotive OEM) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.499259+00:00,2026-10-05T11:18:58.499260+00:00
+task_tc_audit_007,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Lockheed Martin,OSINT audit of Lockheed Martin (Defense & Space Manufacturing) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.499986+00:00,2026-10-05T11:18:58.499987+00:00
+task_tc_audit_008,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Northrop Grumman,OSINT audit of Northrop Grumman (Defense & Space Manufacturing) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.500793+00:00,2026-10-05T11:18:58.500794+00:00
+task_tc_audit_009,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Daimler Truck,OSINT audit of Daimler Truck (Commercial Vehicles) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.501723+00:00,2026-10-05T11:18:58.501724+00:00
+task_tc_audit_010,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Hyundai & KIA Motors,OSINT audit of Hyundai & KIA Motors (Automotive OEM) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.502464+00:00,2026-10-05T11:18:58.502465+00:00
+task_tc_audit_011,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Rolls-Royce,OSINT audit of Rolls-Royce (Aero Engines & Industrial Power) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.503349+00:00,2026-10-05T11:18:58.503351+00:00
+task_tc_audit_012,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at BAE Systems,OSINT audit of BAE Systems (Defense & Naval Architecture) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.504438+00:00,2026-10-05T11:18:58.504440+00:00
+task_tc_audit_013,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Volvo Cars,OSINT audit of Volvo Cars (Automotive OEM) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.505545+00:00,2026-10-05T11:18:58.505547+00:00
+task_tc_audit_014,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Honeywell,OSINT audit of Honeywell (Industrial Technology & Avionics) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.506724+00:00,2026-10-05T11:18:58.506726+00:00
+task_tc_audit_015,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Leonardo S.p.A.,"OSINT audit of Leonardo S.p.A. (Aerospace, Defense & Security) for Siemens Teamcenter deployment and engineering use case.",completed,1,1,0,3,,2026-10-05T11:18:58.507691+00:00,2026-10-05T11:18:58.507692+00:00
+task_tc_audit_016,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Navantia,OSINT audit of Navantia (Naval Defense Shipbuilding) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.508509+00:00,2026-10-05T11:18:58.508510+00:00
+task_tc_audit_017,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Caterpillar Inc.,OSINT audit of Caterpillar Inc. (Heavy Construction & Mining Equipment) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.509344+00:00,2026-10-05T11:18:58.509345+00:00
+task_tc_audit_018,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Cummins Inc.,OSINT audit of Cummins Inc. (Engine & Power Generation Systems) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.510080+00:00,2026-10-05T11:18:58.510081+00:00
+task_tc_audit_019,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Siemens Healthineers,OSINT audit of Siemens Healthineers (Medical Devices & Healthcare Tech) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.510817+00:00,2026-10-05T11:18:58.510818+00:00
+task_tc_audit_020,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Siemens Mobility,OSINT audit of Siemens Mobility (Rail & Transportation Systems) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.511597+00:00,2026-10-05T11:18:58.511598+00:00
+task_tc_audit_021,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at BSH Hausgeräte,OSINT audit of BSH Hausgeräte (Consumer Appliances) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.512388+00:00,2026-10-05T11:18:58.512389+00:00
+task_tc_audit_022,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Hino Motors,OSINT audit of Hino Motors (Commercial Trucks & Buses (Toyota Group)) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.513190+00:00,2026-10-05T11:18:58.513192+00:00
+task_tc_audit_023,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at BENTELER,OSINT audit of BENTELER (Automotive Tier-1 Systems) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.513970+00:00,2026-10-05T11:18:58.513971+00:00
+task_tc_audit_024,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Movu Robotics,OSINT audit of Movu Robotics (Warehouse Automation & AGVs) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.514773+00:00,2026-10-05T11:18:58.514774+00:00
+task_tc_audit_025,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Antonov,OSINT audit of Antonov (Aerospace Cargo & Transport) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.515601+00:00,2026-10-05T11:18:58.515602+00:00
+task_tc_audit_026,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Hermeus,OSINT audit of Hermeus (Hypersonic Aerospace) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.516443+00:00,2026-10-05T11:18:58.516444+00:00
+task_tc_audit_027,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Bye Aerospace,OSINT audit of Bye Aerospace (Electric Aviation) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.517265+00:00,2026-10-05T11:18:58.517266+00:00
+task_tc_audit_028,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Single Use Support,OSINT audit of Single Use Support (Biopharmaceutical Manufacturing Systems) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.518101+00:00,2026-10-05T11:18:58.518103+00:00
+task_tc_audit_029,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Bonfiglioli,OSINT audit of Bonfiglioli (Industrial Gearmotors & Drive Systems) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.538043+00:00,2026-10-05T11:18:58.538047+00:00
+task_tc_audit_030,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at Assa Abloy,OSINT audit of Assa Abloy (Access Solutions & Security Systems) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.540530+00:00,2026-10-05T11:18:58.540534+00:00
+task_tc_audit_031,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at AESSEAL,OSINT audit of AESSEAL (Precision Mechanical Seals) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.542619+00:00,2026-10-05T11:18:58.542621+00:00
+task_tc_audit_032,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at D’ANDREA,OSINT audit of D’ANDREA (High-Precision Machine Tooling) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.543705+00:00,2026-10-05T11:18:58.543706+00:00
+task_tc_audit_033,obj_siemens_teamcenter_ecosystem,,Verify Teamcenter PLM deployment at SANZ Clima,OSINT audit of SANZ Clima (Commercial Vehicle HVAC & Thermal Systems) for Siemens Teamcenter deployment and engineering use case.,completed,1,1,0,3,,2026-10-05T11:18:58.544800+00:00,2026-10-05T11:18:58.544802+00:00

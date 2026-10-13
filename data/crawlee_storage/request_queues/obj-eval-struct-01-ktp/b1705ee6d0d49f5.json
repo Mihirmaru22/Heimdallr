@@ -1,0 +1,24 @@
+{
+  "unique_key": "https://ir.lucidmotors.com/corporate-governance/facility-amp1",
+  "url": "https://ir.lucidmotors.com/corporate-governance/facility-amp1",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "request_id": "req_b68ce7da",
+    "objective_id": "obj_eval_struct_01_ktp",
+    "research_task_id": "tsk_24350d00",
+    "task_id": "tsk_24350d00",
+    "priority": 10,
+    "depth": 0,
+    "force_browser": false,
+    "max_retries": 2,
+    "retry_count": 0,
+    "metadata": {},
+    "created_at": "2026-10-07T06:47:35.411433+00:00"
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-10-07 06:47:35.416917+00:00"
+}

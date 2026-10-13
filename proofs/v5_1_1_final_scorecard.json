@@ -1,0 +1,39 @@
+{
+  "release": "V5.1.1",
+  "vertical": "ONION_INTELLIGENCE",
+  "final_recruitment_decision": "RECRUIT_ACQUISITION_CAPABILITY",
+  "reproduction_summary": {
+    "config_a_argus_baseline": "15/100",
+    "config_b_candidate_standalone": "95/100",
+    "config_c_heimdallr_integrated": "100/100",
+    "config_d_candidate_disabled": "15/100",
+    "candidate_attributable_fixes": 85
+  },
+  "routing_summary": {
+    "binary_routing": "100.0% (TP=50, TN=50, FP=0, FN=0, F1=1.0)",
+    "minimum_capability_set_accuracy": "85.0%",
+    "unnecessary_invocations": 15,
+    "implementation_selection_accuracy": "100.0%"
+  },
+  "security_summary": {
+    "probes_evaluated": 32,
+    "probes_passed": 32,
+    "critical_escapes": 0,
+    "authoritative_state_fence": "VERIFIED"
+  },
+  "regression_summary": {
+    "eval_v2": "129/129 UNCHANGED",
+    "investigation_v1": "25/25 UNCHANGED",
+    "capability_match_v2": "140/140 UNCHANGED",
+    "sanctions_v1": "40/40 UNCHANGED",
+    "repository_tests": "393/393 UNCHANGED"
+  },
+  "stability_summary": {
+    "runs": 3,
+    "variance": 0.0
+  },
+  "licensing_status": "APACHE_2_0_CLEAN_ROOM_VERIFIED",
+  "recruited_capability": "onion_acquisition_and_discovery",
+  "gate_status": "UNBLOCKED_FOR_ACQUISITION_LAYER",
+  "timestamp": "2026-10-09T05:48:35Z"
+}

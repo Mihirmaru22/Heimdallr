@@ -1,0 +1,5 @@
+URL: https://asmr.education/faq/linux/who-created-linux-kernel-1991-linus-torvalds
+TITLE: Who Created Linux Kernel in 1991? History of Linus Torvalds
+DATE: 2026-10-13T05:38:51.388390+00:00
+
+Mar 25, 2026 · That student was Linus Torvalds, and the kernel he created is Linux. TL;DR: Linus Torvalds created the initial version of the Linux kernel in 1991 while studying at the University of Helsinki.

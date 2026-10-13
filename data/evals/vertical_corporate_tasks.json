@@ -1,0 +1,313 @@
+{
+  "benchmark_name": "heimdallr_vertical_corporate_v1",
+  "version": "1.0",
+  "description": "Vertical corporate financial & registry intelligence benchmark evaluating Corporate Specialist vs Argus",
+  "tasks": [
+    {
+      "task_id": "corp_task_01_legal_entity_discovery",
+      "target_entity": "AutoTech",
+      "scenario_type": "legal_entity_discovery",
+      "known_context": {
+        "commercial_brand": "AutoTech",
+        "industry": "Autonomous Vehicles"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "brand_name",
+          "object": "AutoTech",
+          "jurisdiction": "US-DE",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_02_identifier_resolution",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "identifier_resolution",
+      "known_context": {
+        "jurisdiction": "US-DE"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "filing_entity",
+          "object": "CIK:0001899999",
+          "jurisdiction": "US-SEC",
+          "expected_status": "SUPPORTED"
+        },
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "filing_entity",
+          "object": "LEI:5493001KJTIIGC8Y1R12",
+          "jurisdiction": "GLOBAL-GLEIF",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_03_officer_discovery",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "officer_discovery",
+      "known_context": {
+        "role": "Chief Executive Officer"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "officer",
+          "object": "Somdev Vance",
+          "jurisdiction": "US-DE",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [
+        "Corporation Service Company"
+      ],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_04_officer_appointment_date",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "officer_appointment_date",
+      "known_context": {
+        "role": "Chief Financial Officer"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "officer",
+          "object": "Elena Rostova",
+          "effective_date": "2021-03-15",
+          "jurisdiction": "US-DE",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_05_officer_resignation_historical",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "officer_resignation_historical",
+      "known_context": {
+        "role": "Former Chief Financial Officer"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "officer",
+          "object": "Marcus Chen",
+          "resignation_date": "2021-03-14",
+          "jurisdiction": "US-DE",
+          "expected_status": "HISTORICAL_RESIGNED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "HISTORICAL_RESIGNED"
+    },
+    {
+      "task_id": "corp_task_06_subsidiary_discovery",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "subsidiary_discovery",
+      "known_context": {
+        "jurisdiction": "US-DE"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "subsidiary",
+          "object": "AutoTech Perception Labs LLC",
+          "jurisdiction": "US-DE",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_07_parent_relationship",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "parent_relationship",
+      "known_context": {
+        "relationship": "Holding Company"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Global Holdings Inc",
+          "predicate": "parent_company",
+          "object": "AutoTech Corporation",
+          "jurisdiction": "US-DE",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_08_beneficial_ownership",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "beneficial_ownership",
+      "known_context": {
+        "threshold": "5% Voting Shareholder"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "beneficial_owner",
+          "object": "Vanguard Perception Fund LP",
+          "jurisdiction": "US-SEC",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_09_cross_border_subsidiary",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "cross_border_subsidiary",
+      "known_context": {
+        "target_jurisdiction": "GB"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "subsidiary",
+          "object": "AutoTech UK Limited",
+          "jurisdiction": "GB",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_10_acquisition_relationship",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "acquisition_relationship",
+      "known_context": {
+        "acquired_firm": "EcoDrive Sensors Inc"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "acquired_subsidiary",
+          "object": "EcoDrive Sensors Inc",
+          "effective_date": "2022-04-15",
+          "jurisdiction": "US-DE",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_11_divestiture_former_subsidiary",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "divestiture_former_subsidiary",
+      "known_context": {
+        "divested_firm": "Legacy Sensor Systems Inc"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "divested_subsidiary",
+          "object": "Legacy Sensor Systems Inc",
+          "effective_date": "2023-08-01",
+          "jurisdiction": "US-DE",
+          "expected_status": "HISTORICAL_DIVESTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "HISTORICAL_DIVESTED"
+    },
+    {
+      "task_id": "corp_task_12_filing_discovery",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "filing_discovery",
+      "known_context": {
+        "form": "10-K",
+        "fiscal_year": "2023"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "filing_entity",
+          "object": "0001899999-24-000010",
+          "filing_date": "2024-02-15",
+          "jurisdiction": "US-SEC",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_13_multi_hop_corporate_chain",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "multi_hop_chain",
+      "known_context": {
+        "chain": "Parent -> UK Sub -> Tier 2 Sub -> Director"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "subsidiary",
+          "object": "AutoTech UK Limited",
+          "jurisdiction": "GB",
+          "expected_status": "SUPPORTED"
+        },
+        {
+          "subject": "AutoTech UK Limited",
+          "predicate": "subsidiary",
+          "object": "AutoTech Perception UK Labs Ltd",
+          "jurisdiction": "GB",
+          "expected_status": "SUPPORTED"
+        },
+        {
+          "subject": "AutoTech Perception UK Labs Ltd",
+          "predicate": "officer",
+          "object": "Somdev Vance",
+          "jurisdiction": "GB",
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "corp_task_14_conflicting_amended_filing",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "conflicting_amended_filing",
+      "known_context": {
+        "original_accession": "0001899999-24-000010",
+        "amendment_form": "10-K/A"
+      },
+      "expected_relationships": [
+        {
+          "subject": "AutoTech Corporation",
+          "predicate": "filing_entity",
+          "object": "0001899999-24-000010",
+          "jurisdiction": "US-SEC",
+          "expected_status": "AMENDED_SUPERSEDED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "AMENDED_SUPERSEDED"
+    },
+    {
+      "task_id": "corp_task_15_phantom_negative",
+      "target_entity": "Phantom Capital Partners LLC 987654321",
+      "scenario_type": "negative_no_match",
+      "known_context": {},
+      "expected_relationships": [],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "NOT_FOUND"
+    }
+  ]
+}

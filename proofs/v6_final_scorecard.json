@@ -1,0 +1,69 @@
+{
+  "release": "V6.0",
+  "benchmark": "EMAIL_INTELLIGENCE_V6",
+  "final_recruitment_decision": "RECRUIT_WITH_RESTRICTIONS",
+  "recruited_capabilities": [
+    "email_to_account_discovery",
+    "identity_to_email_discovery",
+    "email_address_verification",
+    "email_identity_resolution"
+  ],
+  "recruited_implementations": [
+    "impl_email_to_account_discovery_v1",
+    "impl_identity_to_email_discovery_v1",
+    "impl_email_address_verification_v1",
+    "impl_email_identity_resolution_v1",
+    "impl_email_account_specialist_v1"
+  ],
+  "five_way_comparison_summary": {
+    "config_a_argus_baseline": {
+      "passed": 40,
+      "pass_rate_pct": 40.0,
+      "precision": 0.8,
+      "false_merges": 9,
+      "unsupported_claims": 2
+    },
+    "config_b_email_specialist_standalone": {
+      "passed": 91,
+      "pass_rate_pct": 91.0,
+      "precision": 1.0,
+      "false_merges": 0,
+      "unsupported_claims": 0
+    },
+    "config_c_heimdallr_integrated": {
+      "passed": 100,
+      "pass_rate_pct": 100.0,
+      "precision": 1.0,
+      "false_merges": 0,
+      "unsupported_claims": 0
+    },
+    "config_d_heimdallr_disabled": {
+      "passed": 40,
+      "pass_rate_pct": 40.0,
+      "precision": 0.8,
+      "false_merges": 9,
+      "unsupported_claims": 2
+    },
+    "config_e_argus_plus_candidate": {
+      "passed": 91,
+      "pass_rate_pct": 91.0,
+      "precision": 1.0,
+      "false_merges": 0,
+      "unsupported_claims": 1
+    }
+  },
+  "candidate_attributable_improvements": 60,
+  "attribution_breakdown": {
+    "GROUP_A_EMAIL_TO_ACCOUNT": 16,
+    "GROUP_B_IDENTITY_TO_EMAIL": 5,
+    "GROUP_C_ADDRESS_VERIFICATION": 20,
+    "GROUP_D_IDENTITY_RESOLUTION": 8,
+    "GROUP_E_AMBIGUOUS_NEGATIVE": 1,
+    "GROUP_F_CROSS_SPECIALIST": 10
+  },
+  "routing_accuracy": "100% PRECISION, 100% RECALL (0 Unnecessary Invocations)",
+  "security_verdict": "SECURITY_AUDIT_PASSED_ALL_GATES",
+  "license_verdict": "100% APACHE_2_0 CLEAN-ROOM COMPLIANT (GPL/AGPL Isolated & Excluded)",
+  "regression_verdict": "92 / 92 TESTS PASSED (0 REGRESSIONS)",
+  "timestamp": "2026-10-09T07:19:51.787073+00:00"
+}

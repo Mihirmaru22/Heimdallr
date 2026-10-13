@@ -1,0 +1,69 @@
+{
+  "suite_name": "V5_1_1_BLINDNESS_TESTS",
+  "status": "PASS",
+  "total_dimensions_evaluated": 10,
+  "all_dimensions_invariant": true,
+  "dimensions": [
+    {
+      "dimension": "1_TASK_IDS_RENAMED",
+      "method": "All ONION_* identifiers replaced with random hex UUIDs",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "2_TASK_ORDER_SHUFFLED",
+      "method": "Order of 100 benchmark tasks pseudorandomly shuffled",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "3_CORPUS_DOCUMENT_ORDER_SHUFFLED",
+      "method": "Corpus dictionary insertion ordering randomized",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "4_CAPABILITY_LABELS_HIDDEN",
+      "method": "Matcher provided strictly query text and required evidence strings, zero target capability labels",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "5_EXPECTED_OUTPUTS_ISOLATED",
+      "method": "AST verified zero expected entities imported into runtime engines",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "6_SEMANTICALLY_EQUIVALENT_WORDING",
+      "method": "All 100 task queries wrapped in natural inquiry prefixes",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "7_DECOY_DOCUMENTS_ADDED",
+      "method": "10 benign decoy hidden service descriptors injected into corpus",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "8_DUPLICATE_AND_SYNDICATED_DOCUMENTS",
+      "method": "Syndicated clone profiles injected; verifier deduplicates without variance",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "9_RELEVANT_DOCS_MIXED_WITH_UNRELATED",
+      "method": "Corpus contains 60+ scenarios with conflicting threat actor names and domains",
+      "invariant": true,
+      "integrated_score": 100
+    },
+    {
+      "dimension": "10_HOLDOUT_SUBSET_EVALUATION",
+      "method": "15 holdout tasks evaluated strictly; verified 100% pass rate",
+      "invariant": true,
+      "integrated_score": 15
+    }
+  ],
+  "timestamp": "2026-10-09T05:48:31Z"
+}

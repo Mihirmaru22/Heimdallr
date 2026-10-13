@@ -1,0 +1,5 @@
+URL: https://www.ibm.com/think/topics/mistral-ai
+TITLE: What is Mistral AI? - IBM
+DATE: 2026-10-13T05:33:33.978274+00:00
+
+Mistral AI is a France-based artificial intelligence (AI) startup known primarily for its open source large language models (LLMs). Since its founding in 2023, it has become one of the world’s leading generative AI developers.

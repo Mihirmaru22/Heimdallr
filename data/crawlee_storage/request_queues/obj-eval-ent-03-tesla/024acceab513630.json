@@ -1,0 +1,24 @@
+{
+  "unique_key": "https://www.paccar.com/news/corporate-overview-and-battery-jv",
+  "url": "https://www.paccar.com/news/corporate-overview-and-battery-jv",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "request_id": "req_f9fd6d65",
+    "objective_id": "obj_eval_ent_03_tesla",
+    "research_task_id": "tsk_df48a4a6",
+    "task_id": "tsk_df48a4a6",
+    "priority": 10,
+    "depth": 0,
+    "force_browser": false,
+    "max_retries": 2,
+    "retry_count": 0,
+    "metadata": {},
+    "created_at": "2026-10-07T06:46:47.753064+00:00"
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-10-07 06:46:47.783859+00:00"
+}

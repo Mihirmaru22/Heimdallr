@@ -1,0 +1,5 @@
+URL: https://en.wikipedia.org/wiki/Alcubierre_drive
+TITLE: Alcubierre drive - Wikipedia
+DATE: 2026-10-13T05:40:09.131714+00:00
+
+The Alcubierre metric defines the warp-drive spacetime. It is a Lorentzian manifold that, if interpreted in the context of general relativity, allows a warp bubble to appear in previously flat spacetime and move away at effectively faster-than-light speed. The interior of the bubble is an inertial reference frame and inhabitants experience no proper acceleration. This method of transport does ...

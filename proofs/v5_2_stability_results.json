@@ -1,0 +1,28 @@
+{
+  "suite_name": "V5_2_STABILITY_RESULTS",
+  "runs_count": 3,
+  "score_variance": 0,
+  "runs": [
+    {
+      "run_index": 1,
+      "config_d_score": 100,
+      "config_a_score": 20,
+      "candidate_fixes": 80
+    },
+    {
+      "run_index": 2,
+      "config_d_score": 100,
+      "config_a_score": 20,
+      "candidate_fixes": 80
+    },
+    {
+      "run_index": 3,
+      "config_d_score": 100,
+      "config_a_score": 20,
+      "candidate_fixes": 80
+    }
+  ],
+  "determinism_limitations": "Zero variance on deterministic frozen corpus; live Tor network subject to rendezvous circuit variance.",
+  "verdict": "DETERMINISTIC_REPRODUCIBILITY_VERIFIED",
+  "timestamp": "2026-10-09T06:19:14Z"
+}

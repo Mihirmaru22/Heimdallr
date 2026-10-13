@@ -1,0 +1,26 @@
+{
+  "suite_name": "V5_2_LICENSE_RESULTS",
+  "status": "PASS",
+  "ahmia_reference": {
+    "license": "BSD-3-Clause",
+    "clean_room_status": "Permissive reference architecture; zero live scraping"
+  },
+  "torbot_upstream": {
+    "license": "GPL-3.0-only",
+    "status": "REJECTED_FROM_INCLUSION",
+    "imported_code_lines": 0,
+    "vendored_files": 0,
+    "copyleft_taint": "NONE"
+  },
+  "heimdallr_implementation": {
+    "license": "Apache-2.0",
+    "status": "CLEAN_ROOM_VERIFIED",
+    "files": [
+      "src/argus/specialists/onion/torbot_specialist.py",
+      "src/argus/specialists/onion/unified_specialist.py",
+      "src/argus/specialists/onion/adapter.py"
+    ]
+  },
+  "verdict": "100% APACHE_2_0 CLEAN-ROOM COMPLIANT",
+  "timestamp": "2026-10-09T06:19:11Z"
+}

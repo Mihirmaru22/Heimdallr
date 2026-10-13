@@ -1,0 +1,65 @@
+{
+  "suite_name": "V5_2_CAPABILITY_GAP_METRICS",
+  "discovery": {
+    "group": "GROUP_A_SOURCE_DISCOVERY",
+    "tasks_count": 20,
+    "config_a_argus_precision": 0.1,
+    "config_a_argus_recall": 0.1,
+    "config_a_argus_f1": 0.1,
+    "config_c_standalone_precision": 1.0,
+    "config_c_standalone_recall": 1.0,
+    "config_c_standalone_f1": 1.0,
+    "config_d_integrated_precision": 1.0,
+    "config_d_integrated_recall": 1.0,
+    "config_d_integrated_f1": 1.0,
+    "duplicate_discovery_rate": 0.0,
+    "irrelevant_source_acquisition_rate": 0.0
+  },
+  "acquisition": {
+    "group": "GROUP_B_ACQUISITION",
+    "tasks_count": 20,
+    "config_a_argus_retrieval_success_rate": 0.15,
+    "config_c_standalone_retrieval_success_rate": 1.0,
+    "config_d_integrated_retrieval_success_rate": 1.0,
+    "failure_classification_accuracy": 1.0,
+    "retry_success_rate": 1.0,
+    "timeout_handling_accuracy": 1.0,
+    "provenance_preservation_rate": 1.0
+  },
+  "crawling": {
+    "group": "GROUP_C_CRAWLING",
+    "tasks_count": 15,
+    "relevant_page_recall": 1.0,
+    "irrelevant_page_ratio": 0.0,
+    "duplicate_page_rate": 0.0,
+    "budget_compliance_rate": 1.0,
+    "correct_stopping_rate": 1.0
+  },
+  "reasoning": {
+    "group": "GROUP_D_HANDED_DOCUMENT_REASONING",
+    "tasks_count": 15,
+    "config_b_argus_handed_entity_f1": 1.0,
+    "config_b_argus_handed_claim_f1": 1.0,
+    "config_b_argus_handed_field_accuracy": 1.0,
+    "config_b_argus_handed_evidence_correctness": 1.0,
+    "config_c_standalone_entity_f1": 0.91,
+    "config_d_integrated_entity_f1": 1.0,
+    "unsupported_claim_rate": 0.0,
+    "contradiction_detection_rate": 1.0,
+    "temporal_reasoning_accuracy": 1.0,
+    "key_finding": "Argus with Handed Documents matches Heimdallr Integrated at 100% (15/15), confirming ZERO reasoning deficit in Argus."
+  },
+  "investigation": {
+    "group": "GROUP_E_END_TO_END_INVESTIGATION",
+    "tasks_count": 15,
+    "config_c_standalone_pass_rate": 0.0,
+    "config_d_integrated_pass_rate": 1.0,
+    "objective_completion_rate": 1.0,
+    "critical_field_completeness": 1.0,
+    "cross_specialist_correct_composition": 1.0,
+    "unnecessary_specialist_invocations": 0,
+    "missed_required_invocations": 0,
+    "key_finding": "Standalone candidate achieves 0/15 on cross-specialist investigations due to missing clearnet registries; Integrated achieves 15/15."
+  },
+  "timestamp": "2026-10-09T06:19:11Z"
+}

@@ -1,20 +1,50 @@
 [project]
 name = "argus"
 version = "0.1.0"
-description = "Add your description here"
+description = "Autonomous web intelligence and research engine"
 readme = "README.md"
 authors = [
     { name = "Mihirmaru22", email = "mihirmaru090@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "beautifulsoup4>=4.12.0",
+    "crawlee>=1.10.3",
+    "ddgs>=9.16.0",
+    "dnspython>=2.8.0",
     "fastapi>=0.141.1",
-    "pydentic>=0.0.1.dev3",
+    "httpx==0.28.1",
+    "httpcore==1.0.9",
+    "laya>=0.3.27",
+    "openpyxl>=3.1.5",
+    "playwright>=1.49.0",
+    "pydantic>=2.10.0",
+    "torch>=2.0.0",
 ]
 
 [project.scripts]
 argus = "argus:main"
+osint-terminal = "argus.terminal:main"
 
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.16.9",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+

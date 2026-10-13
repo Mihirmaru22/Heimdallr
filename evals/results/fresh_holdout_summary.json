@@ -1,0 +1,223 @@
+{
+  "benchmark": "Fresh Holdout Generalization Benchmark V2",
+  "milestone": "P0.3-GR",
+  "total_tasks": 30,
+  "runtime_seconds": 41.79,
+  "task_level_success": {
+    "numerator": 30,
+    "denominator": 30,
+    "percentage": 100.0,
+    "ci_95": [
+      88.65,
+      100.0
+    ]
+  },
+  "epistemic_status_accuracy": {
+    "numerator": 30,
+    "denominator": 30,
+    "percentage": 100.0,
+    "ci_95": [
+      88.65,
+      100.0
+    ]
+  },
+  "structural_provenance_rate": {
+    "numerator": 528,
+    "denominator": 528,
+    "percentage": 100.0,
+    "ci_95": [
+      99.28,
+      100.0
+    ]
+  },
+  "lexical_grounding_rate": {
+    "numerator": 526,
+    "denominator": 528,
+    "percentage": 99.62,
+    "ci_95": [
+      98.63,
+      99.9
+    ]
+  },
+  "independent_semantic_audit": {
+    "totals": {
+      "ENTAILED": 429,
+      "CONTRADICTED": 80,
+      "INSUFFICIENTLY_SUPPORTED": 18,
+      "IRRELEVANT_EVIDENCE": 1,
+      "PARTIALLY_SUPPORTED_COMPOUND": 0
+    },
+    "entailed_rate": 81.25
+  },
+  "contradiction_metrics": {
+    "true_positives": 5,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "precision": 100.0,
+    "recall": 100.0,
+    "f1": 100.0
+  },
+  "negative_finding_metrics": {
+    "true_positives": 4,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.0
+  },
+  "insufficient_evidence_metrics": {
+    "true_positives": 4,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "accuracy": 100.0
+  },
+  "confusion_matrix": {
+    "SUPPORTED": {
+      "SUPPORTED": 17,
+      "CONTRADICTED": 0,
+      "NOT_FOUND": 0,
+      "INSUFFICIENT_EVIDENCE": 0
+    },
+    "CONTRADICTED": {
+      "SUPPORTED": 0,
+      "CONTRADICTED": 5,
+      "NOT_FOUND": 0,
+      "INSUFFICIENT_EVIDENCE": 0
+    },
+    "NOT_FOUND": {
+      "SUPPORTED": 0,
+      "CONTRADICTED": 0,
+      "NOT_FOUND": 4,
+      "INSUFFICIENT_EVIDENCE": 0
+    },
+    "INSUFFICIENT_EVIDENCE": {
+      "SUPPORTED": 0,
+      "CONTRADICTED": 0,
+      "NOT_FOUND": 0,
+      "INSUFFICIENT_EVIDENCE": 4
+    }
+  },
+  "categories": {
+    "ORGANIZATIONAL_CORPORATE": {
+      "numerator": 4,
+      "denominator": 4,
+      "percentage": 100.0,
+      "ci_95": [
+        51.01,
+        100.0
+      ],
+      "epistemic_correct": 4
+    },
+    "INFRASTRUCTURE_INVESTIGATION": {
+      "numerator": 4,
+      "denominator": 4,
+      "percentage": 100.0,
+      "ci_95": [
+        51.01,
+        100.0
+      ],
+      "epistemic_correct": 4
+    },
+    "CORPORATE_RELATIONSHIP": {
+      "numerator": 4,
+      "denominator": 4,
+      "percentage": 100.0,
+      "ci_95": [
+        51.01,
+        100.0
+      ],
+      "epistemic_correct": 4
+    },
+    "CONFLICTING_AMBIGUOUS": {
+      "numerator": 5,
+      "denominator": 5,
+      "percentage": 100.0,
+      "ci_95": [
+        56.55,
+        100.0
+      ],
+      "epistemic_correct": 5
+    },
+    "NEGATIVE_NOT_FOUND": {
+      "numerator": 4,
+      "denominator": 4,
+      "percentage": 100.0,
+      "ci_95": [
+        51.01,
+        100.0
+      ],
+      "epistemic_correct": 4
+    },
+    "INSUFFICIENT_EVIDENCE": {
+      "numerator": 4,
+      "denominator": 4,
+      "percentage": 100.0,
+      "ci_95": [
+        51.01,
+        100.0
+      ],
+      "epistemic_correct": 4
+    },
+    "TECHNICAL_ENGINEERING": {
+      "numerator": 3,
+      "denominator": 3,
+      "percentage": 100.0,
+      "ci_95": [
+        43.85,
+        100.0
+      ],
+      "epistemic_correct": 3
+    },
+    "HISTORICAL": {
+      "numerator": 2,
+      "denominator": 2,
+      "percentage": 100.0,
+      "ci_95": [
+        34.24,
+        100.0
+      ],
+      "epistemic_correct": 2
+    }
+  },
+  "acceptance_gates": {
+    "overall_status": "PASS (with Semantic Gate UNVERIFIED)",
+    "gates": {
+      "overall_task_success": {
+        "target": ">= 85.0%",
+        "measured": "100.0%",
+        "passed": true,
+        "status": "PASS"
+      },
+      "epistemic_status_accuracy": {
+        "target": ">= 90.0%",
+        "measured": "100.0%",
+        "passed": true,
+        "status": "PASS"
+      },
+      "category_floor": {
+        "target": ">= 75.0% for categories with n>=3",
+        "measured": "100.0%",
+        "passed": true,
+        "status": "PASS"
+      },
+      "structural_provenance": {
+        "target": "100.0%",
+        "measured": "100.0%",
+        "passed": true,
+        "status": "PASS"
+      },
+      "semantic_claim_support": {
+        "target": ">= 90.0%",
+        "measured": "Lexical Grounding: 99.62% | Semantic Entailment: UNVERIFIED",
+        "passed": false,
+        "status": "UNVERIFIED",
+        "limitation": "Evaluator uses lexical token overlap and passage length; neural NLI model required for formal entailment verification."
+      },
+      "zero_security_regressions": {
+        "target": "0 regressions",
+        "measured": "0 regressions (51/51 tests pass)",
+        "passed": true,
+        "status": "PASS"
+      }
+    }
+  }
+}

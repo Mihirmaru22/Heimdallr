@@ -1,0 +1,5 @@
+URL: https://www.helsinki.fi/en/news/climate-change/celebrating-25-years-linux
+TITLE: Celebrating 25 years with Linux | University of Helsinki
+DATE: 2026-10-13T05:38:51.387038+00:00
+
+Aug 22, 2016 · Linus Torvalds, the inventor of the Linux kernel used to study and work at the department and simultaneously work on the kernel. The kernel work started in 1991 and the 1.0 of the operating system was released in 1994.

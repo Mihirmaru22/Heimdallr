@@ -1,0 +1,15 @@
+{
+  "evaluator_ground_truth_guard_active": true,
+  "guard_type": "GroundTruthAccessGuard context manager",
+  "access_violation_exception": "EvaluatorGroundTruthAccessError",
+  "prohibited_fields_locked": [
+    "expected_entities",
+    "expected_relationships",
+    "multi_hop_chain",
+    "expected_epistemic_status",
+    "expected_stop_reason",
+    "expected_temporal_status"
+  ],
+  "anti_gaming_unit_tests_passed": 8,
+  "leakage_detected": false
+}

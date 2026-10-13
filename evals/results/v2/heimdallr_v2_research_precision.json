@@ -1,0 +1,17 @@
+{
+  "metric_definition": "Focus on high-gain relevant evidence & entities while suppressing background noise",
+  "aggregate_ratios": {
+    "relevant_evidence_ratio": 0.942,
+    "relevant_entities_ratio": 1.0,
+    "irrelevant_entities_suppressed_count": 483,
+    "relevant_research_actions_ratio": 0.965,
+    "redundant_research_actions_ratio": 0.02
+  },
+  "comparison_vs_baseline": {
+    "baseline_relevant_evidence_precision": 0.812,
+    "v2_relevant_evidence_precision": 0.942,
+    "baseline_entity_precision": 0.872,
+    "v2_entity_precision": 0.998062015503876,
+    "v2_1_unfiltered_noise_collapse_fixed": true
+  }
+}

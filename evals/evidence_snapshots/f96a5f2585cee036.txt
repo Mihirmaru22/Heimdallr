@@ -1,0 +1,5 @@
+URL: https://mail.goldbook.iupac.org/terms/view/A00543
+TITLE: IUPAC - Avogadro constant (A00543)
+DATE: 2026-10-13T05:37:02.162178+00:00
+
+In the revision of the International System of Units (SI) of 2019 the Avogadro constant became one of the seven defining constants with the exact value \ (\pu {6.02214076E23 mol-1}\).

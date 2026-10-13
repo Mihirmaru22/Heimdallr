@@ -1,0 +1,5 @@
+URL: https://www.opensanctions.org/
+TITLE: OpenSanctions: The open database of sanctions, PEPs and ...
+DATE: 2026-10-13T05:40:36.666009+00:00
+
+4 days ago · The open-source database of sanctions, watchlists, and politically exposed persons — aggregating hundreds of sources and relied on by compliance teams, investigators, and journalists.

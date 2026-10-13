@@ -1,0 +1,5 @@
+URL: https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2021-130A
+TITLE: NASA - NSSDCA - Spacecraft - Details
+DATE: 2026-10-13T05:35:53.235685+00:00
+
+1 day ago · The James Webb Space Telescope (JWST) is a large infrared (IR) optimized space observatory designed to study the earliest phases of the universe, how galaxies formed, how stars and protoplanetary systems develop, and to observe planets in our own and other solar systems.

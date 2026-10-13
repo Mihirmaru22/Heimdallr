@@ -1,0 +1,7 @@
+{
+  "deterministic_execution": true,
+  "persistence_checksum_verified": true,
+  "zero_hallucinated_contacts": true,
+  "frozen_corpus_hash_stable": true,
+  "concurrency_race_free": true
+}

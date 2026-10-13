@@ -1,0 +1,503 @@
+{
+  "benchmark_version": "2.0.0",
+  "total_failed_tasks": 70,
+  "failure_breakdown": {
+    "FALSE_CONTRADICTION": 17,
+    "INCORRECT_ANSWER_SYNTHESIS": 30,
+    "CONTRADICTION_MISSED": 14,
+    "INCORRECT_NOT_FOUND": 7,
+    "INCORRECT_INSUFFICIENT_EVIDENCE": 2
+  },
+  "failures": [
+    {
+      "task_id": "gen2_task_04_valerius_maritime",
+      "category": "ORGANIZATIONAL_CORPORATE",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_05_quasar_photovoltaics",
+      "category": "ORGANIZATIONAL_CORPORATE",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_07_zephyr_microgrid",
+      "category": "ORGANIZATIONAL_CORPORATE",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_10_hesperus_vehicles",
+      "category": "ORGANIZATIONAL_CORPORATE",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_11_axiom_security_labs",
+      "category": "ORGANIZATIONAL_CORPORATE",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_12_novatech_disambiguation",
+      "category": "ORGANIZATIONAL_CORPORATE",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_13_sovereign_cloud_initiative",
+      "category": "ORGANIZATIONAL_CORPORATE",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_14_omnicorp_holdings_tree",
+      "category": "ORGANIZATIONAL_CORPORATE",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_17_multihop_executive_endowment",
+      "category": "IDENTITY_INVESTIGATION",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_18_multihop_battery_supply_chain",
+      "category": "CORPORATE_RELATIONSHIP",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_19_multihop_beneficial_owner_license",
+      "category": "CORPORATE_RELATIONSHIP",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_20_multihop_series_b_board_seat",
+      "category": "CORPORATE_RELATIONSHIP",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_21_multihop_defense_consortium_radar",
+      "category": "INTERDISCIPLINARY",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_23_multihop_telco_asn_gateway",
+      "category": "INFRASTRUCTURE_INVESTIGATION",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_25_multihop_mining_environmental_permit",
+      "category": "CORPORATE_RELATIONSHIP",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_26_multihop_cloud_datacenter_ppa",
+      "category": "INFRASTRUCTURE_INVESTIGATION",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_27_multihop_fintech_api_gateway",
+      "category": "INFRASTRUCTURE_INVESTIGATION",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_28_multihop_satellite_optical_ground",
+      "category": "INFRASTRUCTURE_INVESTIGATION",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_29_multihop_automotive_validation_protocol",
+      "category": "CORPORATE_RELATIONSHIP",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_30_multihop_swf_port_concession",
+      "category": "INFRASTRUCTURE_INVESTIGATION",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_31_contra_battery_density",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_33_contra_revenue_restatement",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "NOT_FOUND"
+    },
+    {
+      "task_id": "gen2_task_34_contra_clinical_efficacy",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "SUPPORTED"
+    },
+    {
+      "task_id": "gen2_task_35_contra_asteroid_composition",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_37_contra_telecom_latency",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_38_contra_treaty_signatories",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_39_contra_database_tps",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "NOT_FOUND"
+    },
+    {
+      "task_id": "gen2_task_41_contra_fault_slip_rate",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_42_contra_qubit_coherence_t2",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "SUPPORTED"
+    },
+    {
+      "task_id": "gen2_task_43_contra_acquisition_price",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_44_contra_supercomputer_linpack",
+      "category": "CONFLICTING_AMBIGUOUS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_46_neg_antigravity_dept",
+      "category": "NEGATIVE_NOT_FOUND",
+      "primary_failure": "INCORRECT_NOT_FOUND",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "SUPPORTED"
+    },
+    {
+      "task_id": "gen2_task_48_neg_zephyr_lunar",
+      "category": "NEGATIVE_NOT_FOUND",
+      "primary_failure": "INCORRECT_NOT_FOUND",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "SUPPORTED"
+    },
+    {
+      "task_id": "gen2_task_50_neg_onyx_subsea",
+      "category": "NEGATIVE_NOT_FOUND",
+      "primary_failure": "INCORRECT_NOT_FOUND",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "SUPPORTED"
+    },
+    {
+      "task_id": "gen2_task_52_neg_quasar_superconduct_permit",
+      "category": "NEGATIVE_NOT_FOUND",
+      "primary_failure": "INCORRECT_NOT_FOUND",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_53_insuff_atlantis_inscription",
+      "category": "INSUFFICIENT_EVIDENCE",
+      "primary_failure": "INCORRECT_INSUFFICIENT_EVIDENCE",
+      "expected_status": "INSUFFICIENT_EVIDENCE",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_56_neg_hesperus_mars_jv",
+      "category": "NEGATIVE_NOT_FOUND",
+      "primary_failure": "INCORRECT_NOT_FOUND",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_58_neg_valerius_teleport_freight",
+      "category": "NEGATIVE_NOT_FOUND",
+      "primary_failure": "INCORRECT_NOT_FOUND",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_59_insuff_epigenetic_magnetic_aging",
+      "category": "INSUFFICIENT_EVIDENCE",
+      "primary_failure": "INCORRECT_INSUFFICIENT_EVIDENCE",
+      "expected_status": "INSUFFICIENT_EVIDENCE",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_60_neg_solaria_mach20_scramjet",
+      "category": "NEGATIVE_NOT_FOUND",
+      "primary_failure": "INCORRECT_NOT_FOUND",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "SUPPORTED"
+    },
+    {
+      "task_id": "gen2_task_61_tech_raft_leader_completeness",
+      "category": "TECHNICAL_ENGINEERING",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_63_tech_crispr_cas12a_specificity",
+      "category": "SCIENTIFIC_POLICY",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_64_tech_solid_state_garnet_electrolyte",
+      "category": "TECHNICAL_ENGINEERING",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_66_tech_tokamak_quench_protection",
+      "category": "TECHNICAL_ENGINEERING",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_67_tech_zk_snark_groth16_vs_plonk",
+      "category": "TECHNICAL_ENGINEERING",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_68_tech_neuromorphic_stdp_learning",
+      "category": "TECHNICAL_ENGINEERING",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_69_tech_direct_air_capture_sorbents",
+      "category": "SCIENTIFIC_POLICY",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_71_tech_photonic_mzi_mesh_computing",
+      "category": "TECHNICAL_ENGINEERING",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_72_tech_serpentinization_methane",
+      "category": "SCIENTIFIC_POLICY",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_73_tech_perovskite_degradation_modes",
+      "category": "TECHNICAL_ENGINEERING",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_74_tech_rust_tree_borrows_memory",
+      "category": "TECHNICAL_ENGINEERING",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_75_tech_gravitational_wave_detector_bands",
+      "category": "SCIENTIFIC_POLICY",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_76_hist_swiss_council_presidency",
+      "category": "HISTORICAL",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "NOT_FOUND"
+    },
+    {
+      "task_id": "gen2_task_77_hist_tenochtitlan_fall_timeline",
+      "category": "HISTORICAL",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_79_hist_calculus_priority_dispute",
+      "category": "HISTORICAL",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_80_hist_gdpr_entry_vs_application",
+      "category": "HISTORICAL",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_81_hist_treaty_san_ildefonso_1800",
+      "category": "HISTORICAL",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_83_hist_cassini_huygens_landing",
+      "category": "HISTORICAL",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_84_hist_german_rentenmark_1923",
+      "category": "HISTORICAL",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_85_hist_apple_samsung_patent_litigation",
+      "category": "HISTORICAL",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_86_adv_typosquat_colorama",
+      "category": "ADVERSARIAL_INVESTIGATION",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_88_adv_clickbait_dark_matter",
+      "category": "MISLEADING_RESULTS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "NOT_FOUND"
+    },
+    {
+      "task_id": "gen2_task_90_adv_irrelevant_negation",
+      "category": "MISLEADING_RESULTS",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_91_adv_composite_smear_article",
+      "category": "MISLEADING_RESULTS",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_93_adv_stale_cancelled_jv",
+      "category": "MISLEADING_RESULTS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "SUPPORTED"
+    },
+    {
+      "task_id": "gen2_task_94_adv_retracted_paper_citation",
+      "category": "MISLEADING_RESULTS",
+      "primary_failure": "CONTRADICTION_MISSED",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "SUPPORTED"
+    },
+    {
+      "task_id": "gen2_task_96_cross_asml_geopolitics_tech",
+      "category": "INTERDISCIPLINARY",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_97_cross_iuu_fishing_ais_radar",
+      "category": "INTERDISCIPLINARY",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "task_id": "gen2_task_99_cross_eu_ai_act_cybersecurity",
+      "category": "INTERDISCIPLINARY",
+      "primary_failure": "FALSE_CONTRADICTION",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED"
+    },
+    {
+      "task_id": "gen2_task_100_cross_biosecurity_air_logistics",
+      "category": "INTERDISCIPLINARY",
+      "primary_failure": "INCORRECT_ANSWER_SYNTHESIS",
+      "expected_status": "SUPPORTED",
+      "produced_status": "INSUFFICIENT_EVIDENCE"
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "audit_version": "1.0",
+  "timestamp": "2026-10-08T07:28:45Z",
+  "total_evaluated": 5,
+  "approved_count": 2,
+  "rejected_count": 3,
+  "candidates": [
+    {
+      "name": "OpenSanctions / yente",
+      "repository": "https://github.com/opensanctions/yente",
+      "license": "Apache-2.0",
+      "license_status": "APPROVED",
+      "commercial_compatible": true,
+      "clean_room_required": false,
+      "recruitable": true
+    },
+    {
+      "name": "ICIJ Offshore Leaks Database",
+      "repository": "https://github.com/ICIJ/offshore-leaks-database",
+      "license": "ODbL-1.0",
+      "license_status": "APPROVED_WITH_ATTRIBUTION",
+      "commercial_compatible": true,
+      "clean_room_required": false,
+      "recruitable": true
+    },
+    {
+      "name": "DarkWebScraper",
+      "repository": "https://github.com/example/darkweb-scraper",
+      "license": "AGPL-3.0",
+      "license_status": "INCOMPATIBLE",
+      "commercial_compatible": false,
+      "clean_room_required": true,
+      "recruitable": false
+    },
+    {
+      "name": "ProprietaryAML Core",
+      "repository": "https://commercial.example/aml-core",
+      "license": "Proprietary Commercial",
+      "license_status": "INCOMPATIBLE",
+      "commercial_compatible": false,
+      "clean_room_required": true,
+      "recruitable": false
+    },
+    {
+      "name": "UndeclaredRepo AML",
+      "repository": "https://github.com/example/undeclared-aml",
+      "license": "NONE_DECLARED",
+      "license_status": "UNKNOWN",
+      "commercial_compatible": false,
+      "clean_room_required": false,
+      "recruitable": false
+    }
+  ],
+  "selected_candidate_legal_verdict": {
+    "name": "OpenSanctions / yente",
+    "license": "Apache-2.0",
+    "verdict": "APPROVED_FOR_INTEGRATION",
+    "legal_basis": "Permissive Apache 2.0 license permits commercial use, modification, and integration behind clean adapter boundary."
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "benchmark": "SPECIALIST_COMPETITION_V1",
+  "iterations": 3,
+  "runs": [
+    {
+      "run_index": 1,
+      "pass_rate_incumbent": 0.2381,
+      "pass_rate_candidate": 0.881,
+      "pass_rate_coexistence": 0.9524,
+      "decision": "RECRUIT_NEW_CAPABILITY"
+    },
+    {
+      "run_index": 2,
+      "pass_rate_incumbent": 0.2381,
+      "pass_rate_candidate": 0.881,
+      "pass_rate_coexistence": 0.9524,
+      "decision": "RECRUIT_NEW_CAPABILITY"
+    },
+    {
+      "run_index": 3,
+      "pass_rate_incumbent": 0.2381,
+      "pass_rate_candidate": 0.881,
+      "pass_rate_coexistence": 0.9524,
+      "decision": "RECRUIT_NEW_CAPABILITY"
+    }
+  ],
+  "metrics": {
+    "candidate_pass_rate_variance": 0.0,
+    "coexistence_pass_rate_variance": 0.0,
+    "decision_agreement": "100%",
+    "task_level_agreement": "100.0%",
+    "implementation_selection_agreement": "100.0%"
+  },
+  "stability_verdict": "DETERMINISTIC_PASS"
+}

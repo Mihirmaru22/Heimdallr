@@ -1,0 +1,5 @@
+URL: https://zeli.app/story/49221679
+TITLE: Voyager 1's FDS Lives Again · Hacker News | Zeli
+DATE: 2026-10-13T05:41:42.906658+00:00
+
+Aug 8, 2026 · A new web-based emulator brings the Flight Data Subsystem (FDS) of Voyager 1 back to life, letting you run assembly code on the vintage computer that has been flying since 1977.

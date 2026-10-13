@@ -1,0 +1,5 @@
+URL: https://www.python.org/doc/sunset-python-2/
+TITLE: Sunsetting Python 2 | Python.org
+DATE: 2026-10-13T05:38:21.238731+00:00
+
+If people find catastrophic security problems in Python 2, or in software written in Python 2, then most volunteers will not help fix them. If you need help with Python 2 software, then many volunteers will not help you, and over time fewer and fewer volunteers will be able to help you.

@@ -1,0 +1,5 @@
+URL: https://gauravtiwari.org/study-notes/avogadros-number/
+TITLE: Avogadro’s Number - Gaurav Tiwari
+DATE: 2026-10-13T06:39:50.657741+00:00
+
+Oct 3, 2026 · Since the 2019 redefinition of the SI base units, the value of ${N}_{A}$ is fixed by definition, it’s not measured anymore. The mole is now defined as the amount of substance containing exactly $6.02214076\times {10}^{23}$ elementary entities.

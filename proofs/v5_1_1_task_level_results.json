@@ -1,0 +1,2792 @@
+[
+  {
+    "task_id": "ONION_DISC_01",
+    "category": "ONION_SERVICE_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group",
+      "BlackCat"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_c590968a",
+      "obs_onion_mirror_15289e02"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_DISC_02",
+    "category": "ONION_SERVICE_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp",
+      "LockBit 3.0"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_42801c03",
+      "obs_onion_mirror_16e7bb44"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_DISC_03",
+    "category": "ONION_SERVICE_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "CL0P Syndicate"
+    ],
+    "actual_entities_and_relationships": [
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_e74bf1d3",
+      "obs_onion_mirror_9a1cbb1a"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_DISC_04",
+    "category": "ONION_SERVICE_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Dread Forum",
+      "HugBunter"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_7de04556",
+      "obs_onion_mirror_9e58af6d"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_DISC_05",
+    "category": "ONION_SERVICE_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Sandworm",
+      "GRU Unit 74455"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_6aa7f999",
+      "obs_onion_mirror_0e146546"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_DISC_06",
+    "category": "ONION_SERVICE_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Lazarus Group",
+      "Andiel Escrow"
+    ],
+    "actual_entities_and_relationships": [
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_6d27068f",
+      "obs_onion_mirror_06c067f3"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_DISC_07",
+    "category": "ONION_SERVICE_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Freedom of the Press Foundation",
+      "SecureDrop"
+    ],
+    "actual_entities_and_relationships": [
+      "International Transparency SecureDrop",
+      "International Transparency SecureDrop"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_b972a1f5",
+      "obs_onion_mirror_1e167ab2"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRCH_01",
+    "category": "ONION_SEARCH",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Apex Technologies Group Inc",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "actual_entities_and_relationships": [
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_1f481758",
+      "obs_onion_crawl_ca6259e2",
+      "obs_onion_mirror_45bedccd"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRCH_02",
+    "category": "ONION_SEARCH",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Meridian Aerospace Corp",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_26ee41b7",
+      "obs_onion_crawl_cf4ddc4f",
+      "obs_onion_mirror_05310847"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRCH_03",
+    "category": "ONION_SEARCH",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Cobalt Mirage",
+      "Dread darknet discussion forum"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_d92c85ff",
+      "obs_onion_crawl_f11f547e",
+      "obs_onion_mirror_570d31ac"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRCH_04",
+    "category": "ONION_SEARCH",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Orion Defense Systems Ltd",
+      "Orion Defense Leak Archive Cache"
+    ],
+    "actual_entities_and_relationships": [
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_a3dcef89",
+      "obs_onion_crawl_18978a0d",
+      "obs_onion_mirror_0d7fe375"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRCH_05",
+    "category": "ONION_SEARCH",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Altai Energy Resources",
+      "Altai Shadow Holding Corporate Portal"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_1182ac13",
+      "obs_onion_crawl_25f9db31",
+      "obs_onion_mirror_594631f5"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRCH_06",
+    "category": "ONION_SEARCH",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "CL0P Syndicate"
+    ],
+    "actual_entities_and_relationships": [
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_86a5f45c",
+      "obs_onion_crawl_d478c958",
+      "obs_onion_mirror_f969235e"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRCH_07",
+    "category": "ONION_SEARCH",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Lazarus Group",
+      "Andiel Escrow"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_eb26bebd",
+      "obs_onion_crawl_53c04c95",
+      "obs_onion_mirror_20de48ee"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRAWL_01",
+    "category": "ONION_CRAWLING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_ed1e69f3",
+      "obs_onion_mirror_1fe081b1"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRAWL_02",
+    "category": "ONION_CRAWLING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_8813c417",
+      "obs_onion_mirror_f37a2b2f"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRAWL_03",
+    "category": "ONION_CRAWLING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Dread Forum"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_2c3c0436",
+      "obs_onion_mirror_2d4b7102"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRAWL_04",
+    "category": "ONION_CRAWLING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "CL0P Syndicate"
+    ],
+    "actual_entities_and_relationships": [
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_e030faec",
+      "obs_onion_mirror_3a08b31b"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRAWL_05",
+    "category": "ONION_CRAWLING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Altai Shadow Holding"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_9223c2cf",
+      "obs_onion_mirror_b230cd96"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRAWL_06",
+    "category": "ONION_CRAWLING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Lazarus Group Escrow"
+    ],
+    "actual_entities_and_relationships": [
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_de482ae0",
+      "obs_onion_mirror_c5982203"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRAWL_07",
+    "category": "ONION_CRAWLING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Orion Defense Systems Ltd"
+    ],
+    "actual_entities_and_relationships": [
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_d24f6009",
+      "obs_onion_mirror_dc2f55bf"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ENT_01",
+    "category": "ENTITY_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_c3b8471a",
+      "obs_onion_mirror_77e23d87"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ENT_02",
+    "category": "ENTITY_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkFxbANsAnJYPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_20c57c96",
+      "obs_onion_mirror_6471bb7b"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ENT_03",
+    "category": "ENTITY_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "HugBunter"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_3bc140ce",
+      "obs_onion_mirror_ed31bf86"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ENT_04",
+    "category": "ENTITY_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "lockbitsupp@exploit.im"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_b5e0f765",
+      "obs_onion_mirror_8bd01162"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ENT_05",
+    "category": "ENTITY_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_0ff4f4a9",
+      "obs_onion_mirror_9c2dad7e"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ENT_06",
+    "category": "ENTITY_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Lazarus Group"
+    ],
+    "actual_entities_and_relationships": [
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_f328ef6a",
+      "obs_onion_mirror_1bacfebf"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ENT_07",
+    "category": "ENTITY_DISCOVERY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Freedom of the Press Foundation"
+    ],
+    "actual_entities_and_relationships": [
+      "International Transparency SecureDrop",
+      "International Transparency SecureDrop"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_6db0aabc",
+      "obs_onion_mirror_43d5543a"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RES_01",
+    "category": "ENTITY_RESOLUTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Dmitry Khoroshev",
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_10f01eaf",
+      "obs_onion_crawl_13d9b748",
+      "obs_onion_mirror_4566f24b"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RES_02",
+    "category": "ENTITY_RESOLUTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "HugBunter",
+      "Dread Forum"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_85771bba",
+      "obs_onion_crawl_bec03a33",
+      "obs_onion_mirror_8912b687"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RES_03",
+    "category": "ENTITY_RESOLUTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group",
+      "BlackCat",
+      "DarkSide",
+      "Noberus"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_84b7ca0c",
+      "obs_onion_crawl_1aed07a7",
+      "obs_onion_mirror_5b8a19f2"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RES_04",
+    "category": "ENTITY_RESOLUTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Sandworm",
+      "GRU Unit 74455"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_ffb3bb4f",
+      "obs_onion_crawl_146e064f",
+      "obs_onion_mirror_ce1eb31e"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RES_05",
+    "category": "ENTITY_RESOLUTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Andiel Escrow",
+      "Lazarus Group"
+    ],
+    "actual_entities_and_relationships": [
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_73ca100f",
+      "obs_onion_crawl_5fbd8e8c",
+      "obs_onion_mirror_a4f9117a"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RES_06",
+    "category": "ENTITY_RESOLUTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Altai Shadow Holding",
+      "Altai Energy Resources Dubai LLC"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_3a01dc18",
+      "obs_onion_crawl_f9598a17",
+      "obs_onion_mirror_4eb5928a"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RES_07",
+    "category": "ENTITY_RESOLUTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp Phishing Clone"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV Phishing Replica (Adversarial Decoy)",
+      "ALPHV Phishing Replica (Adversarial Decoy)"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_e0698074",
+      "obs_onion_mirror_08c6a009"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CONTRADICTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_TEMP_01",
+    "category": "TEMPORAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_24ba0842",
+      "obs_onion_mirror_7f5c74f5"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_TEMP_02",
+    "category": "TEMPORAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_005f4274",
+      "obs_onion_mirror_4fd5dd82"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_TEMP_03",
+    "category": "TEMPORAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "CL0P Syndicate"
+    ],
+    "actual_entities_and_relationships": [
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_79224eee",
+      "obs_onion_mirror_84339783"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_TEMP_04",
+    "category": "TEMPORAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Dread Forum"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_ea73d54e",
+      "obs_onion_mirror_0009dadc"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_TEMP_05",
+    "category": "TEMPORAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Apex Technologies Group",
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_fbd94465",
+      "obs_onion_crawl_ad4534d0",
+      "obs_onion_mirror_fd0e40a9"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_TEMP_06",
+    "category": "TEMPORAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Sandworm"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_b8dd8f6c",
+      "obs_onion_mirror_d639ba29"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_TEMP_07",
+    "category": "TEMPORAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Orion Defense Systems Ltd"
+    ],
+    "actual_entities_and_relationships": [
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_d79a529e",
+      "obs_onion_mirror_447495f0"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CONT_01",
+    "category": "CONTRADICTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp",
+      "LockBit Supp Phishing Clone"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_98bb6cb9",
+      "obs_onion_crawl_263d966f",
+      "obs_onion_mirror_ccf56145"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CONTRADICTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CONT_02",
+    "category": "CONTRADICTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Apex Technologies Group",
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_13cf570d",
+      "obs_onion_crawl_5bf9fbf9",
+      "obs_onion_mirror_5ce23b24"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CONTRADICTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CONT_03",
+    "category": "CONTRADICTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Altai Shadow Holding"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_7041a365",
+      "obs_onion_crawl_d1d7e6ac",
+      "obs_onion_mirror_c0e4e5b3"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CONTRADICTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CONT_04",
+    "category": "CONTRADICTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Dread Forum"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_feacb246",
+      "obs_onion_crawl_7503477d",
+      "obs_onion_mirror_a2482c9b"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CONT_05",
+    "category": "CONTRADICTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Andiel Escrow",
+      "Lazarus Group"
+    ],
+    "actual_entities_and_relationships": [
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_6aa878f4",
+      "obs_onion_crawl_ae46b6aa",
+      "obs_onion_mirror_6b5ce2f7"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CONTRADICTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CONT_06",
+    "category": "CONTRADICTION",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_1e630b3f",
+      "obs_onion_crawl_fc13d345",
+      "obs_onion_mirror_2ad6b83c"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CONTRADICTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_HOP_01",
+    "category": "MULTI_HOP",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Apex Technologies Group Inc",
+      "ALPHV Group",
+      "Apex Global Holdings Ltd"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_c80fc5e9",
+      "obs_onion_crawl_08b01a27",
+      "obs_onion_mirror_e37e49bc"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "FAIL",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "EXTERNAL_CLEARNET_REGISTRY_REQUIRED",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: FAIL; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_HOP_02",
+    "category": "MULTI_HOP",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group",
+      "Dmitry Khoroshev"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_4d74b999",
+      "obs_onion_mirror_dbadf405"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_HOP_03",
+    "category": "MULTI_HOP",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "HugBunter",
+      "Dread Forum"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_b7c63b36",
+      "obs_onion_crawl_4147d4a5",
+      "obs_onion_mirror_875f60ee"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "INFERRED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_HOP_04",
+    "category": "MULTI_HOP",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Sandworm",
+      "GRU Unit 74455",
+      "AS12389 Rostelecom"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_61d0693b",
+      "obs_onion_mirror_2230812f"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_HOP_05",
+    "category": "MULTI_HOP",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Altai Shadow Holding",
+      "Volga Spirit",
+      "Altai Energy Resources"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_888aa019",
+      "obs_onion_mirror_2d45ed86"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_HOP_06",
+    "category": "MULTI_HOP",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Orion Defense Systems Ltd",
+      "HK Tech Horizon Ltd"
+    ],
+    "actual_entities_and_relationships": [
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_254d0d26",
+      "obs_onion_mirror_720484a2"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_HOP_07",
+    "category": "MULTI_HOP",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Lazarus Group",
+      "Andiel Escrow"
+    ],
+    "actual_entities_and_relationships": [
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_c6e2713e",
+      "obs_onion_mirror_d180978d"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_NF_01",
+    "category": "NOT_FOUND",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_89e28b87",
+      "obs_onion_crawl_11faad0f",
+      "obs_onion_mirror_15c827c2"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "NOT_FOUND",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_NF_02",
+    "category": "NOT_FOUND",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_1749d314",
+      "obs_onion_crawl_6beb6749",
+      "obs_onion_mirror_fbd608b5"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "NOT_FOUND",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_NF_03",
+    "category": "NOT_FOUND",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "CORRECT_ABSENCE"
+    ],
+    "evidence_references": [
+      "PROV_NOT_FOUND_ASSERTION"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "NOT_FOUND",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_NF_04",
+    "category": "NOT_FOUND",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_d26a77ae",
+      "obs_onion_crawl_71f9cccd",
+      "obs_onion_mirror_1050224c"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "NOT_FOUND",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_NF_05",
+    "category": "NOT_FOUND",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_b5766e7a",
+      "obs_onion_crawl_c5f7a402",
+      "obs_onion_mirror_74b273f9"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "NOT_FOUND",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_NF_06",
+    "category": "NOT_FOUND",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "International Transparency SecureDrop",
+      "International Transparency SecureDrop",
+      "International Transparency SecureDrop"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_aff068d8",
+      "obs_onion_crawl_5b4812dc",
+      "obs_onion_mirror_492f703a"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "NOT_FOUND",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_UNK_01",
+    "category": "UNKNOWN",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "x_crypto_ghost_99"
+    ],
+    "actual_entities_and_relationships": [],
+    "evidence_references": [],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "UNKNOWN",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_UNK_02",
+    "category": "UNKNOWN",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Zephyr Logistics",
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_a2060257",
+      "obs_onion_crawl_5727498c",
+      "obs_onion_mirror_1528aabc"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "UNKNOWN",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_UNK_03",
+    "category": "UNKNOWN",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_da90e3d2",
+      "obs_onion_crawl_f3e3e035",
+      "obs_onion_mirror_87daa974"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "UNKNOWN",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_UNK_04",
+    "category": "UNKNOWN",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "International Transparency SecureDrop",
+      "International Transparency SecureDrop",
+      "International Transparency SecureDrop"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_32caecd1",
+      "obs_onion_crawl_e5da8929",
+      "obs_onion_mirror_e1668400"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "UNKNOWN",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_UNK_05",
+    "category": "UNKNOWN",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "0xVoid"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_d29a6b28",
+      "obs_onion_crawl_8485d9ee",
+      "obs_onion_mirror_cc4e8416"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "UNKNOWN",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_UNK_06",
+    "category": "UNKNOWN",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_2d57aad1",
+      "obs_onion_crawl_bcd8c195",
+      "obs_onion_mirror_1cee0639"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "UNKNOWN",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_EVG_01",
+    "category": "EVIDENCE_GROUNDING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_30e42ea8",
+      "obs_onion_mirror_9d4c1321"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_EVG_02",
+    "category": "EVIDENCE_GROUNDING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Meridian Aerospace Corp",
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_fc1b720d",
+      "obs_onion_crawl_ae5175a6",
+      "obs_onion_mirror_069611b9"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_EVG_03",
+    "category": "EVIDENCE_GROUNDING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "HugBunter"
+    ],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_2a3fb20c",
+      "obs_onion_mirror_4c715fe1"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_EVG_04",
+    "category": "EVIDENCE_GROUNDING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_8528a6ad",
+      "obs_onion_mirror_774ca6b9"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_EVG_05",
+    "category": "EVIDENCE_GROUNDING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Altai Shadow Holding"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_825c86ad",
+      "obs_onion_mirror_aa1a3301"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_EVG_06",
+    "category": "EVIDENCE_GROUNDING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Orion Defense Systems Ltd"
+    ],
+    "actual_entities_and_relationships": [
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_f71b665d",
+      "obs_onion_mirror_fe04b24d"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRC_01",
+    "category": "SOURCE_QUALITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_fc63d931",
+      "obs_onion_mirror_27a15ae3"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRC_02",
+    "category": "SOURCE_QUALITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp Phishing Clone"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV Phishing Replica (Adversarial Decoy)",
+      "ALPHV Phishing Replica (Adversarial Decoy)"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_f853173d",
+      "obs_onion_mirror_48aa8f58"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CONTRADICTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRC_03",
+    "category": "SOURCE_QUALITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Federal Bureau of Investigation",
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_4592f9f1",
+      "obs_onion_crawl_10094283",
+      "obs_onion_mirror_8a8bf31c"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRC_04",
+    "category": "SOURCE_QUALITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Freedom of the Press Foundation"
+    ],
+    "actual_entities_and_relationships": [
+      "International Transparency SecureDrop",
+      "International Transparency SecureDrop",
+      "International Transparency SecureDrop"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_d41e0c7a",
+      "obs_onion_crawl_52ee85bf",
+      "obs_onion_mirror_e98a5a95"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "UNVERIFIED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRC_05",
+    "category": "SOURCE_QUALITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_af328287",
+      "obs_onion_crawl_256a8847",
+      "obs_onion_mirror_8d70e166"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SRC_06",
+    "category": "SOURCE_QUALITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Sandworm"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_8735092a",
+      "obs_onion_mirror_95f06095"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ADV_01",
+    "category": "ADVERSARIAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Apex Technologies Group Inc"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_b9965baf",
+      "obs_onion_mirror_0083da6d"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ADV_02",
+    "category": "ADVERSARIAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_cfd77218",
+      "obs_onion_mirror_ea4b91ff"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ADV_03",
+    "category": "ADVERSARIAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "CL0P Syndicate"
+    ],
+    "actual_entities_and_relationships": [
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_11e7573f",
+      "obs_onion_mirror_a1260b33"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ADV_04",
+    "category": "ADVERSARIAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Altai Shadow Holding"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_7c396ce2",
+      "obs_onion_mirror_21e5c2ae"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ADV_05",
+    "category": "ADVERSARIAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Lazarus Group"
+    ],
+    "actual_entities_and_relationships": [
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_a6f52ace",
+      "obs_onion_mirror_2fc2a875"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_ADV_06",
+    "category": "ADVERSARIAL",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum",
+      "Dread Community & OSINT Forum"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_78019935",
+      "obs_onion_crawl_c1c4c27d",
+      "obs_onion_mirror_60ba2d69"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CONTRADICTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RT_01",
+    "category": "ROUTING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_3bf109cd",
+      "obs_onion_crawl_f2be911a",
+      "obs_onion_mirror_9af5bfed"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RT_02",
+    "category": "ROUTING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_aca19426",
+      "obs_onion_mirror_70d8bfad"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_RT_03",
+    "category": "ROUTING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Apex Technologies Group Inc"
+    ],
+    "actual_entities_and_relationships": [
+      "CORRECT_ABSENCE"
+    ],
+    "evidence_references": [
+      "PROV_NOT_FOUND_ASSERTION"
+    ],
+    "evidence_provenance": "Incumbent Clearnet Pipeline",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": false,
+    "specialist_output_consumed": false,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: False. Contribution: NONE (Correctly bypassed on negative/decoy)"
+  },
+  {
+    "task_id": "ONION_RT_04",
+    "category": "ROUTING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Tor Protocol"
+    ],
+    "actual_entities_and_relationships": [
+      "CORRECT_ABSENCE"
+    ],
+    "evidence_references": [
+      "PROV_NOT_FOUND_ASSERTION"
+    ],
+    "evidence_provenance": "Incumbent Clearnet Pipeline",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": false,
+    "specialist_output_consumed": false,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: PASS. Invocation: False. Contribution: NONE (Correctly bypassed on negative/decoy)"
+  },
+  {
+    "task_id": "ONION_RT_05",
+    "category": "ROUTING",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Lazarus Group"
+    ],
+    "actual_entities_and_relationships": [
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow",
+      "Lazarus OTC Crypto Escrow"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_f1178279",
+      "obs_onion_crawl_c1341436",
+      "obs_onion_mirror_4618dbf6"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRS_01",
+    "category": "CROSS_SPECIALIST",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Apex Technologies Group Inc",
+      "ALPHV Group",
+      "Marcus Vance"
+    ],
+    "actual_entities_and_relationships": [
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache",
+      "Orion Strategic Technologies Leaked Cache"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_ca271251",
+      "obs_onion_crawl_a02be346",
+      "obs_onion_mirror_a4564331"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "FAIL",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "EXTERNAL_CLEARNET_REGISTRY_REQUIRED",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: FAIL; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRS_02",
+    "category": "CROSS_SPECIALIST",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp",
+      "Dmitry Khoroshev"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_bb9abf5c",
+      "obs_onion_mirror_41d82ce9"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "FAIL",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "EXTERNAL_CLEARNET_REGISTRY_REQUIRED",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: FAIL; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRS_03",
+    "category": "CROSS_SPECIALIST",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Sandworm",
+      "AS12389 Rostelecom"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_4ca2fa05",
+      "obs_onion_mirror_eeb66545"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "FAIL",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "EXTERNAL_CLEARNET_REGISTRY_REQUIRED",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: FAIL; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRS_04",
+    "category": "CROSS_SPECIALIST",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "HugBunter",
+      "Dread Forum"
+    ],
+    "actual_entities_and_relationships": [
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay",
+      "Sandworm Unit 74455 Hidden Relay"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_250f490f",
+      "obs_onion_crawl_f7658a02",
+      "obs_onion_mirror_40eb67c3"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "CORROBORATED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_CRS_05",
+    "category": "CROSS_SPECIALIST",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Sovcomflot"
+    ],
+    "actual_entities_and_relationships": [
+      "CORRECT_ABSENCE"
+    ],
+    "evidence_references": [
+      "PROV_NOT_FOUND_ASSERTION"
+    ],
+    "evidence_provenance": "Incumbent Clearnet Pipeline",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": false,
+    "specialist_output_consumed": false,
+    "baseline_outcome": "PASS",
+    "standalone_outcome": "FAIL",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "PASS",
+    "failure_category": "NONE",
+    "grader_result_and_explanation": "Argus Baseline: PASS; Candidate Standalone: FAIL; Integrated: PASS; Candidate Disabled: PASS. Invocation: False. Contribution: NONE (Correctly bypassed on negative/decoy)"
+  },
+  {
+    "task_id": "ONION_SEC_01",
+    "category": "SECURITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "LockBit Supp"
+    ],
+    "actual_entities_and_relationships": [
+      "LockBit 3.0 Extortion & Affiliate Portal",
+      "LockBit 3.0 Extortion & Affiliate Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_b2998e06",
+      "obs_onion_mirror_a11df07c"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SEC_02",
+    "category": "SECURITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_svc_4401cc3e",
+      "obs_onion_crawl_fc19b417",
+      "obs_onion_mirror_e866c5e5"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SEC_03",
+    "category": "SECURITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "ALPHV Group"
+    ],
+    "actual_entities_and_relationships": [
+      "ALPHV / BlackCat Data Leak Portal",
+      "ALPHV / BlackCat Data Leak Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_a27783fa",
+      "obs_onion_mirror_b7a1efa3"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SEC_04",
+    "category": "SECURITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "CL0P Syndicate"
+    ],
+    "actual_entities_and_relationships": [
+      "CL0P MOVEit Transfer Leak Repository",
+      "CL0P MOVEit Transfer Leak Repository"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_4625e9a6",
+      "obs_onion_mirror_4379f3d4"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  },
+  {
+    "task_id": "ONION_SEC_05",
+    "category": "SECURITY",
+    "required_capability": "onion_intelligence",
+    "expected_entities_and_relationships": [
+      "Altai Shadow Holding"
+    ],
+    "actual_entities_and_relationships": [
+      "Altai Resources Offshore Confidential Portal",
+      "Altai Resources Offshore Confidential Portal"
+    ],
+    "evidence_references": [
+      "obs_onion_crawl_a551dc53",
+      "obs_onion_mirror_ee824765"
+    ],
+    "evidence_provenance": "Tor SOCKS5 Hidden Service Circuit",
+    "evidence_correctness": 1.0,
+    "epistemic_status": "SUPPORTED",
+    "specialist_invocation": true,
+    "specialist_output_consumed": true,
+    "baseline_outcome": "FAIL",
+    "standalone_outcome": "PASS",
+    "integrated_outcome": "PASS",
+    "candidate_disabled_outcome": "FAIL",
+    "failure_category": "LACKS_ONION_SOCKS5_ACQUISITION",
+    "grader_result_and_explanation": "Argus Baseline: FAIL; Candidate Standalone: PASS; Integrated: PASS; Candidate Disabled: FAIL. Invocation: True. Contribution: Onion Intelligence verified observations + multi-specialist synthesis"
+  }
+]

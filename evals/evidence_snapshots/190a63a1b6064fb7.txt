@@ -1,0 +1,5 @@
+URL: https://events19.linuxfoundation.org/speakers/linus-torvalds/
+TITLE: Linus Torvalds - Linux Foundation Events
+DATE: 2026-10-13T05:38:51.388775+00:00
+
+Nov 7, 2017 · Linus was born on December 28, 1969 in Helsinki, Finland. He enrolled at the University of Helsinki in 1988, graduating with a master’s degree in computer science.

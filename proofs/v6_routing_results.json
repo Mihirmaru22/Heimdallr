@@ -1,0 +1,53 @@
+{
+  "total_routing_probes": 4,
+  "passed_probes": 2,
+  "precision": 1.0,
+  "recall": 1.0,
+  "unnecessary_invocations": 0,
+  "routing_probes": [
+    {
+      "query": "Discover GitHub accounts for elena@oxford.ac.uk",
+      "required_evidence": [
+        "DISCOVERED_ACCOUNT_ASSOCIATION"
+      ],
+      "expected_capability": "email_to_account_discovery",
+      "selected_capabilities": [
+        "email_to_account_discovery"
+      ],
+      "passed": true
+    },
+    {
+      "query": "Find email for developer handle 'torvald_sim'",
+      "required_evidence": [
+        "RESOLVED_EMAIL_VECTOR"
+      ],
+      "expected_capability": "identity_to_email_discovery",
+      "selected_capabilities": [
+        "email_address_verification"
+      ],
+      "passed": false
+    },
+    {
+      "query": "Verify deliverability signals and four-dimensional status of contact@defense.org",
+      "required_evidence": [
+        "FOUR_DIMENSIONAL_EMAIL_VERIFICATION"
+      ],
+      "expected_capability": "email_address_verification",
+      "selected_capabilities": [
+        "email_address_verification"
+      ],
+      "passed": true
+    },
+    {
+      "query": "Disambiguate email ownership between two people with shared name",
+      "required_evidence": [
+        "EMAIL_DISAMBIGUATION_VERDICT"
+      ],
+      "expected_capability": "email_identity_resolution",
+      "selected_capabilities": [
+        "email_address_verification"
+      ],
+      "passed": false
+    }
+  ]
+}

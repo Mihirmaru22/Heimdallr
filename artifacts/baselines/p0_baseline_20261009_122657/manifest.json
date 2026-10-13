@@ -1,0 +1,1602 @@
+{
+  "run_id": "p0_baseline_20261009_122657",
+  "utc_timestamp": "2026-10-09T12:27:17.488289+00:00",
+  "git_commit": "56c62b5008219f558c89a79c34cd1bf5ec0f4d79",
+  "git_branch": "experiment/challenger-recruitment",
+  "working_tree_clean": false,
+  "dirty_files_count": 388,
+  "dirty_files": [
+    {
+      "status": "M",
+      "path": "gitignore"
+    },
+    {
+      "status": "D",
+      "path": ".python-version"
+    },
+    {
+      "status": "M",
+      "path": "README.md"
+    },
+    {
+      "status": "D",
+      "path": "data/objective.md"
+    },
+    {
+      "status": "D",
+      "path": "data/purpose.md"
+    },
+    {
+      "status": "D",
+      "path": "\"plan/phase 0.md\""
+    },
+    {
+      "status": "D",
+      "path": "plan/plan.md"
+    },
+    {
+      "status": "M",
+      "path": "pyproject.toml"
+    },
+    {
+      "status": "M",
+      "path": "src/argus/__init__.py"
+    },
+    {
+      "status": "M",
+      "path": "src/argus/domain/objective.py"
+    },
+    {
+      "status": "M",
+      "path": "src/argus/domain/task.py"
+    },
+    {
+      "status": "M",
+      "path": "src/argus/evals/cli.py"
+    },
+    {
+      "status": "M",
+      "path": "src/argus/evals/vertical_runner.py"
+    },
+    {
+      "status": "M",
+      "path": "uv.lock"
+    },
+    {
+      "status": "??",
+      "path": "EVAL_V2_VALIDATION_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "argus_project.zip"
+    },
+    {
+      "status": "??",
+      "path": "artifacts/"
+    },
+    {
+      "status": "??",
+      "path": "dashboard/"
+    },
+    {
+      "status": "??",
+      "path": "data/benchmark_runner.log"
+    },
+    {
+      "status": "??",
+      "path": "data/benchmark_runner.pid"
+    },
+    {
+      "status": "??",
+      "path": "data/crawlee_storage/"
+    },
+    {
+      "status": "??",
+      "path": "data/dashboard_server.log"
+    },
+    {
+      "status": "??",
+      "path": "data/dashboard_server.pid"
+    },
+    {
+      "status": "??",
+      "path": "data/db_viewer.html"
+    },
+    {
+      "status": "??",
+      "path": "data/evals/baseline_v1_core.json"
+    },
+    {
+      "status": "??",
+      "path": "data/evals/baseline_v1_core_scorecard.md"
+    },
+    {
+      "status": "??",
+      "path": "data/evals/v2/"
+    },
+    {
+      "status": "??",
+      "path": "data/evals/vertical_corporate_tasks.json"
+    },
+    {
+      "status": "??",
+      "path": "data/evals/vertical_infrastructure_tasks.json"
+    },
+    {
+      "status": "??",
+      "path": "data/exports/"
+    },
+    {
+      "status": "??",
+      "path": "data/free_model_benchmarks.json"
+    },
+    {
+      "status": "??",
+      "path": "docs/ARCHITECTURE_AND_DEPENDENCY_MAP.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/CAPABILITY_MATCH_V2_VALIDATION_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/CAPABILITY_REGISTRY_ARCHITECTURE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/CAPABILITY_REGISTRY_DESIGN.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/ENGINEERING_AUDIT_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVALUATION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_INVESTIGATION_V1_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_V2_1_EXECUTION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_V2_1_FAILURE_ANALYSIS.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_V2_1_GO_NO_GO.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_V2_CORPUS_QUALITY_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_V2_CORPUS_VALIDATION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_V2_GENUINE_EXECUTION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_V2_ROUTING_VALIDATION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/EVAL_V2_VALIDATION_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/FAILURE_MODE_CATALOG.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/FREE_MODEL_LEADERBOARD.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/HEIMDALLR_EVAL_V2_BASELINE_1_0.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/HEIMDALLR_FAILURE_DRIVEN_ENGINEERING.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/HEIMDALLR_V2_FAILURE_ANALYSIS.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/HEIMDALLR_V2_GO_NO_GO.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/HEIMDALLR_V2_REAL_EVAL_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/INTERFACE_COMPATIBILITY_MATRIX.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/INVESTIGATION_ENGINE_ARCHITECTURE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/INVESTIGATION_ENGINE_DESIGN.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/LLM_CAPACITY_AND_INDUSTRY_ESTIMATION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/PERFORMANCE_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/PHASE_0_GUIDE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/PHASE_1_GUIDE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/PHASE_2_GUIDE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/PHASE_3_GUIDE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/PHASE_4_GUIDE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/PHASE_5_GUIDE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/PHASE_6_GUIDE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/REMEDIATION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/ROOT_CAUSE_SOLUTIONS.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/SECURITY_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/US_AUTOMOTIVE_DEEP_DOSSIER.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/US_AUTOMOTIVE_RESEARCH_DOSSIER.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_1_CAPABILITY_INPUT_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_1_CAPABILITY_MATCH_V2_LEAKAGE_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_1_CAPABILITY_MATCH_V2_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_1_CAPABILITY_REGISTRY_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_1_LEAKAGE_KNOCKOUT_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_1_REGRESSION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_1_CANDIDATE_ATTRIBUTION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_1_FINAL_VALIDATION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_1_REMEDIATION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_1_ROUTING_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_1_SECURITY_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_1_VALIDATION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_RECRUITMENT_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_SYSTEM_LEAKAGE_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V3_2_SYSTEM_VALIDATION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_1_1_BENCHMARK_REPRODUCTION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_1_1_CAPABILITY_GAP_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_1_1_FINAL_DECISION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_1_1_ROUTING_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_1_1_SECURITY_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_1_1_SOURCE_AUDIT_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_2_BENCHMARK_DESIGN.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_2_BENCHMARK_REPRODUCTION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_2_CAPABILITY_BOUNDARY.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_2_CAPABILITY_GAP_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_2_FINAL_DECISION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_2_SECURITY_AND_LICENSE_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_2_SOURCE_AND_LEAKAGE_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_BENCHMARK_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_CANDIDATE_ATTRIBUTION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_CANDIDATE_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_CAPABILITY_SPEC.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_COMPETITION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_CROSS_SPECIALIST_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_EVIDENCE_INTEGRITY_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_FINAL_DECISION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_FINAL_VALIDATION_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_LEAKAGE_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_ROUTING_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_SECURITY_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V5_VERTICAL_SELECTION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V6_ARCHITECTURE_DECISION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V6_BENCHMARK_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V6_CANDIDATE_LANDSCAPE.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V6_CAPABILITY_MATRIX.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V6_COMBINATION_EXPERIMENT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V6_FINAL_RECRUITMENT_REPORT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/V6_LICENSE_AND_SECURITY_AUDIT.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/VERTICAL_4_SELECTION.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/cleanroom_identity_report.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/corporate_specialist_audit.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/eval_v2_report.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/infrastructure_specialist_audit.md"
+    },
+    {
+      "status": "??",
+      "path": "docs/investigation_state_schema.md"
+    },
+    {
+      "status": "??",
+      "path": "eval_v2_audit_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/candidate_performance_profile.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v1_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v1_task_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v2_knockout_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v2_leakage_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v2_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v2_stability.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v2_task_deltas.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v2_task_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v2_trajectories.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/capability_match_v2_trajectory_samples.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/cleanroom_comparison_report.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/cleanroom_integrated.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/cleanroom_specialist_standalone.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/corporate_argus_baseline.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/corporate_comparison_report.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/corporate_integrated.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/corporate_routing_report.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/corporate_specialist_standalone.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/infrastructure_argus_baseline.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/infrastructure_comparison_report.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/infrastructure_integrated.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/infrastructure_routing_report.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/infrastructure_specialist_standalone.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/investigation_v1_failure_analysis.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/investigation_v1_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/investigation_v1_stability.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/investigation_v1_task_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/license_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/reproducibility_metadata.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/security_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/specialist_competition_ablation.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/specialist_competition_benchmark.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/specialist_competition_leakage_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/specialist_competition_regressions.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/specialist_competition_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/specialist_competition_stability.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/specialist_competition_trajectories.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v2/"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_ablation.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_attribution.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_cross_specialist.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_final_scorecard.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_leakage_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_regressions.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_routing.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_sanctions_benchmark.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_scorecard.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_security.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_stability.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_1_trajectories.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_ablation.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_candidate_attribution.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_capability_match_comparison.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_eval_v2_comparison.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_investigation_comparison.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_leakage_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_regressions.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_routing_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_security_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_stability.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_system_scorecard.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v3_2_trajectories.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_blindness_tests.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_candidate_attribution.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_capability_gap.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_final_scorecard.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_four_way_comparison.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_leakage_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_regressions.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_routing.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_security.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_source_manifest.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_stability.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_1_1_task_level_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_capability_gap_metrics.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_causal_attribution.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_corpus_manifest.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_final_scorecard.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_four_way_comparison.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_leakage_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_license_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_raw_task_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_regression_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_routing_metrics.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_security_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_source_manifest.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_stability_results.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_2_task_definitions.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_ablation.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_candidate_attribution.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_capability_benchmark.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_competition.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_cross_specialist.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_evidence_integrity.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_final_scorecard.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_leakage_audit.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_regressions.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_routing.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_security.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_stability.json"
+    },
+    {
+      "status": "??",
+      "path": "evals/results/v5_trajectories.json"
+    },
+    {
+      "status": "??",
+      "path": "proofs/"
+    },
+    {
+      "status": "??",
+      "path": "round_4_eval_results.json"
+    },
+    {
+      "status": "??",
+      "path": "scratch/"
+    },
+    {
+      "status": "??",
+      "path": "scripts/audit_eval_v2.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/benchmark_free_models.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/generate_dossier_from_db.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/generate_v2_trajectory_samples.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/ingest_teamcenter_investigation.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/measure_stability.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_deliverables.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_p0.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_v3_2.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_v3_2_1.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_v5.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_v5_1_1.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_v5_2.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_v5_2_last.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/pack_v6.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/reproduce_performance_dedup.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_capability_match_benchmark.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_capability_match_v2.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_cleanroom_audit.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_corporate_audit.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_eval_e2e.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_heimdallr_v2_real_eval.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_infrastructure_audit.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_p0_baseline.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_us_automotive_category1.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_us_automotive_deep.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v2_1_validation.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v3_1_leakage_knockout.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v3_2_1_validation.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v3_2_recruitment.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v3_2_system_validation.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v5_1_1_audit.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v5_2_validation.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v5_recruitment_validation.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/run_v6_validation.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/validate_eval_v2_corpus.py"
+    },
+    {
+      "status": "??",
+      "path": "scripts/view_db.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/brain/__init__.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/brain/adaptive_budget.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/brain/models.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/brain/prompts.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/brain/system1.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/capabilities/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/capability_registry/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/competition/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/contact/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/core/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/crawler/__init__.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/crawler/engine.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/crawler/extractor.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/crawler/fetcher.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/crawler/mock.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/crawler/models.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/domain/__init__.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/domain/canonicalizer.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/domain/claim.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/domain/entity.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/domain/event.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/domain/evidence.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/domain/jurisdiction_graph.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/domain/stage.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/__init__.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/__main__.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/baseline/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/benchmark.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/capability_match_v2/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/capability_routing_onion_v1/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/capability_routing_sanctions_v1/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/corporate_corpus.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/corporate_runner.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/corpus.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/cross_specialist_onion_v1/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/cross_specialist_v1/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/email_intelligence_v6/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/fixtures/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/graders.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/infrastructure_corpus.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/infrastructure_runner.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/metrics.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/models.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/onion_capability_gap_v2/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/onion_specialist_v1/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/report.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/sanctions_specialist_v1/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/security_onion_v1/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/security_v1/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/specialist_competition/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/trajectory.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/evals/v2/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/investigation/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/llm/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/__init__.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/duckduckgo.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/fourchan.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/google_news.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/hybrid.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/linkedin.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/mock.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/models.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/provider.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/search/searxng.py"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/specialists/corporate/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/specialists/email/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/specialists/identity/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/specialists/infrastructure/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/specialists/onion/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/specialists/sanctions/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/storage/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/utils/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/verifier/"
+    },
+    {
+      "status": "??",
+      "path": "src/argus/worker/"
+    },
+    {
+      "status": "??",
+      "path": "storage/"
+    },
+    {
+      "status": "??",
+      "path": "tests/__init__.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/capability_registry/"
+    },
+    {
+      "status": "??",
+      "path": "tests/evals/"
+    },
+    {
+      "status": "??",
+      "path": "tests/fixtures/"
+    },
+    {
+      "status": "??",
+      "path": "tests/investigation/"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_baseline_infrastructure.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_benchmark_isolation.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_canonicalizer.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_cleanroom_identity_adversarial.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_cleanroom_identity_specialist.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_contact.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_corporate_adversarial.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_corporate_specialist.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_corporate_temporal.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_crawler.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_crawler_execution.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_document_intelligence.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_email_capability_integration.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_email_specialist.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_engineering_audit_regressions.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_entity_merge_semantics.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_epistemic_correctness.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_eval_v2_evaluator_guard.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_eval_v2_graders.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_eval_v2_holdout.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_eval_v2_regression.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_eval_v2_routing.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_eval_v2_schema.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_evaluation_harness.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_failure_driven_upgrades.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_infrastructure_adversarial.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_infrastructure_specialist.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_infrastructure_temporal.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_knowledge_models.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_objective.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_onion_specialist.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_orchestrator.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_search.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_social_scraper_audit.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_specialist_competition.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_state_machine.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_storage.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_system1.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_task.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_verifier.py"
+    },
+    {
+      "status": "??",
+      "path": "tests/test_worker.py"
+    }
+  ],
+  "python_version": "3.12.3",
+  "operating_system": "Linux",
+  "architecture": "x86_64",
+  "dependency_manifest": {
+    "pyproject_sha256": "c985a4fdc4f67a2609a350d1decbf270ecfbe85062d01622e4a2a4fef3994706",
+    "uv_lock_sha256": "6845cc86c16c09ea947af32ca8329f1a3b82dc930d35a11e625ad548a01af6fa"
+  },
+  "evaluation_suites": [
+    "heimdallr_v2_frozen_benchmark",
+    "pytest_regression_suite"
+  ],
+  "dataset_identifiers": {
+    "heimdallr_v2_tasks": {
+      "path": "data/evals/v2/benchmark_tasks.json",
+      "sha256": "ce4438d8445a5732c84faa84fb0fe9bc6ee836240d4b6d85c1fced3b592f0604"
+    },
+    "argus_v1_core": {
+      "path": "data/evals/baseline_v1_core.json",
+      "sha256": "d509f3c05da4fce97956a8827a77fc1cc31389db0c8f0fbdcde5cc2f07a6ffbf"
+    }
+  },
+  "configuration_fingerprint": {
+    "model_provider": "deterministic_eval_offline",
+    "llm_api_online": false,
+    "search_api_online": false,
+    "crawler_network_online": false,
+    "isolation_guard": "GroundTruthAccessGuard"
+  },
+  "model_provider_identifiers": {
+    "llm_provider": "deterministic_eval_offline",
+    "status": "OFFLINE_FROZEN_CORPUS"
+  },
+  "execution_mode": "offline_frozen",
+  "run_status": "COMPLETED",
+  "metadata": {
+    "isolation_verified": true,
+    "repeat_agreement_rate": 1.0,
+    "unit_tests_passed": 445,
+    "unit_tests_total": 445
+  }
+}

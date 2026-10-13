@@ -1,0 +1,30 @@
+{
+  "static_audit": {
+    "files_audited": [
+      "/data/shared/project/PlayGround/Argus/src/argus/capability_registry/matcher.py",
+      "/data/shared/project/PlayGround/Argus/src/argus/competition/implementation_selector.py",
+      "/data/shared/project/PlayGround/Argus/src/argus/investigation/orchestrator.py",
+      "/data/shared/project/PlayGround/Argus/src/argus/investigation/planner.py",
+      "/data/shared/project/PlayGround/Argus/src/argus/specialists/sanctions/adapter.py",
+      "/data/shared/project/PlayGround/Argus/src/argus/specialists/sanctions/specialist.py"
+    ],
+    "forbidden_terms_scanned": [
+      "expected_capabilities",
+      "expected_winner",
+      "candidate_expected",
+      "TaskExpectedOutput",
+      "task_specific_branching"
+    ],
+    "violations_found": 0,
+    "violation_details": [],
+    "passed": true
+  },
+  "runtime_audit": {
+    "ground_truth_guard_active": true,
+    "evaluator_ground_truth_isolated": true,
+    "unauthorized_access_raises_exception": true,
+    "leakage_rate": 0.0,
+    "passed": true
+  },
+  "verdict": "LEAKAGE_AUDIT_PASS"
+}

@@ -1,0 +1,5 @@
+URL: https://en.wikipedia.org/wiki/GitHub
+TITLE: GitHub - Wikipedia
+DATE: 2026-10-13T06:37:56.837595+00:00
+
+GitHub, headquartered in San Francisco, is operated by GitHub, Inc., a subsidiary of Microsoft since 2018. [10] It is commonly used to host open source software development projects. [11] .

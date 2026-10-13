@@ -1,0 +1,24 @@
+{
+  "unique_key": "https://media.ford.com/content/fordmedia/fna/us/en/news/2024/01/ford-corporate-overview.html",
+  "url": "https://media.ford.com/content/fordmedia/fna/us/en/news/2024/01/ford-corporate-overview.html",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "request_id": "req_c728c766",
+    "objective_id": "obj_eval_struct_02_dearborn_truck",
+    "research_task_id": "tsk_9a72f55f",
+    "task_id": "tsk_9a72f55f",
+    "priority": 7,
+    "depth": 0,
+    "force_browser": false,
+    "max_retries": 2,
+    "retry_count": 0,
+    "metadata": {},
+    "created_at": "2026-10-07T06:47:54.555811+00:00"
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-10-07 06:47:54.573079+00:00"
+}

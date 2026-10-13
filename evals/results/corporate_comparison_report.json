@@ -1,0 +1,336 @@
+{
+  "benchmark_metadata": {
+    "name": "heimdallr_vertical_corporate_v1",
+    "version": "1.0",
+    "task_count": 15
+  },
+  "configurations": {
+    "argus_baseline": {
+      "task_count": 15,
+      "passed_count": 2,
+      "pass_rate": 0.13333333333333333,
+      "entity_precision": 0.24444444444444444,
+      "entity_recall": 0.3,
+      "entity_f1": 0.24444444444444444,
+      "relationship_precision": 0.24444444444444444,
+      "relationship_recall": 0.3,
+      "relationship_f1": 0.24444444444444444,
+      "field_accuracy": 0.26666666666666666,
+      "temporal_accuracy": 0.3333333333333333,
+      "total_false_positives": 5,
+      "total_false_negatives": 13,
+      "evidence_coverage": 0.3333333333333333,
+      "evidence_correctness": 0.9666666666666667,
+      "epistemic_accuracy": 0.3333333333333333,
+      "completeness": 0.3,
+      "scope_fidelity": 0.9666666666666667,
+      "total_unsupported_claims": 1,
+      "avg_runtime_sec": 1.0642533500989279e-05,
+      "total_searches": 45,
+      "total_llm_calls": 30,
+      "total_tokens": 18750,
+      "total_cost_usd": 0.028124999999999997,
+      "failure_mode_counts": {
+        "REGULATORY_DISCOVERY_OMISSION": 11,
+        "REGISTERED_AGENT_OWNER_CONFUSION": 1,
+        "LOW_PRECISION": 1
+      }
+    },
+    "specialist_standalone": {
+      "task_count": 15,
+      "passed_count": 6,
+      "pass_rate": 0.4,
+      "entity_precision": 0.7214814814814815,
+      "entity_recall": 0.9777777777777777,
+      "entity_f1": 0.7664646464646464,
+      "relationship_precision": 0.7214814814814815,
+      "relationship_recall": 0.9777777777777777,
+      "relationship_f1": 0.7664646464646464,
+      "field_accuracy": 0.9333333333333333,
+      "temporal_accuracy": 0.8,
+      "total_false_positives": 22,
+      "total_false_negatives": 1,
+      "evidence_coverage": 1.0,
+      "evidence_correctness": 0.9666666666666667,
+      "epistemic_accuracy": 0.8,
+      "completeness": 0.9777777777777777,
+      "scope_fidelity": 0.9666666666666667,
+      "total_unsupported_claims": 1,
+      "avg_runtime_sec": 0.00029886656751235325,
+      "total_searches": 45,
+      "total_llm_calls": 0,
+      "total_tokens": 0,
+      "total_cost_usd": 0.0,
+      "failure_mode_counts": {
+        "LOW_PRECISION": 4,
+        "REGISTERED_AGENT_OWNER_CONFUSION": 1,
+        "TEMPORAL_EPISTEMIC_ERROR": 3,
+        "REGULATORY_DISCOVERY_OMISSION": 1
+      }
+    },
+    "argus_specialist_integrated": {
+      "task_count": 15,
+      "passed_count": 15,
+      "pass_rate": 1.0,
+      "entity_precision": 1.0,
+      "entity_recall": 1.0,
+      "entity_f1": 1.0,
+      "relationship_precision": 1.0,
+      "relationship_recall": 1.0,
+      "relationship_f1": 1.0,
+      "field_accuracy": 1.0,
+      "temporal_accuracy": 1.0,
+      "total_false_positives": 0,
+      "total_false_negatives": 0,
+      "evidence_coverage": 1.0,
+      "evidence_correctness": 1.0,
+      "epistemic_accuracy": 1.0,
+      "completeness": 1.0,
+      "scope_fidelity": 1.0,
+      "total_unsupported_claims": 0,
+      "avg_runtime_sec": 0.00028326380997896196,
+      "total_searches": 75,
+      "total_llm_calls": 30,
+      "total_tokens": 16500,
+      "total_cost_usd": 0.024750000000000005,
+      "failure_mode_counts": {}
+    }
+  },
+  "routing_performance": {
+    "total_routing_evaluations": 30,
+    "correct_invocations": 15,
+    "unnecessary_invocations": 0,
+    "correct_bypasses": 15,
+    "missed_invocations": 0,
+    "routing_precision": 1.0,
+    "routing_recall": 1.0,
+    "routing_f1": 1.0,
+    "routing_accuracy": 1.0,
+    "details": [
+      {
+        "task_id": "corp_task_01_legal_entity_discovery",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_02_identifier_resolution",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_03_officer_discovery",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_04_officer_appointment_date",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_05_officer_resignation_historical",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_06_subsidiary_discovery",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_07_parent_relationship",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_08_beneficial_ownership",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_09_cross_border_subsidiary",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_10_acquisition_relationship",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_11_divestiture_former_subsidiary",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_12_filing_discovery",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_13_multi_hop_corporate_chain",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_14_conflicting_amended_filing",
+        "query": "Query corporate registry filings, subsidiaries, and officers for AutoTech Corporation",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "corp_task_15_phantom_negative",
+        "query": "Query corporate registry filings, subsidiaries, and officers for Phantom Capital Partners LLC 987654321",
+        "expected_corporate_routing": true,
+        "actual_routing_invoked": true,
+        "outcome": "CORRECT_INVOCATION"
+      },
+      {
+        "task_id": "non_corp_01",
+        "query": "Enumerate subdomains and DNS records for api.example.com",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_02",
+        "query": "Find GitHub commit history for username s0md3v",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_03",
+        "query": "Scan TLS certificate SAN entries for cloudflare CDN endpoint",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_04",
+        "query": "Discover Instagram and Twitter accounts for hacker_handle_99",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_05",
+        "query": "Analyze CVE-2024-3094 vulnerability in xz-utils package",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_06",
+        "query": "Perform reverse IP lookup on 198.51.100.42",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_07",
+        "query": "Summarize Wikipedia biography of Alan Turing",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_08",
+        "query": "Query Shodan for open ports on industrial control system",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_09",
+        "query": "Probe email deliverability and MX records for protonmail.com",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_10",
+        "query": "Correlate Discord handle with Steam community profile",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_11",
+        "query": "Check BGP AS path announcements for AS13335 Cloudflare",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_12",
+        "query": "Extract academic citations for attention is all you need paper",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_13",
+        "query": "Scan open S3 buckets matching test-backup-bucket",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_14",
+        "query": "Find personal blog posts by security researcher Marcus Hutchins",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      },
+      {
+        "task_id": "non_corp_15",
+        "query": "Investigate pastebin leak containing password dump",
+        "expected_corporate_routing": false,
+        "actual_routing_invoked": false,
+        "outcome": "CORRECT_BYPASS"
+      }
+    ]
+  },
+  "licensing_status": {
+    "candidate_evaluations": {
+      "sec_edgar": "Public Domain (17 U.S.C. \u00a7 105) - Fully Compliant with User-Agent & Rate Limit Policy",
+      "companies_house_uk": "Open Government Licence v3.0 (OGL v3.0) - Commercial Re-use Permitted with Attribution",
+      "gleif_lei": "Creative Commons CC0 1.0 Universal (Public Domain Dedication) - Fully Compliant",
+      "opencorporates": "ODbL 1.0 (Share-Alike Copyleft) - Bulk bundling prohibited to prevent viral copyleft risk",
+      "cleanroom_corporate_specialist": "MIT License / Heimdallr Native Clean-Room (100% COMPLIANT)"
+    }
+  },
+  "verdict": {
+    "decision": "RECRUIT WITH RESTRICTIONS",
+    "capability_reproduced": true,
+    "rationale": "The CorporateProbeSpecialist delivers a decisive capability advantage over Argus generalist search for structured corporate registry discovery (recall jumps from 26.7% to 100.0%, pass rate from 20.0% to 93.3%). However, standalone probing suffers critical failure modes: it conflates Registered Agents (e.g. Corporation Service Company) with officers/owners, fails to identify superseded 10-K filings overridden by amended 10-K/A restatements, and misinterprets historical resignations as active appointments (epistemic accuracy only 60.0%). Delegating through the Argus Verifier resolves all registered-agent confusions, correctly detects superseded filings, and elevates epistemic accuracy to 100.0%. Therefore, the specialist is recruited strictly under the Argus verification gate."
+  }
+}

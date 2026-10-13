@@ -1,0 +1,16 @@
+{
+  "tests_before": 387,
+  "tests_after": 387,
+  "failures_before": 0,
+  "failures_after": 0,
+  "new_failures": 0,
+  "unexplained_regressions": 0,
+  "benchmark_regressions": {
+    "eval_v1_regressions": 0,
+    "eval_v2_regressions": 0,
+    "investigation_v1_regressions": 0,
+    "capability_match_v2_regressions": 0,
+    "specialist_competition_regressions": 0
+  },
+  "verdict": "ZERO_REGRESSIONS"
+}

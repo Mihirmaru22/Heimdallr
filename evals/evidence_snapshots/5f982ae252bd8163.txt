@@ -1,0 +1,5 @@
+URL: https://www.linuxnest.com/linus-torvalds-the-man-who-changed-the-world/
+TITLE: Linus Torvalds: The Creator of Linux and Open-Source Icon
+DATE: 2026-10-13T05:38:59.077101+00:00
+
+Dec 2, 2023 · Linus Torvalds’ creation of Linux and his advocacy for open-source principles have irrevocably shaped modern technology. His work demonstrates the power of collaborative innovation, leaving a legacy that continues to drive the evolution of software and inspire developers worldwide.

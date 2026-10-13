@@ -1,0 +1,5 @@
+URL: https://arxiv.org/pdf/2411.01503v7
+TITLE: A Highly Scalable LLM Clusters with Optical Interconnect
+DATE: 2026-10-13T05:41:26.172208+00:00
+
+Jun 16, 2025 · In this paper, we propose Cross Wiring, a new physical topology design that resolves both limitations. Our physical topology guarantees full compatibility with all logical topologies under L2-compatibility constraints.

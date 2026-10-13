@@ -18,6 +18,13 @@ from argus.evals.runner import ArgusEvalRunner
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "v2":
+        from argus.evals.v2.cli import handle_v2_cli
+        handle_v2_cli(sys.argv[2:])
+        return
+    elif len(sys.argv) > 1 and sys.argv[1] == "v1":
+        sys.argv.pop(1)
+
     parser = argparse.ArgumentParser(
         prog="argus.evals",
         description="Argus Evaluation Harness CLI",

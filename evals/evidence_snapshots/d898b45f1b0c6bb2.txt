@@ -1,0 +1,5 @@
+URL: https://en.wikipedia.org/wiki/Launch_and_commissioning_of_the_James_Webb_Space_Telescope
+TITLE: Launch and commissioning of the James Webb Space Telescope
+DATE: 2026-10-13T06:38:38.545724+00:00
+
+Structural deployment timeline [23] The James Webb Space Telescope was released from the rocket upper stage 27 minutes after a flawless launch. [1][14] Starting 31 minutes after launch, and continuing for about 13 days, JWST began the process of deploying its solar array, antenna, sunshield, and mirrors. [27] Nearly all deployment actions are commanded by the Space Telescope Science Institute ...

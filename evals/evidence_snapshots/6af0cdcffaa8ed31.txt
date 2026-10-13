@@ -1,0 +1,5 @@
+URL: https://pdg.lbl.gov/2026/reviews/rpp2026-rev-higgs-boson.pdf
+TITLE: 11. Status of Higgs Boson Physics
+DATE: 2026-10-13T05:39:11.926726+00:00
+
+Jun 1, 2026 · Besides considering the inclusive Higgs boson production cross section at the LHC, it is crucial to study differential distributions in order to probe the properties of the Higgs boson in regions that could be particularly sensitive to new physics effects.

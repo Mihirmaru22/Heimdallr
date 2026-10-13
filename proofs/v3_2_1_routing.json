@@ -1,0 +1,1077 @@
+{
+  "suite_name": "CAPABILITY_ROUTING_SANCTIONS_V1",
+  "total_tasks": 70,
+  "positive_tasks_count": 35,
+  "negative_tasks_count": 35,
+  "sanctions_routing_metrics": {
+    "true_positives": 35,
+    "true_negatives": 35,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "invocation_precision": 1.0,
+    "invocation_recall": 1.0,
+    "invocation_f1": 1.0,
+    "false_positive_invocation_rate": 0.0,
+    "missed_invocation_rate": 0.0
+  },
+  "overall_system_routing_metrics": {
+    "minimum_capability_set_accuracy": 0.8143,
+    "unnecessary_specialist_calls": 13,
+    "capability_tax": 0.1857,
+    "routing_regret": 0.0,
+    "implementation_selection_accuracy": 1.0
+  },
+  "leakage_guard_verified": true,
+  "tasks": [
+    {
+      "task_id": "route_pos_01",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_02",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_03",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_04",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_05",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_06",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_07",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_08",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_09",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_10",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_11",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_12",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_13",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_14",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_15",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_16",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_17",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_18",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_19",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_20",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_21",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_22",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_23",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_24",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_25",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_26",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_27",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_28",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_29",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_30",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_31",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_32",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_33",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_34",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_pos_35",
+      "is_sanctions_positive": true,
+      "matched_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "selected_implementations": {
+        "sanctions_and_beneficial_ownership": "impl_opensanctions_probe_v1"
+      },
+      "expected_capabilities": [
+        "sanctions_and_beneficial_ownership"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_01",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "selected_implementations": {
+        "corporate_registry_intelligence": "impl_corporate_registry_specialist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_02",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "selected_implementations": {
+        "corporate_registry_intelligence": "impl_corporate_registry_specialist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_03",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_04",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "selected_implementations": {
+        "corporate_registry_intelligence": "impl_corporate_registry_specialist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_05",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "selected_implementations": {
+        "corporate_registry_intelligence": "impl_corporate_registry_specialist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_06",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_07",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "selected_implementations": {
+        "corporate_registry_intelligence": "impl_corporate_registry_specialist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_08",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "identity_resolution"
+      ],
+      "selected_implementations": {
+        "identity_resolution": "impl_identity_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_09",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "selected_implementations": {
+        "corporate_registry_intelligence": "impl_corporate_registry_specialist_v1"
+      },
+      "expected_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_10",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "selected_implementations": {
+        "infrastructure_discovery": "impl_infrastructure_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_11",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "selected_implementations": {
+        "infrastructure_discovery": "impl_infrastructure_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_12",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "selected_implementations": {
+        "infrastructure_discovery": "impl_infrastructure_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_13",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "selected_implementations": {
+        "infrastructure_discovery": "impl_infrastructure_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_14",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "selected_implementations": {
+        "infrastructure_discovery": "impl_infrastructure_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_15",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "selected_implementations": {
+        "infrastructure_discovery": "impl_infrastructure_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_16",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "selected_implementations": {
+        "infrastructure_discovery": "impl_infrastructure_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_17",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "selected_implementations": {
+        "infrastructure_discovery": "impl_infrastructure_probe_specialist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_18",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "infrastructure_discovery"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_19",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_20",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_21",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_22",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_23",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_24",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_25",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_26",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "corporate_registry_intelligence"
+      ],
+      "selected_implementations": {
+        "corporate_registry_intelligence": "impl_corporate_registry_specialist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_27",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "identity_resolution"
+      ],
+      "minimum_set_correct": false,
+      "unnecessary_calls": 1
+    },
+    {
+      "task_id": "route_neg_28",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "general_web_research"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_29",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "general_web_research"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_30",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "general_web_research"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_31",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "general_web_research"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_32",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "general_web_research"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_33",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "general_web_research"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_34",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "general_web_research"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    },
+    {
+      "task_id": "route_neg_35",
+      "is_sanctions_positive": false,
+      "matched_capabilities": [
+        "general_web_research"
+      ],
+      "selected_implementations": {
+        "general_web_research": "impl_argus_generalist_v1"
+      },
+      "expected_capabilities": [
+        "general_web_research"
+      ],
+      "minimum_set_correct": true,
+      "unnecessary_calls": 0
+    }
+  ]
+}

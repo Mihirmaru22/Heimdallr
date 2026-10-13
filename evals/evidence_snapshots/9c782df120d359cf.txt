@@ -1,0 +1,5 @@
+URL: https://www.opensanctions.org/api/
+TITLE: Screening API service – OpenSanctions
+DATE: 2026-10-13T05:38:25.465167+00:00
+
+The API lets you easily integrate OpenSanctions into your workflow. You can search the database and conduct batch screening to identify people or companies that are included on a sanctions list or linked to politically exposed persons (PEPs). Usage is paid from prepaid credit bundles.

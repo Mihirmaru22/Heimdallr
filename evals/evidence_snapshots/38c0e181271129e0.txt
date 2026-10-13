@@ -1,0 +1,5 @@
+URL: https://nssdc.gsfc.nasa.gov/planetary/lunar/apollo11info.html
+TITLE: Apollo 11 - NSSDCA
+DATE: 2026-10-13T05:35:19.599127+00:00
+
+Apollo 11 Launched: 16 July 1969 UT 13:32:00 (09:32:00 a.m. EDT) Landed on Moon: 20 July 1969 UT 20:17:40 (04:17:40 p.m. EDT) Landing Site: Mare Tranquillitatis - Sea of Tranquility (0.67 N, 23.47 E) Returned to Earth: 24 July 1969 UT 16:50:35 (12:50:35 p.m. EDT) Neil A. Armstrong, commander Michael Collins, command module pilot

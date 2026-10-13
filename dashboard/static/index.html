@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Argus Observatory // Free Model Telemetry Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="radar-pulse"></div>
+        <div>
+          <div class="brand-title">ARGUS OBSERVATORY</div>
+          <div class="brand-sub">FREE MODEL RELIABILITY & BURST TELEMETRY</div>
+        </div>
+      </div>
+
+      <div class="nav-controls">
+        <div class="status-chip daemon-chip" id="daemonChip">
+          <span class="dot"></span>
+          <span class="label">RUNNER ACTIVE</span>
+        </div>
+        <div class="status-chip round-chip" id="roundChip">
+          ROUND <span id="roundCounter">1 / 5</span>
+        </div>
+        <div class="countdown-chip" id="countdownChip">
+          <span class="dim">NEXT ROUND:</span>
+          <span id="countdownTimer">CALCULATING...</span>
+        </div>
+        <button class="btn-action" id="refreshBtn" title="Refresh Telemetry">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/></svg>
+          <span>Refresh</span>
+        </button>
+        <div class="auto-toggle">
+          <label class="switch">
+            <input type="checkbox" id="autoRefreshToggle" checked>
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-label">Auto-Poll (4s)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- KPI Metric Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card" id="cardHealth">
+        <div class="kpi-header">
+          <span class="kpi-label">FLEET HEALTH RATE</span>
+          <span class="kpi-badge emerald">LIVE</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="kpiSuccessRate">--%</div>
+          <div class="kpi-sub" id="kpiSuccessRatio">-- / -- calls passed</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill emerald" id="barHealth" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="kpi-card" id="cardBurst">
+        <div class="kpi-header">
+          <span class="kpi-label">BURST SURVIVABILITY</span>
+          <span class="kpi-badge cyan">CALL 2</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="kpiBurstRate">--%</div>
+          <div class="kpi-sub" id="kpiBurstRatio">-- / -- models survived burst</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill cyan" id="barBurst" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="kpi-card" id="cardLatency">
+        <div class="kpi-header">
+          <span class="kpi-label">MEAN LATENCY</span>
+          <span class="kpi-badge amber">HEALTHY POOL</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="kpiAvgLatency">--s</div>
+          <div class="kpi-sub" id="kpiLatencyRange">Min: --s | Max: --s</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill amber" id="barLatency" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="kpi-card" id="cardBetrayal">
+        <div class="kpi-header">
+          <span class="kpi-label">BETRAYAL DETECTED</span>
+          <span class="kpi-badge crimson">FAILURES</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value text-crimson" id="kpiFailedModels">--</div>
+          <div class="kpi-sub" id="kpiFailureBreakdown">429: -- | 400: -- | Schema: --</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill crimson" id="barBetrayal" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="kpi-card" id="cardQuota">
+        <div class="kpi-header">
+          <span class="kpi-label">DAILY FREE QUOTA</span>
+          <span class="kpi-badge purple">OPENROUTER</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="kpiQuotaRemaining">1,000</div>
+          <div class="kpi-sub" id="kpiQuotaUsed">-- used across 5 rounds</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill purple" id="barQuota" style="width: 0%"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Charts & Analytics Section -->
+    <section class="analytics-grid">
+      <!-- Latency & Model Performance Visualizer -->
+      <div class="panel chart-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <div class="panel-title">Model Latency & Burst Profile</div>
+            <div class="panel-desc">Comparison of Call 1 (Normal) vs Call 2 (Burst) per model</div>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot green"></span>&lt; 5s (Optimal)</span>
+            <span class="legend-item"><span class="legend-dot amber"></span>5–15s (Acceptable)</span>
+            <span class="legend-item"><span class="legend-dot red"></span>Error / 429</span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="latencyChart" width="800" height="230"></canvas>
+        </div>
+      </div>
+
+      <!-- Verdict Classification Pie/Breakdown -->
+      <div class="panel breakdown-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <div class="panel-title">Reliability Classification</div>
+            <div class="panel-desc">Argus Autonomous Suitability Distribution</div>
+          </div>
+        </div>
+        <div class="breakdown-list" id="breakdownList">
+          <div class="breakdown-row green">
+            <div class="breakdown-info">
+              <span class="tag-dot green"></span>
+              <span class="tag-name">Rock Solid (Passes Burst)</span>
+            </div>
+            <div class="breakdown-metric" id="countRockSolid">--</div>
+          </div>
+          <div class="breakdown-row yellow">
+            <div class="breakdown-info">
+              <span class="tag-dot yellow"></span>
+              <span class="tag-name">Viable (Passes Call 1 Only)</span>
+            </div>
+            <div class="breakdown-metric" id="countViable">--</div>
+          </div>
+          <div class="breakdown-row orange">
+            <div class="breakdown-info">
+              <span class="tag-dot orange"></span>
+              <span class="tag-name">Format Incompatible (400)</span>
+            </div>
+            <div class="breakdown-metric" id="countFormatErr">--</div>
+          </div>
+          <div class="breakdown-row red">
+            <div class="breakdown-info">
+              <span class="tag-dot red"></span>
+              <span class="tag-name">Saturated Betrayal (429)</span>
+            </div>
+            <div class="breakdown-metric" id="countSaturated">--</div>
+          </div>
+        </div>
+        <div class="recommendation-box" id="recommendationBox">
+          <div class="rec-title">🎯 Optimal Argus Configuration</div>
+          <div class="rec-body" id="recBody">Analyzing telemetry stream...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Telemetry Matrix Table -->
+    <section class="panel table-panel">
+      <div class="panel-header table-controls">
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-filter="all">All Models (<span id="tabCountAll">0</span>)</button>
+          <button class="tab-btn" data-filter="rock-solid">🟢 Rock Solid (<span id="tabCountRock">0</span>)</button>
+          <button class="tab-btn" data-filter="viable">🟡 Viable (<span id="tabCountViable">0</span>)</button>
+          <button class="tab-btn" data-filter="betrayal">🔴 Betrayal Risk (<span id="tabCountBetrayal">0</span>)</button>
+        </div>
+
+        <div class="table-search-group">
+          <div class="search-wrap">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="modelSearch" placeholder="Filter model name...">
+          </div>
+          <select id="sortBy" class="select-sort">
+            <option value="success">Sort: Win Rate (High to Low)</option>
+            <option value="latency">Sort: Latency (Fast to Slow)</option>
+            <option value="burst">Sort: Burst Rate</option>
+            <option value="name">Sort: Model Name</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="telemetry-table">
+          <thead>
+            <tr>
+              <th style="width: 280px">Model Identifier</th>
+              <th>Call 1 (Normal)</th>
+              <th>Call 2 (Burst)</th>
+              <th>Schema Parsing</th>
+              <th>Win Rate</th>
+              <th>Status / Verdict</th>
+              <th>Argus Role</th>
+            </tr>
+          </thead>
+          <tbody id="telemetryTbody">
+            <tr>
+              <td colspan="7" class="loading-state">
+                <div class="spinner"></div>
+                <span>Syncing live telemetry from benchmark daemon...</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Live Execution Logs Stream -->
+    <section class="panel logs-panel">
+      <div class="panel-header">
+        <div class="panel-title-group">
+          <div class="panel-title">Daemon Execution Stream (data/benchmark_runner.log)</div>
+          <div class="panel-desc">Real-time telemetry output from active benchmark process</div>
+        </div>
+        <div class="log-actions">
+          <span class="log-indicator live" id="logIndicator"></span>
+          <span class="log-label">STREAMING</span>
+        </div>
+      </div>
+      <div class="terminal-body" id="logTerminal">
+        <div class="log-line text-muted">Awaiting daemon log buffer...</div>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <div>Argus Autonomous Research Engine // Observatory v1.0.0</div>
+      <div id="footerTimestamp">Telemetry polling active</div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

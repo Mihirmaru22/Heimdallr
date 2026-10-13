@@ -1,0 +1,18 @@
+{
+  "causal_test_criterion": "PRE_V3_2: FAIL, POST_V3_2: PASS, WITHOUT_CANDIDATE: FAIL",
+  "candidate_marginal_deltas": {
+    "pass_rate_marginal_delta": 0.0,
+    "passed_tasks_marginal_delta": 0,
+    "entity_f1_marginal_delta": 0.0,
+    "evidence_correctness_marginal_delta": 0.0,
+    "cost_marginal_delta_usd": 0.0,
+    "runtime_marginal_delta_sec": -0.0003
+  },
+  "attribution_summary": {
+    "fixed_by_candidate_count": 0,
+    "regressed_by_candidate_count": 0,
+    "unchanged_count": 124,
+    "total_tasks": 129,
+    "zero_regressions_verified": true
+  }
+}

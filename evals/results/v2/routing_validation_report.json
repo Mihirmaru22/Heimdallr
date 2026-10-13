@@ -1,0 +1,1478 @@
+{
+  "benchmark_name": "heimdallr_eval_v2_semantic_routing_100",
+  "total_cases_evaluated": 100,
+  "correct_routing_decisions": 92,
+  "routing_accuracy": 0.92,
+  "total_unnecessary_invocations": 3,
+  "total_missed_invocations": 6,
+  "unnecessary_invocation_rate": 0.03,
+  "missed_invocation_rate": 0.06,
+  "details": [
+    {
+      "case_id": "route_none_01",
+      "category": "NONE",
+      "prompt": "Summarize the mathematical proof of the Poincar\u00e9 conjecture.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_02",
+      "category": "NONE",
+      "prompt": "Explain the mechanism of CRISPR-Cas9 in genome editing.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_03",
+      "category": "NONE",
+      "prompt": "Review peer-reviewed literature on quantum entanglement and Bell inequalities.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_04",
+      "category": "NONE",
+      "prompt": "What are the thermodynamic principles governing black hole radiation?",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_05",
+      "category": "NONE",
+      "prompt": "Provide an overview of the French Revolution's economic causes.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_06",
+      "category": "NONE",
+      "prompt": "Explain how photosynthesis converts light energy into chemical energy.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_07",
+      "category": "NONE",
+      "prompt": "Summarize Einstein's general theory of relativity and space-time curvature.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_08",
+      "category": "NONE",
+      "prompt": "What is the role of mitochondria in cellular respiration?",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_09",
+      "category": "NONE",
+      "prompt": "Outline the philosophical distinctions between utilitarianism and deontology.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_10",
+      "category": "NONE",
+      "prompt": "Explain the synthesis of organic polymers in industrial chemistry.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_11",
+      "category": "NONE",
+      "prompt": "Summarize academic findings on dark matter distribution in spiral galaxies.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_12",
+      "category": "NONE",
+      "prompt": "How do neurons transmit action potentials across chemical synapses?",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_13",
+      "category": "NONE",
+      "prompt": "Explain the plate tectonics model of continental drift.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_14",
+      "category": "NONE",
+      "prompt": "Review peer-reviewed studies on medieval agricultural crop rotation.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_15",
+      "category": "NONE",
+      "prompt": "What is the mathematical formulation of Fourier transforms?",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_16",
+      "category": "NONE",
+      "prompt": "Explain the biochemical pathways of glycogenolysis in hepatocytes.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_17",
+      "category": "NONE",
+      "prompt": "Summarize historical treaty obligations of the Peace of Westphalia.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_18",
+      "category": "NONE",
+      "prompt": "How do atmospheric greenhouse gases absorb infrared radiation?",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_19",
+      "category": "NONE",
+      "prompt": "Explain the principles of non-Euclidean hyperbolic geometry.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_none_20",
+      "category": "NONE",
+      "prompt": "Review scientific consensus on deep-sea hydrothermal vent ecosystems.",
+      "expected": [
+        "none"
+      ],
+      "invoked": [
+        "none"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_01",
+      "category": "CORPORATE",
+      "prompt": "Determine the legal entity, jurisdiction of registration, officers and historical appointments of Company X.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_02",
+      "category": "CORPORATE",
+      "prompt": "Extract Exhibit 21 subsidiaries disclosed in the latest Form 10-K for the parent enterprise.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_03",
+      "category": "CORPORATE",
+      "prompt": "Identify the primary corporate registrant, CIK number, and LEI code in public statutory records.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_04",
+      "category": "CORPORATE",
+      "prompt": "Who was appointed Chief Financial Officer following the annual general meeting?",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_05",
+      "category": "CORPORATE",
+      "prompt": "Resolve the entity boundary and jurisdiction for the European holding company.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_06",
+      "category": "CORPORATE",
+      "prompt": "Verify whether Corporation Y filed an amended Form 10-K/A correcting executive officer tenure.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_07",
+      "category": "CORPORATE",
+      "prompt": "Determine the ultimate beneficial owners and majority shareholders of the target firm.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_08",
+      "category": "CORPORATE",
+      "prompt": "Trace the corporate lineage and parent-subsidiary structure for the aerospace conglomerate.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_09",
+      "category": "CORPORATE",
+      "prompt": "Extract the DEF 14A executive compensation table for the managing directors.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_10",
+      "category": "CORPORATE",
+      "prompt": "Was the Company Secretary an active director on the target historical anchor date?",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_11",
+      "category": "CORPORATE",
+      "prompt": "Confirm whether the business entity is registered in Delaware or the United Kingdom.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_12",
+      "category": "CORPORATE",
+      "prompt": "Review the statutory commercial register for active corporate filings and charters.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_13",
+      "category": "CORPORATE",
+      "prompt": "Determine the legal entity structure of the joint venture consortium vehicle.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_14",
+      "category": "CORPORATE",
+      "prompt": "Who served as Interim Chief Executive Officer after the founder's resignation?",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_15",
+      "category": "CORPORATE",
+      "prompt": "Extract the list of direct and indirect operating subsidiaries from regulatory filings.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_16",
+      "category": "CORPORATE",
+      "prompt": "Verify the commercial register entry number and legal standing of the UK holding company.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_17",
+      "category": "CORPORATE",
+      "prompt": "Identify the corporate officers listed in the latest annual report disclosure.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_18",
+      "category": "CORPORATE",
+      "prompt": "Did the corporation complete the acquisition of the manufacturing subsidiary?",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_19",
+      "category": "CORPORATE",
+      "prompt": "Reconcile contradictory regulatory filings regarding executive management appointments.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_corp_20",
+      "category": "CORPORATE",
+      "prompt": "Inspect Companies House statutory filings for director appointment dates and resignations.",
+      "expected": [
+        "corporate"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_01",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Enumerate internet-facing assets associated with Company X and determine infrastructure relationships.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_02",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Extract Subject Alternative Name (SAN) domains from Certificate Transparency logs for the domain.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_03",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Determine the authoritative nameservers and mail exchangers (MX records) for the corporate perimeter.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_04",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Enumerate all subdomains and IP address allocations for the target network block.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_05",
+      "category": "INFRASTRUCTURE",
+      "prompt": "What Autonomous System Number (ASN) and BGP prefix routes the host server?",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_06",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Identify whether the domain uses Let's Encrypt or DigiCert SSL/TLS certificates.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_07",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Detect lookalike phishing domains using punycode or homoglyph character substitutions.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_08",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Map the external network perimeter and reverse DNS pointers (PTR records) for the servers.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_09",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Extract crt.sh certificate transparency logs for all wildcard subdomains.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_10",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Enumerate MX records, SPF policies, and DMARC configurations for the enterprise mailhost.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_11",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Inspect the WHOIS registration record for registrar details and creation timestamps.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_12",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Determine which IP addresses host the corporate customer portal and API gateways.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_13",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Identify internet infrastructure nodes resolving to dedicated autonomous systems.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_14",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Scan public DNS zones to discover staging and development subdomains.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_15",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Analyze TLS certificate validity dates and issuer information across the server farm.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_16",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Identify Cloudflare or AWS Route53 DNS hosting delegation for the network perimeter.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_17",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Map the external CIDR IP ranges and autonomous system peerings of the organization.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_18",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Detect potential homoglyph domain impersonations registered through privacy services.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_19",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Extract Subject CN and SAN entries from recently issued X.509 server certificates.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_infra_20",
+      "category": "INFRASTRUCTURE",
+      "prompt": "Determine the IP address routing and autonomous system attribution for the corporate domain.",
+      "expected": [
+        "infrastructure"
+      ],
+      "invoked": [
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_01",
+      "category": "IDENTITY",
+      "prompt": "Determine whether developer handle X is associated with the executive identified as Y.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_02",
+      "category": "IDENTITY",
+      "prompt": "Probe candidate platform accounts across developer communities for target username persona_1.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_03",
+      "category": "IDENTITY",
+      "prompt": "Map public profiles across GitHub, Keybase, and LinkedIn for the technical director.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_04",
+      "category": "IDENTITY",
+      "prompt": "Correlate the PGP key fingerprint and commit author email with the online alias.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_05",
+      "category": "IDENTITY",
+      "prompt": "Identify open-source repositories and code contributions authored by the system architect.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_06",
+      "category": "IDENTITY",
+      "prompt": "Verify if the Keybase identity proof connects the Twitter handle to the developer account.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_07",
+      "category": "IDENTITY",
+      "prompt": "Investigate the digital footprint and online personas of the technical founder.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_08",
+      "category": "IDENTITY",
+      "prompt": "Determine which developer platforms show active commit history for user handle dev_lead.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_09",
+      "category": "IDENTITY",
+      "prompt": "Cross-reference public LinkedIn employment records with GitHub repository ownership.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_10",
+      "category": "IDENTITY",
+      "prompt": "Probe public developer handles to determine cross-platform identity correlation.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_11",
+      "category": "IDENTITY",
+      "prompt": "Extract bio, avatar, and PGP key signatures for the pseudonym across developer hubs.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_12",
+      "category": "IDENTITY",
+      "prompt": "Determine whether the online handle corresponds to the corporate technology director.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_13",
+      "category": "IDENTITY",
+      "prompt": "Investigate candidate social and code repository profiles for the pseudonymous contributor.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_14",
+      "category": "IDENTITY",
+      "prompt": "Correlate developer email addresses found in Git commit logs with social accounts.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_15",
+      "category": "IDENTITY",
+      "prompt": "Identify the Keybase cryptographic proof chain for the target technical leader.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_16",
+      "category": "IDENTITY",
+      "prompt": "Determine platform presence on GitHub, GitLab, and developer forums for the handle.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_17",
+      "category": "IDENTITY",
+      "prompt": "Trace the online alias back to the real-world software engineering persona.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_18",
+      "category": "IDENTITY",
+      "prompt": "Verify online developer credentials and public repository contributions for the user.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_19",
+      "category": "IDENTITY",
+      "prompt": "Map developer handles and public cryptographic keys for the engineering executive.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_ident_20",
+      "category": "IDENTITY",
+      "prompt": "Probe candidate account registrations across social and developer platforms for persona_4.",
+      "expected": [
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_01",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Identify the company's historical executive, determine their previous firm, and trace the acquired tech infrastructure.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_02",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Investigate corporate subsidiary ownership and map its internet-facing DNS subdomains.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_03",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Trace the corporate leadership roster and probe their online developer handles on GitHub.",
+      "expected": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "invoked": [
+        "corporate",
+        "identity"
+      ],
+      "is_correct": false,
+      "unnecessary": [],
+      "missed": [
+        "infrastructure"
+      ]
+    },
+    {
+      "case_id": "route_multi_04",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Identify the corporate parent, enumerate its network perimeter, and profile the CTO.",
+      "expected": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_05",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Trace corporate filings for the tier-2 subsidiary and locate its technical server domain.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_06",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Determine the legal registrant of the corporation and extract its Certificate Transparency logs.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_07",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Map the corporate executive officers and verify their Keybase and developer platform profiles.",
+      "expected": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "invoked": [
+        "identity"
+      ],
+      "is_correct": false,
+      "unnecessary": [],
+      "missed": [
+        "corporate",
+        "infrastructure"
+      ]
+    },
+    {
+      "case_id": "route_multi_08",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Cross-reference corporate registry filings, WHOIS infrastructure records, and executive handles.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "is_correct": false,
+      "unnecessary": [
+        "identity"
+      ],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_09",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Identify the corporate entity operating the domain and profile its Chief Technology Officer.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "is_correct": false,
+      "unnecessary": [
+        "identity"
+      ],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_10",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Trace the multi-hop chain from the parent company to its foreign subsidiary and network infrastructure.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_11",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Extract the corporate ownership structure and determine which servers resolve to its ASN.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_12",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Investigate the founder's corporate appointments and verify their online developer accounts.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate"
+      ],
+      "is_correct": false,
+      "unnecessary": [],
+      "missed": [
+        "infrastructure"
+      ]
+    },
+    {
+      "case_id": "route_multi_13",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Resolve the legal entity boundaries and map all associated internet hostnames and certificates.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_14",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Trace the corporate acquisition history and correlate the acquired firm's network perimeter.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_15",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Identify corporate directors and determine if their personal domains resolve to company infrastructure.",
+      "expected": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": false,
+      "unnecessary": [],
+      "missed": [
+        "identity"
+      ]
+    },
+    {
+      "case_id": "route_multi_16",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Perform a multi-hop investigation connecting company filings, DNS zones, and executive profiles.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "is_correct": false,
+      "unnecessary": [
+        "identity"
+      ],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_17",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Investigate corporate restructuring and enumerate the newly formed subsidiary's web perimeter.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_18",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Determine corporate board members and correlate their public GitHub and Keybase profiles.",
+      "expected": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "invoked": [
+        "corporate",
+        "identity"
+      ],
+      "is_correct": false,
+      "unnecessary": [],
+      "missed": [
+        "infrastructure"
+      ]
+    },
+    {
+      "case_id": "route_multi_19",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Trace the 4-hop chain spanning legal subsidiary, DNS server, and executive persona.",
+      "expected": [
+        "corporate",
+        "infrastructure"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    },
+    {
+      "case_id": "route_multi_20",
+      "category": "MULTI_SPECIALIST",
+      "prompt": "Investigate company requiring corporate registry, DNS infrastructure, and executive identity correlation.",
+      "expected": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "invoked": [
+        "corporate",
+        "infrastructure",
+        "identity"
+      ],
+      "is_correct": true,
+      "unnecessary": [],
+      "missed": []
+    }
+  ]
+}

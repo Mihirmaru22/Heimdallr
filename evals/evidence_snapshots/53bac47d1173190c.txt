@@ -1,0 +1,5 @@
+URL: https://physics.nist.gov/cgi-bin/cuu/Value?c
+TITLE: CODATA Value: speed of light in vacuum - physics.nist.gov
+DATE: 2026-10-13T05:36:02.544525+00:00
+
+speed of light in vacuum Numerical value 299 792 458 m s-1 Standard uncertainty (exact) Relative standard uncertainty (exact) Concise form 299 792 458 m s -1 Click here for correlation coefficient of this constant with other constants

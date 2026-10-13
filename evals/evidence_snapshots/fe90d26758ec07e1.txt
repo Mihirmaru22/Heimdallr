@@ -1,0 +1,5 @@
+URL: https://github.com/about/leadership.html
+TITLE: Leadership · GitHub
+DATE: 2026-10-13T05:35:13.846500+00:00
+
+Meet the leaders behind the world’s leading software development platform. Jay Parikh is a seasoned executive, board member, and advisor to some of the world’s fastest-growing and most successful consumer, developer, and enterprise technology companies.

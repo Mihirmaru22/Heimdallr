@@ -1,0 +1,5 @@
+URL: https://science.nasa.gov/blogs/voyager/2024/03/15/engineers-working-to-resolve-issue-with-voyager-1-computer/
+TITLE: Engineers Working to Resolve Issue With Voyager 1 Computer
+DATE: 2026-10-13T05:41:46.916584+00:00
+
+Mar 15, 2024 · Engineers are working to resolve an issue with one of Voyager 1’s three onboard computers, called the flight data system (FDS). The spacecraft is receiving and executing commands sent from Earth; however, the FDS is not communicating properly with one of the probe’s subsystems, called the telemetry modulation unit (TMU).

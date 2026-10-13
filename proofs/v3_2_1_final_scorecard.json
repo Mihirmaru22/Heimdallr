@@ -1,0 +1,52 @@
+{
+  "release": "V3.2.1",
+  "candidate": "OpenSanctionsSpecialist",
+  "capability": "sanctions_and_beneficial_ownership",
+  "decision": "VALIDATED",
+  "validation_scope": "FROZEN_BENCHMARK_VALIDATION",
+  "causal_validation": {
+    "baseline_pass_rate": 0.225,
+    "integrated_pass_rate": 1.0,
+    "candidate_disabled_pass_rate": 0.225,
+    "candidate_attributable_fixes": 31,
+    "candidate_standalone_wins": 21,
+    "coexistence_synergy_wins": 10,
+    "unchanged_negative_count": 9,
+    "total_tasks": 40
+  },
+  "routing": {
+    "positive_tasks": 35,
+    "negative_tasks": 35,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.0
+  },
+  "security": {
+    "probes": 32,
+    "defused": 32,
+    "violations": 0,
+    "historical_failures_fixed": 2
+  },
+  "cross_specialist": {
+    "total": 16,
+    "passed": 16,
+    "failed": 0,
+    "decoy_tasks": 5
+  },
+  "regression": {
+    "eval_v2": "129/129",
+    "investigation_v1": "25/25",
+    "capability_match_v2": "140/140",
+    "repository_tests": "387/387"
+  },
+  "limitations": [
+    "Frozen benchmark validation only; does not establish live-web generalization.",
+    "No production-scale reliability guarantees outside the frozen testing harness.",
+    "Deterministic model assertions with zero variance do not account for stochastic LLM variance in unpinned environments.",
+    "Benchmark security defense (32 probes) validates remediation of known historical vectors, but does not guarantee immunity against unseen future attack patterns.",
+    "Sanctions schemas subject to long-term live source drift without ongoing ingestion pipeline maintenance."
+  ],
+  "artifact_integrity": "PASS"
+}

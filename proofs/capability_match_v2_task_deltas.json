@@ -1,0 +1,153 @@
+{
+  "deltas_a_vs_b": [],
+  "deltas_b_vs_c": [
+    {
+      "task_id": "cm2_amb_04_official_entity_dissolution",
+      "question": "Confirm whether the former regional subsidiary is actively in good standing or formally dissolved.",
+      "expected": [
+        "corporate_registry_intelligence"
+      ],
+      "injected_hint": "infrastructure",
+      "b_selected": [
+        "corporate_registry_intelligence"
+      ],
+      "c_selected": [
+        "infrastructure_discovery"
+      ],
+      "hint_influenced": true,
+      "classification": "MATCHER_FAILURE"
+    },
+    {
+      "task_id": "cm2_mul_13_tri_specialist_chain",
+      "question": "Starting from Apex Technologies Group, discover its UK subsidiary, its telemetry SAN domain, and verify the CISO's developer profile.",
+      "expected": [
+        "corporate_registry_intelligence",
+        "infrastructure_discovery",
+        "identity_resolution"
+      ],
+      "injected_hint": "identity",
+      "b_selected": [
+        "infrastructure_discovery",
+        "identity_resolution",
+        "corporate_registry_intelligence"
+      ],
+      "c_selected": [
+        "identity_resolution",
+        "infrastructure_discovery",
+        "corporate_registry_intelligence"
+      ],
+      "hint_influenced": true,
+      "classification": "ROBUST_SELECTION"
+    },
+    {
+      "task_id": "cm2_mul_14_tri_specialist_audit",
+      "question": "Verify parent incorporation, discover resolved DNS servers, and confirm the Lead Architect's Keybase identity.",
+      "expected": [
+        "corporate_registry_intelligence",
+        "infrastructure_discovery",
+        "identity_resolution"
+      ],
+      "injected_hint": "identity",
+      "b_selected": [
+        "corporate_registry_intelligence",
+        "infrastructure_discovery",
+        "identity_resolution"
+      ],
+      "c_selected": [
+        "identity_resolution",
+        "corporate_registry_intelligence",
+        "infrastructure_discovery"
+      ],
+      "hint_influenced": true,
+      "classification": "ROBUST_SELECTION"
+    },
+    {
+      "task_id": "cm2_mul_15_tri_specialist_acquisition",
+      "question": "Confirm target company corporate registration, enumerate its cloud subdomains, and verify the founder's PGP key.",
+      "expected": [
+        "corporate_registry_intelligence",
+        "infrastructure_discovery",
+        "identity_resolution"
+      ],
+      "injected_hint": "identity",
+      "b_selected": [
+        "infrastructure_discovery",
+        "corporate_registry_intelligence",
+        "identity_resolution"
+      ],
+      "c_selected": [
+        "infrastructure_discovery",
+        "identity_resolution",
+        "corporate_registry_intelligence"
+      ],
+      "hint_influenced": true,
+      "classification": "ROBUST_SELECTION"
+    },
+    {
+      "task_id": "cm2_mul_20_corp_infra_ident_consortium",
+      "question": "Verify consortium corporate entity, map its external DNS zone, and verify the technical lead's Keybase proof.",
+      "expected": [
+        "corporate_registry_intelligence",
+        "infrastructure_discovery",
+        "identity_resolution"
+      ],
+      "injected_hint": "identity",
+      "b_selected": [
+        "infrastructure_discovery",
+        "corporate_registry_intelligence",
+        "identity_resolution"
+      ],
+      "c_selected": [
+        "infrastructure_discovery",
+        "identity_resolution",
+        "corporate_registry_intelligence"
+      ],
+      "hint_influenced": true,
+      "classification": "ROBUST_SELECTION"
+    },
+    {
+      "task_id": "cm2_chn_04_corp_infra_ident_full_chain",
+      "question": "Step 1: Statutory parent verification. Step 2: Telemetry cluster discovery. Step 3: Admin developer handle confirmation.",
+      "expected": [
+        "corporate_registry_intelligence",
+        "infrastructure_discovery",
+        "identity_resolution"
+      ],
+      "injected_hint": "identity",
+      "b_selected": [
+        "infrastructure_discovery",
+        "identity_resolution",
+        "corporate_registry_intelligence"
+      ],
+      "c_selected": [
+        "identity_resolution",
+        "infrastructure_discovery",
+        "corporate_registry_intelligence"
+      ],
+      "hint_influenced": true,
+      "classification": "ROBUST_SELECTION"
+    },
+    {
+      "task_id": "cm2_chn_10_infra_ident_corp_loop",
+      "question": "Step 1: Map DNS CNAME cluster. Step 2: Resolve admin Keybase proof. Step 3: Confirm ultimate parent company.",
+      "expected": [
+        "infrastructure_discovery",
+        "identity_resolution",
+        "corporate_registry_intelligence"
+      ],
+      "injected_hint": "identity",
+      "b_selected": [
+        "corporate_registry_intelligence",
+        "infrastructure_discovery",
+        "identity_resolution"
+      ],
+      "c_selected": [
+        "corporate_registry_intelligence",
+        "identity_resolution",
+        "infrastructure_discovery"
+      ],
+      "hint_influenced": true,
+      "classification": "ROBUST_SELECTION"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+URL: https://insights.linuxfoundation.org/collection/
+TITLE: Discover Collections | LFX Insights
+DATE: 2026-10-13T05:40:40.876945+00:00
+
+Hand-picked collections from The Linux Foundation. A curated list of the most essential open source projects based on the OpenSSF Criticality Score, representing foundational infrastructure and frameworks relied upon globally across industries.

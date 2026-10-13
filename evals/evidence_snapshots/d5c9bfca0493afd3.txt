@@ -1,0 +1,5 @@
+URL: https://www.openownership.org/en/news/connecting-beneficial-ownership-peps-and-sanctions-data-with-openscreening/
+TITLE: Connecting beneficial ownership, PEPs and sanctions data with ...
+DATE: 2026-10-13T05:40:36.668935+00:00
+
+Feb 27, 2023 · Millions of open data records can now be explored using a tool to help uncover hidden relationships between beneficial owners, politicians, sanction targets, and networks of companies. OpenScreening is the product of collaboration between OpenSanctions, Linkurious, and Open Ownership.

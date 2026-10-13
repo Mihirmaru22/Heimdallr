@@ -1,0 +1,5 @@
+URL: https://atlas.cern/Discover/Physics/Higgs
+TITLE: The Higgs boson: a landmark discovery - ATLAS Experiment at CERN
+DATE: 2026-10-13T05:39:07.476848+00:00
+
+The discovery of the Higgs boson has opened up new windows in the search for new physics phenomena, since its properties - and even the number of distinct types of Higgs boson - are predicted to be different in different theoretical models. Supersymmetry, for example, predicts the existence of at least five different types of Higgs bosons.

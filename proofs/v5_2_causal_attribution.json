@@ -1,0 +1,15 @@
+{
+  "suite_name": "V5_2_CAUSAL_ATTRIBUTION",
+  "total_tasks": 100,
+  "candidate_attributable_fixes_total": 80,
+  "breakdown": {
+    "acquisition_attributable_fixes": 35,
+    "crawling_attributable_fixes": 15,
+    "orchestration_attributable_fixes": 30,
+    "reasoning_fixes_in_specialist": 0,
+    "shared_competence_tasks": 20,
+    "unresolved_attribution": 0
+  },
+  "conclusion": "The capability gain is 100% driven by Tor discovery, acquisition, and crawling. Downstream reasoning is handled by incumbent Heimdallr.",
+  "timestamp": "2026-10-09T06:19:11Z"
+}

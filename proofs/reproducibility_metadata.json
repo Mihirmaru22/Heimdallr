@@ -1,0 +1,13 @@
+{
+  "git_commit": "56c62b5008219f558c89a79c34cd1bf5ec0f4d79",
+  "python_version": "3.12.3",
+  "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.39",
+  "dependencies": {
+    "pydantic": "2.13.0",
+    "pytest": "9.1.1",
+    "httpx": "0.27.0"
+  },
+  "candidate_version": "1.0.0",
+  "benchmark_version": "SPECIALIST_COMPETITION_V1",
+  "timestamp": "2026-10-08T07:28:45Z"
+}

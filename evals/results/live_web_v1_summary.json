@@ -1,0 +1,160 @@
+{
+  "evaluation_milestone": "P0.3-W",
+  "benchmark_version": "1.0.0",
+  "evaluated_at": "2026-10-13T05:42:01.527343+00:00",
+  "total_tasks": 30,
+  "global_runtime_seconds": 531.46,
+  "task_level_success": {
+    "numerator": 22,
+    "denominator": 30,
+    "percentage": 73.33,
+    "ci_95": [
+      55.55,
+      85.82
+    ]
+  },
+  "epistemic_status_accuracy": {
+    "numerator": 22,
+    "denominator": 30,
+    "percentage": 73.33,
+    "ci_95": [
+      55.55,
+      85.82
+    ]
+  },
+  "mean_answer_element_coverage_pct": 90.0,
+  "mean_citation_precision_pct": 100.0,
+  "source_independence": {
+    "total_raw_sources": 452,
+    "total_independent_sources": 263,
+    "overall_independence_ratio": 0.5819
+  },
+  "security_compliance": {
+    "ssrf_violations_detected": 0,
+    "tls_verification_enforced": true,
+    "prohibited_subnets_blocked": true
+  },
+  "categories": {
+    "CORPORATE_ORGANIZATIONAL": {
+      "numerator": 3,
+      "denominator": 3,
+      "percentage": 100.0,
+      "ci_95": [
+        43.85,
+        100.0
+      ]
+    },
+    "OWNERSHIP_SUBSIDIARY": {
+      "numerator": 3,
+      "denominator": 3,
+      "percentage": 100.0,
+      "ci_95": [
+        43.85,
+        100.0
+      ]
+    },
+    "HISTORICAL_TIMELINE": {
+      "numerator": 3,
+      "denominator": 3,
+      "percentage": 100.0,
+      "ci_95": [
+        43.85,
+        100.0
+      ]
+    },
+    "TECHNICAL_SCIENTIFIC": {
+      "numerator": 3,
+      "denominator": 3,
+      "percentage": 100.0,
+      "ci_95": [
+        43.85,
+        100.0
+      ]
+    },
+    "CONFLICTING_CLAIMS": {
+      "numerator": 1,
+      "denominator": 3,
+      "percentage": 33.33,
+      "ci_95": [
+        6.15,
+        79.23
+      ]
+    },
+    "TEMPORAL_CHANGE": {
+      "numerator": 2,
+      "denominator": 3,
+      "percentage": 66.67,
+      "ci_95": [
+        20.77,
+        93.85
+      ]
+    },
+    "MULTI_HOP": {
+      "numerator": 3,
+      "denominator": 3,
+      "percentage": 100.0,
+      "ci_95": [
+        43.85,
+        100.0
+      ]
+    },
+    "NEGATIVE_FINDINGS": {
+      "numerator": 1,
+      "denominator": 3,
+      "percentage": 33.33,
+      "ci_95": [
+        6.15,
+        79.23
+      ]
+    },
+    "MULTI_SOURCE_SYNTHESIS": {
+      "numerator": 3,
+      "denominator": 3,
+      "percentage": 100.0,
+      "ci_95": [
+        43.85,
+        100.0
+      ]
+    },
+    "INSUFFICIENT_PUBLIC_EVIDENCE": {
+      "numerator": 0,
+      "denominator": 3,
+      "percentage": 0.0,
+      "ci_95": [
+        0.0,
+        56.15
+      ]
+    }
+  },
+  "failed_task_count": 8,
+  "acceptance_gates": {
+    "overall_status": "FAIL",
+    "gates": {
+      "task_count": {
+        "target": 30,
+        "measured": 30,
+        "passed": true
+      },
+      "answer_element_coverage": {
+        "target": 85.0,
+        "measured": 90.0,
+        "passed": true
+      },
+      "citation_precision": {
+        "target": 90.0,
+        "measured": 100.0,
+        "passed": true
+      },
+      "epistemic_status_accuracy": {
+        "target": 90.0,
+        "measured": 73.33,
+        "passed": false
+      },
+      "zero_ssrf_violations": {
+        "target": 0,
+        "measured": 0,
+        "passed": true
+      }
+    }
+  }
+}

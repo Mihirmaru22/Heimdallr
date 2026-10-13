@@ -1,0 +1,27 @@
+{
+  "suite_name": "V5_LEAKAGE_AUDIT",
+  "status": "LEAKAGE_FREE",
+  "audited_files_count": 15,
+  "audited_files": [
+    "src/argus/capability_registry/defaults.py",
+    "src/argus/specialists/onion/unified_specialist.py",
+    "src/argus/specialists/onion/ahmia_specialist.py",
+    "src/argus/specialists/onion/adapter.py",
+    "src/argus/specialists/onion/torbot_specialist.py",
+    "src/argus/specialists/onion/corpus.py",
+    "src/argus/specialists/onion/models.py",
+    "src/argus/capability_registry/matcher.py",
+    "src/argus/competition/implementation_selector.py",
+    "src/argus/competition/security_gate.py",
+    "src/argus/investigation/orchestrator.py",
+    "src/argus/evals/onion_specialist_v1/runner.py",
+    "src/argus/evals/capability_routing_onion_v1/runner.py",
+    "src/argus/evals/security_onion_v1/runner.py",
+    "src/argus/evals/cross_specialist_onion_v1/runner.py"
+  ],
+  "violations_detected": 0,
+  "findings": [],
+  "decision": "PASS",
+  "justification": "No hardcoded task IDs, evaluator-only variable injection, or post-processing PASS overrides detected across audited runtime specialist engines, adapters, and benchmark evaluators.",
+  "timestamp": "2026-10-09T05:42:09Z"
+}

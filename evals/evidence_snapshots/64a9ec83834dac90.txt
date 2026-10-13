@@ -1,0 +1,5 @@
+URL: https://resumefromgit.com/blog/who-owns-github
+TITLE: Who owns GitHub? - resumefromgit.com
+DATE: 2026-10-13T05:35:00.526236+00:00
+
+Aug 4, 2026 · Microsoft owns GitHub. The acquisition was announced in June 2018 and closed that October, valuing GitHub at $7.5 billion in Microsoft stock. GitHub had spent its first decade as an independent company, founded in 2008 and venture-funded before the sale.

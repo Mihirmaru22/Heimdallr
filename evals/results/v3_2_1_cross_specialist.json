@@ -1,0 +1,335 @@
+{
+  "suite_name": "CROSS_SPECIALIST_V1",
+  "total_tasks": 16,
+  "passed_tasks": 16,
+  "pass_rate": 1.0,
+  "decoy_tasks_count": 5,
+  "decoy_rejection_success_count": 5,
+  "decoy_rejection_rate": 1.0,
+  "ordering_accuracy": 1.0,
+  "authority_leakage_events": 0,
+  "evidence_provenance_preserved": true,
+  "verdict": "CROSS_SPECIALIST_VALIDATED",
+  "tasks": [
+    {
+      "task_id": "cross_01",
+      "title": "UK corporate director discovery chained to international sanctions screening",
+      "chain_type": "CORPORATE_TO_SANCTIONS",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_02",
+      "title": "Sanctions designation chained to official Dubai corporate registry extract",
+      "chain_type": "SANCTIONS_TO_CORPORATE",
+      "is_decoy": false,
+      "executed_sequence": [
+        "sanctions",
+        "corporate"
+      ],
+      "expected_sequence": [
+        "sanctions",
+        "corporate"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_03",
+      "title": "Board member discovery to academic identity correlation to PEP screening",
+      "chain_type": "CORPORATE_TO_IDENTITY_TO_SANCTIONS",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "identity",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "identity",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_04",
+      "title": "Offshore trust controller chained to open-source developer profile",
+      "chain_type": "SANCTIONS_TO_IDENTITY",
+      "is_decoy": false,
+      "executed_sequence": [
+        "sanctions",
+        "identity"
+      ],
+      "expected_sequence": [
+        "sanctions",
+        "identity"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_05",
+      "title": "UK telemetry subsidiary to CT log hostname to designated perimeter screening",
+      "chain_type": "CORPORATE_TO_INFRASTRUCTURE_TO_SANCTIONS",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "infrastructure",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "infrastructure",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_06",
+      "title": "Sanctions hit to Cyprus corporate registry to beneficial owner biographical probe",
+      "chain_type": "SANCTIONS_TO_CORPORATE_TO_IDENTITY",
+      "is_decoy": false,
+      "executed_sequence": [
+        "sanctions",
+        "corporate",
+        "identity"
+      ],
+      "expected_sequence": [
+        "sanctions",
+        "corporate",
+        "identity"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_07",
+      "title": "SEC Form 10-K subsidiary officer to PEP disclosure to alias mapping",
+      "chain_type": "CORPORATE_TO_SANCTIONS_TO_IDENTITY",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "sanctions",
+        "identity"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "sanctions",
+        "identity"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_08",
+      "title": "SDN blocked company to DNS perimeter mapping",
+      "chain_type": "SANCTIONS_TO_INFRASTRUCTURE",
+      "is_decoy": false,
+      "executed_sequence": [
+        "sanctions",
+        "infrastructure"
+      ],
+      "expected_sequence": [
+        "sanctions",
+        "infrastructure"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_09",
+      "title": "Austrian subsidiary to EU restrictive measures list screening",
+      "chain_type": "CORPORATE_TO_SANCTIONS",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_10",
+      "title": "Designated maritime operator to Singapore corporate shareholding",
+      "chain_type": "SANCTIONS_TO_CORPORATE",
+      "is_decoy": false,
+      "executed_sequence": [
+        "sanctions",
+        "corporate"
+      ],
+      "expected_sequence": [
+        "sanctions",
+        "corporate"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_11",
+      "title": "Handelsregister excerpt to doctoral thesis verification to SECO screening",
+      "chain_type": "CORPORATE_TO_IDENTITY_TO_SANCTIONS",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "identity",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "identity",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_decoy_01",
+      "title": "Clean corporate expansion query (Superficial Sanctions decoy)",
+      "chain_type": "DECOY_NEGATIVE",
+      "is_decoy": true,
+      "executed_sequence": [
+        "corporate"
+      ],
+      "expected_sequence": [
+        "corporate"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_decoy_02",
+      "title": "Generic infrastructure SSL certificate audit (Superficial Identity decoy)",
+      "chain_type": "DECOY_NEGATIVE",
+      "is_decoy": true,
+      "executed_sequence": [
+        "infrastructure"
+      ],
+      "expected_sequence": [
+        "infrastructure"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_decoy_03",
+      "title": "University academic faculty directory lookup (Superficial Corporate decoy)",
+      "chain_type": "DECOY_NEGATIVE",
+      "is_decoy": true,
+      "executed_sequence": [
+        "identity"
+      ],
+      "expected_sequence": [
+        "identity"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_decoy_04",
+      "title": "Pure sanctions registry check without corporate documents (Superficial Corporate decoy)",
+      "chain_type": "DECOY_NEGATIVE",
+      "is_decoy": true,
+      "executed_sequence": [
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_decoy_05",
+      "title": "Commercial DNS nameserver lookup (Superficial Sanctions decoy)",
+      "chain_type": "DECOY_NEGATIVE",
+      "is_decoy": true,
+      "executed_sequence": [
+        "infrastructure"
+      ],
+      "expected_sequence": [
+        "infrastructure"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    }
+  ]
+}

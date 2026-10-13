@@ -1,0 +1,18 @@
+{
+  "runs_count": 3,
+  "task_count": 120,
+  "pass_rate_mean": 0.0,
+  "pass_rate_std": 0.0,
+  "pass_rate_variance": 0.0,
+  "entity_f1_mean": 0.020912863652801737,
+  "entity_f1_std": 0.0,
+  "chain_completion_mean": 0.9833333333333333,
+  "chain_completion_std": 0.0,
+  "epistemic_accuracy_mean": 0.7833333333333333,
+  "epistemic_accuracy_std": 0.0,
+  "evidence_correctness_mean": 0.9833333333333333,
+  "evidence_correctness_std": 0.0,
+  "task_level_agreement_pct": 1.0,
+  "is_deterministic_by_design": true,
+  "notes": "The frozen regression suite uses deterministic token-based simulation and corpus search, producing 0.0 standard deviation and 100% task agreement. This confirms deterministic reproducibility, NOT live-web stochastic stability."
+}

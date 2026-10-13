@@ -1,0 +1,5 @@
+URL: https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1969-059A
+TITLE: NASA - NSSDCA - Spacecraft - Details
+DATE: 2026-10-13T05:35:28.439430+00:00
+
+6 days ago · Apollo 11 splashed down in the Pacific Ocean on 24 July 1969 at 16:50:35 UT (12:50:35 p.m. EDT) after a mission elapsed time of 195 hrs, 18 mins, 35 secs. The splashdown point was 13 deg 19 min N, 169 deg 9 min W, 400 miles SSW of Wake Island and 24 km (15 mi) from the recovery ship USS Hornet.

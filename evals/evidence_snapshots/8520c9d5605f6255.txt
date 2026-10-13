@@ -1,0 +1,5 @@
+URL: https://ppc.land/github-loses-independence-as-microsoft-absorbs-developer-platform-into-coreai/
+TITLE: GitHub loses independence as Microsoft absorbs developer ...
+DATE: 2026-10-13T05:35:00.526711+00:00
+
+By consolidating the developer platform under CoreAI leadership, Microsoft gains tighter control over one of its most successful AI products—GitHub Copilot—while potentially using GitHub's codebase and user behavior data to address problems elsewhere in the AI portfolio.

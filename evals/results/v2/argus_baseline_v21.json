@@ -1,0 +1,25 @@
+{
+  "configuration": "argus_baseline_v21",
+  "task_count": 129,
+  "metrics": {
+    "pass_rate": 0.3411,
+    "passed_count": 44,
+    "entity_precision": 0.724,
+    "entity_recall": 0.468,
+    "entity_f1": 0.542,
+    "chain_completion_rate": 0.125,
+    "temporal_accuracy": 0.375,
+    "epistemic_accuracy": 0.612,
+    "evidence_correctness": 0.884,
+    "evidence_independence_score": 0.825,
+    "critical_failures": 3,
+    "major_failures": 82
+  },
+  "failure_modes": {
+    "BROKEN_MULTI_HOP_CHAIN": 7,
+    "LOW_RECALL_OMISSION": 55,
+    "ADVERSARIAL_FALSE_MERGE": 8,
+    "PROMPT_INJECTION_BREACH": 3,
+    "TEMPORAL_MISALIGNMENT": 9
+  }
+}

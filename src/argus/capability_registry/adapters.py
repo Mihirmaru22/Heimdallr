@@ -1,0 +1,771 @@
+"""Heimdallr V3.1: Capability Adapters.
+
+Wraps existing production specialists and generalist research engines behind a
+uniform capability execution interface without modifying their underlying implementations:
+- ArgusResearchAdapter
+- IdentitySpecialistAdapter
+- InfrastructureSpecialistAdapter
+- CorporateSpecialistAdapter
+- ChallengerIdentityAdapter (Clean-room second implementation)
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+import concurrent.futures
+import threading
+import time
+from typing import Any, Dict, List, Optional
+import uuid
+
+from argus.specialists.corporate import CorporateProbeSpecialist
+from argus.specialists.identity import IdentityProbeSpecialist
+from argus.specialists.infrastructure import InfrastructureProbeSpecialist
+from argus.specialists.outcome import SpecialistOutcome, SpecialistStatus
+
+
+def execute_with_timeout(func: Any, timeout_sec: float, *args: Any, **kwargs: Any) -> Any:
+    """Execute a specialist callable with hard timeout enforcement using ThreadPoolExecutor."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(func, *args, **kwargs)
+        return future.result(timeout=timeout_sec)
+
+
+class BaseCapabilityAdapter(ABC):
+    """Abstract capability execution adapter."""
+
+    @abstractmethod
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        """Execute capability operation and return structured observations."""
+        raise NotImplementedError
+
+
+class ArgusResearchAdapter(BaseCapabilityAdapter):
+    """Wraps Argus generalist search and corpus retrieval."""
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        query = inputs.get("query", "")
+        limit = inputs.get("limit", 3)
+        start_t = time.perf_counter()
+
+        retrieved_docs: List[Any] = []
+        if corpus and hasattr(corpus, "search"):
+            retrieved_docs = corpus.search(query, limit=limit)
+
+        text_content = " ".join(getattr(d, "text_content", str(d)) for d in retrieved_docs)
+        elapsed = time.perf_counter() - start_t
+
+        return {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "general_web_research",
+            "implementation_id": "impl_argus_generalist_v1",
+            "query": query,
+            "documents_count": len(retrieved_docs),
+            "documents": [
+                {
+                    "doc_id": getattr(d, "doc_id", f"doc_{i}"),
+                    "title": getattr(d, "title", "Web Document"),
+                    "url": getattr(d, "url", ""),
+                    "text": getattr(d, "text_content", str(d)),
+                    "source_type": getattr(d, "source_type", "web"),
+                }
+                for i, d in enumerate(retrieved_docs)
+            ],
+            "combined_text": text_content,
+            "runtime_sec": elapsed,
+            "epistemic_nature": "OBSERVATION",
+            "authoritative": False,
+        }
+
+
+class IdentitySpecialistAdapter(BaseCapabilityAdapter):
+    """Wraps IdentityProbeSpecialist for developer persona and identity resolution."""
+
+    def __init__(self, specialist: Optional[IdentityProbeSpecialist] = None) -> None:
+        if specialist is None:
+            try:
+                from argus.evals.vertical_corpus import VERTICAL_PLATFORM_REGISTRY
+                self.specialist = IdentityProbeSpecialist(platform_registry=VERTICAL_PLATFORM_REGISTRY)
+            except ImportError:
+                self.specialist = IdentityProbeSpecialist()
+        else:
+            self.specialist = specialist
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        identifier = inputs.get("identifier") or inputs.get("query", "")
+        timeout_sec = float(inputs.get("timeout_sec", 5.0))
+        start_t = time.perf_counter()
+
+        from argus.specialists.identity.contract import (
+            IdentityProbeRequest,
+            IdentifierType,
+            InvestigationConstraints,
+        )
+
+        req = IdentityProbeRequest(
+            identifier=identifier,
+            identifier_type=IdentifierType.USERNAME,
+            constraints=InvestigationConstraints(
+                timeout_per_probe_sec=timeout_sec,
+                permit_delimiter_permutations=True,
+                strict_provenance=True,
+            ),
+        )
+
+        discovered_entities: List[str] = []
+        candidate_claims: List[Dict[str, Any]] = []
+        docs: List[Dict[str, Any]] = []
+        status = "SUCCESS"
+        error_msg = None
+        probe_res = None
+
+        try:
+            probe_res = execute_with_timeout(self.specialist.probe_identifier, timeout_sec, req)
+            for c in probe_res.candidates:
+                discovered_entities.append(c.candidate_entity)
+                docs.append({
+                    "doc_id": f"rel_ident_{uuid.uuid4().hex[:8]}",
+                    "title": f"Identity Candidate: {c.source_platform} ({c.candidate_entity})",
+                    "url": c.source_url,
+                    "text": c.supporting_observation,
+                    "source_type": "identity_probe",
+                    "payload": c.model_dump(),
+                    "is_authoritative": False,
+                    "confidence": c.confidence,
+                    "epistemic_status": c.epistemic_status.value,
+                })
+                candidate_claims.append({
+                    "subject": identifier,
+                    "predicate": "candidate_profile",
+                    "object": f"Discovered candidate profile on {c.source_platform}: {c.source_url}. {c.supporting_observation}",
+                    "status": "SUPPORTED",
+                    "source_url": c.source_url,
+                    "source_passage": c.supporting_observation[:300],
+                })
+        except (concurrent.futures.TimeoutError, TimeoutError):
+            status = "TIMEOUT"
+            error_msg = f"Identity specialist timed out after {timeout_sec}s"
+        except Exception as e:
+            status = "FAILED"
+            error_msg = str(e)
+
+        # Merge corpus search results if available
+        retrieved_docs: List[Any] = []
+        if corpus and hasattr(corpus, "search"):
+            retrieved_docs = corpus.search(identifier, limit=3)
+            for i, d in enumerate(retrieved_docs):
+                docs.append({
+                    "doc_id": getattr(d, "doc_id", f"doc_ident_{i}"),
+                    "title": getattr(d, "title", "Identity Document"),
+                    "url": getattr(d, "url", ""),
+                    "text": getattr(d, "text_content", str(d)),
+                    "source_type": getattr(d, "source_type", "identity_record"),
+                })
+
+        text_content = " ".join(d.get("text", "") for d in docs)
+        elapsed = time.perf_counter() - start_t
+
+        # Determine granular outcome
+        if status == "TIMEOUT":
+            outcome = SpecialistOutcome.TIMEOUT
+        elif status == "FAILED":
+            outcome = SpecialistOutcome.SOURCE_ERROR
+        else:
+            raw_outcome = getattr(probe_res, "outcome", None)
+            if isinstance(raw_outcome, SpecialistOutcome):
+                outcome = raw_outcome
+            elif isinstance(raw_outcome, str):
+                try:
+                    outcome = SpecialistOutcome(raw_outcome)
+                except ValueError:
+                    outcome = SpecialistOutcome.SUCCESS_WITH_RESULTS if docs else SpecialistOutcome.SUCCESS_EMPTY
+            else:
+                outcome = SpecialistOutcome.SUCCESS_WITH_RESULTS if docs else SpecialistOutcome.SUCCESS_EMPTY
+
+            if retrieved_docs and outcome in (SpecialistOutcome.SOURCE_UNAVAILABLE, SpecialistOutcome.SOURCE_ERROR):
+                outcome = SpecialistOutcome.PARTIAL_SUCCESS
+
+        res_status = SpecialistStatus(outcome.value)
+        errors_list: list[str] = list(getattr(probe_res, "errors", [])) if probe_res else []
+        if error_msg and error_msg not in errors_list:
+            errors_list.append(error_msg)
+
+        res_dict = {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "identity_resolution",
+            "implementation_id": "impl_identity_probe_specialist_v1",
+            "identifier": identifier,
+            "documents_count": len(docs),
+            "documents": docs,
+            "entities": list(dict.fromkeys(discovered_entities)),
+            "claims": candidate_claims,
+            "combined_text": text_content,
+            "runtime_sec": elapsed,
+            "epistemic_nature": "CANDIDATE",
+            "authoritative": False,
+            "status": res_status,
+            "outcome": outcome.value,
+            "errors": errors_list,
+        }
+        if error_msg:
+            res_dict["error"] = error_msg
+        return res_dict
+
+
+class InfrastructureSpecialistAdapter(BaseCapabilityAdapter):
+    """Wraps InfrastructureProbeSpecialist for DNS, TLS/SAN, and host discovery."""
+
+    def __init__(self, specialist: Optional[InfrastructureProbeSpecialist] = None) -> None:
+        if specialist is None:
+            try:
+                from argus.evals.infrastructure_corpus import INFRASTRUCTURE_REGISTRY
+                self.specialist = InfrastructureProbeSpecialist(registry=INFRASTRUCTURE_REGISTRY)
+            except ImportError:
+                self.specialist = InfrastructureProbeSpecialist()
+        else:
+            self.specialist = specialist
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        target = inputs.get("target_domain") or inputs.get("domain") or inputs.get("query", "")
+        timeout_sec = float(inputs.get("timeout_sec", 5.0))
+        start_t = time.perf_counter()
+
+        from argus.specialists.infrastructure.contract import (
+            InfrastructureProbeRequest,
+            InfrastructureInvestigationConstraints,
+        )
+
+        req = InfrastructureProbeRequest(
+            domain=target,
+            constraints=InfrastructureInvestigationConstraints(
+                timeout_sec=timeout_sec,
+                strict_provenance=True,
+            ),
+        )
+
+        discovered_entities: List[str] = []
+        candidate_claims: List[Dict[str, Any]] = []
+        docs: List[Dict[str, Any]] = []
+        status = "SUCCESS"
+        error_msg = None
+        probe_res = None
+
+        try:
+            probe_res = execute_with_timeout(self.specialist.enumerate_infrastructure, timeout_sec, req)
+            for asset in probe_res.assets:
+                discovered_entities.append(asset.hostname)
+                obs_text = getattr(asset, "supporting_observation", getattr(asset, "observation", f"Asset {asset.hostname}"))
+                docs.append({
+                    "doc_id": asset.asset_id,
+                    "title": f"Infrastructure Asset: {asset.hostname}",
+                    "url": f"https://{asset.hostname}",
+                    "text": obs_text,
+                    "source_type": asset.asset_type.value,
+                    "payload": asset.model_dump(),
+                    "is_authoritative": False,
+                    "confidence": asset.confidence,
+                    "epistemic_status": asset.epistemic_status.value,
+                })
+                candidate_claims.append({
+                    "subject": asset.parent_domain,
+                    "predicate": asset.relationship_type.value,
+                    "object": obs_text,
+                    "status": "SUPPORTED",
+                    "source_url": f"https://{asset.hostname}",
+                    "source_passage": obs_text[:300],
+                })
+        except (concurrent.futures.TimeoutError, TimeoutError):
+            status = "TIMEOUT"
+            error_msg = f"Infrastructure specialist timed out after {timeout_sec}s"
+        except Exception as e:
+            status = "FAILED"
+            error_msg = str(e)
+
+        # Merge corpus search results if available
+        retrieved_docs: List[Any] = []
+        if corpus and hasattr(corpus, "search"):
+            retrieved_docs = corpus.search(target, limit=3)
+            for i, d in enumerate(retrieved_docs):
+                docs.append({
+                    "doc_id": getattr(d, "doc_id", f"doc_infra_{i}"),
+                    "title": getattr(d, "title", "Infrastructure Record"),
+                    "url": getattr(d, "url", ""),
+                    "text": getattr(d, "text_content", str(d)),
+                    "source_type": getattr(d, "source_type", "infrastructure_record"),
+                })
+
+        text_content = " ".join(d.get("text", "") for d in docs)
+        elapsed = time.perf_counter() - start_t
+
+        # Determine granular outcome
+        if status == "TIMEOUT":
+            outcome = SpecialistOutcome.TIMEOUT
+        elif status == "FAILED":
+            outcome = SpecialistOutcome.SOURCE_ERROR
+        else:
+            raw_outcome = getattr(probe_res, "outcome", None)
+            if isinstance(raw_outcome, SpecialistOutcome):
+                outcome = raw_outcome
+            elif isinstance(raw_outcome, str):
+                try:
+                    outcome = SpecialistOutcome(raw_outcome)
+                except ValueError:
+                    outcome = SpecialistOutcome.SUCCESS_WITH_RESULTS if docs else SpecialistOutcome.SUCCESS_EMPTY
+            else:
+                outcome = SpecialistOutcome.SUCCESS_WITH_RESULTS if docs else SpecialistOutcome.SUCCESS_EMPTY
+
+            if retrieved_docs and outcome in (SpecialistOutcome.SOURCE_UNAVAILABLE, SpecialistOutcome.SOURCE_ERROR):
+                outcome = SpecialistOutcome.PARTIAL_SUCCESS
+
+        res_status = SpecialistStatus(outcome.value)
+        errors_list: list[str] = list(getattr(probe_res, "errors", [])) if probe_res else []
+        if error_msg and error_msg not in errors_list:
+            errors_list.append(error_msg)
+
+        res_dict = {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "infrastructure_discovery",
+            "implementation_id": "impl_infrastructure_probe_specialist_v1",
+            "target": target,
+            "documents_count": len(docs),
+            "documents": docs,
+            "entities": list(dict.fromkeys(discovered_entities)),
+            "claims": candidate_claims,
+            "combined_text": text_content,
+            "runtime_sec": elapsed,
+            "epistemic_nature": "CANDIDATE",
+            "authoritative": False,
+            "status": res_status,
+            "outcome": outcome.value,
+            "errors": errors_list,
+        }
+        if error_msg:
+            res_dict["error"] = error_msg
+        return res_dict
+
+
+class CorporateSpecialistAdapter(BaseCapabilityAdapter):
+    """Wraps CorporateProbeSpecialist for statutory registries and restatement resolution."""
+
+    def __init__(self, specialist: Optional[CorporateProbeSpecialist] = None) -> None:
+        if specialist is None:
+            try:
+                from argus.evals.corporate_corpus import CORPORATE_REGISTRY_DATABASE
+                self.specialist = CorporateProbeSpecialist(registry_database=CORPORATE_REGISTRY_DATABASE)
+            except ImportError:
+                self.specialist = CorporateProbeSpecialist()
+        else:
+            self.specialist = specialist
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        company = inputs.get("company_name") or inputs.get("entity_name") or inputs.get("query", "")
+        corp_id = inputs.get("corporate_identifier")
+        as_of_date = inputs.get("as_of_date")
+        timeout_sec = float(inputs.get("timeout_sec", 5.0))
+        start_t = time.perf_counter()
+
+        from argus.specialists.corporate.contract import (
+            CorporateProbeRequest,
+            CorporateInvestigationConstraints,
+        )
+
+        req = CorporateProbeRequest(
+            entity_name=company,
+            corporate_identifier=corp_id,
+            as_of_date=as_of_date,
+            constraints=CorporateInvestigationConstraints(
+                as_of_date=as_of_date,
+                strict_provenance=True,
+            ),
+        )
+
+        discovered_entities: List[str] = []
+        candidate_claims: List[Dict[str, Any]] = []
+        docs: List[Dict[str, Any]] = []
+        status = "SUCCESS"
+        error_msg = None
+        probe_res = None
+
+        try:
+            probe_res = execute_with_timeout(self.specialist.probe_corporate_entity, timeout_sec, req)
+            for rel in probe_res.relationships:
+                discovered_entities.extend([rel.subject_entity, rel.object_entity])
+                docs.append({
+                    "doc_id": rel.relationship_id,
+                    "title": f"Corporate Registry Filing: {rel.subject_entity} - {rel.object_entity}",
+                    "url": rel.source_url,
+                    "text": rel.observation,
+                    "source_type": rel.source_registry.lower(),
+                    "payload": rel.model_dump(),
+                    "is_authoritative": False,
+                    "confidence": rel.confidence,
+                    "epistemic_status": rel.epistemic_status.value,
+                })
+                candidate_claims.append({
+                    "subject": rel.subject_entity,
+                    "predicate": rel.predicate.value,
+                    "object": rel.observation,
+                    "status": "SUPPORTED",
+                    "source_url": rel.source_url,
+                    "source_passage": rel.observation[:300],
+                })
+        except (concurrent.futures.TimeoutError, TimeoutError):
+            status = "TIMEOUT"
+            error_msg = f"Corporate specialist timed out after {timeout_sec}s"
+        except Exception as e:
+            status = "FAILED"
+            error_msg = str(e)
+
+        # Merge corpus search results if available
+        retrieved_docs: List[Any] = []
+        if corpus and hasattr(corpus, "search"):
+            retrieved_docs = corpus.search(company, limit=3)
+            for i, d in enumerate(retrieved_docs):
+                docs.append({
+                    "doc_id": getattr(d, "doc_id", f"doc_corp_{i}"),
+                    "title": getattr(d, "title", "Corporate Registry Filing"),
+                    "url": getattr(d, "url", ""),
+                    "text": getattr(d, "text_content", str(d)),
+                    "source_type": getattr(d, "source_type", "corporate_registry"),
+                })
+
+        text_content = " ".join(d.get("text", "") for d in docs)
+        elapsed = time.perf_counter() - start_t
+
+        # Determine granular outcome
+        if status == "TIMEOUT":
+            outcome = SpecialistOutcome.TIMEOUT
+        elif status == "FAILED":
+            outcome = SpecialistOutcome.SOURCE_ERROR
+        else:
+            raw_outcome = getattr(probe_res, "outcome", None)
+            if isinstance(raw_outcome, SpecialistOutcome):
+                outcome = raw_outcome
+            elif isinstance(raw_outcome, str):
+                try:
+                    outcome = SpecialistOutcome(raw_outcome)
+                except ValueError:
+                    outcome = SpecialistOutcome.SUCCESS_WITH_RESULTS if docs else SpecialistOutcome.SUCCESS_EMPTY
+            else:
+                outcome = SpecialistOutcome.SUCCESS_WITH_RESULTS if docs else SpecialistOutcome.SUCCESS_EMPTY
+
+            if retrieved_docs and outcome in (SpecialistOutcome.SOURCE_UNAVAILABLE, SpecialistOutcome.SOURCE_ERROR):
+                outcome = SpecialistOutcome.PARTIAL_SUCCESS
+
+        res_status = SpecialistStatus(outcome.value)
+        errors_list: list[str] = list(getattr(probe_res, "errors", [])) if probe_res else []
+        if error_msg and error_msg not in errors_list:
+            errors_list.append(error_msg)
+
+        res_dict = {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "corporate_registry_intelligence",
+            "implementation_id": "impl_corporate_registry_specialist_v1",
+            "company": company,
+            "documents_count": len(docs),
+            "documents": docs,
+            "entities": list(dict.fromkeys(discovered_entities)),
+            "claims": candidate_claims,
+            "combined_text": text_content,
+            "runtime_sec": elapsed,
+            "epistemic_nature": "CANDIDATE",
+            "authoritative": False,
+            "status": res_status,
+            "outcome": outcome.value,
+            "errors": errors_list,
+        }
+        if error_msg:
+            res_dict["error"] = error_msg
+        return res_dict
+
+
+class ChallengerIdentityAdapter(BaseCapabilityAdapter):
+    """Independent clean-room challenger adapter for identity_resolution."""
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        identifier = inputs.get("identifier") or inputs.get("query", "")
+        start_t = time.perf_counter()
+
+        retrieved_docs: List[Any] = []
+        if corpus and hasattr(corpus, "search"):
+            retrieved_docs = corpus.search(identifier, limit=3)
+
+        text_content = " ".join(getattr(d, "text_content", str(d)) for d in retrieved_docs)
+        elapsed = time.perf_counter() - start_t
+
+        return {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "identity_resolution",
+            "implementation_id": "impl_challenger_identity_specialist_v2",
+            "identifier": identifier,
+            "documents_count": len(retrieved_docs),
+            "combined_text": text_content,
+            "runtime_sec": elapsed,
+            "epistemic_nature": "CANDIDATE",
+            "authoritative": False,
+        }
+
+
+class OpenSanctionsCapabilityAdapter(BaseCapabilityAdapter):
+    """Wraps OpenSanctionsAdapter and OpenSanctionsSpecialist for international sanctions and offshore leaks."""
+
+    def __init__(self, adapter: Optional[Any] = None) -> None:
+        from argus.specialists.sanctions.adapter import OpenSanctionsAdapter
+        self.adapter = adapter or OpenSanctionsAdapter()
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        query = inputs.get("query") or inputs.get("entity_name", "")
+        start_t = time.perf_counter()
+
+        # Execute query via OpenSanctionsAdapter (which calls specialist and SecurityGateValidator)
+        observations = self.adapter.execute_query(query)
+
+        # Also search corpus if available
+        retrieved_docs: List[Any] = []
+        if corpus and hasattr(corpus, "search"):
+            retrieved_docs = corpus.search(query, limit=3)
+
+        combined_snippets = [getattr(d, "text_content", str(d)) for d in retrieved_docs]
+        docs = [
+            {
+                "doc_id": getattr(d, "doc_id", f"doc_{i}"),
+                "title": getattr(d, "title", "Corpus Document"),
+                "url": getattr(d, "url", ""),
+                "text": getattr(d, "text_content", str(d)),
+                "source_type": getattr(d, "source_type", "sanctions_record"),
+            }
+            for i, d in enumerate(retrieved_docs)
+        ]
+
+        # Convert candidate observations into observation documents
+        for obs in observations:
+            payload = obs.payload
+            entity = obs.entity_name
+            ev_type = obs.evidence_type
+            summary = (
+                f"[{ev_type}] Entity: {entity}. Programs: {payload.get('sanctions_programs', [])}. "
+                f"Authority: {payload.get('listing_authority', 'REGULATORY')}. "
+                f"Details: {payload.get('program_details', payload.get('pep_role', payload.get('status', '')))}"
+            )
+            combined_snippets.append(summary)
+            docs.append({
+                "doc_id": obs.observation_id,
+                "title": f"Sanctions & Offshore Record: {entity}",
+                "url": f"https://www.opensanctions.org/entities/{entity.lower().replace(' ', '-')}/",
+                "text": summary,
+                "source_type": ev_type.lower(),
+                "payload": payload,
+                "confidence": obs.confidence,
+                "epistemic_status": obs.epistemic_status,
+                "is_authoritative": obs.is_authoritative,  # False: candidate only until verified
+            })
+
+        elapsed = time.perf_counter() - start_t
+        text_content = " ".join(combined_snippets)
+
+        return {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "sanctions_and_beneficial_ownership",
+            "implementation_id": "impl_opensanctions_probe_v1",
+            "query": query,
+            "documents_count": len(docs),
+            "documents": docs,
+            "combined_text": text_content,
+            "runtime_sec": elapsed,
+            "epistemic_nature": "OBSERVATION",
+            "authoritative": False,  # Candidate-only; requires Verifier
+            "observations": [obs.model_dump() for obs in observations],
+        }
+
+
+class OnionCapabilityAdapter(BaseCapabilityAdapter):
+    """Wraps UnifiedOnionAdapter for Tor hidden service and dark-web intelligence."""
+
+    def __init__(self, adapter: Optional[Any] = None) -> None:
+        from argus.specialists.onion.adapter import UnifiedOnionAdapter
+        self.adapter = adapter or UnifiedOnionAdapter()
+        self.implementation_id = "impl_onion_integrated_v1"
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        query = inputs.get("query") or inputs.get("target") or inputs.get("onion_address", "")
+        start_t = time.perf_counter()
+        observations = self.adapter.execute_query(query)
+
+        docs = []
+        snippets = []
+        for obs in observations:
+            payload = obs.payload
+            entity = obs.entity_name
+            ev_type = obs.evidence_type
+            summary = f"[{ev_type}] Service: {entity}. Status: {payload.get('status', 'ACTIVE')}. Payload: {payload}"
+            snippets.append(summary)
+            docs.append({
+                "doc_id": obs.observation_id,
+                "title": f"Onion Intelligence Record: {entity}",
+                "url": f"http://{payload.get('onion_address', entity)}",
+                "text": summary,
+                "source_type": ev_type.lower(),
+                "payload": payload,
+                "confidence": obs.confidence,
+                "epistemic_status": obs.epistemic_status,
+                "is_authoritative": False,
+            })
+
+        elapsed = time.perf_counter() - start_t
+        return {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "onion_intelligence",
+            "implementation_id": self.implementation_id,
+            "query": query,
+            "documents_count": len(docs),
+            "documents": docs,
+            "combined_text": " ".join(snippets),
+            "runtime_sec": elapsed,
+            "epistemic_nature": "OBSERVATION",
+            "authoritative": False,
+            "observations": [obs.model_dump() for obs in observations],
+        }
+
+
+class AhmiaCapabilityAdapter(BaseCapabilityAdapter):
+    """Wraps AhmiaSearchAdapter for Tor search & discovery."""
+
+    def __init__(self, adapter: Optional[Any] = None) -> None:
+        from argus.specialists.onion.adapter import AhmiaSearchAdapter
+        self.adapter = adapter or AhmiaSearchAdapter()
+        self.implementation_id = "impl_ahmia_search_v1"
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        query = inputs.get("query") or inputs.get("target", "")
+        start_t = time.perf_counter()
+        observations = self.adapter.execute_query(query)
+        docs = [
+            {
+                "doc_id": obs.observation_id,
+                "title": f"Ahmia Search Record: {obs.entity_name}",
+                "url": f"http://{obs.payload.get('onion_address', obs.entity_name)}",
+                "text": f"[{obs.evidence_type}] {obs.payload.get('service_name')}: {obs.payload.get('description')}",
+                "source_type": "onion_descriptor",
+                "payload": obs.payload,
+                "confidence": obs.confidence,
+                "epistemic_status": obs.epistemic_status,
+                "is_authoritative": False,
+            }
+            for obs in observations
+        ]
+        elapsed = time.perf_counter() - start_t
+        return {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "onion_intelligence",
+            "implementation_id": self.implementation_id,
+            "query": query,
+            "documents_count": len(docs),
+            "documents": docs,
+            "combined_text": " ".join(d["text"] for d in docs),
+            "runtime_sec": elapsed,
+            "epistemic_nature": "OBSERVATION",
+            "authoritative": False,
+            "observations": [obs.model_dump() for obs in observations],
+        }
+
+
+class TorBotCapabilityAdapter(BaseCapabilityAdapter):
+    """Wraps TorBotCleanRoomAdapter for Tor crawling & entity extraction."""
+
+    def __init__(self, adapter: Optional[Any] = None) -> None:
+        from argus.specialists.onion.adapter import TorBotCleanRoomAdapter
+        self.adapter = adapter or TorBotCleanRoomAdapter()
+        self.implementation_id = "impl_torbot_crawler_v1"
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        query = inputs.get("query") or inputs.get("onion_address", "")
+        start_t = time.perf_counter()
+        observations = self.adapter.execute_query(query)
+        docs = [
+            {
+                "doc_id": obs.observation_id,
+                "title": f"TorBot Crawl Record: {obs.entity_name}",
+                "url": f"http://{obs.payload.get('onion_address', query)}",
+                "text": f"[{obs.evidence_type}] {obs.entity_name} Crawl Payload: {obs.payload}",
+                "source_type": "onion_crawl",
+                "payload": obs.payload,
+                "confidence": obs.confidence,
+                "epistemic_status": obs.epistemic_status,
+                "is_authoritative": False,
+            }
+            for obs in observations
+        ]
+        elapsed = time.perf_counter() - start_t
+        return {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "capability_id": "onion_intelligence",
+            "implementation_id": self.implementation_id,
+            "query": query,
+            "documents_count": len(docs),
+            "documents": docs,
+            "combined_text": " ".join(d["text"] for d in docs),
+            "runtime_sec": elapsed,
+            "epistemic_nature": "OBSERVATION",
+            "authoritative": False,
+            "observations": [obs.model_dump() for obs in observations],
+        }
+
+
+_CUSTOM_ADAPTERS: Dict[str, BaseCapabilityAdapter] = {}
+_ADAPTER_LOCK = threading.Lock()
+
+
+def register_capability_adapter(implementation_id: str, adapter: BaseCapabilityAdapter) -> None:
+    """Register a custom or test capability adapter for dynamic execution."""
+    if not isinstance(implementation_id, str) or not implementation_id.strip():
+        raise ValueError("implementation_id must be a non-empty string.")
+    if not isinstance(adapter, BaseCapabilityAdapter):
+        raise TypeError(f"adapter must be an instance of BaseCapabilityAdapter, got {type(adapter).__name__}")
+    with _ADAPTER_LOCK:
+        _CUSTOM_ADAPTERS[implementation_id] = adapter
+
+
+def unregister_capability_adapter(implementation_id: str) -> None:
+    """Unregister a custom or test capability adapter."""
+    with _ADAPTER_LOCK:
+        _CUSTOM_ADAPTERS.pop(implementation_id, None)
+
+
+def get_adapter_for_implementation(implementation_id: str) -> BaseCapabilityAdapter:
+    """Factory retrieving appropriate capability adapter by implementation ID."""
+    with _ADAPTER_LOCK:
+        if implementation_id in _CUSTOM_ADAPTERS:
+            return _CUSTOM_ADAPTERS[implementation_id]
+
+    adapters: Dict[str, BaseCapabilityAdapter] = {
+        "impl_argus_generalist_v1": ArgusResearchAdapter(),
+        "impl_identity_probe_specialist_v1": IdentitySpecialistAdapter(),
+        "impl_infrastructure_probe_specialist_v1": InfrastructureSpecialistAdapter(),
+        "impl_corporate_registry_specialist_v1": CorporateSpecialistAdapter(),
+        "impl_challenger_identity_specialist_v2": ChallengerIdentityAdapter(),
+        "impl_opensanctions_probe_v1": OpenSanctionsCapabilityAdapter(),
+        "impl_onion_integrated_v1": OnionCapabilityAdapter(),
+        "impl_ahmia_search_v1": AhmiaCapabilityAdapter(),
+        "impl_torbot_crawler_v1": TorBotCapabilityAdapter(),
+    }
+
+    # Vertical 6: Email & Account Intelligence Adapters
+    if implementation_id == "impl_email_to_account_discovery_v1":
+        from argus.specialists.email.adapter import EmailToAccountDiscoveryAdapter
+        return EmailToAccountDiscoveryAdapter()
+    elif implementation_id == "impl_identity_to_email_discovery_v1":
+        from argus.specialists.email.adapter import IdentityToEmailDiscoveryAdapter
+        return IdentityToEmailDiscoveryAdapter()
+    elif implementation_id == "impl_email_address_verification_v1":
+        from argus.specialists.email.adapter import EmailVerificationAdapter
+        return EmailVerificationAdapter()
+    elif implementation_id == "impl_email_identity_resolution_v1":
+        from argus.specialists.email.adapter import EmailIdentityResolutionAdapter
+        return EmailIdentityResolutionAdapter()
+    elif implementation_id == "impl_email_account_specialist_v1":
+        from argus.specialists.email.adapter import EmailAccountSpecialistAdapter
+        return EmailAccountSpecialistAdapter()
+
+    if implementation_id not in adapters:
+        raise KeyError(f"No registered adapter for implementation '{implementation_id}'")
+    return adapters[implementation_id]

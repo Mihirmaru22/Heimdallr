@@ -1,0 +1,5 @@
+URL: https://www.ebsco.com/research-starters/history/watson-and-crick-announce-double-helix-model-dna
+TITLE: Watson and Crick Announce the Double-Helix Model for DNA
+DATE: 2026-10-13T06:39:43.654839+00:00
+
+On April 2, 1953, James D. Watson and Francis Crick unveiled the double-helix model of deoxyribonucleic acid (DNA) in the journal *Nature*, a pivotal moment in biological sciences. This groundbreaking model depicted DNA as a ladder-like structure, composed of two intertwined helical strands with external ribose-phosphate chains and internal rungs made of paired amino acids: adenine, thymine ...

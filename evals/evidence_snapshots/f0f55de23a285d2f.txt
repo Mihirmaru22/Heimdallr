@@ -1,0 +1,5 @@
+URL: https://espysys.com/pep-sanctions-data-feeds/
+TITLE: PEP & Sanctions Data API for Compliance Screening | ESPY
+DATE: 2026-10-13T05:38:25.464577+00:00
+
+PEP and sanctions list data via API — screen for politically exposed persons and sanctioned entities in real time for AML compliance.

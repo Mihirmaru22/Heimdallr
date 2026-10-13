@@ -1,0 +1,5 @@
+URL: https://mistral.ai/about/
+TITLE: About Mistral | Open, frontier AI for all.
+DATE: 2026-10-13T05:33:33.976566+00:00
+
+Mistral's co-founders saw the need for a different kind of AI company: a European leader that combines cutting-edge innovation with openness, transparency, cost efficiency, and responsibility. They were determined to democratize AI, making it accessible, customizable, and returning control to users.

@@ -1,0 +1,24 @@
+{
+  "unique_key": "https://media.ford.com/content/fordmedia/fna/us/en/news/2023/blueoval-city-update.html",
+  "url": "https://media.ford.com/content/fordmedia/fna/us/en/news/2023/blueoval-city-update.html",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "request_id": "req_0e71c4d4",
+    "objective_id": "obj_eval_struct_02_dearborn_truck",
+    "research_task_id": "tsk_bdbfd9dc",
+    "task_id": "tsk_bdbfd9dc",
+    "priority": 10,
+    "depth": 0,
+    "force_browser": false,
+    "max_retries": 2,
+    "retry_count": 0,
+    "metadata": {},
+    "created_at": "2026-10-07T06:48:13.305565+00:00"
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-10-07 06:48:13.314570+00:00"
+}

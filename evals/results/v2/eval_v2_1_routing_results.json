@@ -1,0 +1,10 @@
+{
+  "suite_name": "100-Case Semantic Specialist Routing Benchmark",
+  "total_cases": 100,
+  "correct_decisions": 92,
+  "accuracy": 0.92,
+  "unnecessary_invocations": 3,
+  "missed_invocations": 6,
+  "wrong_specialist_invocations": 0,
+  "multi_specialist_accuracy": 0.6
+}

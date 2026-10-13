@@ -1,0 +1,357 @@
+{
+  "suite_name": "V5_TRAJECTORIES",
+  "sample_count": 10,
+  "trajectories": [
+    {
+      "task_id": "ONION_DISC_01",
+      "category": "ONION_SERVICE_DISCOVERY",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_DISC_02",
+      "category": "ONION_SERVICE_DISCOVERY",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_DISC_03",
+      "category": "ONION_SERVICE_DISCOVERY",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_DISC_04",
+      "category": "ONION_SERVICE_DISCOVERY",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_DISC_05",
+      "category": "ONION_SERVICE_DISCOVERY",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_DISC_06",
+      "category": "ONION_SERVICE_DISCOVERY",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_DISC_07",
+      "category": "ONION_SERVICE_DISCOVERY",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_SRCH_01",
+      "category": "ONION_SEARCH",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_SRCH_02",
+      "category": "ONION_SEARCH",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    },
+    {
+      "task_id": "ONION_SRCH_03",
+      "category": "ONION_SEARCH",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Question intake and capability requirement matching",
+          "routed_capability": "onion_intelligence"
+        },
+        {
+          "step": 2,
+          "action": "Specialist observation generation",
+          "specialist": "impl_onion_integrated_v1",
+          "is_authoritative": false,
+          "epistemic_status": "OBSERVED_DARKWEB_DESCRIPTOR"
+        },
+        {
+          "step": 3,
+          "action": "Security gate sanitization",
+          "result": "SANITIZED_SAFE",
+          "authoritative_state_isolated": true
+        },
+        {
+          "step": 4,
+          "action": "Heimdallr Verifier epistemic model classification",
+          "final_status": "SUPPORTED",
+          "provenance_anchors": [
+            "Tor SOCKS5 circuit",
+            "SHA-256 onion payload hash"
+          ]
+        }
+      ],
+      "causal_pattern": "BASELINE_FAIL_INTEGRATED_PASS_DISABLED_FAIL",
+      "attribution_class": "FIXED_BY_CANDIDATE"
+    }
+  ],
+  "timestamp": "2026-10-09T05:42:09Z"
+}

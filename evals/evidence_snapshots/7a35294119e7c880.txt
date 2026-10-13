@@ -1,0 +1,5 @@
+URL: https://equaloptics.com/design-optical-connectivity-ai-training-clusters/
+TITLE: How to Design Optical Connectivity for AI Training Clusters
+DATE: 2026-10-13T05:41:26.175204+00:00
+
+Architecture-first guidance for selecting 400G/800G optics, AOC/DAC, and fiber patching for AI training clusters, with a practical planning checklist.

@@ -1,0 +1,27 @@
+{
+  "suite_name": "V5_2_SECURITY_RESULTS",
+  "total_probes": 32,
+  "passed_probes": 32,
+  "failed_probes": 0,
+  "pass_rate": 1.0,
+  "critical_escapes": 0,
+  "authoritative_fence_enforced": true,
+  "vectors_covered": [
+    "Prompt injection",
+    "Malicious HTML/links",
+    "Path traversal",
+    "Shell metacharacters",
+    "SSRF cloud metadata",
+    "SSRF Tor control port",
+    "SSRF loopback",
+    "Resource exhaustion",
+    "Hostile metadata",
+    "Poisoned evidence",
+    "Credential exposure",
+    "Privilege escalation",
+    "Fake system messages",
+    "Delimitation escapes"
+  ],
+  "verdict": "SECURITY_VALIDATED_32_OF_32_DEFUSED",
+  "timestamp": "2026-10-09T06:19:11Z"
+}

@@ -1,0 +1,5 @@
+URL: https://en.wikipedia.org/wiki/ASML
+TITLE: ASML - Wikipedia
+DATE: 2026-10-13T05:33:48.796494+00:00
+
+ASML Holding N.V. (originally an abbreviation of Advanced Semiconductor Materials Lithography) is a Dutch company that develops and manufactures photolithography machines used to produce integrated circuits.

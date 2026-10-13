@@ -1,0 +1,41 @@
+{
+  "suite_name": "V5_1_1_CAPABILITY_GAP",
+  "group_a_onion_acquisition": {
+    "description": "Requires Tor hidden service SOCKS5 acquisition and discovery",
+    "tasks_count": 25,
+    "argus_baseline_passed": 0,
+    "onion_standalone_passed": 25,
+    "heimdallr_integrated_passed": 25,
+    "conclusion": "GENUINE_GAP: Argus lacks Tor SOCKS5 transport and hidden service discovery."
+  },
+  "group_b_handed_url_processing": {
+    "description": "Evaluate extraction and verification when acquired content is provided to Argus",
+    "tasks_count": 25,
+    "argus_without_document_passed": 0,
+    "argus_with_handed_document_passed": 25,
+    "onion_standalone_passed": 25,
+    "heimdallr_integrated_passed": 25,
+    "conclusion": "NO_REASONING_GAP: Argus successfully parses and extracts from darknet content once acquired."
+  },
+  "group_c_general_reasoning": {
+    "description": "Cross-specialist multi-hop reasoning, sanctions, corporate beneficial ownership",
+    "tasks_count": 25,
+    "onion_standalone_passed": 5,
+    "heimdallr_integrated_passed": 25,
+    "conclusion": "INCUMBENT_SUPERIORITY: Standalone Onion fails on clearnet registries; Heimdallr reasoning is indispensable."
+  },
+  "group_d_negative_not_found": {
+    "description": "Calibrated negative and unknown resolution when evidence is absent from scope",
+    "tasks_count": 25,
+    "argus_baseline_passed": 25,
+    "heimdallr_integrated_passed": 25,
+    "conclusion": "SHARED_COMPETENCE: Both systems correctly calibrate absence without hallucination."
+  },
+  "recruitment_implication": {
+    "primary_deficiency": "TOR_TRANSPORT_AND_ACQUISITION",
+    "reasoning_deficiency": "NONE (Incumbent Heimdallr engines provide all multi-hop and epistemic verification)",
+    "recommended_recruitment_action": "RECRUIT_ACQUISITION_CAPABILITY",
+    "rationale": "The performance delta is completely attributable to Tor SOCKS5 hidden service acquisition, descriptor indexing, and onion link crawling. Once content is acquired, Heimdallr's incumbent reasoning engine solves all entity resolution, corporate correlation, and temporal analysis tasks. Registering an entire redundant intelligence vertical is unjustified; recruiting an acquisition capability ('onion_acquisition_and_discovery') matches the true capability boundary."
+  },
+  "timestamp": "2026-10-09T05:48:31Z"
+}

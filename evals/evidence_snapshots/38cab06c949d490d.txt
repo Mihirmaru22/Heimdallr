@@ -1,0 +1,5 @@
+URL: https://en.wikipedia.org/wiki/Linus_Torvalds
+TITLE: Linus Torvalds - Wikipedia
+DATE: 2026-10-13T05:38:51.385923+00:00
+
+Linus Benedict Torvalds[a] (born 28 December 1969) is a Finnish and American software engineer who is the creator and lead developer of the Linux kernel since 1991. He also created the distributed version control system Git.

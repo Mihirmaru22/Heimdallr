@@ -1,0 +1,5 @@
+URL: https://howmanytokens.io/deepseek-v3/
+TITLE: DeepSeek V3: token counter & pricing
+DATE: 2026-10-13T05:41:51.510014+00:00
+
+Oct 6, 2026 · Count tokens for DeepSeek V3 (DeepSeek) and estimate cost: $0.27 / $1.1 per 1M tokens, 128,000-token context window. Free, exact, no signup.

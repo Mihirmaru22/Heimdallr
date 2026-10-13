@@ -1,0 +1,5 @@
+URL: https://www.binderr.com/resources/pep-and-sanctions-screening-aml-guide
+TITLE: PEP and Sanctions Screening in AML (2026 Guide)
+DATE: 2026-10-13T05:40:36.669611+00:00
+
+Jul 17, 2026 · Businesses must identify who they onboard, verify beneficial ownership, and assess whether any individual or entity carries politically exposed person risk or appears on sanctions lists. PEP screening and sanctions screening serve different purposes but work together in AML frameworks.

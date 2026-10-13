@@ -1,0 +1,867 @@
+[
+  {
+    "task_id": "cap_match_01_gen_public_info",
+    "category": "GENERAL_RESEARCH",
+    "passed": true,
+    "selected_capabilities": [
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "general_web_research"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0028437944129109383,
+    "rationale": "Selected [general_web_research] (impl: ['impl_argus_generalist_v1']). Expected [general_web_research]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_02_gen_broad_news",
+    "category": "GENERAL_RESEARCH",
+    "passed": true,
+    "selected_capabilities": [
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "general_web_research"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013145823031663895,
+    "rationale": "Selected [general_web_research] (impl: ['impl_argus_generalist_v1']). Expected [general_web_research]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_03_gen_academic_paper",
+    "category": "GENERAL_RESEARCH",
+    "passed": true,
+    "selected_capabilities": [
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "general_web_research"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013250699266791344,
+    "rationale": "Selected [general_web_research] (impl: ['impl_argus_generalist_v1']). Expected [general_web_research]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_04_ident_github_handle",
+    "category": "IDENTITY",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_challenger_identity_specialist_v2",
+      "impl_identity_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013897111639380455,
+    "rationale": "Selected [identity_resolution] (impl: ['impl_challenger_identity_specialist_v2', 'impl_identity_probe_specialist_v1']). Expected [identity_resolution]. P=1.00, R=1.00, F1=1.00. "
+  },
+  {
+    "task_id": "cap_match_05_ident_keybase_pgp",
+    "category": "IDENTITY",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_challenger_identity_specialist_v2",
+      "impl_identity_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013185981661081314,
+    "rationale": "Selected [identity_resolution] (impl: ['impl_challenger_identity_specialist_v2', 'impl_identity_probe_specialist_v1']). Expected [identity_resolution]. P=1.00, R=1.00, F1=1.00. "
+  },
+  {
+    "task_id": "cap_match_06_ident_persona_link",
+    "category": "IDENTITY",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_challenger_identity_specialist_v2",
+      "impl_identity_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.001337680034339428,
+    "rationale": "Selected [identity_resolution] (impl: ['impl_challenger_identity_specialist_v2', 'impl_identity_probe_specialist_v1']). Expected [identity_resolution]. P=1.00, R=1.00, F1=1.00. "
+  },
+  {
+    "task_id": "cap_match_07_ident_commit_signature",
+    "category": "IDENTITY",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution",
+      "infrastructure_discovery"
+    ],
+    "selected_implementations": [
+      "impl_identity_probe_specialist_v1",
+      "impl_infrastructure_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0014117024838924408,
+    "rationale": "Selected [identity_resolution, infrastructure_discovery] (impl: ['impl_identity_probe_specialist_v1', 'impl_infrastructure_probe_specialist_v1']). Expected [identity_resolution]. P=1.00, R=1.00, F1=1.00. "
+  },
+  {
+    "task_id": "cap_match_08_infra_dns_zone",
+    "category": "INFRASTRUCTURE",
+    "passed": true,
+    "selected_capabilities": [
+      "infrastructure_discovery",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_infrastructure_probe_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "infrastructure_discovery"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013287011533975601,
+    "rationale": "Selected [infrastructure_discovery, general_web_research] (impl: ['impl_infrastructure_probe_specialist_v1', 'impl_argus_generalist_v1']). Expected [infrastructure_discovery]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_09_infra_ct_log_san",
+    "category": "INFRASTRUCTURE",
+    "passed": true,
+    "selected_capabilities": [
+      "infrastructure_discovery",
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_infrastructure_probe_specialist_v1",
+      "impl_identity_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "infrastructure_discovery"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013162922114133835,
+    "rationale": "Selected [infrastructure_discovery, identity_resolution] (impl: ['impl_infrastructure_probe_specialist_v1', 'impl_identity_probe_specialist_v1']). Expected [infrastructure_discovery]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_10_infra_telemetry_host",
+    "category": "INFRASTRUCTURE",
+    "passed": true,
+    "selected_capabilities": [
+      "infrastructure_discovery",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_infrastructure_probe_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "infrastructure_discovery"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013128668069839478,
+    "rationale": "Selected [infrastructure_discovery, general_web_research] (impl: ['impl_infrastructure_probe_specialist_v1', 'impl_argus_generalist_v1']). Expected [infrastructure_discovery]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_11_infra_mailhost_fp",
+    "category": "INFRASTRUCTURE",
+    "passed": true,
+    "selected_capabilities": [
+      "infrastructure_discovery",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_infrastructure_probe_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "infrastructure_discovery"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013322588056325912,
+    "rationale": "Selected [infrastructure_discovery, general_web_research] (impl: ['impl_infrastructure_probe_specialist_v1', 'impl_argus_generalist_v1']). Expected [infrastructure_discovery]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_12_corp_legal_entity",
+    "category": "CORPORATE",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013459334149956703,
+    "rationale": "Selected [corporate_registry_intelligence, general_web_research] (impl: ['impl_corporate_registry_specialist_v1', 'impl_argus_generalist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_13_corp_subsidiary_sched",
+    "category": "CORPORATE",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.001322566531598568,
+    "rationale": "Selected [corporate_registry_intelligence, general_web_research] (impl: ['impl_corporate_registry_specialist_v1', 'impl_argus_generalist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_14_corp_executive_officers",
+    "category": "CORPORATE",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "infrastructure_discovery"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_infrastructure_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013621784746646881,
+    "rationale": "Selected [corporate_registry_intelligence, infrastructure_discovery] (impl: ['impl_corporate_registry_specialist_v1', 'impl_infrastructure_probe_specialist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_15_corp_beneficial_owner",
+    "category": "CORPORATE",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "infrastructure_discovery"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_infrastructure_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.001371331512928009,
+    "rationale": "Selected [corporate_registry_intelligence, infrastructure_discovery] (impl: ['impl_corporate_registry_specialist_v1', 'impl_infrastructure_probe_specialist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_16_temp_officer_as_of",
+    "category": "TEMPORAL",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "infrastructure_discovery"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_infrastructure_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.001579195261001587,
+    "rationale": "Selected [corporate_registry_intelligence, infrastructure_discovery] (impl: ['impl_corporate_registry_specialist_v1', 'impl_infrastructure_probe_specialist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_17_temp_restatement_10ka",
+    "category": "TEMPORAL",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013255495578050613,
+    "rationale": "Selected [corporate_registry_intelligence, general_web_research] (impl: ['impl_corporate_registry_specialist_v1', 'impl_argus_generalist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_18_temp_historical_tenure",
+    "category": "TEMPORAL",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0014405502006411552,
+    "rationale": "Selected [corporate_registry_intelligence, general_web_research] (impl: ['impl_corporate_registry_specialist_v1', 'impl_argus_generalist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_19_contra_superseded_filing",
+    "category": "CONTRADICTION",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013726428151130676,
+    "rationale": "Selected [corporate_registry_intelligence, general_web_research] (impl: ['impl_corporate_registry_specialist_v1', 'impl_argus_generalist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_20_contra_officer_dispute",
+    "category": "CONTRADICTION",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013049524277448654,
+    "rationale": "Selected [corporate_registry_intelligence, general_web_research] (impl: ['impl_corporate_registry_specialist_v1', 'impl_argus_generalist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_21_contra_wire_vs_registry",
+    "category": "CONTRADICTION",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "infrastructure_discovery"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_infrastructure_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.001417144201695919,
+    "rationale": "Selected [corporate_registry_intelligence, infrastructure_discovery] (impl: ['impl_corporate_registry_specialist_v1', 'impl_infrastructure_probe_specialist_v1']). Expected [corporate_registry_intelligence]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_22_multi_corp_infra_link",
+    "category": "MULTI_SPECIALIST",
+    "passed": true,
+    "selected_capabilities": [
+      "infrastructure_discovery",
+      "corporate_registry_intelligence",
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_infrastructure_probe_specialist_v1",
+      "impl_corporate_registry_specialist_v1",
+      "impl_identity_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence",
+      "infrastructure_discovery"
+    ],
+    "precision": 0.6666666666666666,
+    "recall": 1.0,
+    "f1": 0.8,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0016080671921372414,
+    "rationale": "Selected [infrastructure_discovery, corporate_registry_intelligence, identity_resolution] (impl: ['impl_infrastructure_probe_specialist_v1', 'impl_corporate_registry_specialist_v1']). Expected [corporate_registry_intelligence, infrastructure_discovery]. P=0.67, R=1.00, F1=0.80. "
+  },
+  {
+    "task_id": "cap_match_23_multi_infra_identity",
+    "category": "MULTI_SPECIALIST",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution",
+      "infrastructure_discovery"
+    ],
+    "selected_implementations": [
+      "impl_challenger_identity_specialist_v2",
+      "impl_identity_probe_specialist_v1",
+      "impl_infrastructure_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "infrastructure_discovery",
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0014473078772425652,
+    "rationale": "Selected [identity_resolution, infrastructure_discovery] (impl: ['impl_challenger_identity_specialist_v2', 'impl_identity_probe_specialist_v1']). Expected [infrastructure_discovery, identity_resolution]. P=1.00, R=1.00, F1=1.00. "
+  },
+  {
+    "task_id": "cap_match_24_multi_corp_identity_exec",
+    "category": "MULTI_SPECIALIST",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "infrastructure_discovery",
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_infrastructure_probe_specialist_v1",
+      "impl_challenger_identity_specialist_v2"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence",
+      "identity_resolution"
+    ],
+    "precision": 0.6666666666666666,
+    "recall": 1.0,
+    "f1": 0.8,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0014893263578414917,
+    "rationale": "Selected [corporate_registry_intelligence, infrastructure_discovery, identity_resolution] (impl: ['impl_corporate_registry_specialist_v1', 'impl_infrastructure_probe_specialist_v1']). Expected [corporate_registry_intelligence, identity_resolution]. P=0.67, R=1.00, F1=0.80. "
+  },
+  {
+    "task_id": "cap_match_25_multi_triad_flagship",
+    "category": "MULTI_SPECIALIST",
+    "passed": true,
+    "selected_capabilities": [
+      "corporate_registry_intelligence",
+      "identity_resolution",
+      "infrastructure_discovery"
+    ],
+    "selected_implementations": [
+      "impl_corporate_registry_specialist_v1",
+      "impl_identity_probe_specialist_v1",
+      "impl_infrastructure_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "corporate_registry_intelligence",
+      "infrastructure_discovery",
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0015995074063539505,
+    "rationale": "Selected [corporate_registry_intelligence, identity_resolution, infrastructure_discovery] (impl: ['impl_corporate_registry_specialist_v1', 'impl_identity_probe_specialist_v1']). Expected [corporate_registry_intelligence, infrastructure_discovery, identity_resolution]. P=1.00, R=1.00, F1=1.00. "
+  },
+  {
+    "task_id": "cap_match_26_neg_unsupported_quantum",
+    "category": "NEGATIVE_CAPABILITY",
+    "passed": true,
+    "selected_capabilities": [
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "general_web_research"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013551507145166397,
+    "rationale": "Selected [general_web_research] (impl: ['impl_argus_generalist_v1']). Expected [general_web_research]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_27_neg_unsupported_weather",
+    "category": "NEGATIVE_CAPABILITY",
+    "passed": true,
+    "selected_capabilities": [
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "general_web_research"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013021836057305336,
+    "rationale": "Selected [general_web_research] (impl: ['impl_argus_generalist_v1']). Expected [general_web_research]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_28_neg_unsupported_culinary",
+    "category": "NEGATIVE_CAPABILITY",
+    "passed": true,
+    "selected_capabilities": [
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "general_web_research"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0013494156301021576,
+    "rationale": "Selected [general_web_research] (impl: ['impl_argus_generalist_v1']). Expected [general_web_research]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_29_unavail_infra_disabled",
+    "category": "UNAVAILABLE_RESILIENCE",
+    "passed": true,
+    "selected_capabilities": [
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "general_web_research"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0014132466167211533,
+    "rationale": "Selected [general_web_research] (impl: ['impl_argus_generalist_v1']). Expected [general_web_research]. P=1.00, R=1.00, F1=1.00. Unavailable avoided. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_30_unavail_corp_quarantined",
+    "category": "UNAVAILABLE_RESILIENCE",
+    "passed": true,
+    "selected_capabilities": [
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "general_web_research"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0012701936066150665,
+    "rationale": "Selected [general_web_research] (impl: ['impl_argus_generalist_v1']). Expected [general_web_research]. P=1.00, R=1.00, F1=1.00. Unavailable avoided. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_31_degraded_infra_caution",
+    "category": "UNAVAILABLE_RESILIENCE",
+    "passed": true,
+    "selected_capabilities": [
+      "infrastructure_discovery",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_infrastructure_probe_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "infrastructure_discovery"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0012677395716309547,
+    "rationale": "Selected [infrastructure_discovery, general_web_research] (impl: ['impl_infrastructure_probe_specialist_v1', 'impl_argus_generalist_v1']). Expected [infrastructure_discovery]. P=1.00, R=1.00, F1=1.00. "
+  },
+  {
+    "task_id": "cap_match_32_comp_identity_two_impls",
+    "category": "IMPLEMENTATION_COMPETITION",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_challenger_identity_specialist_v2",
+      "impl_identity_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0012757936492562294,
+    "rationale": "Selected [identity_resolution] (impl: ['impl_challenger_identity_specialist_v2', 'impl_identity_probe_specialist_v1']). Expected [identity_resolution]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_33_comp_pgp_signature_priority",
+    "category": "IMPLEMENTATION_COMPETITION",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_challenger_identity_specialist_v2",
+      "impl_identity_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0014018462970852852,
+    "rationale": "Selected [identity_resolution] (impl: ['impl_challenger_identity_specialist_v2', 'impl_identity_probe_specialist_v1']). Expected [identity_resolution]. P=1.00, R=1.00, F1=1.00. Target impl matched. "
+  },
+  {
+    "task_id": "cap_match_34_comp_cost_sensitive_ranking",
+    "category": "IMPLEMENTATION_COMPETITION",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution"
+    ],
+    "selected_implementations": [
+      "impl_challenger_identity_specialist_v2",
+      "impl_identity_probe_specialist_v1"
+    ],
+    "expected_capabilities": [
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 0,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.0012764381244778633,
+    "rationale": "Selected [identity_resolution] (impl: ['impl_challenger_identity_specialist_v2', 'impl_identity_probe_specialist_v1']). Expected [identity_resolution]. P=1.00, R=1.00, F1=1.00. "
+  },
+  {
+    "task_id": "cap_match_35_comp_versioning_tiebreaker",
+    "category": "IMPLEMENTATION_COMPETITION",
+    "passed": true,
+    "selected_capabilities": [
+      "identity_resolution",
+      "general_web_research"
+    ],
+    "selected_implementations": [
+      "impl_identity_probe_specialist_v1",
+      "impl_argus_generalist_v1"
+    ],
+    "expected_capabilities": [
+      "identity_resolution"
+    ],
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "unnecessary_invocations": 1,
+    "missed_invocations": 0,
+    "wrong_selection": false,
+    "unavailable_avoidance_success": true,
+    "runtime_sec": 0.001288723200559616,
+    "rationale": "Selected [identity_resolution, general_web_research] (impl: ['impl_identity_probe_specialist_v1', 'impl_argus_generalist_v1']). Expected [identity_resolution]. P=1.00, R=1.00, F1=1.00. "
+  }
+]

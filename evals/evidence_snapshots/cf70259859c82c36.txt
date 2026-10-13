@@ -1,0 +1,5 @@
+URL: https://resumefromgit.com/blog/who-owns-github
+TITLE: Who owns GitHub? - resumefromgit.com
+DATE: 2026-10-13T05:35:13.848294+00:00
+
+Aug 4, 2026 · GitHub’s leadership now reports into Microsoft’s CoreAI engineering organization, the group responsible for Microsoft’s AI platform and developer tools. GitHub still ships under its own brand and runs its own site, but organizationally it is no longer a semi-independent company inside Microsoft.

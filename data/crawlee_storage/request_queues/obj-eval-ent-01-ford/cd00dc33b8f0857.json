@@ -1,0 +1,24 @@
+{
+  "unique_key": "https://www.tesla.com/impact/manufacturing-facilities",
+  "url": "https://www.tesla.com/impact/manufacturing-facilities",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "request_id": "req_1bd7044f",
+    "objective_id": "obj_eval_ent_01_ford",
+    "research_task_id": "tsk_f85851cd",
+    "task_id": "tsk_f85851cd",
+    "priority": 6,
+    "depth": 0,
+    "force_browser": false,
+    "max_retries": 2,
+    "retry_count": 0,
+    "metadata": {},
+    "created_at": "2026-10-07T06:54:54.342258+00:00"
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-10-07 06:54:54.373147+00:00"
+}

@@ -1,0 +1,5 @@
+URL: https://wukihow.com/en/article/linux-history-the-origins-and-evolution-of-the-open-source-kernel-en
+TITLE: Linux History: The Origins and Evolution of the Open Source ...
+DATE: 2026-10-13T05:38:59.075001+00:00
+
+Creator: Linus Torvalds developed the Linux kernel in 1991. University: The project started while he was a computer science student at the University of Helsinki in Finland.

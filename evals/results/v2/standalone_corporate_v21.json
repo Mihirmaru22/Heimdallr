@@ -1,0 +1,17 @@
+{
+  "configuration": "standalone_corporate_v21",
+  "task_count": 129,
+  "metrics": {
+    "pass_rate": 0.3876,
+    "passed_count": 50,
+    "entity_precision": 0.524,
+    "entity_recall": 0.456,
+    "entity_f1": 0.441,
+    "chain_completion_rate": 0.175,
+    "temporal_accuracy": 0.406,
+    "epistemic_accuracy": 0.589,
+    "evidence_correctness": 0.892,
+    "critical_failures": 2,
+    "major_failures": 77
+  }
+}

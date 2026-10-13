@@ -1,0 +1,5 @@
+URL: https://en.wikipedia.org/wiki/Avogadro_constant
+TITLE: Avogadro constant - Wikipedia
+DATE: 2026-10-13T05:37:02.160792+00:00
+
+The Avogadro constant, a well-defined quantity value with dimension N−1, independent of the mole, is therefore a bona fide defining constant for the 2019 redefinition of the mole.

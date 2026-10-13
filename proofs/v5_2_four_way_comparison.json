@@ -1,0 +1,83 @@
+{
+  "suite_name": "V5_2_FIVE_WAY_COMPARISON",
+  "total_tasks": 100,
+  "scores": {
+    "config_a_argus_from_scratch": {
+      "passed": 20,
+      "pct": 20.0
+    },
+    "config_b_argus_handed_documents": {
+      "passed": 100,
+      "pct": 100.0
+    },
+    "config_c_onion_standalone": {
+      "passed": 82,
+      "pct": 82.0
+    },
+    "config_d_heimdallr_integrated": {
+      "passed": 100,
+      "pct": 100.0
+    },
+    "config_e_heimdallr_without_onion": {
+      "passed": 20,
+      "pct": 20.0
+    }
+  },
+  "group_breakdown": {
+    "GROUP_A_DISCOVERY": {
+      "total": 20,
+      "config_a": 2,
+      "config_b": 20,
+      "config_c": 20,
+      "config_d": 20,
+      "config_e": 2,
+      "delta_integrated_minus_disabled": 18
+    },
+    "GROUP_B_ACQUISITION": {
+      "total": 20,
+      "config_a": 3,
+      "config_b": 20,
+      "config_c": 20,
+      "config_d": 20,
+      "config_e": 3,
+      "delta_integrated_minus_disabled": 17
+    },
+    "GROUP_C_CRAWLING": {
+      "total": 15,
+      "config_a": 0,
+      "config_b": 15,
+      "config_c": 15,
+      "config_d": 15,
+      "config_e": 0,
+      "delta_integrated_minus_disabled": 15
+    },
+    "GROUP_D_HANDED_REASONING": {
+      "total": 15,
+      "config_a": 0,
+      "config_b": 15,
+      "config_c": 12,
+      "config_d": 15,
+      "config_e": 0,
+      "delta_integrated_minus_disabled": 15
+    },
+    "GROUP_E_INVESTIGATION": {
+      "total": 15,
+      "config_a": 0,
+      "config_b": 15,
+      "config_c": 0,
+      "config_d": 15,
+      "config_e": 0,
+      "delta_integrated_minus_disabled": 15
+    },
+    "GROUP_F_NEGATIVE_EPISTEMIC": {
+      "total": 15,
+      "config_a": 15,
+      "config_b": 15,
+      "config_c": 15,
+      "config_d": 15,
+      "config_e": 15,
+      "delta_integrated_minus_disabled": 0
+    }
+  },
+  "timestamp": "2026-10-09T06:19:11Z"
+}

@@ -1,0 +1,5 @@
+URL: https://www.nist.gov/si-redefinition/meet-constants
+TITLE: Meet the Constants | NIST
+DATE: 2026-10-13T06:39:50.657091+00:00
+
+Oct 12, 2018 · The Avogadro constant defines the number of particles in a mole, the SI unit that expresses the amount of substance. Simply put, Avogadro’s number of electrons equals one mole of electrons. Similarly, Avogadro’s number of water molecules equals one mole of water. In the revised SI, NA equals 6.02214076 x 10 23 particles per mole.

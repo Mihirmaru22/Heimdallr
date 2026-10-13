@@ -1,0 +1,5 @@
+URL: https://www.taskade.com/blog/github-history
+TITLE: Who Owns GitHub? Microsoft Since 2018: Full History (2026)
+DATE: 2026-10-13T05:34:52.872573+00:00
+
+Microsoft owns GitHub. It bought GitHub for $7.5B in 2018, ten years after four developers founded it. The history from the Octocat to Copilot and AI agents.

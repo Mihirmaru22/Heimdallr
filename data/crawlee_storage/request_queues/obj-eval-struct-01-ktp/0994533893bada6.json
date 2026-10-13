@@ -1,0 +1,24 @@
+{
+  "unique_key": "https://www.sec.gov/news/press-release/lordstown-motors-proceedings",
+  "url": "https://www.sec.gov/news/press-release/lordstown-motors-proceedings",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "request_id": "req_c508d1e8",
+    "objective_id": "obj_eval_struct_01_ktp",
+    "research_task_id": "tsk_f1ca30d7",
+    "task_id": "tsk_f1ca30d7",
+    "priority": 6,
+    "depth": 0,
+    "force_browser": false,
+    "max_retries": 2,
+    "retry_count": 0,
+    "metadata": {},
+    "created_at": "2026-10-07T06:54:54.593571+00:00"
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-10-07 06:54:54.887287+00:00"
+}

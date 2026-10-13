@@ -1,0 +1,70 @@
+{
+  "evaluation_milestone": "P0.3-W",
+  "total_failed_tasks": 8,
+  "failures": [
+    {
+      "task_id": "live_task_13_telephone_invention_dispute",
+      "category": "CONFLICTING_CLAIMS",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "SUPPORTED",
+      "failure_reason": "Epistemic status mismatch: expected CONTRADICTED, got SUPPORTED",
+      "retrieval_errors": []
+    },
+    {
+      "task_id": "live_task_14_pluto_planetary_status_reclassification",
+      "category": "CONFLICTING_CLAIMS",
+      "expected_status": "CONTRADICTED",
+      "produced_status": "SUPPORTED",
+      "failure_reason": "Epistemic status mismatch: expected CONTRADICTED, got SUPPORTED",
+      "retrieval_errors": []
+    },
+    {
+      "task_id": "live_task_16_twitter_rebranding_to_x",
+      "category": "TEMPORAL_CHANGE",
+      "expected_status": "SUPPORTED",
+      "produced_status": "CONTRADICTED",
+      "failure_reason": "Epistemic status mismatch: expected SUPPORTED, got CONTRADICTED",
+      "retrieval_errors": []
+    },
+    {
+      "task_id": "live_task_23_neg_nasa_warp_drive_starship",
+      "category": "NEGATIVE_FINDINGS",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "SUPPORTED",
+      "failure_reason": "Epistemic status mismatch: expected NOT_FOUND, got SUPPORTED",
+      "retrieval_errors": []
+    },
+    {
+      "task_id": "live_task_24_neg_microsoft_acquisition_linux_foundation",
+      "category": "NEGATIVE_FINDINGS",
+      "expected_status": "NOT_FOUND",
+      "produced_status": "SUPPORTED",
+      "failure_reason": "Epistemic status mismatch: expected NOT_FOUND, got SUPPORTED",
+      "retrieval_errors": []
+    },
+    {
+      "task_id": "live_task_28_insuff_gemini_training_cluster_topology",
+      "category": "INSUFFICIENT_PUBLIC_EVIDENCE",
+      "expected_status": "INSUFFICIENT_EVIDENCE",
+      "produced_status": "SUPPORTED",
+      "failure_reason": "Epistemic status mismatch: expected INSUFFICIENT_EVIDENCE, got SUPPORTED",
+      "retrieval_errors": []
+    },
+    {
+      "task_id": "live_task_29_insuff_exact_voyager_1_memory_dump_hex",
+      "category": "INSUFFICIENT_PUBLIC_EVIDENCE",
+      "expected_status": "INSUFFICIENT_EVIDENCE",
+      "produced_status": "SUPPORTED",
+      "failure_reason": "Epistemic status mismatch: expected INSUFFICIENT_EVIDENCE, got SUPPORTED",
+      "retrieval_errors": []
+    },
+    {
+      "task_id": "live_task_30_insuff_deepseek_v3_internal_dataset_ratios",
+      "category": "INSUFFICIENT_PUBLIC_EVIDENCE",
+      "expected_status": "INSUFFICIENT_EVIDENCE",
+      "produced_status": "SUPPORTED",
+      "failure_reason": "Epistemic status mismatch: expected INSUFFICIENT_EVIDENCE, got SUPPORTED",
+      "retrieval_errors": []
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+URL: https://chem.libretexts.org/Bookshelves/General_Chemistry/ChemPRIME_(Moore_et_al.)/02:_Atoms_Molecules_and_Chemical_Reactions/2.10:_The_Avogadro_Constant
+TITLE: 2.10: The Avogadro Constant - Chemistry LibreTexts
+DATE: 2026-10-13T05:37:10.637683+00:00
+
+The preceding example used the Avogadro constant as a conversion factor in the same way that density was used. As in previous examples, all that is necessary is to remember that number of particles and amount of substance are related by a conversion factor, the Avogadro constant.

@@ -1,0 +1,194 @@
+{
+  "validation_version": "Heimdallr V3.2.1 Final System Validation",
+  "timestamp": "2026-10-08T10:15:45Z",
+  "historical_v3_2_audit": {
+    "historical_v3_2_verdict_reported": "VALIDATED",
+    "discrepancies_identified": {
+      "eval_v2_saturation": {
+        "pre_v3_2_pass_rate": 1.0,
+        "post_v3_2_pass_rate": 1.0,
+        "candidate_disabled_pass_rate": 1.0,
+        "finding": "Eval V2 was 100% saturated in pre-V3.2 baseline; 0 causal tasks fixed by candidate in Eval V2.",
+        "remediation": "Constructed SANCTIONS_SPECIALIST_V1 with 40 genuine sanctions/PEP/offshore tasks."
+      },
+      "routing_tested_only_negatives": {
+        "total_tasks_audited": 140,
+        "true_negatives": 140,
+        "positive_sanctions_tasks_in_benchmark": 0,
+        "finding": "CAPABILITY_MATCH_V2 contained zero positive sanctions tasks. 100% recall was a negative artifact.",
+        "remediation": "Constructed CAPABILITY_ROUTING_SANCTIONS_V1 with 35 positive and 35 negative tasks."
+      },
+      "security_audit_failure_concealment": {
+        "violations_in_json": 2,
+        "verdict_in_json": "SECURITY_FAILED",
+        "violations_reported_in_scorecard": 0,
+        "failed_probes": [
+          "prompt_injection",
+          "shell_payload"
+        ],
+        "finding": "v3_2_security_audit.json had SECURITY_FAILED with 2 violations, but scorecard reported 0 violations.",
+        "remediation": "Hardened SecurityGateValidator against prompt injection and shell chaining; expanded to 32 probes."
+      }
+    }
+  },
+  "causal_attribution_summary": {
+    "fixed_by_candidate_count": 31,
+    "candidate_standalone_wins": 21,
+    "coexistence_synergy_wins": 10,
+    "unchanged_negative_count": 9,
+    "regressed_by_candidate_count": 0,
+    "strongest_causal_pattern_count": 31
+  },
+  "scorecard_table": [
+    {
+      "metric": "SANCTIONS_SPECIALIST_V1 Pass Rate (40 tasks)",
+      "argus_baseline": "22.5%",
+      "opensanctions_standalone": "70.0%",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "22.5%",
+      "system_delta": "+77.5%",
+      "marginal_delta": "+77.5%"
+    },
+    {
+      "metric": "SANCTIONS_SPECIALIST_V1 Entity F1",
+      "argus_baseline": "0.225",
+      "opensanctions_standalone": "0.832",
+      "heimdallr_integrated": "1.000",
+      "candidate_disabled": "0.225",
+      "system_delta": "+0.775",
+      "marginal_delta": "+0.775"
+    },
+    {
+      "metric": "SANCTIONS_SPECIALIST_V1 Evidence Correctness",
+      "argus_baseline": "38.0%",
+      "opensanctions_standalone": "85.0%",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "38.0%",
+      "system_delta": "+62.0%",
+      "marginal_delta": "+62.0%"
+    },
+    {
+      "metric": "SANCTIONS_SPECIALIST_V1 Temporal Accuracy (All 40 tasks)",
+      "argus_baseline": "22.5%",
+      "opensanctions_standalone": "70.0%",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "22.5%",
+      "system_delta": "+77.5%",
+      "marginal_delta": "+77.5%"
+    },
+    {
+      "metric": "SANCTIONS_SPECIALIST_V1 Temporal Subset Accuracy (8 temporal tasks)",
+      "argus_baseline": "0.0%",
+      "opensanctions_standalone": "100.0%",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "0.0%",
+      "system_delta": "+100.0%",
+      "marginal_delta": "+100.0%"
+    },
+    {
+      "metric": "Coexistence Synergy Wins (Integrated Pass, Argus Fail, Standalone Fail)",
+      "argus_baseline": "0/40 (0.0%)",
+      "opensanctions_standalone": "0/40 (0.0%)",
+      "heimdallr_integrated": "10/40 (25.0%)",
+      "candidate_disabled": "0/40 (0.0%)",
+      "system_delta": "+25.0%",
+      "marginal_delta": "+25.0%"
+    },
+    {
+      "metric": "CAPABILITY_ROUTING_SANCTIONS_V1 Invocation Recall (35 pos)",
+      "argus_baseline": "0.0%",
+      "opensanctions_standalone": "N/A",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "0.0%",
+      "system_delta": "+100.0%",
+      "marginal_delta": "+100.0%"
+    },
+    {
+      "metric": "CAPABILITY_ROUTING_SANCTIONS_V1 Invocation Precision (35 pos)",
+      "argus_baseline": "N/A",
+      "opensanctions_standalone": "N/A",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "N/A",
+      "system_delta": "+100.0%",
+      "marginal_delta": "+100.0%"
+    },
+    {
+      "metric": "CAPABILITY_ROUTING_SANCTIONS_V1 False Positive Rate (35 neg)",
+      "argus_baseline": "0.0%",
+      "opensanctions_standalone": "N/A",
+      "heimdallr_integrated": "0.0%",
+      "candidate_disabled": "0.0%",
+      "system_delta": "0.0%",
+      "marginal_delta": "0.0%"
+    },
+    {
+      "metric": "V3_2_1_SECURITY_V1 Pass Rate (32 probes)",
+      "argus_baseline": "N/A",
+      "opensanctions_standalone": "0.0%",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "100.0%",
+      "system_delta": "100.0%",
+      "marginal_delta": "0.0%"
+    },
+    {
+      "metric": "CROSS_SPECIALIST_V1 Chaining Pass Rate (16 tasks)",
+      "argus_baseline": "0.0%",
+      "opensanctions_standalone": "31.2%",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "0.0%",
+      "system_delta": "+100.0%",
+      "marginal_delta": "+100.0%"
+    },
+    {
+      "metric": "CROSS_SPECIALIST_V1 Decoy Rejection Rate (5 decoys)",
+      "argus_baseline": "100.0%",
+      "opensanctions_standalone": "0.0%",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "100.0%",
+      "system_delta": "0.0%",
+      "marginal_delta": "0.0%"
+    },
+    {
+      "metric": "Eval V2 Frozen Regression Pass Rate (129 tasks)",
+      "argus_baseline": "100.0%",
+      "opensanctions_standalone": "N/A",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "100.0%",
+      "system_delta": "0.0%",
+      "marginal_delta": "0.0%"
+    },
+    {
+      "metric": "Investigation V1 Frozen Regression Pass Rate (25 tasks)",
+      "argus_baseline": "100.0%",
+      "opensanctions_standalone": "N/A",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "100.0%",
+      "system_delta": "0.0%",
+      "marginal_delta": "0.0%"
+    },
+    {
+      "metric": "CAPABILITY_MATCH_V2 Frozen Minimum-Set Acc (140 tasks)",
+      "argus_baseline": "100.0%",
+      "opensanctions_standalone": "N/A",
+      "heimdallr_integrated": "100.0%",
+      "candidate_disabled": "100.0%",
+      "system_delta": "0.0%",
+      "marginal_delta": "0.0%"
+    }
+  ],
+  "final_verdict": "VALIDATED",
+  "validation_criteria_met": {
+    "1_specialist_specific_causal_gain_demonstrated": true,
+    "2_candidate_disabled_regression_demonstrated": true,
+    "3_positive_routing_validated": true,
+    "4_negative_routing_validated": true,
+    "5_security_benchmark_passes": true,
+    "6_no_critical_leakage": true,
+    "7_no_critical_regression": true,
+    "8_cross_specialist_integration_passes": true,
+    "9_stability_acceptable": true,
+    "10_evidence_provenance_preserved": true,
+    "11_epistemic_correctness_preserved": true,
+    "12_recruitment_compatibility_confirmed": true
+  }
+}

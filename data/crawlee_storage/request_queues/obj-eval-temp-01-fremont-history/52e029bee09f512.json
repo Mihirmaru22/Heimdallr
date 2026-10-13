@@ -1,0 +1,24 @@
+{
+  "unique_key": "https://www.apex-auto-components.com/leadership.html",
+  "url": "https://www.apex-auto-components.com/leadership.html",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "request_id": "req_19b36aaa",
+    "objective_id": "obj_eval_temp_01_fremont_history",
+    "research_task_id": "tsk_4d17d98d",
+    "task_id": "tsk_4d17d98d",
+    "priority": 7,
+    "depth": 0,
+    "force_browser": false,
+    "max_retries": 2,
+    "retry_count": 0,
+    "metadata": {},
+    "created_at": "2026-10-07T06:51:33.962145+00:00"
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": null,
+  "handled_at": "2026-10-07 06:51:34.028011+00:00"
+}

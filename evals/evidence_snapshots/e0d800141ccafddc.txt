@@ -1,0 +1,5 @@
+URL: https://www.napier.ai/entity-screening
+TITLE: PEP & Sanctions Screening | Entity Screening | Napier
+DATE: 2026-10-13T06:41:16.509415+00:00
+
+Screen entities against sanctions lists while using advanced fuzzy matching algorithms to reduce false positives & ensure trade compliance.

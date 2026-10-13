@@ -1,0 +1,8 @@
+{
+  "corpus_sha256": "1b7162dd154fb0a27747c3b2c274eef4b2981aa9845b4a5eda8aa05b6f700d9b",
+  "document_count": 175,
+  "entity_count": 165,
+  "orphan_tasks": 0,
+  "missing_hop_evidence": 0,
+  "reconciliation_explanation": "175 documents verified (51 Companies House, 46 SEC EDGAR, 34 News, 18 CT Logs, 11 OSINT, 7 DNS, 5 Academic, 3 Wire). The 156 figure in earlier drafts was an intermediate census before adding the 19 secondary/control fixtures."
+}

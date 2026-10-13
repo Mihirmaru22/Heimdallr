@@ -1,0 +1,5 @@
+URL: https://insights.linuxfoundation.org/docs/introduction/lf-oss-index/
+TITLE: LF Open Source Index | LFX Insights Documentation
+DATE: 2026-10-13T05:40:40.877513+00:00
+
+At its core, the LF Open Source Index (and therefore Insights) includes: All Linux Foundation-hosted projects, across all Linux Foundation (LF) initiatives and foundations - see here. Critical non-LF projects that are widely adopted and essential to a global developer audience.

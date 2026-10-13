@@ -1,0 +1,5 @@
+URL: https://zaneham.github.io/voyager-fds-emulator/
+TITLE: Voyager FDS Emulator | Flight Data Subsystem
+DATE: 2026-10-13T05:41:42.904101+00:00
+
+The docs folder contains scanned JPL documentation from 1974-1977, preserved by Wichita State University Special Collections.

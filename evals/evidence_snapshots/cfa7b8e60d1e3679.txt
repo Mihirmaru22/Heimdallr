@@ -1,0 +1,5 @@
+URL: https://www.nasa.gov/mission/apollo-11/
+TITLE: Apollo 11 - NASA
+DATE: 2026-10-13T06:52:48.859264+00:00
+
+The primary objective of Apollo 11 was to complete a national goal set by President John F. Kennedy on May 25, 1961: perform a crewed lunar landing and return to Earth.

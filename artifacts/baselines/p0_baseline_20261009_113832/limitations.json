@@ -1,0 +1,46 @@
+{
+  "missing_instrumentation": [
+    {
+      "metric": "actual_provider_token_count",
+      "reason": "Production LLM provider was offline; run executed against deterministic offline evaluator.",
+      "status": "NOT INSTRUMENTED"
+    },
+    {
+      "metric": "actual_provider_cost_usd",
+      "reason": "Production billing API usage metadata unavailable without live provider connection.",
+      "status": "NOT INSTRUMENTED"
+    },
+    {
+      "metric": "live_crawler_network_latencies_and_retries",
+      "reason": "Crawl execution ran against frozen mock corpus; external network HTTP requests disabled.",
+      "status": "NOT INSTRUMENTED"
+    }
+  ],
+  "blocked_suites": [
+    {
+      "suite": "live_web_eval_v1_and_v2",
+      "reason": "OPENROUTER_API_KEY and external search engine provider credentials unavailable offline.",
+      "status": "BLOCKED (CREDENTIALS_UNAVAILABLE)"
+    },
+    {
+      "suite": "production_tokenizer_exact_token_count",
+      "reason": "Online production tokenizer unavailable offline; clearly separated synthetic proxy used.",
+      "status": "BLOCKED (TOKENIZER_PROXY_ONLY)"
+    }
+  ],
+  "unavailable_external_services": [
+    "OpenRouter API",
+    "SearXNG live search instance",
+    "Google News RSS live scraper",
+    "DuckDuckGo live endpoint"
+  ],
+  "incomplete_datasets": [
+    "Eval V2 hidden adversarial holdout is fixed to 8 holdout tasks."
+  ],
+  "nondeterministic_dependencies": [],
+  "working_tree_cleanliness_caveat": {
+    "working_tree_clean": false,
+    "dirty_files_count": 389,
+    "note": "Working tree is DIRTY with uncommitted challenger-recruitment experiments. This measurement reflects the working-tree state, NOT an unmodified release baseline."
+  }
+}

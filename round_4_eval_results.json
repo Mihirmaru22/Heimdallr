@@ -1,0 +1,82 @@
+[
+  {
+    "topic": "t1_auto_plant",
+    "scope": "limited",
+    "duration_sec": 8.03,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t1_auto_plant",
+    "scope": "open",
+    "duration_sec": 2.48,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t2_teamcenter",
+    "scope": "limited",
+    "duration_sec": 1.65,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t2_teamcenter",
+    "scope": "open",
+    "duration_sec": 2.18,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t3_openai_ceo",
+    "scope": "limited",
+    "duration_sec": 1.9,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t3_openai_ceo",
+    "scope": "open",
+    "duration_sec": 1.63,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t4_anthropic_funding",
+    "scope": "limited",
+    "duration_sec": 1.82,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t4_anthropic_funding",
+    "scope": "open",
+    "duration_sec": 1.64,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t5_tesla_texas",
+    "scope": "limited",
+    "duration_sec": 1.65,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  },
+  {
+    "topic": "t5_tesla_texas",
+    "scope": "open",
+    "duration_sec": 1.69,
+    "claims_extracted": 0,
+    "entities_extracted": 0,
+    "success": false
+  }
+]

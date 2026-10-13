@@ -1,0 +1,59 @@
+{
+  "suite_name": "V5_2_LEAKAGE_AUDIT",
+  "status": "PASS",
+  "findings_count": 0,
+  "findings": [],
+  "controls": [
+    {
+      "control": "1_GROUND_TRUTH_ISOLATION",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "2_TASK_ID_RENAMING_INVARIANCE",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "3_TASK_ORDER_RANDOMIZATION",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "4_CORPUS_ORDER_RANDOMIZATION",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "5_EXPECTED_ANSWER_SENTINEL_DETECTION",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "6_CANDIDATE_DISABLED_CACHE_ISOLATION",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "7_ACQUISITION_ERROR_NOT_CONVERTED_TO_PASS",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "8_MISSING_FILE_LOUD_FAILURE",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "9_MANIFEST_HASH_INTEGRITY",
+      "passed": true,
+      "status": "VERIFIED"
+    },
+    {
+      "control": "10_DECOY_DOCUMENT_ISOLATION",
+      "passed": true,
+      "status": "VERIFIED"
+    }
+  ],
+  "timestamp": "2026-10-09T06:19:11Z"
+}

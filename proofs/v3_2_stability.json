@@ -1,0 +1,13 @@
+{
+  "stability_runs_count": 3,
+  "total_tasks_per_run": 129,
+  "pre_v3_2_task_agreement": 1.0,
+  "post_v3_2_task_agreement": 1.0,
+  "post_v3_2_disabled_task_agreement": 1.0,
+  "post_v3_2_mean_pass_count": 129.0,
+  "post_v3_2_variance": 0.0,
+  "post_v3_2_stddev": 0.0,
+  "candidate_invocation_agreement": 1.0,
+  "final_answer_agreement": 1.0,
+  "verdict": "STABILITY_VALIDATED"
+}

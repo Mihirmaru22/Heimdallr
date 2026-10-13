@@ -1,0 +1,470 @@
+{
+  "suite_name": "CROSS_SPECIALIST_ONION_V1",
+  "total_tasks": 22,
+  "passed_tasks": 22,
+  "pass_rate": 1.0,
+  "decoy_tasks_total": 2,
+  "decoy_tasks_passed": 2,
+  "decoy_pass_rate": 1.0,
+  "metrics": {
+    "correct_invocation_rate": 1.0,
+    "missed_invocation_rate": 0.0,
+    "unnecessary_invocation_rate": 0.0,
+    "ordering_accuracy": 1.0,
+    "question_completion_rate": 1.0,
+    "evidence_provenance_integrity": 1.0,
+    "epistemic_correctness_rate": 1.0
+  },
+  "records": [
+    {
+      "task_id": "cross_onion_01",
+      "title": "Corporate Registry -> Onion Breach Portal (Apex Tech)",
+      "chain_type": "CORPORATE_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "onion"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_02",
+      "title": "UK Companies House -> Tor Extortion Directory (Meridian Aerospace)",
+      "chain_type": "CORPORATE_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "onion"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_03",
+      "title": "Onion Shadow Portal -> Dubai Corporate Registry (Altai Energy)",
+      "chain_type": "ONION_TO_CORPORATE",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "corporate"
+      ],
+      "expected_sequence": [
+        "onion",
+        "corporate"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_04",
+      "title": "Darknet Leak Cache -> French Commercial Court Registry (Orion Defense)",
+      "chain_type": "ONION_TO_CORPORATE",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "corporate"
+      ],
+      "expected_sequence": [
+        "onion",
+        "corporate"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_05",
+      "title": "Developer GitHub Persona -> Darknet Forum Threat Intel (HugBunter)",
+      "chain_type": "IDENTITY_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "identity",
+        "onion"
+      ],
+      "expected_sequence": [
+        "identity",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_06",
+      "title": "Researcher PGP Identity -> Darknet Escrow Operator",
+      "chain_type": "IDENTITY_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "identity",
+        "onion"
+      ],
+      "expected_sequence": [
+        "identity",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_07",
+      "title": "Onion Extortion Contact -> Clearnet Developer Footprint",
+      "chain_type": "ONION_TO_IDENTITY",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "identity"
+      ],
+      "expected_sequence": [
+        "onion",
+        "identity"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_08",
+      "title": "Darknet Vendor Profile -> Academic Publications Identity",
+      "chain_type": "ONION_TO_IDENTITY",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "identity"
+      ],
+      "expected_sequence": [
+        "onion",
+        "identity"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_09",
+      "title": "Clearnet Domain CT Logs -> Dark-Web Mirror Correlation",
+      "chain_type": "INFRASTRUCTURE_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "infrastructure",
+        "onion"
+      ],
+      "expected_sequence": [
+        "infrastructure",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_10",
+      "title": "BGP Autonomous System Routing -> Covert Onion C2 Relay",
+      "chain_type": "INFRASTRUCTURE_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "infrastructure",
+        "onion"
+      ],
+      "expected_sequence": [
+        "infrastructure",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_11",
+      "title": "Onion C2 Hidden Service -> Public DNS / IP Egress",
+      "chain_type": "ONION_TO_INFRASTRUCTURE",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "infrastructure"
+      ],
+      "expected_sequence": [
+        "onion",
+        "infrastructure"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_12",
+      "title": "Darknet Extortion Portal -> Clearnet CDN Mirror Infrastructure",
+      "chain_type": "ONION_TO_INFRASTRUCTURE",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "infrastructure"
+      ],
+      "expected_sequence": [
+        "onion",
+        "infrastructure"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_13",
+      "title": "OFAC SDN Sanctions Entry -> Dark-Web Cryptocurrency Extortion Portal",
+      "chain_type": "SANCTIONS_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "sanctions",
+        "onion"
+      ],
+      "expected_sequence": [
+        "sanctions",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_14",
+      "title": "EU Sanctions Restrictive Measures -> Onion Shadow Holding Portal",
+      "chain_type": "SANCTIONS_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "sanctions",
+        "onion"
+      ],
+      "expected_sequence": [
+        "sanctions",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_15",
+      "title": "Onion Extortion Crypto Wallet -> OFAC Specially Designated Nationals List",
+      "chain_type": "ONION_TO_SANCTIONS",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "onion",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_16",
+      "title": "Darknet Escrow Treasury Address -> UN Security Council Asset Freeze",
+      "chain_type": "ONION_TO_SANCTIONS",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "onion",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_17",
+      "title": "Corporate Officer -> Developer Handle -> Darknet Forum Persona",
+      "chain_type": "CORPORATE_TO_IDENTITY_TO_ONION",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "identity",
+        "onion"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "identity",
+        "onion"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_18",
+      "title": "Onion Shadow Portal -> Dubai Corporate Registry -> OFAC Secondary Sanctions",
+      "chain_type": "ONION_TO_CORPORATE_TO_SANCTIONS",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "corporate",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "onion",
+        "corporate",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_19",
+      "title": "Onion Threat Actor -> Online Persona Footprint -> Upstream Autonomous System",
+      "chain_type": "ONION_TO_IDENTITY_TO_INFRASTRUCTURE",
+      "is_decoy": false,
+      "executed_sequence": [
+        "onion",
+        "identity",
+        "infrastructure"
+      ],
+      "expected_sequence": [
+        "onion",
+        "identity",
+        "infrastructure"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_20",
+      "title": "Corporate -> Infrastructure -> Onion -> Identity (4-Hop Master Investigation)",
+      "chain_type": "CORPORATE_TO_INFRASTRUCTURE_TO_ONION_TO_IDENTITY",
+      "is_decoy": false,
+      "executed_sequence": [
+        "corporate",
+        "infrastructure",
+        "onion",
+        "identity"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "infrastructure",
+        "onion",
+        "identity"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_decoy_01",
+      "title": "Decoy Task: Clearnet corporate beneficial ownership and OFAC SDN screening",
+      "chain_type": "DECOY_NON_ONION",
+      "is_decoy": true,
+      "executed_sequence": [
+        "corporate",
+        "sanctions"
+      ],
+      "expected_sequence": [
+        "corporate",
+        "sanctions"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    },
+    {
+      "task_id": "cross_onion_decoy_02",
+      "title": "Decoy Task: Clearnet DNS MX verification and system administrator persona lookup",
+      "chain_type": "DECOY_NON_ONION",
+      "is_decoy": true,
+      "executed_sequence": [
+        "infrastructure",
+        "identity"
+      ],
+      "expected_sequence": [
+        "infrastructure",
+        "identity"
+      ],
+      "selection_correct": true,
+      "ordering_correct": true,
+      "forbidden_bypassed": true,
+      "authority_isolation_maintained": true,
+      "evidence_provenance_intact": true,
+      "passed": true
+    }
+  ]
+}

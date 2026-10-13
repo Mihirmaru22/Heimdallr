@@ -1,0 +1,5 @@
+URL: https://www.researchgate.net/publication/387512415_DeepSeek-V3_Technical_Report
+TITLE: DeepSeek-V3 Technical Report - ResearchGate
+DATE: 2026-10-13T05:42:00.456819+00:00
+
+Dec 26, 2024 · Download Citation | DeepSeek-V3 Technical Report | We present DeepSeek-V3, a strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. To achieve ...

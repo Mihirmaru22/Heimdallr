@@ -1,0 +1,24 @@
+{
+  "suite_name": "V5_ABLATION_STUDY",
+  "config_A_argus_baseline": {
+    "passed": 15,
+    "pct": 15.0
+  },
+  "config_B_candidate_standalone": {
+    "passed": 95,
+    "pct": 95.0
+  },
+  "config_C_heimdallr_integrated": {
+    "passed": 100,
+    "pct": 100.0
+  },
+  "config_D_candidate_disabled": {
+    "passed": 15,
+    "pct": 15.0
+  },
+  "delta_integrated_minus_baseline": 85,
+  "delta_integrated_minus_disabled": 85,
+  "disabled_equals_baseline": true,
+  "ablation_finding": "Disabling candidate eliminates all capability gains with zero side effects on generalist fallback.",
+  "timestamp": "2026-10-09T05:42:09Z"
+}

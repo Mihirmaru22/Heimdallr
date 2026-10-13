@@ -1,0 +1,5 @@
+URL: https://awards.acm.org/xpages/turing/index
+TITLE: ACM A.M. Turing Award - Association for Computing Machinery
+DATE: 2026-10-13T05:39:16.641975+00:00
+
+The A.M. Turing Award was named for Alan M. Turing, the British mathematician who articulated the mathematical foundation and limits of computing, and who was a key contributor to the Allied cryptanalysis of the Enigma cipher during World War II.

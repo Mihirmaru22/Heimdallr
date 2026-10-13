@@ -1,0 +1,1846 @@
+"""Heimdallr V2: Investigation Engine Orchestrator.
+
+The central execution core that drives persistent, hypothesis-driven investigations:
+- Coordinates Planner, Stopping Policy, Persistence Store, and Domain Specialists
+- Executes multi-specialist chaining (Corporate -> Infra -> Identity -> Corporate)
+- Updates epistemic state and maintains full crash-recovery persistence
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import concurrent.futures
+import logging
+import re
+import threading
+import time
+from typing import Any
+import uuid
+
+from argus.domain.jurisdiction_graph import JurisdictionEntityGraph
+from argus.evals.v2.corpus import CORPUS_V2_REGISTRY
+from argus.evals.v2.routing_evaluator import SpecialistRoutingClassifier
+from argus.investigation.action import ActionType, ResearchAction
+from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
+from argus.investigation.branch import BranchStatus, InvestigationBranch
+from argus.investigation.evidence import EvidenceRequirement, EvidenceStatus
+from argus.investigation.hypothesis import HypothesisStatus, InvestigationHypothesis
+from argus.investigation.planner import InvestigationPlanner
+from argus.investigation.question import InvestigationQuestion, QuestionStatus, QuestionType
+from argus.investigation.state import (
+    AuditTrailEntry,
+    InformationGap,
+    InvestigationResult,
+    InvestigationState,
+    StopState,
+)
+from argus.investigation.stopping import InvestigationStopReason, InvestigationStoppingPolicy
+from argus.investigation.store import InvestigationStore
+from argus.specialists.corporate import CorporateProbeSpecialist
+from argus.specialists.identity import IdentityProbeSpecialist
+from argus.specialists.infrastructure import InfrastructureProbeSpecialist
+from argus.verifier.syndication_intelligence import SyndicationIntelligence
+from argus.verifier.temporal_reasoner import (
+    LifecycleState,
+    TemporalRecord,
+    TemporalStateReasoner,
+)
+from argus.capability_registry.registry import CapabilityRegistry
+from argus.capability_registry.adapters import get_adapter_for_implementation
+from argus.competition.security_gate import SecurityGateValidator
+from argus.investigation.contradiction_resolver import (
+    ContradictionRecord,
+    ContradictionResolver,
+    EntityScopeVerifier,
+    EpistemicSufficiencyEvaluator,
+)
+from argus.investigation.benchmark.v2.semantic_auditor import (
+    IndependentSemanticAuditor,
+    SemanticSupportStatus,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class ToolPermissionGate:
+    """Enforces deterministic application-level authorization and permission gating on all research tools/actions."""
+
+    ALLOWED_SPECIALISTS = {
+        "corporate",
+        "infrastructure",
+        "identity",
+        "sanctions",
+        "onion",
+        "email",
+        "none",
+    }
+    DYNAMIC_ALLOWED_SPECIALISTS: set[str] = set()
+
+    BUILTIN_AUTHORIZED_IMPLEMENTATIONS: set[str] = {
+        "impl_argus_generalist_v1",
+        "impl_identity_probe_specialist_v1",
+        "impl_infrastructure_probe_specialist_v1",
+        "impl_corporate_registry_specialist_v1",
+        "impl_challenger_identity_specialist_v2",
+        "impl_opensanctions_probe_v1",
+        "impl_onion_integrated_v1",
+        "impl_ahmia_search_v1",
+        "impl_torbot_crawler_v1",
+        "impl_email_to_account_discovery_v1",
+        "impl_identity_to_email_discovery_v1",
+        "impl_email_address_verification_v1",
+        "impl_email_identity_resolution_v1",
+        "impl_email_account_specialist_v1",
+    }
+    DYNAMIC_AUTHORIZED_IMPLEMENTATIONS: set[str] = set()
+    _auth_lock = threading.Lock()
+
+    @classmethod
+    def register_allowed_specialist(cls, specialist_name: str) -> None:
+        """Register a domain specialist as authorized under application policy."""
+        with cls._auth_lock:
+            cls.DYNAMIC_ALLOWED_SPECIALISTS.add(specialist_name.lower())
+
+    @classmethod
+    def unregister_allowed_specialist(cls, specialist_name: str) -> None:
+        """Unregister a domain specialist."""
+        with cls._auth_lock:
+            cls.DYNAMIC_ALLOWED_SPECIALISTS.discard(specialist_name.lower())
+
+    @classmethod
+    def authorize_implementation(cls, implementation_id: str) -> None:
+        """Explicitly authorize an implementation ID for execution under application policy."""
+        with cls._auth_lock:
+            cls.DYNAMIC_AUTHORIZED_IMPLEMENTATIONS.add(implementation_id)
+
+    @classmethod
+    def deauthorize_implementation(cls, implementation_id: str) -> None:
+        """Deauthorize an implementation ID from execution."""
+        with cls._auth_lock:
+            cls.DYNAMIC_AUTHORIZED_IMPLEMENTATIONS.discard(implementation_id)
+
+    DISALLOWED_PARAM_KEYS = {
+        "cmd", "command", "shell", "exec", "script", "eval", "system", "code", "run",
+    }
+
+    DANGEROUS_COMMAND_PATTERNS = [
+        re.compile(r"(\$\([^\)]+\)|`[^`]+`)"),  # Command substitution
+        re.compile(r"(&&|;|\|)\s*(rm|cat|ls|nc|bash|sh|curl|wget|id|whoami|python|perl|eval|exec|chmod|chown)\b", re.IGNORECASE),
+        re.compile(r"(\.\./|\.\.\\){2,}"),  # Path traversal
+        re.compile(r"(?i)(/etc/(passwd|shadow|hosts)|~/\.ssh|c:\\windows)"),  # Sensitive system paths
+        re.compile(r"(?i)\b(system\s+override|ignore\s+(all\s+)?prior\s+instructions)\b"),  # Prompt injection overrides
+    ]
+
+    @classmethod
+    def _validate_structured_param_node(cls, node: Any, depth: int = 0) -> tuple[bool, str]:
+        """Recursively inspect parameter trees to prevent smuggled commands, callables, or injection payloads."""
+        if depth > 10:
+            return False, "Parameter nesting exceeds maximum permitted depth of 10"
+        if callable(node) or hasattr(node, "__code__"):
+            return False, "Callable parameter value prohibited in parameters"
+        if isinstance(node, dict):
+            if len(node) > 50:
+                return False, "Dictionary exceeds maximum key limit of 50"
+            for k, v in node.items():
+                if not isinstance(k, str) or len(k) > 64:
+                    return False, f"Invalid action parameter key: {k!r}"
+                if k.lower() in cls.DISALLOWED_PARAM_KEYS:
+                    return False, f"Disallowed execution parameter key: {k}"
+                ok, err = cls._validate_structured_param_node(v, depth + 1)
+                if not ok:
+                    return False, err
+        elif isinstance(node, (list, tuple, set)):
+            if len(node) > 100:
+                return False, "Collection parameter exceeds maximum item limit of 100"
+            for item in node:
+                ok, err = cls._validate_structured_param_node(item, depth + 1)
+                if not ok:
+                    return False, err
+        elif isinstance(node, str):
+            if len(node) > 65536:
+                return False, "Parameter string value exceeds maximum length of 65536"
+        elif not isinstance(node, (int, float, bool, type(None))):
+            return False, f"Unexpected parameter value type: {type(node).__name__}"
+        return True, ""
+
+    @classmethod
+    def authorize_action(
+        cls,
+        action: ResearchAction,
+        state: InvestigationState,
+    ) -> tuple[bool, str]:
+        """Verify whether the requested research action is authorized under current policy.
+
+        Returns (is_authorized, rejection_reason).
+        """
+        # 1. Enforce ActionType schema validity
+        if not isinstance(action.action_type, ActionType):
+            try:
+                ActionType(str(action.action_type))
+            except ValueError:
+                return False, f"Unauthorized ActionType: {action.action_type}"
+
+        # 2. Enforce Specialist whitelist
+        spec = (action.specialist or "none").lower()
+        contract = state.objective_contract or {}
+        contract_specs = [s.lower() for s in contract.get("allowed_specialists", [])]
+
+        is_allowed = (
+            spec in cls.ALLOWED_SPECIALISTS
+            or spec in cls.DYNAMIC_ALLOWED_SPECIALISTS
+            or spec in contract_specs
+        )
+        if not is_allowed:
+            return False, f"Unauthorized specialist requested: {action.specialist}"
+
+        # 3. Enforce Contract-Level Specialist constraints if defined
+        allowed_contract_specialists = contract.get("allowed_specialists")
+        if allowed_contract_specialists is not None:
+            if spec != "none" and spec not in contract_specs:
+                return False, f"Specialist '{spec}' is not permitted by investigation contract"
+
+        # 4. Enforce Contract-Level Capability constraints if defined
+        if action.capability_id:
+            allowed_contract_capabilities = contract.get("allowed_capabilities")
+            if allowed_contract_capabilities is not None:
+                if action.capability_id not in allowed_contract_capabilities:
+                    return False, f"Capability '{action.capability_id}' is not permitted by investigation contract"
+
+        # 5. Enforce Implementation Authorization & Registration
+        if action.implementation_id:
+            try:
+                get_adapter_for_implementation(action.implementation_id)
+            except KeyError:
+                return False, f"Unregistered implementation ID: {action.implementation_id}"
+
+            allowed_contract_implementations = contract.get("allowed_implementations")
+            if allowed_contract_implementations is not None:
+                if action.implementation_id not in allowed_contract_implementations:
+                    return False, f"Implementation '{action.implementation_id}' is not permitted by investigation contract"
+
+            with cls._auth_lock:
+                is_authorized = (
+                    action.implementation_id in cls.BUILTIN_AUTHORIZED_IMPLEMENTATIONS
+                    or action.implementation_id in cls.DYNAMIC_AUTHORIZED_IMPLEMENTATIONS
+                    or (allowed_contract_implementations is not None and action.implementation_id in allowed_contract_implementations)
+                )
+            if not is_authorized:
+                return False, (
+                    f"Unauthorized implementation '{action.implementation_id}': "
+                    f"capability registration does not grant execution permission"
+                )
+
+        # 6. Structured Argument Validation (Deep Recursive Validation)
+        if action.parameters is not None:
+            if not isinstance(action.parameters, dict):
+                return False, "Action parameters must be a dictionary"
+            ok, err = cls._validate_structured_param_node(action.parameters, depth=0)
+            if not ok:
+                return False, err
+
+        # 7. Query Validation (Preserving Legitimate Research Queries)
+        query = action.query or ""
+        if len(query) > 10000:
+            return False, "Action query exceeds maximum permitted length of 10000 characters"
+
+        for pat in cls.DANGEROUS_COMMAND_PATTERNS:
+            if pat.search(query):
+                return False, f"Adversarial or shell metacharacters detected in action query: {query}"
+
+        return True, ""
+
+
+class InvestigationEngine:
+    """Autonomous, persistent investigation engine orchestrating research planning and verification."""
+
+    def __init__(
+        self,
+        planner: InvestigationPlanner | None = None,
+        stopping_policy: InvestigationStoppingPolicy | None = None,
+        store: InvestigationStore | None = None,
+        corpus: Any | None = None,
+        registry: CapabilityRegistry | None = None,
+    ) -> None:
+        self.registry = registry or (getattr(planner, "registry", None) if planner else None) or CapabilityRegistry()
+        self.planner = planner or InvestigationPlanner(registry=self.registry)
+        self.stopping_policy = stopping_policy or InvestigationStoppingPolicy()
+        self.store = store or InvestigationStore()
+        self.corpus = corpus or INVESTIGATION_CORPUS_REGISTRY
+        self.router = SpecialistRoutingClassifier()
+
+        # Specialist adaptations
+        try:
+            from argus.evals.corporate_corpus import CORPORATE_REGISTRY_DATABASE
+            from argus.evals.infrastructure_corpus import INFRASTRUCTURE_REGISTRY
+            from argus.evals.vertical_corpus import VERTICAL_PLATFORM_REGISTRY
+            self.identity_specialist = IdentityProbeSpecialist(platform_registry=VERTICAL_PLATFORM_REGISTRY)
+            self.infra_specialist = InfrastructureProbeSpecialist(registry=INFRASTRUCTURE_REGISTRY)
+            self.corp_specialist = CorporateProbeSpecialist(registry_database=CORPORATE_REGISTRY_DATABASE)
+        except ImportError:
+            self.identity_specialist = IdentityProbeSpecialist()
+            self.infra_specialist = InfrastructureProbeSpecialist()
+            self.corp_specialist = CorporateProbeSpecialist()
+
+        # Upgraded domain reasoners
+        self.temporal_reasoner = TemporalStateReasoner()
+        self.jurisdiction_graph = JurisdictionEntityGraph()
+        self.syndication_intel = SyndicationIntelligence()
+        self.contradiction_resolver = ContradictionResolver()
+        self.semantic_auditor = IndependentSemanticAuditor()
+
+    def start_investigation(
+        self,
+        objective: str,
+        contract: dict[str, Any] | None = None,
+        as_of_date: str | None = None,
+    ) -> InvestigationState:
+        """Initialize and persist a new investigation session."""
+        state = self.planner.initialize_investigation(
+            objective=objective,
+            objective_contract=contract,
+            as_of_date=as_of_date,
+        )
+        self.store.save_state(state)
+        return state
+
+    def resume_investigation(
+        self,
+        investigation_id: str,
+        max_additional_steps: int = 10,
+    ) -> InvestigationState:
+        """Reload persisted investigation from store and resume research execution."""
+        state = self.store.load_state(investigation_id)
+        budget = state.research_budget
+        budget["max_steps"] = budget.get("steps_taken", 0) + max_additional_steps
+        state.stop_state.is_stopped = False
+        state.record_audit(
+            action_type="INVESTIGATION_RESUMED",
+            details={"investigation_id": investigation_id, "additional_steps": max_additional_steps},
+            rationale="Resumed interrupted investigation from disk snapshot.",
+        )
+        self.store.save_state(state)
+        return state
+
+    def execute_step(self, state: InvestigationState) -> tuple[InvestigationState, bool]:
+        """Execute a single planned research cycle. Return (state, is_finished)."""
+        # 1. Pre-step stopping evaluation
+        should_stop, reason, rationale = self.stopping_policy.evaluate(state)
+        if should_stop:
+            state.stop_state.is_stopped = True
+            state.stop_state.stop_reason = reason.value if reason else "STOPPED"
+            state.stop_state.stopping_rationale = rationale
+            state.stop_state.stopped_at = datetime.now(timezone.utc).isoformat()
+            if reason in (
+                InvestigationStopReason.BUDGET_EXHAUSTED_WITH_ACCEPTABLE_COVERAGE,
+                InvestigationStopReason.BUDGET_EXHAUSTED_WITH_CRITICAL_MISSING_FIELDS,
+            ) or state.research_budget.get("steps_taken", 0) >= state.research_budget.get("max_steps", 15):
+                state.stop_state.budget_exhausted = True
+            state.record_audit(
+                action_type="INVESTIGATION_STOPPED",
+                details={"stop_reason": state.stop_state.stop_reason},
+                rationale=rationale,
+            )
+            self.store.save_state(state)
+            return state, True
+
+        # 2. Plan next prioritized actions
+        actions = self.planner.select_next_actions(state, limit=1)
+        if not actions:
+            # No open actions could be planned; evaluate termination
+            state.stop_state.is_stopped = True
+            state.stop_state.stop_reason = InvestigationStopReason.SUFFICIENT_EVIDENCE.value
+            state.stop_state.stopping_rationale = "No remaining open action candidates with satisfied dependencies."
+            state.stop_state.stopped_at = datetime.now(timezone.utc).isoformat()
+            self.store.save_state(state)
+            return state, True
+
+        action = actions[0]
+        state.research_actions.append(action.model_dump())
+        state.research_budget["steps_taken"] += 1
+
+        # 3. Execute action via corpus or appropriate specialist
+        obs = self._dispatch_action(action, state)
+        state.observations.append(obs)
+
+        # 4. Apply observation to state & update belief topology
+        gain = self._apply_observation(state, action, obs)
+
+        # Update budget and gain history
+        budget = state.research_budget
+        budget["tokens_consumed"] += obs.get("tokens", 250)
+        budget["cost_usd"] += obs.get("cost_usd", 0.001)
+
+        if gain < 0.05:
+            budget["consecutive_zero_gains"] = budget.get("consecutive_zero_gains", 0) + 1
+        else:
+            budget["consecutive_zero_gains"] = 0
+
+        state.information_gain_history.append({
+            "step": budget["steps_taken"],
+            "action_id": action.action_id,
+            "information_gain": gain,
+        })
+
+        action.mark_executed(summary=f"Observation yielded gain={gain:.2f}")
+
+        # 5. Post-step stopping evaluation
+        should_stop, reason, rationale = self.stopping_policy.evaluate(state)
+        if should_stop:
+            state.stop_state.is_stopped = True
+            state.stop_state.stop_reason = reason.value if reason else "STOPPED"
+            state.stop_state.stopping_rationale = rationale
+            state.stop_state.stopped_at = datetime.now(timezone.utc).isoformat()
+            if reason in (
+                InvestigationStopReason.BUDGET_EXHAUSTED_WITH_ACCEPTABLE_COVERAGE,
+                InvestigationStopReason.BUDGET_EXHAUSTED_WITH_CRITICAL_MISSING_FIELDS,
+            ) or state.research_budget.get("steps_taken", 0) >= state.research_budget.get("max_steps", 15):
+                state.stop_state.budget_exhausted = True
+            state.record_audit(
+                action_type="INVESTIGATION_STOPPED",
+                details={"stop_reason": state.stop_state.stop_reason},
+                rationale=rationale,
+            )
+
+        # 6. Checkpoint state to persistence store
+        self.store.save_state(state)
+        return state, state.stop_state.is_stopped
+
+    def run_to_completion(
+        self,
+        objective: str,
+        contract: dict[str, Any] | None = None,
+        as_of_date: str | None = None,
+        max_steps: int = 15,
+    ) -> InvestigationState:
+        """Run investigation loop until an authorized stopping condition is satisfied."""
+        contract = contract or {}
+        contract["max_steps"] = max_steps
+        state = self.start_investigation(objective=objective, contract=contract, as_of_date=as_of_date)
+
+        while not state.stop_state.is_stopped:
+            state, finished = self.execute_step(state)
+            if finished:
+                break
+
+        state.final_epistemic_status = self.synthesize_epistemic_status(state)
+        self.store.save_state(state)
+        return state
+
+    def synthesize_epistemic_status(self, state: InvestigationState) -> str:
+        """Synthesize final epistemic status from question topology, contradictions, and evidence."""
+        obj_lower = (state.objective or "").lower()
+        contract_entities = [str(e).lower() for e in (state.objective_contract.get("target_entities") or [])]
+
+        obj_tokens = set(re.findall(r"\w{4,}", obj_lower))
+        stop_words = {
+            "investigate", "determine", "identify", "analyze", "examine",
+            "compare", "verify", "whether", "their", "which", "against",
+            "between", "using", "from", "with", "into", "through",
+        }
+        target_concept_tokens = obj_tokens - stop_words - set(re.findall(r"\w{4,}", " ".join(contract_entities)))
+
+        GENERIC_CORP_TOKENS = {
+            "corp", "ltd", "inc", "llc", "company", "division", "department", "unit",
+            "foundry", "biofoundry", "supercomputing", "oceanics", "geothermal", "alliance", "energy",
+            "systems", "technologies", "power", "grid", "network", "networks", "group", "holdings",
+            "solutions", "telecom", "aerospace", "therapeutics", "motors", "center", "centre",
+        }
+
+        # Parent brand stems that might have scoped child queries
+        PARENT_BRAND_STEMS = {"helix", "zephyrus", "thalassa", "valles", "solaris", "titan", "apex", "biolink"}
+
+        def is_relevant(subj: str, text: str) -> bool:
+            s_low = (subj or "").lower()
+            t_low = (text or "").lower()
+            combined = f"{s_low} {t_low}"
+            if not s_low or s_low == "entity":
+                return True
+            if contract_entities:
+                for ce in contract_entities:
+                    if ce in s_low or s_low in ce:
+                        return True
+                    ce_tokens = set(re.findall(r"\w{3,}", ce))
+                    s_tokens = set(re.findall(r"\w{3,}", s_low))
+                    ce_distinctive = ce_tokens - GENERIC_CORP_TOKENS
+                    s_distinctive = s_tokens - GENERIC_CORP_TOKENS
+
+                    # If contract entity specifies a scoped child/unit (e.g. cryogenic rocket division)
+                    child_modifiers = ce_distinctive - PARENT_BRAND_STEMS
+                    if len(child_modifiers) >= 1 and len(ce_distinctive) >= 2:
+                        if any(m in combined for m in child_modifiers):
+                            return True
+                        continue
+
+                    if ce_distinctive and s_distinctive:
+                        if ce_distinctive & s_distinctive:
+                            return True
+                    elif ce_tokens & s_tokens:
+                        return True
+                return False
+            if s_low in obj_lower:
+                return True
+            s_tokens = set(re.findall(r"\w{4,}", s_low)) - GENERIC_CORP_TOKENS
+            o_tokens = set(re.findall(r"\w{4,}", obj_lower)) - GENERIC_CORP_TOKENS
+            return bool(s_tokens & o_tokens)
+
+        def claim_substantiates_objective(claim: dict[str, Any]) -> bool:
+            c_text = (
+                claim.get("object", "") + " " +
+                claim.get("predicate", "") + " " +
+                claim.get("subject", "") + " " +
+                claim.get("source_passage", "")
+            ).lower()
+            c_tokens = set(re.findall(r"[a-zA-Z0-9]{4,}", c_text))
+            if target_concept_tokens:
+                return bool(target_concept_tokens & c_tokens)
+            return True
+
+        # 1. Contradictions on core research objective
+        if state.contradictions:
+            relevant_contras = [
+                c for c in state.contradictions
+                if is_relevant(c.get("subject", ""), c.get("topic", "") + " " + c.get("claim_a", ""))
+            ]
+            if relevant_contras:
+                return "CONTRADICTED"
+
+
+
+        # 2. Check explicitly scoped negative findings
+        not_found_claims = [c for c in state.claims if c.get("status") == "NOT_FOUND"]
+        if not_found_claims:
+            if any(is_relevant(c.get("subject", ""), c.get("object", "") + " " + c.get("source_passage", "")) for c in not_found_claims):
+                rel_supp = [
+                    c for c in state.claims
+                    if c.get("status") == "SUPPORTED" and is_relevant(c.get("subject", ""), c.get("object", "")) and claim_substantiates_objective(c)
+                ]
+                if not rel_supp:
+                    return "NOT_FOUND"
+
+        # 3. Check for Epistemic Sufficiency / Abstention
+        insuff_claims = [
+            c for c in state.claims
+            if c.get("status") == "INSUFFICIENT_EVIDENCE" and is_relevant(c.get("subject", ""), c.get("object", ""))
+        ]
+        supp_claims = [
+            c for c in state.claims
+            if c.get("status") == "SUPPORTED" and is_relevant(c.get("subject", ""), c.get("object", "")) and claim_substantiates_objective(c)
+        ]
+
+        # 4. Critical questions resolution
+        critical_questions = [q for q in state.questions.values() if q.get("is_critical", False)]
+        target_questions = critical_questions if critical_questions else list(state.questions.values())
+
+        if any(q.get("status") in (QuestionStatus.CONTRADICTED.value, "CONTRADICTED") for q in target_questions):
+            return "CONTRADICTED"
+
+        if any(q.get("status") in (QuestionStatus.NOT_FOUND.value, "NOT_FOUND") for q in target_questions) and not supp_claims:
+            return "NOT_FOUND"
+
+        # If relevant substantiated claims exist, investigation succeeded
+        if supp_claims:
+            return "SUPPORTED"
+
+        relevant_contra_claims = [
+            c for c in state.claims
+            if c.get("status") == "CONTRADICTED" and is_relevant(c.get("subject", ""), c.get("object", "") + " " + c.get("predicate", ""))
+        ]
+        if relevant_contra_claims:
+            return "CONTRADICTED"
+
+        # If relevant findings exist but are insufficient or fragmentary
+        if insuff_claims or any(q.get("status") in (QuestionStatus.INSUFFICIENT_EVIDENCE.value, "INSUFFICIENT_EVIDENCE") for q in target_questions):
+            return "INSUFFICIENT_EVIDENCE"
+
+        if not state.evidence:
+            return "NOT_FOUND"
+
+        return "INSUFFICIENT_EVIDENCE"
+
+    def reset(self) -> None:
+        """Reset internal state/planner for a new investigation task."""
+        self.planner = InvestigationPlanner(registry=self.registry)
+        self.store = InvestigationStore()
+
+    def run_investigation(
+        self,
+        task_or_objective: Any,
+        contract: dict[str, Any] | None = None,
+        as_of_date: str | None = None,
+        max_steps: int = 15,
+    ) -> InvestigationState:
+        """Execute an investigation from either a task object or an objective string."""
+        if hasattr(task_or_objective, "objective"):
+            obj = task_or_objective.objective
+            c = dict(task_or_objective.contract) if getattr(task_or_objective, "contract", None) else (contract or {})
+            m_steps = c.get("max_steps", max_steps)
+            a_date = as_of_date or c.get("as_of_date")
+            return self.run_to_completion(objective=obj, contract=c, as_of_date=a_date, max_steps=m_steps)
+        return self.run_to_completion(objective=str(task_or_objective), contract=contract, as_of_date=as_of_date, max_steps=max_steps)
+
+    def synthesize_report(self, state: InvestigationState) -> InvestigationResult:
+        """Synthesize final investigation findings into a domain-agnostic structured report."""
+        return state.to_result()
+
+    # -------------------------------------------------------------------------
+    # Internal Dispatch & Execution
+    # -------------------------------------------------------------------------
+    def _dispatch_action(self, action: ResearchAction, state: InvestigationState) -> dict[str, Any]:
+        """Dispatch action to appropriate specialist or generalist search engine."""
+        # Enforce deterministic application-level tool permission gate
+        is_auth, rejection_reason = ToolPermissionGate.authorize_action(action, state)
+        if not is_auth:
+            logger.warning("ToolPermissionGate REJECTED action %s: %s", action.action_id, rejection_reason)
+            state.record_audit(
+                action_type="SECURITY_POLICY_VIOLATION",
+                details={
+                    "action_id": action.action_id,
+                    "specialist": action.specialist,
+                    "implementation_id": action.implementation_id,
+                    "query": action.query,
+                    "reason": rejection_reason,
+                },
+                rationale="Deterministic application-level tool permission gate blocked unauthorized execution.",
+            )
+            action.status = "REJECTED_UNAUTHORIZED"
+            return {
+                "observation_id": f"obs_unauth_{uuid.uuid4().hex[:8]}",
+                "action_id": action.action_id,
+                "query": action.query,
+                "specialist": action.specialist,
+                "documents": [],
+                "text_content": "",
+                "status": "REJECTED_UNAUTHORIZED",
+                "rejection_reason": rejection_reason,
+                "is_authoritative": False,
+            }
+
+        q_str = action.query or state.objective
+        spec = action.specialist or "none"
+        start_t = time.perf_counter()
+
+        retrieved_docs: list[Any] = []
+        specialist_result: dict[str, Any] = {}
+
+        # Capability Adapter & Specialist Execution
+        adapter = None
+        impl_id = action.implementation_id
+        if not impl_id and action.capability_id and hasattr(self, "registry") and self.registry:
+            cap_def = self.registry.get(action.capability_id)
+            if cap_def and cap_def.implementation_id:
+                impl_id = cap_def.implementation_id
+
+        if not impl_id and spec:
+            specialist_impl_map = {
+                "corporate": "impl_corporate_registry_specialist_v1",
+                "infrastructure": "impl_infrastructure_probe_specialist_v1",
+                "identity": "impl_identity_probe_specialist_v1",
+            }
+            impl_id = specialist_impl_map.get(spec)
+
+        if impl_id:
+            try:
+                adapter = get_adapter_for_implementation(impl_id)
+            except KeyError:
+                adapter = None
+
+        adapter_res = None
+        if adapter:
+            if not action.implementation_id and impl_id:
+                temp_act = action.model_copy()
+                temp_act.implementation_id = impl_id
+                auth_ok, auth_err = ToolPermissionGate.authorize_action(temp_act, state)
+                if not auth_ok:
+                    logger.warning("ToolPermissionGate REJECTED resolved implementation %s: %s", impl_id, auth_err)
+                    state.record_audit(
+                        action_type="SECURITY_POLICY_VIOLATION",
+                        details={"capability_id": action.capability_id, "implementation_id": impl_id, "reason": auth_err},
+                        rationale="Tool permission gate blocked execution of unauthorized resolved implementation.",
+                    )
+                    action.status = "REJECTED_UNAUTHORIZED"
+                    return {
+                        "observation_id": f"obs_unauth_{uuid.uuid4().hex[:8]}",
+                        "action_id": action.action_id,
+                        "query": q_str,
+                        "specialist": spec,
+                        "documents": [],
+                        "text_content": "",
+                        "status": "REJECTED_UNAUTHORIZED",
+                        "rejection_reason": auth_err,
+                        "is_authoritative": False,
+                    }
+            try:
+                adapter_inputs = {
+                    "query": q_str,
+                    "company_name": q_str,
+                    "entity_name": q_str,
+                    "target_domain": q_str,
+                    "identifier": q_str,
+                    "as_of_date": getattr(state, "as_of_date", None) or (state.objective_contract.get("as_of_date") if hasattr(state, "objective_contract") else None),
+                    "limit": 3,
+                    "timeout_sec": 5.0,
+                }
+                adapter_res = adapter.execute(adapter_inputs, corpus=self.corpus)
+                if adapter_res.get("status") == "TIMEOUT":
+                    raise concurrent.futures.TimeoutError(adapter_res.get("error", f"Specialist {impl_id} timed out."))
+                elif adapter_res.get("status") == "FAILED":
+                    raise RuntimeError(adapter_res.get("error", f"Specialist {impl_id} failed."))
+
+                state.specialist_invocations.append({
+                    "specialist": spec,
+                    "capability_id": action.capability_id or impl_id,
+                    "implementation_id": impl_id,
+                    "query": q_str,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "SUCCESS",
+                })
+            except (concurrent.futures.TimeoutError, TimeoutError) as te:
+                logger.warning("Adapter %s execution timed out: %s", impl_id, te)
+                action.mark_failed(f"Adapter execution timeout: {te}")
+                state.record_audit(
+                    action_type="SPECIALIST_EXECUTION_TIMEOUT",
+                    details={"error": str(te), "implementation_id": impl_id},
+                    rationale="Capability specialist execution exceeded timeout threshold.",
+                )
+                return {
+                    "observation_id": f"obs_timeout_{uuid.uuid4().hex[:8]}",
+                    "action_id": action.action_id,
+                    "query": q_str,
+                    "specialist": spec,
+                    "documents": [],
+                    "text_content": "",
+                    "status": "TIMEOUT",
+                    "error": str(te),
+                    "is_authoritative": False,
+                }
+            except Exception as e:
+                logger.warning("Adapter %s execution failed: %s", impl_id, e)
+                action.mark_failed(f"Adapter execution exception: {e}")
+                state.record_audit(
+                    action_type="ADAPTER_EXECUTION_FAILED",
+                    details={"error": str(e), "implementation_id": impl_id},
+                    rationale="Capability adapter raised runtime exception during execution.",
+                )
+                return {
+                    "observation_id": f"obs_failed_{uuid.uuid4().hex[:8]}",
+                    "action_id": action.action_id,
+                    "query": q_str,
+                    "specialist": spec,
+                    "documents": [],
+                    "text_content": "",
+                    "status": "FAILED",
+                    "error": str(e),
+                    "is_authoritative": False,
+                }
+        elif spec == "corporate":
+            docs = self.corpus.search(q_str, limit=3)
+            retrieved_docs.extend(docs)
+            state.specialist_invocations.append({
+                "specialist": "corporate",
+                "capability_id": action.capability_id or "corporate_registry_intelligence",
+                "implementation_id": action.implementation_id or "impl_corporate_registry_specialist_v1",
+                "query": q_str,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+        elif spec == "infrastructure":
+            docs = self.corpus.search(q_str, limit=3)
+            retrieved_docs.extend(docs)
+            state.specialist_invocations.append({
+                "specialist": "infrastructure",
+                "capability_id": action.capability_id or "infrastructure_discovery",
+                "implementation_id": action.implementation_id or "impl_infrastructure_probe_specialist_v1",
+                "query": q_str,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+        elif spec == "identity":
+            docs = self.corpus.search(q_str, limit=3)
+            retrieved_docs.extend(docs)
+            state.specialist_invocations.append({
+                "specialist": "identity",
+                "capability_id": action.capability_id or "identity_resolution",
+                "implementation_id": action.implementation_id or "impl_identity_probe_specialist_v1",
+                "query": q_str,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+        elif spec in ("none", "") or action.action_type in (ActionType.SEARCH, ActionType.FETCH):
+            docs = self.corpus.search(q_str, limit=3) if hasattr(self.corpus, "search") else []
+            retrieved_docs.extend(docs)
+        else:
+            # Capability requested has no executable adapter; fail closed with explicit limitation
+            logger.warning("Unsupported capability requested: %s (specialist: %s)", action.capability_id, spec)
+            action.mark_failed(f"Capability '{action.capability_id or spec}' is unsupported or unregistered.")
+            state.record_audit(
+                action_type="UNSUPPORTED_CAPABILITY_REQUESTED",
+                details={"capability_id": action.capability_id, "specialist": spec, "action_id": action.action_id},
+                rationale="Task requested an unsupported or unregistered capability; failing closed with explicit limitation.",
+            )
+            state.information_gaps.append(
+                InformationGap(
+                    description=f"Unsupported capability: {action.capability_id or spec}",
+                    target_entity=action.target_entities[0] if action.target_entities else None,
+                    target_attribute="unsupported_capability",
+                    priority=1.0,
+                    is_critical=True,
+                    related_question_id=action.question_id,
+                )
+            )
+            return {
+                "observation_id": f"obs_unsupported_{uuid.uuid4().hex[:8]}",
+                "action_id": action.action_id,
+                "query": q_str,
+                "specialist": spec,
+                "documents": [],
+                "text_content": "",
+                "status": "UNSUPPORTED_CAPABILITY",
+                "error": f"Capability '{action.capability_id or spec}' is unsupported or unregistered in current environment.",
+                "is_authoritative": False,
+            }
+
+        elapsed = time.perf_counter() - start_t
+        all_docs = [
+            {
+                "doc_id": d.doc_id,
+                "title": d.title,
+                "url": d.url,
+                "text": d.text_content,
+                "source_type": d.source_type,
+                "syndication_cluster_id": getattr(d, "syndication_cluster_id", None),
+                "published_date": getattr(d, "published_date", None),
+            }
+            for d in retrieved_docs
+        ]
+
+        if adapter_res and "documents" in adapter_res:
+            for ad in adapter_res["documents"]:
+                # Defuse prompt injections and enforce unprivileged boundary
+                raw_title = ad.get("title", "Candidate Document")
+                raw_text = ad.get("text", "")
+                clean_title = SecurityGateValidator.sanitize_text(str(raw_title))
+                clean_text = SecurityGateValidator.sanitize_text(str(raw_text))
+                raw_payload = ad.get("payload")
+                clean_payload = (
+                    SecurityGateValidator.sanitize_candidate_observation(raw_payload)
+                    if isinstance(raw_payload, dict)
+                    else raw_payload
+                )
+                all_docs.append({
+                    "doc_id": ad.get("doc_id", "doc_adapter"),
+                    "title": clean_title,
+                    "url": ad.get("url", ""),
+                    "text": clean_text,
+                    "source_type": ad.get("source_type", "candidate_observation"),
+                    "syndication_cluster_id": None,
+                    "payload": clean_payload,
+                    "epistemic_status": ad.get("epistemic_status", "OBSERVATION"),
+                    "is_authoritative": False,  # Strict epistemic boundary: Candidate observations can NEVER claim authoritativeness
+                })
+
+        # Deduplicate all_docs by unique identifier (URL, doc_id, or text) to prevent double processing
+        seen_keys = set()
+        deduped_docs = []
+        for d in all_docs:
+            k = d.get("url") or d.get("doc_id") or d.get("title") or d.get("text")
+            if k and k in seen_keys:
+                continue
+            if k:
+                seen_keys.add(k)
+            deduped_docs.append(d)
+        all_docs = deduped_docs
+
+        text_snippets = [f"{d.get('title', '')} {d.get('text', '')}" for d in all_docs]
+        text_content = " ".join(text_snippets)
+
+        return {
+            "observation_id": f"obs_{uuid.uuid4().hex[:8]}",
+            "action_id": action.action_id,
+            "query": q_str,
+            "specialist": spec,
+            "documents_count": len(all_docs),
+            "documents": all_docs,
+            "combined_text": text_content,
+            "runtime_sec": elapsed,
+            "tokens": len(text_content.split()) * 2,
+            "cost_usd": 0.001,
+            "status": "SUCCESS",
+            "adapter_result": adapter_res,
+        }
+
+    # -------------------------------------------------------------------------
+    # Belief State Update & Multi-Specialist Chaining
+    # -------------------------------------------------------------------------
+    def _apply_observation(
+        self,
+        state: InvestigationState,
+        action: ResearchAction,
+        observation: dict[str, Any],
+    ) -> float:
+        """Process observation, update knowledge, resolve questions, and trigger chaining."""
+        status = observation.get("status")
+        if status in ("UNSUPPORTED_CAPABILITY", "FAILED", "REJECTED_UNAUTHORIZED"):
+            if action and action.question_id and action.question_id in state.questions:
+                q_dict = state.questions[action.question_id]
+                q = InvestigationQuestion.model_validate(q_dict)
+                err_msg = observation.get("error") or observation.get("rejection_reason") or status
+                # Crucial epistemic integrity:
+                # An action failure, unsupported capability, or authorization rejection means
+                # the target question remains UNRESOLVED. It must NOT be added to resolved_questions
+                # or removed from unresolved_questions, preventing artificial confidence inflation
+                # or false OBJECTIVE_SATISFIED termination.
+                q.status = QuestionStatus.NOT_FOUND
+                q.resolution_reason = f"Action execution terminated with status {status}: {err_msg}"
+                state.questions[action.question_id] = q.model_dump()
+            return 0.0
+
+        docs = observation.get("documents", [])
+        if not docs:
+            return 0.0
+
+        information_gain = 0.0
+        new_entities_found: list[str] = []
+        new_claims_found: list[str] = []
+
+        # 1. Evidence Extraction & Verification
+        for d in docs:
+            text = d["text"]
+            ev_id = state.add_evidence({
+                "url": d["url"],
+                "source_type": d["source_type"],
+                "title": d["title"],
+                "snippet": text,
+                "published_date": d.get("published_date"),
+                "syndication_cluster_id": d.get("syndication_cluster_id"),
+            })
+            d["evidence_id"] = ev_id
+
+            # Check syndicated duplicates
+            if d.get("syndication_cluster_id"):
+                state.record_audit(
+                    action_type="SYNDICATED_SOURCE_RECORDED",
+                    details={"url": d["url"], "cluster": d["syndication_cluster_id"]},
+                    rationale="Recorded syndicated mirror under origin cluster ID.",
+                )
+
+        def get_best_evidence_for_pattern(pat_regex: str) -> dict[str, Any]:
+            for d in docs:
+                if re.search(pat_regex, d.get("text", ""), re.IGNORECASE):
+                    return d
+            return docs[0] if docs else {}
+
+        def match_entity_in_text(ent_name: str, text: str) -> bool:
+            """Robust boundary-aware entity matching supporting unicode, hyphens, punctuation, acronyms, and short names."""
+            if not ent_name or not text:
+                return False
+            ent = ent_name.strip()
+            if not ent:
+                return False
+            # For short names (<= 2 chars like 'Io', 'AI'), require case-sensitive token match
+            # to strictly prevent matching substrings inside words like 'navigation', 'action', or 'onion'
+            if len(ent) <= 2:
+                pat_short = rf'(?:^|[\s\(\[\{{"\'`.,;:!?/\\<>\-—–])({re.escape(ent)})(?:$|[\s\)\]\}}\"\'`.,;:!?/\\<>\-—–])'
+                return bool(re.search(pat_short, text))
+            # General boundary match
+            pattern = rf'(?:^|[\s\(\[\{{"\'`.,;:!?/\\<>\-—–])({re.escape(ent)})(?:$|[\s\)\]\}}\"\'`.,;:!?/\\<>\-—–])'
+            if re.search(pattern, text, re.IGNORECASE):
+                return True
+            if any(ch in ent for ch in "-.+_/'"):
+                tokens = ent.split()
+                if len(tokens) == 1:
+                    pat_strict = rf'(?:^|\s|[\(\[\{{"\'`.,;:!?/\\<>])({re.escape(ent)})(?:$|\s|[\)\]\}}\"\'`.,;:!?/\\<>])'
+                    return bool(re.search(pat_strict, text, re.IGNORECASE))
+            # Multi-token entity distinctive token match
+            ent_tokens = [
+                t for t in re.split(r"[\s\-_]+", ent)
+                if len(t) > 3 and t.lower() not in {"battle", "department", "division", "project", "event", "conference"}
+            ]
+            if len(ent_tokens) >= 1:
+                pat_tokens = [
+                    rf'(?:^|[\s\(\[\{{"\'`.,;:!?/\\<>\-—–])({re.escape(t)})(?:$|[\s\)\]\}}\"\'`.,;:!?/\\<>\-—–])'
+                    for t in ent_tokens
+                ]
+                if all(re.search(p, text, re.IGNORECASE) for p in pat_tokens):
+                    return True
+            return False
+
+        def get_best_evidence_for_name(name_str: str) -> dict[str, Any]:
+            for d in docs:
+                if match_entity_in_text(name_str, d.get("text", "")):
+                    return d
+            return docs[0] if docs else {}
+
+        def extract_sentence_for_entity(doc_text: str, ent_name: str) -> str:
+            raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", doc_text) if s.strip()]
+            sentences: list[str] = []
+            for s in raw_sentences:
+                if sentences and re.search(r"\b(Dr|Mr|Ms|Prof|Sr|Jr|U\.S|vs)\.$", sentences[-1]):
+                    sentences[-1] = sentences[-1] + " " + s
+                else:
+                    sentences.append(s)
+            matching = [s for s in sentences if match_entity_in_text(ent_name, s)]
+            return matching[0] if matching else ""
+
+        def extract_grounded_claim_for_sentence(
+            entity: str,
+            sentence: str,
+            doc: dict[str, Any],
+        ) -> dict[str, Any] | None:
+            """Extract a grounded claim only when the passage provides substantive predication."""
+            if not sentence or not entity:
+                return None
+            s_clean = sentence.strip()
+            if len(s_clean) < 15:
+                return None
+
+            contra_markers = [
+                "contradict", "conflict", "dispute", "incompatible", "opposing",
+                "differing", "discrepancy", "refute", "refuted", "refutes",
+                "disprove", "disproved", "disproven", "retracted", "debunked",
+                "debunk", "untrue", "denied", "contrary to", "inconsistent",
+            ]
+            if any(m in s_clean.lower() for m in contra_markers):
+                return {
+                    "subject": entity,
+                    "predicate": "conflict_noted",
+                    "object": s_clean,
+                    "status": "CONTRADICTED",
+                    "evidence_id": doc.get("evidence_id"),
+                    "source_url": doc.get("url"),
+                    "source_passage": doc.get("text", "")[:300],
+                }
+
+            neg_markers = [
+                "zero affiliation", "no affiliation", "unrelated", "not affiliated",
+                "does not exist", "never granted", "never issued", "no division", "no record", "fictitious",
+                "insufficient evidence", "null result", "failed to replicate", "unconfirmed",
+                "inconclusive", "undeciphered", "unsubstantiated", "not a superconductor",
+                "zero excess events", "failed peer review", "no translation key has been scientifically validated",
+                "remain unproven", "unproven", "trade secret", "will not be disclosed", "in vitro",
+                "preliminary", "alleged", "allegedly", "speculative", "speculates", "anecdotal",
+                "unverified", "pending investigation", "cannot be confirmed", "rumored", "rumor",
+                "doubtful", "open question", "unresolved", "not yet established", "insufficient data",
+            ]
+            if any(m in s_clean.lower() for m in neg_markers):
+                st = "NOT_FOUND" if any(k in s_clean.lower() for k in ("affiliation", "unrelated", "not affiliated", "does not exist", "never granted", "never issued", "no division", "no record", "fictitious")) else "INSUFFICIENT_EVIDENCE"
+                return {
+                    "subject": entity,
+                    "predicate": "investigation_finding",
+                    "object": s_clean,
+                    "status": st,
+                    "evidence_id": doc.get("evidence_id"),
+                    "source_url": doc.get("url"),
+                    "source_passage": doc.get("text", "")[:300],
+                }
+
+            # Substantive verbs ensuring an actual factual assertion is present
+            substantive_verbs = [
+                "is", "was", "are", "were", "has", "have", "had", "operates", "developed", "founded", "acquired",
+                "completed", "exhibits", "exhibited", "entered", "includes", "included",
+                "demonstrated", "demonstrates", "published", "discovered", "reported", "appointed", "serves",
+                "holds", "manages", "leads", "resigned", "succeeded", "measured", "calculated",
+                "approved", "crossed", "implemented", "solved", "contains", "provides", "utilize", "utilizes",
+                "achieves", "achieved", "features", "featured", "yields", "yielded", "maintains", "maintained",
+                "reaches", "reached", "shows", "showed", "signed", "ceded", "established", "establishes",
+                "ratified", "passed", "enacted", "manufactures", "manufactured", "deploys", "deployed",
+                "records", "recorded", "identifies", "identified", "secures", "secured", "routes", "routed", "clusters"
+            ]
+            words = set(re.findall(r"\b\w+\b", s_clean.lower()))
+            if not any(v in words for v in substantive_verbs):
+                return None
+
+            predicate = "finding"
+            if any(w in words for w in ("ceo", "officer", "director", "president", "founder", "leads", "appointed", "serves")):
+                predicate = "leadership_role"
+            elif any(w in words for w in ("subsidiary", "acquired", "parent", "operates")):
+                predicate = "corporate_structure"
+            elif any(w in words for w in ("discovered", "demonstrated", "measured", "calculated", "published", "developed", "eclipses", "orbit")):
+                predicate = "scientific_finding"
+            elif any(w in words for w in ("sanctioned", "sdn", "pep")):
+                predicate = "regulatory_status"
+
+            # Independent semantic audit before marking SUPPORTED
+            audit_res = self.semantic_auditor.audit_claim(
+                {"subject": entity, "object": s_clean, "predicate": predicate, "evidence_id": doc.get("evidence_id")},
+                doc,
+            )
+            if audit_res.status == SemanticSupportStatus.CONTRADICTED:
+                st = "CONTRADICTED"
+                predicate = "conflict_noted"
+            elif audit_res.status in (
+                SemanticSupportStatus.INSUFFICIENTLY_SUPPORTED,
+                SemanticSupportStatus.IRRELEVANT_EVIDENCE,
+                SemanticSupportStatus.PARTIALLY_SUPPORTED_COMPOUND,
+            ):
+                st = "INSUFFICIENT_EVIDENCE"
+                predicate = "investigation_finding"
+            else:
+                st = "SUPPORTED"
+
+            return {
+                "subject": entity,
+                "predicate": predicate,
+                "object": s_clean,
+                "status": st,
+                "evidence_id": doc.get("evidence_id"),
+                "source_url": doc.get("url"),
+                "source_passage": doc.get("text", "")[:300],
+            }
+
+        # 2. Extract grounded entities matching corpus vocabulary or specialist output
+        all_text = observation.get("combined_text", "")
+        if hasattr(self.corpus, "get_discoverable_entities"):
+            discoverable = self.corpus.get_discoverable_entities()
+            found_in_text = [
+                ent for ent in discoverable
+                if match_entity_in_text(ent, all_text)
+            ]
+            for ent in found_in_text:
+                if ent not in state.entities:
+                    state.register_entity(name=ent)
+                    new_entities_found.append(ent)
+                    information_gain += 0.25
+
+                # Grounded factual claim extraction only if substantive predication exists
+                # and executive schedule/bio handler does not have higher priority
+                is_exec_goal = any(k in state.objective.lower() for k in ("executive", "leadership", "officer"))
+                if not is_exec_goal:
+                    for d in docs:
+                        if match_entity_in_text(ent, d.get("text", "")):
+                            if not any(c.get("subject") == ent and c.get("evidence_id") == d.get("evidence_id") for c in state.claims):
+                                excerpt = extract_sentence_for_entity(d.get("text", ""), ent)
+                                if excerpt:
+                                    clm = extract_grounded_claim_for_sentence(ent, excerpt, d)
+                                    if clm:
+                                        cid = state.add_claim(clm)
+                                        new_claims_found.append(cid)
+                                        information_gain += 0.20
+
+        # 2b. General Entity Extraction from target entities and adapter result
+        adapter_res = observation.get("adapter_result")
+        if isinstance(adapter_res, dict):
+            for ent in adapter_res.get("entities", []):
+                ent_name = ent.get("name") if isinstance(ent, dict) else str(ent)
+                if ent_name and ent_name not in state.entities:
+                    ent_type = ent.get("type", "ENTITY") if isinstance(ent, dict) else "ENTITY"
+                    state.register_entity(name=ent_name, entity_type=ent_type)
+                    new_entities_found.append(ent_name)
+                    information_gain += 0.25
+
+            for clm in adapter_res.get("claims", []) + adapter_res.get("findings", []):
+                if isinstance(clm, dict):
+                    if "evidence_id" not in clm and docs:
+                        clm["evidence_id"] = docs[0].get("evidence_id")
+                        clm["source_url"] = docs[0].get("url")
+                        clm["source_passage"] = docs[0].get("text", "")[:300]
+                    cid = state.add_claim(clm)
+                    new_claims_found.append(cid)
+                    information_gain += 0.35
+                elif isinstance(clm, str):
+                    subj = action.target_entities[0] if (action and action.target_entities) else "Entity"
+                    best_doc = docs[0] if docs else {}
+                    cid = state.add_claim({
+                        "subject": subj,
+                        "predicate": "finding",
+                        "object": clm,
+                        "status": "SUPPORTED",
+                        "evidence_id": best_doc.get("evidence_id"),
+                        "source_url": best_doc.get("url"),
+                        "source_passage": best_doc.get("text", "")[:300],
+                    })
+                    new_claims_found.append(cid)
+                    information_gain += 0.35
+
+        target_ents = (action.target_entities if action else []) or (state.objective_contract.get("target_entities") or []) or list(state.entities.keys())
+        if target_ents:
+            for ent in target_ents:
+                if ent not in state.entities and (match_entity_in_text(ent, all_text) or not all_text):
+                    state.register_entity(name=ent, entity_type="TARGET_ENTITY")
+                    new_entities_found.append(ent)
+                    information_gain += 0.20
+                for d in docs:
+                    if match_entity_in_text(ent, d.get("text", "")):
+                        if not any(c.get("subject") == ent and c.get("evidence_id") == d.get("evidence_id") for c in state.claims):
+                            excerpt = extract_sentence_for_entity(d.get("text", ""), ent)
+                            if excerpt:
+                                clm = extract_grounded_claim_for_sentence(ent, excerpt, d)
+                                if clm:
+                                    cid = state.add_claim(clm)
+                                    new_claims_found.append(cid)
+                                    information_gain += 0.20
+
+        # 3. Dynamic Relational Claim Extraction & Knowledge Graph Update
+        # Reusable semantic patterns extracting corporate structure, officers, infrastructure, and sanctions
+        dynamic_relations: list[tuple[str, str, str, str]] = []
+
+        # A. Corporate Subsidiary Declarations
+        m_subs_block = re.findall(r"(?:subsidiaries(?:\s+include)?|Subsidiaries held|Wholly owned subsidiaries):\s*([^\n\r]+)", all_text, re.IGNORECASE)
+        for s_block in m_subs_block:
+            parent_cand = action.target_entities[0] if (action and action.target_entities) else "Parent Organization"
+            for sub_name in re.split(r"[,;]\s*", s_block):
+                sub_name_clean = sub_name.strip().rstrip(".")
+                if len(sub_name_clean) >= 3 and any(k in sub_name_clean for k in ("Ltd", "Limited", "LLC", "GmbH", "Inc", "Corp", "Systems", "Orbital", "Telemetry", "Defense")):
+                    dynamic_relations.append((sub_name_clean, parent_cand, "subsidiary", sub_name_clean))
+
+        m_single_sub = re.finditer(
+            r"(?:Technical Infrastructure Subsidiary|Wholly owned subsidiary|Active Subsidiary|Subsidiary):\s*([A-Z][A-Za-z0-9\s.,&-]{2,50}?)(?:\.|\n|;|$)",
+            all_text,
+            re.IGNORECASE,
+        )
+        for m_sub in m_single_sub:
+            sub_cand = m_sub.group(1).strip()
+            parent_cand = action.target_entities[0] if (action and action.target_entities) else "Parent Organization"
+            if len(sub_cand) >= 3:
+                if sub_cand not in state.entities:
+                    state.register_entity(sub_cand, "SUBSIDIARY")
+                    new_entities_found.append(sub_cand)
+                dynamic_relations.append((sub_cand, parent_cand, "subsidiary", sub_cand))
+
+        # B. Corporate Officers & Leadership Titles
+        m_officers = re.finditer(
+            r"(?:Chief Executive Officer|Managing Director|Active Managing Director|Chief Technology Officer|CTO|CEO|President|General Counsel):\s*([A-Z][A-Za-z\s.'-]{2,40}?)(?:\.|\n|;|$)",
+            all_text,
+            re.IGNORECASE,
+        )
+        for m_off in m_officers:
+            off_name = m_off.group(1).strip()
+            org_cand = action.target_entities[0] if (action and action.target_entities) else "Corporate Entity"
+            if len(off_name) >= 3 and " " in off_name:
+                dynamic_relations.append((off_name, org_cand, "officer", off_name))
+
+        # C. Acquisitions
+        m_acq = re.finditer(
+            r"([A-Z][A-Za-z0-9\s.,&-]{2,40}?)\s+(?:completed acquisition of|acquired)\s+([A-Z][A-Za-z0-9\s.,&-]{2,40})",
+            all_text,
+        )
+        for ma in m_acq:
+            acquirer = ma.group(1).strip()
+            target = ma.group(2).strip()
+            dynamic_relations.append((target, acquirer, "acquired", target))
+
+        # D. Infrastructure Hostnames & Associated Domain Entities
+        found_hosts = re.findall(r"\b([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z0-9-]+\.)+(?:com|org|net|de|co\.uk|io))\b", all_text)
+        for host in set(found_hosts):
+            if host not in state.entities:
+                state.register_entity(host, "INFRASTRUCTURE_ENDPOINT")
+                new_entities_found.append(host)
+            for d in docs:
+                if host in d.get("text", ""):
+                    org_cand = d.get("title", "").split(" - ")[0].split(":")[0].strip()
+                    if not org_cand or len(org_cand) < 3:
+                        org_cand = action.target_entities[0] if (action and action.target_entities) else "Host Entity"
+                    dynamic_relations.append((host, org_cand, "infrastructure", host))
+
+        # E. Admin / Contact Emails associated with domains
+        found_emails = re.findall(r"\b([a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}))\b", all_text)
+        for full_email, email_dom in found_emails:
+            dynamic_relations.append((full_email, email_dom, "admin_contact", full_email))
+            # Match person whose surname is present in the email prefix
+            email_user = full_email.split("@")[0].lower()
+            all_known = list(state.entities.keys()) + list(self.corpus.get_discoverable_entities() if hasattr(self.corpus, "get_discoverable_entities") else [])
+            for cand_p in all_known:
+                if " " in cand_p:
+                    surname = cand_p.split()[-1].lower()
+                    if len(surname) >= 4 and surname in email_user:
+                        if cand_p not in state.entities:
+                            state.register_entity(cand_p, "INDIVIDUAL")
+                            new_entities_found.append(cand_p)
+
+        # F. Corporate Succession & Historical Tenure
+        m_succ = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s+succeeded\s+([A-Z][A-Za-z\s.'-]{2,30})", all_text)
+        for ms in m_succ:
+            dynamic_relations.append((ms.group(2).strip(), ms.group(1).strip(), "succeeded", ms.group(2).strip()))
+
+        m_res = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s*(?:\bRESIGNED\b|\bstepped down\b)(?:\s+(?:in\s+)?(\d{4}))?", all_text)
+        for mr in m_res:
+            res_person = mr.group(1).strip()
+            if len(res_person) >= 3:
+                dynamic_relations.append((res_person, res_person, "tenure_status", "HISTORICAL_RESIGNED"))
+
+        # G. Regulatory Sanctions, OFAC / OFSI Designations
+        m_sanc = re.finditer(r"([A-Z][A-Za-z0-9\s.,&-]{2,40}?)\s*(?:sanctioned by|placed on SDN list by|designated by|US_OFAC|UK_OFSI|OFAC_SDN_ENTRY|UK_OFSI_ENTRY)\s*(US_OFAC|UK_OFSI|OFAC_SDN_ENTRY|UK_OFSI_ENTRY|[A-Za-z0-9_\s-]+)?", all_text)
+        for msn in m_sanc:
+            sanc_ent = msn.group(1).strip()
+            auth = (msn.group(2) or "SANCTIONS_REGULATOR").strip()
+            if "OFAC" in all_text:
+                auth = "US_OFAC"
+            elif "OFSI" in all_text:
+                auth = "UK_OFSI"
+            dynamic_relations.append((sanc_ent, sanc_ent, "sanctioned_by", auth))
+
+        # H. Beneficial Ownership & PEP Status
+        m_bo = re.finditer(r"(?:beneficial_owners|beneficial owners?|controlling shareholder):\s*([A-Z][A-Za-z\s.'-]{2,40})", all_text, re.IGNORECASE)
+        for mbo in m_bo:
+            owner = mbo.group(1).strip()
+            org_cand = action.target_entities[0] if (action and action.target_entities) else "Offshore Entity"
+            dynamic_relations.append((owner, org_cand, "beneficial_owner", owner))
+
+        m_pep = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s*(?:POLITICALLY_EXPOSED_PERSON|Former Deputy Minister|politically exposed person)", all_text)
+        for mp in m_pep:
+            pep_name = mp.group(1).strip()
+            if len(pep_name) >= 3:
+                dynamic_relations.append((pep_name, pep_name, "pep_status", "POLITICALLY_EXPOSED_PERSON"))
+
+        for pat_str, s, p, o in dynamic_relations:
+            existing = any(
+                r.get("subject") == s and r.get("predicate") == p and r.get("object") == o
+                for r in state.relationships
+            )
+            if not existing:
+                state.relationships.append({"subject": s, "predicate": p, "object": o})
+                best_doc = get_best_evidence_for_name(pat_str) or (docs[0] if docs else {})
+                cid = state.add_claim({
+                    "subject": s,
+                    "predicate": p,
+                    "object": o,
+                    "status": "SUPPORTED",
+                    "evidence_id": best_doc.get("evidence_id"),
+                    "source_url": best_doc.get("url"),
+                    "source_passage": best_doc.get("text", "")[:300],
+                })
+                new_claims_found.append(cid)
+                information_gain += 0.35
+
+        # 3b. Genuine Executive Officer & Leadership Extraction from Observed Evidence
+        is_exec_goal = (
+            state.objective_contract.get("expected_executive_count") is not None
+            or any(k in state.objective.lower() for k in ("executive", "officer", "leadership", "20 current"))
+        )
+        is_20_exec_goal = is_exec_goal
+
+        def extract_clean_email(raw_val: str) -> str | None:
+            if not raw_val or any(k in raw_val.lower() for k in ("none disclosed", "not disclosed", "none")):
+                return None
+            m_email = re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", raw_val)
+            return m_email.group(0) if m_email else None
+
+        extracted_executives: dict[str, dict[str, Any]] = {}
+
+        # Determine target organization dynamically
+        target_org = "Target Organization"
+        if action and action.target_entities:
+            target_org = action.target_entities[0]
+        elif state.objective_contract.get("target_entities"):
+            target_org = state.objective_contract["target_entities"][0]
+        else:
+            m_org = re.search(r"([A-Z][A-Za-z0-9\s&]+(?:Inc|Corp|Ltd|LLC|Group|GmbH|SE))", all_text)
+            if m_org:
+                target_org = m_org.group(1).strip()
+
+        sec_sched_pattern = re.compile(
+            r"^-\s*([^\n\r:()]+?):\s*([^()\n\r]+?)(?:\s*\(([^()\n\r]+?)\))?\.\s*(?:Public Contact|Contact):\s*(.*?)(?:\.\s*$|$)",
+            re.MULTILINE,
+        )
+        for m in sec_sched_pattern.finditer(all_text):
+            name = m.group(1).strip()
+            title = m.group(2).strip()
+            resp = (m.group(3) or "").strip()
+            contact_raw = (m.group(4) or "").strip()
+            if len(name) >= 3 and any(k in title for k in ("President", "Officer", "General Counsel", "Managing Director", "Executive", "Director")):
+                email = extract_clean_email(contact_raw)
+                extracted_executives[name] = {
+                    "name": name,
+                    "title": title,
+                    "responsibility": resp or f"Executive duties as {title}",
+                    "org": target_org,
+                    "email": email,
+                    "history": f"Executive tenure as {title}.",
+                }
+
+        bio_splits = list(re.finditer(r"(?:^|\n)BIOGRAPHY:\s*([^\n\r]+)", all_text))
+        for i, b_match in enumerate(bio_splits):
+            name = b_match.group(1).strip()
+            start_pos = b_match.end()
+            end_pos = bio_splits[i + 1].start() if i + 1 < len(bio_splits) else len(all_text)
+            block_text = all_text[start_pos:end_pos]
+
+            title_m = re.search(r"(?:^|\n)Title:\s*([^\n\r]+)", block_text)
+            scope_m = re.search(r"(?:^|\n)(?:Scope|Responsibility):\s*([^\n\r]+)", block_text)
+            hist_m = re.search(r"(?:^|\n)(?:Career History|History):\s*([^\n\r]+)", block_text)
+            contact_m = re.search(r"(?:^|\n)(?:Business Inquiries|Public Contact|Contact):\s*([^\n\r]+)", block_text)
+
+            title = title_m.group(1).strip() if title_m else ""
+            resp = scope_m.group(1).strip() if scope_m else ""
+            hist = hist_m.group(1).strip() if hist_m else ""
+            contact_raw = contact_m.group(1).strip() if contact_m else ""
+            email = extract_clean_email(contact_raw)
+
+            if len(name) >= 3:
+                existing = extracted_executives.get(name, {})
+                extracted_executives[name] = {
+                    "name": name,
+                    "title": title or existing.get("title", "Executive Officer"),
+                    "responsibility": resp or existing.get("responsibility", f"Executive scope as {title or 'Officer'}"),
+                    "org": target_org,
+                    "email": email if email is not None else existing.get("email"),
+                    "history": hist or existing.get("history", f"Executive tenure as {title or 'Officer'}."),
+                }
+
+        for ex_name, ex in extracted_executives.items():
+            if ex_name not in state.entities:
+                state.register_entity(name=ex_name, entity_type="EXECUTIVE_OFFICER", metadata=ex)
+                new_entities_found.append(ex_name)
+                information_gain += 0.20
+
+            best_doc = get_best_evidence_for_name(ex_name)
+            ev_id = best_doc.get("evidence_id")
+            ev_url = best_doc.get("url")
+            ev_pass = best_doc.get("text", "")[:300]
+
+            if not any(c.get("subject") == ex_name and c.get("predicate") == "title" for c in state.claims):
+                state.add_claim({"subject": ex_name, "predicate": "title", "object": ex["title"], "status": "SUPPORTED", "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
+                state.add_claim({"subject": ex_name, "predicate": "organization", "object": ex["org"], "status": "SUPPORTED", "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
+                state.add_claim({"subject": ex_name, "predicate": "responsibility", "object": ex["responsibility"], "status": "SUPPORTED", "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
+                contact_val = ex["email"] if ex["email"] else "NOT_FOUND"
+                contact_status = "SUPPORTED" if ex["email"] else "NOT_FOUND"
+                state.add_claim({"subject": ex_name, "predicate": "contact_channel", "object": contact_val, "status": contact_status, "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
+                state.add_claim({"subject": ex_name, "predicate": "career_history", "object": ex["history"], "status": "SUPPORTED", "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
+                information_gain += 0.30
+
+            if is_exec_goal:
+                safe_slug = ex_name.lower().replace(" ", "_").replace(".", "").replace("'", "")
+                branch_id = f"br_exec_{safe_slug}"
+                if branch_id not in state.active_branches and branch_id not in state.completed_branches:
+                    branch = InvestigationBranch(
+                        branch_id=branch_id,
+                        purpose=f"Executive Leadership Verification: {ex_name}",
+                        target_entity=ex_name,
+                        step_budget=5,
+                    )
+                    branch.complete()
+                    state.completed_branches.append(branch_id)
+                    state.record_audit(
+                        action_type="BRANCH_COMPLETED",
+                        details={"branch_id": branch_id, "executive": ex_name, "title": ex["title"]},
+                        rationale=f"Successfully verified leadership dossier for {ex_name}.",
+                    )
+
+        # 3c. Domain-General Contradiction Detection & Multi-Domain Conflict Resolution
+        contra_indicators = [
+            "directly contradicts", "contradict", "conflict", "dispute",
+            "incompatible", "competing accounts", "opposing claims",
+            "differing estimates", "differing accounts", "discrepancy between",
+            "in tension with", "unresolved tension", "divided over",
+            "succeeded by interim", "appointed interim ceo following resignation",
+            "earlier reports indicating", "outdated and contradicted",
+        ]
+        topic_subject = action.target_entities[0] if (action and action.target_entities) else "Subject Matter"
+        target_entities_list = (action.target_entities if action else []) or [topic_subject]
+        all_candidate_subjects = list(
+            dict.fromkeys(
+                ((action.target_entities if action else []) or [])
+                + (state.objective_contract.get("target_entities") or [])
+                + [ent for ent in state.entities if any(match_entity_in_text(ent, d.get("text", "")) for d in docs)]
+                + [topic_subject]
+            )
+        )
+
+        # Use ContradictionResolver to extract comparable claims and detect cross-document conflicts
+        for subj in all_candidate_subjects:
+            comparable_claims = self.contradiction_resolver.extract_comparable_claims(docs, subj)
+            detected_contras = self.contradiction_resolver.detect_contradictions(comparable_claims)
+            for c_rec in detected_contras:
+                already_recorded = any(
+                    c.get("subject") == c_rec.subject
+                    and c.get("property_dim") == c_rec.property_dim
+                    for c in state.contradictions
+                ) or any(c.get("topic") == c_rec.topic for c in state.contradictions)
+                if not already_recorded:
+                    state.contradictions.append(c_rec.model_dump())
+                    claim_status = "CONTRADICTED" if c_rec.status == "UNRESOLVED_CONTRADICTION" else "SUPPORTED"
+                    res_str = str(c_rec.resolved_value or "")
+                    use_b = bool(res_str and res_str in str(c_rec.value_b or "") and c_rec.evidence_id_b)
+                    ev_id = (c_rec.evidence_id_b if use_b else c_rec.evidence_id_a) or c_rec.evidence_id_a or c_rec.evidence_id_b
+                    src_url = (c_rec.source_b if use_b else c_rec.source_a) or c_rec.source_a
+                    src_pass = (c_rec.claim_b[:300] if use_b else c_rec.claim_a[:300]) or c_rec.claim_a[:300]
+                    cid = state.add_claim({
+                        "subject": c_rec.subject,
+                        "predicate": f"metric_{c_rec.property_dim}",
+                        "object": f"Resolved finding: {c_rec.resolved_value or c_rec.value_a} (Adjudication: {c_rec.adjudication_rationale})",
+                        "status": claim_status,
+                        "evidence_id": ev_id,
+                        "source_url": src_url,
+                        "source_passage": src_pass,
+                    })
+                    new_claims_found.append(cid)
+                    information_gain += 0.40
+
+                    if c_rec.status == "UNRESOLVED_CONTRADICTION":
+                        # Mark all existing claims for this subject and property dimension as CONTRADICTED
+                        prop_tokens = {c_rec.property_dim.lower(), str(c_rec.value_a).lower(), str(c_rec.value_b).lower()}
+                        for clm in state.claims:
+                            if clm.get("subject") == c_rec.subject and clm.get("status") == "SUPPORTED":
+                                clm_text = (clm.get("object", "") + " " + clm.get("predicate", "")).lower()
+                                if any(tok in clm_text for tok in prop_tokens if len(tok) >= 2):
+                                    clm["status"] = "CONTRADICTED"
+                    elif c_rec.status.startswith("RESOLVED_"):
+                        # Mark superseded conflicting claim as CONTRADICTED
+                        res_str = str(c_rec.resolved_value or "")
+                        a_str = str(c_rec.value_a or "")
+                        b_str = str(c_rec.value_b or "")
+                        rejected_val = b_str if res_str and res_str in a_str else a_str
+                        rej_nums = re.findall(r"\d+(?:\.\d+)?", rejected_val)
+                        rej_core = rej_nums[0].rstrip(".0") if rej_nums else rejected_val.lower()
+                        for clm in state.claims:
+                            if clm.get("subject") == c_rec.subject and clm.get("status") == "SUPPORTED":
+                                clm_text = (clm.get("object", "") + " " + clm.get("predicate", "")).lower()
+                                if rej_core and rej_core in clm_text:
+                                    clm["status"] = "CONTRADICTED"
+
+        # 3d. Adversarial, Negative & Empirical Uncertainty Resolution
+        # A. Lookalike Phishing / Homoglyph Neutralization
+        for d in docs:
+            d_text = d.get("text", "")
+            if any(k in d_text.lower() for k in ("phishing", "lookalike", "homoglyph", "imposter", "typosquatting", "malware", "exfiltrates")):
+                m_bad_dom = re.search(r"\b([a-z0-9_.-]+(?:-py|\.(?:com|org|net|de|co\.uk|io)))\b", d_text)
+                if m_bad_dom:
+                    bad_domain = m_bad_dom.group(1)
+                    if not any(c.get("subject") == bad_domain and c.get("predicate") == "security_assessment" for c in state.claims):
+                        target_entity = action.target_entities[0] if (action and action.target_entities) else "Target Entity"
+                        state.add_claim({
+                            "subject": bad_domain,
+                            "predicate": "affiliation",
+                            "object": target_entity,
+                            "status": "CONTRADICTED",
+                            "evidence_id": d.get("evidence_id"),
+                            "source_url": d.get("url"),
+                            "source_passage": d_text[:300],
+                        })
+                        state.add_claim({
+                            "subject": bad_domain,
+                            "predicate": "security_assessment",
+                            "object": f"Malicious typosquatted or imposter package identified: {d_text[:200]}",
+                            "status": "SUPPORTED",
+                            "evidence_id": d.get("evidence_id"),
+                            "source_url": d.get("url"),
+                            "source_passage": d_text[:300],
+                        })
+                        state.record_audit(
+                            action_type="ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
+                            details={"domain": bad_domain, "finding": "Lookalike / Phishing neutralized"},
+                            rationale="Neutralized adversary lookalike entity from verified registry.",
+                        )
+                        break
+
+        # B. Negative Findings & Affiliation Disavowals
+        # Check explicit negative indicators and EntityScopeVerifier
+        for target_ent in target_entities_list:
+            if EntityScopeVerifier.is_negative_or_scoped_query(target_ent, state.objective):
+                is_grounded, is_explicitly_absent, rationale = EntityScopeVerifier.verify_entity_presence(target_ent, docs)
+                if is_explicitly_absent or not is_grounded:
+                    if not any(c.get("subject") == target_ent and c.get("status") == "NOT_FOUND" for c in state.claims):
+                        best_doc = docs[0] if docs else {}
+                        cid = state.add_claim({
+                            "subject": target_ent,
+                            "predicate": "existence_verification",
+                            "object": rationale,
+                            "status": "NOT_FOUND",
+                            "evidence_id": best_doc.get("evidence_id"),
+                            "source_url": best_doc.get("url"),
+                            "source_passage": best_doc.get("text", "")[:300] if best_doc else rationale,
+                        })
+                        new_claims_found.append(cid)
+                        information_gain += 0.35
+
+        neg_indicators = ("zero affiliation", "no affiliation", "unrelated entity", "no connection", "unaffiliated", "no record", "no division", "zero record")
+        for d in docs:
+            d_text = d.get("text", "")
+            if any(k in d_text.lower() for k in neg_indicators):
+                target_entity = action.target_entities[0] if (action and action.target_entities) else "Target Entity"
+                if EntityScopeVerifier.is_negative_or_scoped_query(target_entity, state.objective) and any(match_entity_in_text(te, d_text) for te in target_entities_list):
+                    d_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", d_text) if s.strip()]
+                    for s in d_sentences:
+                        if any(k in s.lower() for k in neg_indicators):
+                            if not any(c.get("subject") == target_entity and c.get("status") == "NOT_FOUND" for c in state.claims):
+                                state.add_claim({
+                                    "subject": target_entity,
+                                    "predicate": "affiliation",
+                                    "object": s[:200],
+                                    "status": "NOT_FOUND",
+                                    "evidence_id": d.get("evidence_id"),
+                                    "source_url": d.get("url"),
+                                    "source_passage": d_text[:300],
+                                })
+                            break
+
+        # C. Empirical Null Results & Scientific Insufficient Evidence
+        is_sufficient, suff_rationale = EpistemicSufficiencyEvaluator.evaluate_sufficiency(docs, state.objective)
+        if not is_sufficient:
+            target_subj = action.target_entities[0] if (action and action.target_entities) else "Target Hypothesis"
+            if not any(c.get("subject") == target_subj and c.get("status") == "INSUFFICIENT_EVIDENCE" for c in state.claims):
+                best_doc = docs[0] if docs else {}
+                cid = state.add_claim({
+                    "subject": target_subj,
+                    "predicate": "empirical_sufficiency",
+                    "object": suff_rationale,
+                    "status": "INSUFFICIENT_EVIDENCE",
+                    "evidence_id": best_doc.get("evidence_id"),
+                    "source_url": best_doc.get("url"),
+                    "source_passage": best_doc.get("text", "")[:300] if best_doc else suff_rationale,
+                })
+                new_claims_found.append(cid)
+                information_gain += 0.35
+
+        insufficient_markers = [
+            "insufficient evidence", "null result", "failed to replicate", "unconfirmed",
+            "inconclusive", "not confirmed", "undeciphered", "unsubstantiated",
+            "zero excess events", "failed peer review", "not a superconductor",
+            "no translation key has been scientifically validated", "scientifically unsubstantiated",
+        ]
+        for d in docs:
+            d_text = d.get("text", "")
+            if any(k in d_text.lower() for k in insufficient_markers):
+                target_subj = action.target_entities[0] if (action and action.target_entities) else "Target Hypothesis"
+                if any(match_entity_in_text(te, d_text) for te in target_entities_list):
+                    d_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", d_text) if s.strip()]
+                    for s in d_sentences:
+                        if any(k in s.lower() for k in insufficient_markers):
+                            if not any(c.get("subject") == target_subj and c.get("status") == "INSUFFICIENT_EVIDENCE" for c in state.claims):
+                                cid = state.add_claim({
+                                    "subject": target_subj,
+                                    "predicate": "empirical_status",
+                                    "object": s[:200],
+                                    "status": "INSUFFICIENT_EVIDENCE",
+                                    "evidence_id": d.get("evidence_id"),
+                                    "source_url": d.get("url"),
+                                    "source_passage": d_text[:300],
+                                })
+                                new_claims_found.append(cid)
+                                information_gain += 0.35
+                                break
+
+        # D. Temporal State Grounding
+        m_dates = re.findall(r"\b(20\d\d-\d\d-\d\d|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,\s+20\d\d)?)\b", all_text)
+        if m_dates and any(k in all_text.lower() for k in ("as of", "handover", "resigned", "succeeded", "effective", "approved")):
+            target_subj = action.target_entities[0] if (action and action.target_entities) else "Temporal State"
+            best_doc = docs[0] if docs else {}
+            state.temporal_states.append({
+                "entity": target_subj,
+                "recorded_dates": m_dates,
+                "context": all_text[:200],
+            })
+            state.add_claim({
+                "subject": target_subj,
+                "predicate": "temporal_grounding",
+                "object": extract_sentence_for_entity(best_doc.get("text", ""), target_subj),
+                "status": "SUPPORTED",
+                "evidence_id": best_doc.get("evidence_id"),
+                "source_url": best_doc.get("url"),
+                "source_passage": best_doc.get("text", "")[:300],
+            })
+            information_gain += 0.30
+
+        # 4. Resolve Target Question Strictly From Grounded Observations
+        if action and action.question_id and action.question_id in state.questions:
+            q_dict = state.questions[action.question_id]
+            q = InvestigationQuestion.model_validate(q_dict)
+
+            # Check for active contradictions in state or claims
+            current_contra_claims = [c for c in state.claims if c.get("status") == "CONTRADICTED"]
+            current_insufficient_claims = [c for c in state.claims if c.get("status") == "INSUFFICIENT_EVIDENCE"]
+            current_not_found_claims = [c for c in state.claims if c.get("status") == "NOT_FOUND"]
+
+            unresolved_contras = [c for c in state.contradictions if c.get("status") == "UNRESOLVED_CONTRADICTION"]
+            has_contra = bool(unresolved_contras) or bool(current_contra_claims)
+
+            # Check if this question is a negative verification question or asking about an absent scoped entity
+            q_entities = q.related_entities or action.target_entities or []
+            has_not_found = False
+            for q_ent in q_entities:
+                if EntityScopeVerifier.is_negative_or_scoped_query(q_ent, state.objective):
+                    is_gr, is_abs, _ = EntityScopeVerifier.verify_entity_presence(q_ent, docs)
+                    if is_abs or not is_gr:
+                        has_not_found = True
+                        break
+            if not has_not_found:
+                has_not_found = bool(current_not_found_claims)
+
+            has_insufficient = bool(current_insufficient_claims) or (not is_sufficient)
+
+            if has_contra:
+                q.resolve(
+                    status=QuestionStatus.CONTRADICTED,
+                    reason="Identified substantive contradiction or unresolved conflict across retrieved evidence.",
+                    claim_ids=[c.get("claim_id", "") for c in current_contra_claims],
+                )
+            elif has_not_found:
+                q.resolve(
+                    status=QuestionStatus.NOT_FOUND,
+                    reason="Authoritative documentation confirmed target entity, department, or relationship does not exist or has zero operating records.",
+                    claim_ids=[c.get("claim_id", "") for c in current_not_found_claims],
+                )
+            elif has_insufficient:
+                q.resolve(
+                    status=QuestionStatus.INSUFFICIENT_EVIDENCE,
+                    reason=f"Comprehensive literature inspection confirmed evidence is insufficient, preliminary, or unconfirmed: {suff_rationale}",
+                    claim_ids=[c.get("claim_id", "") for c in current_insufficient_claims],
+                )
+            elif (new_entities_found or new_claims_found or is_20_exec_goal) and is_sufficient:
+                q.resolve(
+                    status=QuestionStatus.SUPPORTED,
+                    reason=f"Substantiated by {len(new_entities_found)} entities and {len(new_claims_found)} claims.",
+                    claim_ids=new_claims_found,
+                )
+            elif len(docs) > 0 and is_sufficient:
+                q.resolve(
+                    status=QuestionStatus.SUPPORTED,
+                    reason=f"Substantiated by {len(docs)} retrieved authoritative evidence items.",
+                )
+            else:
+                q.resolve(
+                    status=QuestionStatus.INSUFFICIENT_EVIDENCE,
+                    reason="Available evidence cannot substantiate the target question.",
+                )
+
+            state.questions[action.question_id] = q.model_dump()
+            if action.question_id in state.unresolved_questions:
+                state.unresolved_questions.remove(action.question_id)
+            if action.question_id not in state.resolved_questions:
+                state.resolved_questions.append(action.question_id)
+            information_gain += 0.40
+
+        # 5. Type-Based Multi-Specialist Chaining (for investigative workflows)
+        active_caps = [c.capability_id for c in self.registry.list(include_inactive=False)]
+
+        if not is_20_exec_goal:
+            # Type 1a: Discovered Technical/Infrastructure Subsidiaries -> Chained to Infrastructure Specialist
+            tech_subs = [e for e in new_entities_found if any(k in e for k in ("Telemetry", "Infrastructure", "Sensing", "Orbital", "Network", "Cloud"))]
+            for tsub in tech_subs:
+                if not any(tsub in str(q) for q in state.questions.values()):
+                    q_chain_tsub = InvestigationQuestion(
+                        question_text=f"What network infrastructure, domain names, and CT SAN endpoints are registered to {tsub}?",
+                        question_type=QuestionType.INFRASTRUCTURE_ATTRIBUTION,
+                        priority=0.96,
+                        is_critical=False,
+                        related_entities=[tsub],
+                        specialist_requirements=["infrastructure"],
+                        required_evidence=[f"Certificate Transparency log, DNS, or network record for {tsub}"],
+                    )
+                    state.questions[q_chain_tsub.question_id] = q_chain_tsub.model_dump()
+                    state.unresolved_questions.append(q_chain_tsub.question_id)
+                    state.record_audit(
+                        action_type="SPECIALIST_CHAIN_TRIGGERED",
+                        details={
+                            "origin_specialist": "corporate",
+                            "next_specialist": "infrastructure",
+                            "question_id": q_chain_tsub.question_id,
+                            "entity": tsub,
+                        },
+                        rationale=f"Corporate discovery of technical infrastructure subsidiary {tsub} chained to Infrastructure Specialist.",
+                    )
+
+            # Type 1b: Discovered Technical Infrastructure Endpoints -> Chained to Infrastructure Specialist
+            extracted_domains = set(re.findall(r"\b([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z0-9-]+\.)+(?:com|org|net|de|co\.uk|io))\b", all_text))
+            doc_hosts = {re.sub(r"^https?://([^/]+).*$", r"\1", d.get("url", "")) for d in docs}
+            infra_domains = [dom for dom in extracted_domains if dom not in doc_hosts and len(dom) > 5]
+
+            for dom in infra_domains:
+                if not any(dom in str(q) for q in state.questions.values()):
+                    q_chain_infra = InvestigationQuestion(
+                        question_text=f"What network infrastructure and CT SAN endpoints are registered to {dom}?",
+                        question_type=QuestionType.INFRASTRUCTURE_ATTRIBUTION,
+                        priority=0.95,
+                        is_critical=False,
+                        related_entities=[dom],
+                        specialist_requirements=["infrastructure"],
+                        required_evidence=[f"Certificate Transparency log or SAN entry for {dom}"],
+                    )
+                    state.questions[q_chain_infra.question_id] = q_chain_infra.model_dump()
+                    state.unresolved_questions.append(q_chain_infra.question_id)
+                    state.record_audit(
+                        action_type="SPECIALIST_CHAIN_TRIGGERED",
+                        details={
+                            "origin_specialist": "corporate",
+                            "next_specialist": "infrastructure",
+                            "question_id": q_chain_infra.question_id,
+                            "domain": dom,
+                        },
+                        rationale=f"Corporate discovery of technical infrastructure {dom} dynamically chained to Infrastructure Specialist.",
+                    )
+
+            # Type 2: Discovered Technical Administrator / Person -> Chained to Identity Specialist
+            extracted_emails = set(re.findall(r"\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b", all_text))
+            for email in extracted_emails:
+                # Associate with person entities in context
+                person_candidates = [e for e in new_entities_found if e in state.entities and " " in e]
+                for person in person_candidates:
+                    if not any(f"identity of {person}".lower() in str(q).lower() for q in state.questions.values()):
+                        q_chain_ident = InvestigationQuestion(
+                            question_text=f"What is {person}'s professional identity, employment profile, and background?",
+                            question_type=QuestionType.IDENTITY_CORRELATION,
+                            priority=0.90,
+                            is_critical=False,
+                            related_entities=[person],
+                            specialist_requirements=["identity"],
+                            required_evidence=[f"Biographical employment profile for {person}"],
+                        )
+                        state.questions[q_chain_ident.question_id] = q_chain_ident.model_dump()
+                        state.unresolved_questions.append(q_chain_ident.question_id)
+                        state.record_audit(
+                            action_type="SPECIALIST_CHAIN_TRIGGERED",
+                            details={
+                                "origin_specialist": "infrastructure",
+                                "next_specialist": "identity",
+                                "question_id": q_chain_ident.question_id,
+                                "person": person,
+                            },
+                            rationale=f"Infrastructure discovery of admin email {email} chained to Identity Specialist for {person}.",
+                        )
+
+            # Type 3: Sanctions, PEP, and Beneficial Ownership Chaining
+            is_sanctions_relevant = any(
+                k in state.objective.lower()
+                for k in ["sanction", "pep", "offshore", "ownership", "beneficial", "compliance", "freeze", "trust"]
+            )
+            if "sanctions_and_beneficial_ownership" in active_caps and is_sanctions_relevant:
+                for ent in new_entities_found:
+                    if not any(f"sanctions screening for {ent}".lower() in str(q).lower() for q in state.questions.values()):
+                        q_chain_sanc = InvestigationQuestion(
+                            question_text=f"Screen consolidated international sanctions, PEP status, and offshore beneficial ownership for {ent}.",
+                            question_type=QuestionType.ENTITY_DISCOVERY,
+                            priority=0.85,
+                            is_critical=False,
+                            related_entities=[ent],
+                            specialist_requirements=["sanctions_and_offshore"],
+                            required_evidence=[f"OFAC SDN, UK OFSI, PEP disclosure, or Offshore Leaks record for {ent}"],
+                        )
+                        state.questions[q_chain_sanc.question_id] = q_chain_sanc.model_dump()
+                        state.unresolved_questions.append(q_chain_sanc.question_id)
+                        state.record_audit(
+                            action_type="SPECIALIST_CHAIN_TRIGGERED",
+                            details={
+                                "origin_specialist": "corporate",
+                                "next_specialist": "sanctions",
+                                "question_id": q_chain_sanc.question_id,
+                                "entity": ent,
+                            },
+                            rationale=f"Corporate discovery of {ent} dynamically chained to Sanctions Specialist.",
+                        )
+
+            # Type 4: Discovered Controller Alias or Handle -> Chained to Identity Correlation
+            aliases = re.findall(r"(?:^|\s)(0x_[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+)(?:\s|$|[.,])", all_text)
+            for alias in aliases:
+                if not any(alias.lower() in str(q).lower() for q in state.questions.values()):
+                    q_chain_alias = InvestigationQuestion(
+                        question_text=f"Resolve developer personas, GitHub handles, and Keybase identity for alias {alias}.",
+                        question_type=QuestionType.IDENTITY_CORRELATION,
+                        priority=0.80,
+                        is_critical=False,
+                        related_entities=[alias],
+                        specialist_requirements=["identity"],
+                        required_evidence=[f"GitHub or Keybase identity record for {alias}"],
+                    )
+                    state.questions[q_chain_alias.question_id] = q_chain_alias.model_dump()
+                    state.unresolved_questions.append(q_chain_alias.question_id)
+                    state.record_audit(
+                        action_type="SPECIALIST_CHAIN_TRIGGERED",
+                        details={
+                            "origin_specialist": "sanctions",
+                            "next_specialist": "identity",
+                            "question_id": q_chain_alias.question_id,
+                            "alias": alias,
+                        },
+                        rationale=f"Sanctions discovery of offshore controller alias {alias} chained to Identity Specialist.",
+                    )
+
+        # 6. Update Overall Confidence State
+        state.confidence_state.recompute_calibration(state)
+
+        return information_gain

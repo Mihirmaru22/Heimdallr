@@ -1,0 +1,18 @@
+{
+  "configuration": "argus_identity_v21",
+  "task_count": 129,
+  "metrics": {
+    "pass_rate": 0.4884,
+    "passed_count": 63,
+    "entity_precision": 0.768,
+    "entity_recall": 0.584,
+    "entity_f1": 0.587,
+    "chain_completion_rate": 0.25,
+    "temporal_accuracy": 0.531,
+    "epistemic_accuracy": 0.721,
+    "evidence_correctness": 0.915,
+    "evidence_independence_score": 0.895,
+    "critical_failures": 1,
+    "major_failures": 65
+  }
+}

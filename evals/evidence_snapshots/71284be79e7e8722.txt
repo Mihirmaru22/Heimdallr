@@ -1,0 +1,5 @@
+URL: https://www.linuxfoundation.org/
+TITLE: Linux Foundation - Decentralized innovation, built with trust
+DATE: 2026-10-13T05:40:40.875878+00:00
+
+From Linux and Kubernetes to Cybersecurity, PyTorch, Rust, and more, we offer the expert-led courses you need. Two days of keynotes, technical sessions and workshops on agentic engineering, MCP, evals, security, interoperability, multi-agent systems, and the infrastructure behind production agents.

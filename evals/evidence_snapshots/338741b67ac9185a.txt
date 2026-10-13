@@ -1,0 +1,5 @@
+URL: https://atlas.cern/Discover/Physics/Higgs
+TITLE: The Higgs boson: a landmark discovery - ATLAS Experiment at CERN
+DATE: 2026-10-13T05:39:11.925839+00:00
+
+Many theories also predict that the Higgs boson plays a critical role in the production of new phenomena such as dark matter at the LHC. Higgs bosons now become a tool for physicists, studying the properties of particles produced alongside the Higgs boson in search of new discoveries.

@@ -1,0 +1,5 @@
+URL: https://deepmind.google/company/our-team/
+TITLE: Our team — Google DeepMind
+DATE: 2026-10-13T05:34:08.030964+00:00
+
+DeepMind is a world leader in artificial intelligence and its application for positive impact. We’re a team of scientists, engineers, ethicists and more, working to build the next generation of AI systems safely and responsibly.

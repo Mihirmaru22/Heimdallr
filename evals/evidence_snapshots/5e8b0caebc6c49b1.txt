@@ -1,0 +1,5 @@
+URL: https://github.com/Zaneham/voyager-fds
+TITLE: GitHub - Zaneham/voyager-fds: The Voyager flight computer on ...
+DATE: 2026-10-13T05:41:42.906114+00:00
+
+A synthesisable implementation of the Voyager Flight Data Subsystem (FDS) processor, the computer that flew on Voyager 1 and Voyager 2. Synthesised to SkyWater SKY130 130nm standard cells.

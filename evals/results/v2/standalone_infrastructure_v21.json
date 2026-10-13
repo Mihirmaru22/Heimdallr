@@ -1,0 +1,17 @@
+{
+  "configuration": "standalone_infrastructure_v21",
+  "task_count": 129,
+  "metrics": {
+    "pass_rate": 0.2016,
+    "passed_count": 26,
+    "entity_precision": 0.345,
+    "entity_recall": 0.252,
+    "entity_f1": 0.245,
+    "chain_completion_rate": 0.075,
+    "temporal_accuracy": 0.156,
+    "epistemic_accuracy": 0.465,
+    "evidence_correctness": 0.825,
+    "critical_failures": 2,
+    "major_failures": 101
+  }
+}

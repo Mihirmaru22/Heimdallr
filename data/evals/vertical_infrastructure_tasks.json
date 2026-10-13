@@ -1,0 +1,250 @@
+{
+  "benchmark_name": "heimdallr_vertical_infrastructure_v1",
+  "version": "1.0",
+  "description": "Vertical domain infrastructure, subdomain enumeration, and passive DNS benchmark evaluating Infrastructure Specialist vs Argus",
+  "tasks": [
+    {
+      "task_id": "infra_task_01_direct_subdomain_discovery",
+      "target_domain": "autotech.corp",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "direct_subdomain_discovery",
+      "known_context": {
+        "industry": "Autonomous Vehicles",
+        "corporate_services": ["Employee Portal", "REST API", "Developer Staging"]
+      },
+      "expected_assets": [
+        {
+          "hostname": "portal.autotech.corp",
+          "relationship_type": "direct_subdomain",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        },
+        {
+          "hostname": "api.autotech.corp",
+          "relationship_type": "direct_subdomain",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        },
+        {
+          "hostname": "dev.autotech.corp",
+          "relationship_type": "direct_subdomain",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "infra_task_02_deep_rare_subdomain",
+      "target_domain": "internal.autotech.corp",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "deep_subdomain_discovery",
+      "known_context": {
+        "system": "Vehicle Telemetry Ingestion",
+        "scope": "internal fleet communications"
+      },
+      "expected_assets": [
+        {
+          "hostname": "prod-telemetry-v2.internal.autotech.corp",
+          "relationship_type": "direct_subdomain",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "infra_task_03_certificate_san_relationship",
+      "target_domain": "autotech-cloud.net",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "certificate_san_co_occurrence",
+      "known_context": {
+        "cloud_holding": "Cloud Computing Infrastructure Domain"
+      },
+      "expected_assets": [
+        {
+          "hostname": "autotech-cloud.net",
+          "relationship_type": "cert_san_co_occurrence",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "infra_task_04_infrastructure_expansion_cname",
+      "target_domain": "mail.autotech.corp",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "infrastructure_expansion",
+      "known_context": {
+        "service": "Authoritative SMTP Gateway",
+        "cname_cluster": "mail-cluster.autotech.corp"
+      },
+      "expected_assets": [
+        {
+          "hostname": "mail01.autotech.corp",
+          "relationship_type": "direct_subdomain",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "infra_task_05_multi_domain_acquisition",
+      "target_domain": "ecodrive-sensors.com",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "multi_domain_organization",
+      "known_context": {
+        "subsidiary": "EcoDrive Sensors",
+        "acquisition_date": "2022-04-15"
+      },
+      "expected_assets": [
+        {
+          "hostname": "ecodrive-sensors.com",
+          "relationship_type": "parent_registrant",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "infra_task_06_phantom_negative",
+      "target_domain": "nonexistent-phantom-infrastructure-987654321.xyz",
+      "target_entity": "Nonexistent Infrastructure Corp",
+      "scenario_type": "negative_no_match",
+      "known_context": {},
+      "expected_assets": [],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "NOT_FOUND"
+    },
+    {
+      "task_id": "infra_task_07_false_domain_cdn_neighbor",
+      "target_domain": "cdn.autotech.corp",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "cdn_shared_hosting_collision",
+      "known_context": {
+        "cdn_provider": "AWS CloudFront"
+      },
+      "expected_assets": [
+        {
+          "hostname": "cdn.autotech.corp",
+          "relationship_type": "shared_hosting_neighbor",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [
+        "cryptotrading-app.io"
+      ],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "infra_task_08_historical_stale_infrastructure",
+      "target_domain": "legacy-stage-2018.autotech.corp",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "stale_historical_subdomain",
+      "known_context": {
+        "historical_environment": "2018 Staging Server"
+      },
+      "expected_assets": [
+        {
+          "hostname": "legacy-stage-2018.autotech.corp",
+          "relationship_type": "direct_subdomain",
+          "is_target_asset": false,
+          "expected_status": "HISTORICAL_EXPIRED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "HISTORICAL_EXPIRED"
+    },
+    {
+      "task_id": "infra_task_09_conflicting_lookalike_domain",
+      "target_domain": "billing.autotech-security.com",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "conflicting_lookalike_infrastructure",
+      "known_context": {
+        "brand": "AutoTech Security"
+      },
+      "expected_assets": [
+        {
+          "hostname": "billing.autotech-security.com",
+          "relationship_type": "lookalike_suspect",
+          "is_target_asset": false,
+          "expected_status": "ADVERSARIAL_LOOKALIKE"
+        }
+      ],
+      "unacceptable_merges": [
+        "billing.autotech-security.com"
+      ],
+      "expected_epistemic_status": "ADVERSARIAL_LOOKALIKE"
+    },
+    {
+      "task_id": "infra_task_10_evidence_grounding_quote",
+      "target_domain": "developer.autotech.corp",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "evidence_grounding",
+      "known_context": {
+        "service": "Developer Documentation",
+        "cname": "github-pages-infra.autotech.corp"
+      },
+      "expected_assets": [
+        {
+          "hostname": "developer.autotech.corp",
+          "relationship_type": "direct_subdomain",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED",
+          "required_cname": "github-pages-infra.autotech.corp"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    },
+    {
+      "task_id": "infra_task_11_scope_boundary_third_party_saas",
+      "target_domain": "autotech.zendesk.com",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "scope_boundary_third_party_saas",
+      "known_context": {
+        "saas_vendor": "Zendesk Support"
+      },
+      "expected_assets": [
+        {
+          "hostname": "autotech.zendesk.com",
+          "relationship_type": "third_party_saas",
+          "is_target_asset": false,
+          "expected_status": "THIRD_PARTY_SERVICE"
+        }
+      ],
+      "unacceptable_merges": [
+        "autotech.zendesk.com"
+      ],
+      "expected_epistemic_status": "THIRD_PARTY_SERVICE"
+    },
+    {
+      "task_id": "infra_task_12_multi_source_corroboration",
+      "target_domain": "partners.autotech.corp",
+      "target_entity": "AutoTech Corporation",
+      "scenario_type": "multi_source_corroboration",
+      "known_context": {
+        "service": "B2B Automotive OEM Partner Integration Portal"
+      },
+      "expected_assets": [
+        {
+          "hostname": "partners.autotech.corp",
+          "relationship_type": "direct_subdomain",
+          "is_target_asset": true,
+          "expected_status": "SUPPORTED"
+        }
+      ],
+      "unacceptable_merges": [],
+      "expected_epistemic_status": "SUPPORTED"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+URL: https://securityboulevard.com/2024/05/looking-back-at-python-2-end-of-life-lessons-learned/
+TITLE: Looking Back at Python 2 End of Life: Lessons Learned
+DATE: 2026-10-13T05:38:21.240636+00:00
+
+May 17, 2024 · End of life for any software or programming language means it will not receive any official updates, including security and bug fixes from the vendor, after the EOL date. In the case of Python, the end of life is scheduled five years after the release date unless it is changed by the release manager.
