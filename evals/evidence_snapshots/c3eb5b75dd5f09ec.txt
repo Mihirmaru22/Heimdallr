@@ -1,0 +1,5 @@
+URL: https://www.geeksforgeeks.org/system-design/paxos-vs-raft-algorithm-in-distributed-systems/
+TITLE: Paxos vs. Raft Algorithm in Distributed Systems
+DATE: 2026-10-15T07:01:21.956210+00:00
+
+Jul 23, 2025 · In distributed systems, consensus algorithms are vital for ensuring that multiple nodes agree on shared data, even in the face of failures. Paxos and Raft are two prominent algorithms that facilitate this consensus, each with its own methodology and use cases. Paxos vs. Raft Algorithm Table of Content What is the Paxos Algorithm?

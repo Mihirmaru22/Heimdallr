@@ -243,7 +243,9 @@ class InfrastructureProbeSpecialist:
                 errors.extend(ct_errors)
                 sources_queried += ct_sources
         else:
-            if self.crtsh_connector:
+            is_valid_domain = bool(target_domain and "." in target_domain and " " not in target_domain)
+            is_live_allowed = "LIVE_CT" in (request.constraints.allowed_domains or [])
+            if self.crtsh_connector and is_valid_domain and is_live_allowed:
                 ct_candidates, ct_errors, ct_sources = self.crtsh_connector.query_crtsh(request)
                 candidates.extend(ct_candidates)
                 errors.extend(ct_errors)

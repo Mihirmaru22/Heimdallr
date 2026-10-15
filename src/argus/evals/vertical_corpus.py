@@ -171,6 +171,43 @@ VERTICAL_PLATFORM_REGISTRY: dict[str, dict[str, Any]] = {
             },
         },
     },
+    "instagram": {
+        "name": "Instagram",
+        "cat": "social",
+        "url_template": "https://instagram.com/{username}",
+        "e_string": "profile_loaded",
+        "e_code": 200,
+        "users": {
+            "s0md3v": {
+                "url": "https://instagram.com/s0md3v",
+                "display_name": "Somdev Sangwan",
+                "bio": "Security researcher & developer. Creator of Photon.",
+                "location": "India",
+                "is_private": False,
+            },
+            "private_target_user": {
+                "url": "https://instagram.com/private_target_user",
+                "display_name": "Target Individual (Private Profile)",
+                "bio": "Personal account. Follow to request access.",
+                "location": "London, UK",
+                "is_private": True,
+            },
+            "alex_chen": {
+                "url": "https://instagram.com/alex_chen",
+                "display_name": "Alex Chen",
+                "bio": "SF Bay Area photographer and coder.",
+                "location": "San Francisco, CA",
+                "is_private": False,
+            },
+            "sarah_connor_ai": {
+                "url": "https://instagram.com/sarah_connor_ai",
+                "display_name": "Sarah Connor Fitness",
+                "bio": "Miami personal fitness trainer and lifestyle coach.",
+                "location": "Miami, FL",
+                "is_private": False,
+            },
+        },
+    },
 }
 
 # 2. Frozen Web Documents for Argus Search Engine

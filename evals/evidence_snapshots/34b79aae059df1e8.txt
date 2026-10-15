@@ -1,0 +1,5 @@
+URL: https://www.geeksforgeeks.org/system-design/raft-consensus-algorithm/
+TITLE: Raft Consensus Algorithm - GeeksforGeeks
+DATE: 2026-10-15T07:01:21.954464+00:00
+
+Jun 2, 2026 · Raft is a consensus algorithm created to make distributed consensus easier to understand and implement. Developed by Diego Ongaro and John Ousterhout at Stanford University, Raft was introduced to simplify the complexity of earlier consensus approaches like Paxos. Raft was designed to be easier to understand and implement compared to Leslie Lamport’s Paxos, while still providing strong fault ...

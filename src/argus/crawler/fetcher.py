@@ -316,73 +316,112 @@ class TwoTierFetcher(BaseFetcher):
                     return doc, needs_browser
 
     async def _fetch_browser(self, request: CrawlRequest) -> Document:
-        """Render page using Playwright headless Chromium with strict SSRF route interception."""
+        """Render page using Playwright headless Chromium with strict SSRF route interception and network boundary enforcement."""
         from playwright.async_api import async_playwright
+        from argus.crawler.browser_proxy import BrowserSSRFProxy
 
         blocked_redirect = False
         blocked_url: str | None = None
 
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            try:
-                context = await browser.new_context(
-                    user_agent=self.user_agent,
-                    permissions=[],
+        # Start browser SSRF proxy to enforce network-boundary controls
+        proxy = BrowserSSRFProxy()
+        try:
+            proxy_port = await proxy.start()
+        except Exception as e:
+            # Enforce fail-closed posture: never launch unprotected browser
+            return Document(
+                url=request.url,
+                title="Browser Security Boundary Failure",
+                text_content=f"Failed to establish safe browser proxy: {e}",
+                status_code=403,
+                fetch_method="blocked",
+            )
+
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        f"--proxy-server=http://127.0.0.1:{proxy_port}",
+                        "--proxy-bypass-list=<-loopback>",
+                        # ── Disable direct networking paths outside the proxy ──
+                        # WebRTC: prevent ICE/STUN/TURN UDP traffic that bypasses
+                        # the HTTP proxy entirely.
+                        "--disable-features=WebRtcHideLocalIpsWithMdns",
+                        "--enforce-webrtc-ip-permission-check",
+                        "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+                        # Disable QUIC (UDP-based HTTP/3) which bypasses the TCP proxy.
+                        "--disable-quic",
+                        # Disable background networking that could leak DNS outside proxy.
+                        "--disable-background-networking",
+                        # Disable DNS-over-HTTPS prefetch which bypasses proxy DNS.
+                        "--disable-features=DnsOverHttps",
+                        # No speculative preconnections or prefetches.
+                        "--disable-features=NetworkPrediction",
+                    ],
+                    proxy={"server": f"http://127.0.0.1:{proxy_port}", "bypass": ""},
                 )
-
-                # Intercept all routes to block SSRF on redirects, unsafe schemes, and abort heavy media
-                async def intercept_route(route):
-                    nonlocal blocked_redirect, blocked_url
-                    req_url = route.request.url
-                    # Block non-http/https schemes and SSRF
-                    if not req_url.startswith(("http://", "https://")) or not SearchPipeline.is_safe_url(req_url):
-                        blocked_redirect = True
-                        blocked_url = req_url
-                        await route.abort("blockedbyclient")
-                    elif route.request.resource_type in ("media", "font"):
-                        await route.abort("blockedbyclient")
-                    else:
-                        await route.continue_()
-
-                await context.route("**/*", intercept_route)
-
-                page = await context.new_page()
                 try:
-                    response = None
+                    context = await browser.new_context(
+                        user_agent=self.user_agent,
+                        permissions=[],
+                    )
+
+                    # Intercept all routes to block SSRF on redirects, unsafe schemes, and abort heavy media
+                    async def intercept_route(route):
+                        nonlocal blocked_redirect, blocked_url
+                        req_url = route.request.url
+                        # Block non-http/https schemes and SSRF
+                        if not req_url.startswith(("http://", "https://")) or not SearchPipeline.is_safe_url(req_url):
+                            blocked_redirect = True
+                            blocked_url = req_url
+                            await route.abort("blockedbyclient")
+                        elif route.request.resource_type in ("media", "font"):
+                            await route.abort("blockedbyclient")
+                        else:
+                            await route.continue_()
+
+                    await context.route("**/*", intercept_route)
+
+                    page = await context.new_page()
                     try:
-                        response = await page.goto(
-                            request.url,
-                            timeout=int(self.timeout * 1000),
-                            wait_until="domcontentloaded",
-                        )
-                    except Exception:
-                        if blocked_redirect:
+                        response = None
+                        try:
+                            response = await page.goto(
+                                request.url,
+                                timeout=int(self.timeout * 1000),
+                                wait_until="domcontentloaded",
+                            )
+                        except Exception:
+                            if blocked_redirect or proxy.blocked_attempts:
+                                return Document(
+                                    url=blocked_url or (proxy.blocked_attempts[-1]["target"] if proxy.blocked_attempts else request.url),
+                                    title="Redirect Blocked",
+                                    text_content="",
+                                    status_code=403,
+                                    fetch_method="blocked",
+                                )
+                            raise
+
+                        final_url = page.url
+                        if blocked_redirect or proxy.blocked_attempts or not SearchPipeline.is_safe_url(final_url):
                             return Document(
-                                url=blocked_url or request.url,
+                                url=final_url,
                                 title="Redirect Blocked",
                                 text_content="",
                                 status_code=403,
                                 fetch_method="blocked",
                             )
-                        raise
 
-                    final_url = page.url
-                    if blocked_redirect or not SearchPipeline.is_safe_url(final_url):
-                        return Document(
-                            url=final_url,
-                            title="Redirect Blocked",
-                            text_content="",
-                            status_code=403,
-                            fetch_method="blocked",
-                        )
-
-                    status_code = response.status if response else 200
-                    html = await page.content()
+                        status_code = response.status if response else 200
+                        html = await page.content()
+                    finally:
+                        await page.close()
+                        await context.close()
                 finally:
-                    await page.close()
-                    await context.close()
-            finally:
-                await browser.close()
+                    await browser.close()
+        finally:
+            await proxy.stop()
 
         # Enforce size ceiling on browser rendered content
         if len(html.encode("utf-8")) > MAX_RESPONSE_BYTES:

@@ -117,6 +117,7 @@ class InvestigationState(BaseModel):
     relationships: list[dict[str, Any]] = Field(default_factory=list)
     claims: list[dict[str, Any]] = Field(default_factory=list)
     evidence: list[dict[str, Any]] = Field(default_factory=list)
+    discovered_sources: list[dict[str, Any]] = Field(default_factory=list)  # Candidate sources awaiting content retrieval
 
     # Question & hypothesis topology
     questions: dict[str, dict[str, Any]] = Field(default_factory=dict)  # q_id -> question dict
@@ -213,6 +214,52 @@ class InvestigationState(BaseModel):
         evidence_item["recorded_at"] = datetime.now(timezone.utc).isoformat()
         self.evidence.append(evidence_item)
         return ev_id
+
+    def add_discovered_source(
+        self,
+        url: str,
+        title: str = "",
+        snippet: str = "",
+        source_type: str = "web",
+        action_id: str | None = None,
+        doc_id: str | None = None,
+        target_entity: str | None = None,
+        is_retrieved: bool = False,
+    ) -> dict[str, Any]:
+        """Record a discovered candidate source awaiting content retrieval."""
+        for s in self.discovered_sources:
+            if url and s.get("url") == url:
+                if is_retrieved and s.get("status") != "RETRIEVED":
+                    s["status"] = "RETRIEVED"
+                    s["retrieved_at"] = datetime.now(timezone.utc).isoformat()
+                return s
+        rec = {
+            "source_id": f"src_{uuid.uuid4().hex[:8]}",
+            "url": url,
+            "title": title,
+            "snippet": snippet,
+            "source_type": source_type,
+            "status": "RETRIEVED" if is_retrieved else "DISCOVERED",
+            "action_id": action_id,
+            "doc_id": doc_id,
+            "target_entity": target_entity,
+            "discovered_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if is_retrieved:
+            rec["retrieved_at"] = datetime.now(timezone.utc).isoformat()
+        self.discovered_sources.append(rec)
+        return rec
+
+    def mark_source_retrieved(self, url: str) -> None:
+        """Mark a candidate source as having had its content retrieved."""
+        for s in self.discovered_sources:
+            if s.get("url") == url:
+                s["status"] = "RETRIEVED"
+                s["retrieved_at"] = datetime.now(timezone.utc).isoformat()
+
+    def get_unretrieved_sources(self) -> list[dict[str, Any]]:
+        """Return discovered candidate sources that have not yet had their content retrieved."""
+        return [s for s in self.discovered_sources if s.get("status") == "DISCOVERED"]
 
     def to_json(self, indent: int = 2) -> str:
         """Serialize complete investigation state to JSON."""

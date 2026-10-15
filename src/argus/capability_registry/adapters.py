@@ -92,7 +92,11 @@ class IdentitySpecialistAdapter(BaseCapabilityAdapter):
             self.specialist = specialist
 
     def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
-        identifier = inputs.get("identifier") or inputs.get("query", "")
+        identifier = inputs.get("username") or inputs.get("identifier") or inputs.get("entity_name") or inputs.get("query", "")
+        if " " in identifier and inputs.get("entity_name") and " " not in inputs.get("entity_name"):
+            identifier = inputs.get("entity_name")
+        starting_platform = inputs.get("starting_platform")
+        target_entity_context = inputs.get("target_entity_context") or inputs.get("known_context") or {}
         timeout_sec = float(inputs.get("timeout_sec", 5.0))
         start_t = time.perf_counter()
 
@@ -105,10 +109,13 @@ class IdentitySpecialistAdapter(BaseCapabilityAdapter):
         req = IdentityProbeRequest(
             identifier=identifier,
             identifier_type=IdentifierType.USERNAME,
+            starting_platform=starting_platform,
+            target_entity_context=target_entity_context,
             constraints=InvestigationConstraints(
                 timeout_per_probe_sec=timeout_sec,
                 permit_delimiter_permutations=True,
                 strict_provenance=True,
+                starting_platform=starting_platform,
             ),
         )
 
@@ -133,6 +140,13 @@ class IdentitySpecialistAdapter(BaseCapabilityAdapter):
                     "is_authoritative": False,
                     "confidence": c.confidence,
                     "epistemic_status": c.epistemic_status.value,
+                    "is_starting_account": c.is_starting_account,
+                    "is_private": c.is_private,
+                    "private_content_accessed": c.private_content_accessed,
+                    "retrieval_mode": getattr(c, "retrieval_mode", "FIXTURE_SIMULATION"),
+                    "is_live": getattr(c, "is_live", False),
+                    "response_content_sha256": getattr(c, "response_content_sha256", None),
+                    "observation_record_sha256": getattr(c, "observation_record_sha256", None),
                 })
                 candidate_claims.append({
                     "subject": identifier,
@@ -141,7 +155,32 @@ class IdentitySpecialistAdapter(BaseCapabilityAdapter):
                     "status": "SUPPORTED",
                     "source_url": c.source_url,
                     "source_passage": c.supporting_observation[:300],
+                    "is_starting_account": c.is_starting_account,
+                    "is_private": c.is_private,
+                    "retrieval_mode": getattr(c, "retrieval_mode", "FIXTURE_SIMULATION"),
+                    "is_live": getattr(c, "is_live", False),
+                    "response_content_sha256": getattr(c, "response_content_sha256", None),
+                    "observation_record_sha256": getattr(c, "observation_record_sha256", None),
                 })
+
+            # Also populate structured claims from probe_res.claims preserving epistemic boundaries
+            if getattr(probe_res, "claims", None):
+                for ic in probe_res.claims:
+                    candidate_claims.append({
+                        "subject": ic.subject,
+                        "predicate": ic.claim_type.value if hasattr(ic.claim_type, "value") else str(ic.claim_type),
+                        "object": ic.statement,
+                        "status": ic.status,
+                        "is_private": ic.is_private,
+                        "authorized_access": ic.authorized_access,
+                        "content_retrieved": ic.content_retrieved,
+                        "source_url": ic.source_url,
+                        "retrieval_mode": getattr(ic, "retrieval_mode", "FIXTURE_SIMULATION"),
+                        "is_live": getattr(ic, "is_live", False),
+                        "response_content_sha256": getattr(ic, "response_content_sha256", None),
+                        "observation_record_sha256": getattr(ic, "observation_record_sha256", None),
+                        "provenance": ic.provenance,
+                    })
         except (concurrent.futures.TimeoutError, TimeoutError):
             status = "TIMEOUT"
             error_msg = f"Identity specialist timed out after {timeout_sec}s"
@@ -195,6 +234,12 @@ class IdentitySpecialistAdapter(BaseCapabilityAdapter):
             "capability_id": "identity_resolution",
             "implementation_id": "impl_identity_probe_specialist_v1",
             "identifier": identifier,
+            "starting_platform": starting_platform,
+            "starting_account": probe_res.starting_account.model_dump() if (probe_res and probe_res.starting_account) else None,
+            "sources_queried": getattr(probe_res, "sources_queried", []),
+            "platforms_queried": getattr(probe_res, "platforms_queried", 0),
+            "platforms_skipped": getattr(probe_res, "platforms_skipped", 0),
+            "platforms_available": getattr(probe_res, "platforms_available", 0),
             "documents_count": len(docs),
             "documents": docs,
             "entities": list(dict.fromkeys(discovered_entities)),

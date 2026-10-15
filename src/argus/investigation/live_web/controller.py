@@ -298,19 +298,110 @@ class ControlledLiveWebRetriever:
     def get_discoverable_entities(self) -> set[str]:
         return set(self._discoverable_entities)
 
+    def _run_async(self, coro: Any) -> Any:
+        """Run an asynchronous coroutine synchronously, handling both active and inactive event loops."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+
+    @property
+    def documents(self) -> dict[str, InvestigationDocument]:
+        """Corpus document registry mapping doc_id to InvestigationDocument."""
+        return self.cached_documents
+
     def search(self, query: str, limit: int = 5) -> list[InvestigationDocument]:
         """Execute live search via DuckDuckGo and return safe InvestigationDocuments."""
-        try:
-            return asyncio.run(self._async_search(query, limit))
-        except RuntimeError:
-            # Handle if already in an active event loop
-            import nest_asyncio
-            nest_asyncio.apply()
-            return asyncio.run(self._async_search(query, limit))
+        if not query or not query.strip():
+            return []
+        q_str = query.strip()
+        if q_str.startswith(("http://", "https://", "file://")):
+            doc = self.get_by_url(q_str)
+            return [doc] if doc else []
+        return self._run_async(self._async_search(query, limit))
+
+    def get_by_url(self, url: str) -> InvestigationDocument | None:
+        """Retrieve live document for a URL, applying SSRF checks, security controls, and rate limits."""
+        if not url or not url.strip():
+            return None
+
+        clean_url = url.strip()
+        canon = self._canonicalize_url(clean_url)
+
+        # Check if already cached with full page content
+        for doc in self.cached_documents.values():
+            if (doc.url == clean_url or doc.url == canon) and doc.source_type == "live_web":
+                return doc
+
+        # Fetch live via secure async fetcher
+        record = self._run_async(self.fetch_url_content(clean_url))
+        if record and record.http_status in (200, 304) and record.extracted_text:
+            doc_id = f"doc_live_{hashlib.md5(record.final_url.encode()).hexdigest()[:8]}"
+            doc = InvestigationDocument(
+                doc_id=doc_id,
+                title=record.title or urlparse(record.final_url).netloc,
+                url=record.final_url,
+                text_content=record.extracted_text,
+                source_type="live_web",
+                published_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            )
+            self.cached_documents[doc_id] = doc
+            return doc
+
+        return None
+
+    def get_document(self, identifier: str) -> InvestigationDocument | None:
+        """Lookup document by doc_id or URL, or fetch if it is an HTTP/HTTPS URL."""
+        if not identifier or not identifier.strip():
+            return None
+        ident = identifier.strip()
+        if ident in self.cached_documents:
+            return self.cached_documents[ident]
+        if ident.startswith(("http://", "https://")):
+            return self.get_by_url(ident)
+        for doc in self.cached_documents.values():
+            if doc.doc_id == ident or doc.url == ident:
+                return doc
+        return None
+
+    def get_by_id(self, doc_id: str) -> InvestigationDocument | None:
+        """Lookup document by doc_id."""
+        return self.cached_documents.get(doc_id)
 
     async def _async_search(self, query: str, limit: int = 5) -> list[InvestigationDocument]:
-        """Perform search and safe retrieval via DuckDuckGoSearchProvider."""
+        """Perform search and safe retrieval via DuckDuckGoSearchProvider under budget and host accounting."""
         results: list[InvestigationDocument] = []
+        search_host = "duckduckgo.com"
+        search_url = f"https://{search_host}"
+
+        permitted, reason = self.is_url_permitted(search_url)
+        if not permitted:
+            logger.warning("Live search denied by policy for query '%s': %s", query, reason)
+            ev_record = LiveWebEvidenceRecord(
+                evidence_id=f"ev_err_search_{hashlib.md5(query.encode()).hexdigest()[:8]}",
+                original_url=search_url,
+                final_url=search_url,
+                retrieval_timestamp=datetime.now(timezone.utc).isoformat(),
+                http_status=429 if "budget" in (reason or "").lower() or "limit" in (reason or "").lower() else 403,
+                title="Policy Rejection",
+                domain=search_host,
+                publisher=search_host,
+                extracted_text="",
+                content_hash="",
+                source_type="live_search_result",
+                extraction_method="blocked",
+                retrieval_error=reason,
+            )
+            self.evidence_records.append(ev_record)
+            return results
+
+        self.host_counts[search_host] = self.host_counts.get(search_host, 0) + 1
+        self.requests_made += 1
+
         try:
             from argus.search.duckduckgo import DuckDuckGoSearchProvider
             from argus.search.models import SearchQuery

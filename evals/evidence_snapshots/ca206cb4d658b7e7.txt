@@ -1,0 +1,5 @@
+URL: https://lag.net/papers/content/raft.pdf
+TITLE: In Search of an Understandable Consensus Algorithm - lag.net
+DATE: 2026-10-15T07:20:30.893879+00:00
+
+Raft is a consensus algorithm for managing a replicated log. It produces a result equivalent to Paxos, and it is as efficient as Paxos, but its structure is different from Paxos; this makes Raft more understandable than Paxos and also provides a better foundation for building practical systems.

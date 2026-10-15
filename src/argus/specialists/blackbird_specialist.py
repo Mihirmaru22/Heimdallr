@@ -84,7 +84,7 @@ class BlackbirdSpecialist:
         return BlackbirdSearchResult(
             target_identifier=username,
             accounts_found=found_accounts,
-            total_sites_checked=max(checked_count, 150),
+            total_sites_checked=checked_count,
             total_found=len(found_accounts),
             execution_time_ms=120.0,
         )

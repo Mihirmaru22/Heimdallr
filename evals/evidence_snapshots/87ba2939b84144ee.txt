@@ -1,0 +1,5 @@
+URL: https://ongardie.net/static/raft-mozilla/
+TITLE: The Raft Consensus Algorithm and - ongardie.net
+DATE: 2026-10-15T07:01:06.334030+00:00
+
+LogCabin Started as research platform for Raft at Stanford Developed into production system at Scale Computing Network service running Raft replicated state machine Data model: hierarchical key-value store Written in gcc 4.4's C++0x (Rust was pre-0.1) How Is Consensus Used? Top-level system configuration Replicate entire database state Paxos Protocol Leslie Lamport, 1989 Nearly synonymous with ...

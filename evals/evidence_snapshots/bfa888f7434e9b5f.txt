@@ -1,0 +1,5 @@
+URL: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/retrieve-iid.html
+TITLE: Retrieve the instance identity document for an EC2 instance
+DATE: 2026-10-15T07:01:58.585593+00:00
+
+The examples on this page use the IPv4 address of the IMDS: 169.254.169.254. To retrieve instance metadata for EC2 instances over IPv6, use fd00:ec2::254. To verify the authenticity of an instance identity document after you retrieve it, see Verify instance identity document.

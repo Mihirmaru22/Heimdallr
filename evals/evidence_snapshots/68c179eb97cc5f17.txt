@@ -1,0 +1,5 @@
+URL: https://raft.github.io/
+TITLE: Raft Consensus Algorithm
+DATE: 2026-10-15T07:01:06.332459+00:00
+
+This is "the Raft paper", which describes Raft in detail: In Search of an Understandable Consensus Algorithm (Extended Version) by Diego Ongaro and John Ousterhout.

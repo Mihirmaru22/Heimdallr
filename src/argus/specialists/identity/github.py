@@ -78,14 +78,14 @@ class GitHubIdentityConnector:
             await asyncio.sleep(self.rate_limit_delay - elapsed)
         self._last_request_time = time.monotonic()
 
-    async def _safe_get_json(self, url: str) -> tuple[int, dict[str, Any] | None, str | None]:
+    async def _safe_get_json(self, url: str) -> tuple[int, dict[str, Any] | None, str | None, bytes | None]:
         """Fetch and parse JSON from destination URL with SSRF, TLS, and byte limit checks."""
         if not self.enable_network and self._custom_client is None:
-            return 503, None, "Live network execution disabled in GitHubIdentityConnector configuration."
+            return 503, None, "Live network execution disabled in GitHubIdentityConnector configuration.", None
 
         # 1. SSRF destination policy check
         if not SearchPipeline.is_safe_url(url):
-            return 403, None, f"SSRF blocked: Destination URL '{url}' violates network destination policy."
+            return 403, None, f"SSRF blocked: Destination URL '{url}' violates network destination policy.", None
 
         await self._throttle()
 
@@ -101,28 +101,29 @@ class GitHubIdentityConnector:
 
             # Re-verify post-redirect destination
             if not SearchPipeline.is_safe_url(final_url):
-                return 403, None, f"SSRF blocked: Redirected URL '{final_url}' violates destination policy."
+                return 403, None, f"SSRF blocked: Redirected URL '{final_url}' violates destination policy.", None
 
+            raw_bytes = resp.content
             if resp.status_code == 200:
-                if len(resp.content) > self.max_bytes:
-                    return 413, None, f"GitHub API response exceeded byte limit ({len(resp.content)} > {self.max_bytes})."
+                if len(raw_bytes) > self.max_bytes:
+                    return 413, None, f"GitHub API response exceeded byte limit ({len(raw_bytes)} > {self.max_bytes}).", None
                 try:
                     data = resp.json()
-                    return 200, data, None
+                    return 200, data, None, raw_bytes
                 except Exception as json_err:
-                    return 200, None, f"Malformed JSON received from GitHub API: {json_err}"
+                    return 200, None, f"Malformed JSON received from GitHub API: {json_err}", raw_bytes
             elif resp.status_code == 404:
-                return 404, None, f"GitHub account not found (HTTP 404): {url}"
+                return 404, None, f"GitHub account not found (HTTP 404): {url}", None
             elif resp.status_code == 403:
-                return 403, None, "GitHub API rate limit exceeded (HTTP 403). Cooldown required."
+                return 403, None, "GitHub API rate limit exceeded (HTTP 403). Cooldown required.", None
             elif resp.status_code in (500, 502, 503, 504):
-                return resp.status_code, None, f"GitHub API service unavailable (HTTP {resp.status_code})."
+                return resp.status_code, None, f"GitHub API service unavailable (HTTP {resp.status_code}).", None
             else:
-                return resp.status_code, None, f"GitHub API HTTP {resp.status_code}: {resp.text[:200]}"
+                return resp.status_code, None, f"GitHub API HTTP {resp.status_code}: {resp.text[:200]}", None
         except httpx.TimeoutException:
-            return 408, None, f"Request timed out connecting to GitHub API ({url}) after {self.timeout}s."
+            return 408, None, f"Request timed out connecting to GitHub API ({url}) after {self.timeout}s.", None
         except Exception as exc:
-            return 500, None, f"Transport error querying GitHub API ({url}): {exc}"
+            return 500, None, f"Transport error querying GitHub API ({url}): {exc}", None
         finally:
             if client_to_close is not None:
                 await client_to_close.aclose()
@@ -170,7 +171,7 @@ class GitHubIdentityConnector:
                 break
 
             url = GITHUB_USER_API_URL.format(username=variant)
-            status, data, err_msg = await self._safe_get_json(url)
+            status, data, err_msg, raw_content = await self._safe_get_json(url)
 
             if status == 200 and isinstance(data, dict):
                 login = data.get("login", variant)
@@ -199,7 +200,8 @@ class GitHubIdentityConnector:
                 observation_text = " | ".join(obs_parts)
 
                 prov_payload = f"{profile_url}:{login}:{start_time.isoformat()}"
-                evidence_hash = hashlib.sha256(prov_payload.encode("utf-8")).hexdigest()
+                obs_record_hash = hashlib.sha256(prov_payload.encode("utf-8")).hexdigest()
+                content_hash = hashlib.sha256(raw_content).hexdigest() if raw_content else None
 
                 discovery_method = "exact_handle_probe" if variant == clean_handle else "delimiter_permutation_probe"
 
@@ -214,11 +216,20 @@ class GitHubIdentityConnector:
                     source_platform="GitHub",
                     source_url=profile_url,
                     supporting_observation=observation_text,
+                    retrieval_mode="LIVE",
+                    is_live=True,
+                    response_content_sha256=content_hash,
+                    observation_record_sha256=obs_record_hash,
                     provenance={
                         "http_status": 200,
                         "probe_endpoint": url,
                         "canonical_url": profile_url,
-                        "sha256_hash": evidence_hash,
+                        "is_live": True,
+                        "retrieval_mode": "LIVE",
+                        "source_origin": "LIVE_NETWORK",
+                        "response_content_sha256": content_hash,
+                        "observation_record_sha256": obs_record_hash,
+                        "sha256_hash": content_hash or obs_record_hash,
                         "checked_timestamp": start_time.isoformat(),
                         "engine": "GitHubIdentityConnector_v1.0",
                     },

@@ -1,0 +1,5 @@
+URL: https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service
+TITLE: Azure Instance Metadata Service for virtual machines - Azure Virtual ...
+DATE: 2026-10-15T07:01:58.584092+00:00
+
+Learn about the Azure Instance Metadata Service and how it provides information about currently running virtual machine instances.

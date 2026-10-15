@@ -1,0 +1,5 @@
+URL: https://lag.net/papers/content/raft.pdf
+TITLE: PDF In Search of an Understandable Consensus Algorithm - lag.net
+DATE: 2026-10-15T07:01:06.332800+00:00
+
+In Search of an Understandable Consensus Algorithm Diego Ongaro and John Ousterhout Stanford University (Draft of May 22, 2013; under submission)

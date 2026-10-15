@@ -1,0 +1,5 @@
+URL: https://ilyasergey.net/CS6213/_static/02-consensus/raft.pdf
+TITLE: In Search of an UnderstandableConsensus Algorithm
+DATE: 2026-10-15T07:21:27.154307+00:00
+
+f this work is a consensus algorithm called Raft. In designing Raft we applied specific techniques to improve understandability, including decomposition (Raft separates leader election, log replication, and safety) and state space reduction (relative to Paxos, Raft reduces the degree of nondeterminism and the

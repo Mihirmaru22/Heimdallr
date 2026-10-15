@@ -1,0 +1,5 @@
+URL: https://wiki.python.org/moin/BeginnersGuide
+TITLE: BeginnersGuide - Python Software Foundation Wiki Server
+DATE: 2026-10-15T07:20:01.845447+00:00
+
+Quiz and Exercises After Hours Programming - Python Quiz CheckIO - Online learning, testing and improving your python skills CS Circles - Online lessons and graded exercises Finxter - How good are your Python skills? Test and Training with a Daily Python Puzzle LabEx - 1000+ Python Interactive Challenges PyGUI - Collection of python quiz answers, Examples And GUI Tkinter Tutorials For ...

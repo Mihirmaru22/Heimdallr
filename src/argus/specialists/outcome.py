@@ -65,24 +65,20 @@ def classify_error_message(err: str) -> str | None:
     - Timeouts, 5xx, rate limits, transport errors -> 'UNAVAILABLE' (must NOT imply confirmed absence).
     - Malformed responses, decoding errors, client errors -> 'ERROR' (must NOT imply confirmed absence).
     - HTTP 404, empty results, or informational notices -> None (indicates confirmed absence at that specific endpoint).
+    
+    ORDERING INVARIANT:
+    UNAVAILABLE and ERROR patterns MUST be evaluated BEFORE 404/not-found patterns.
+    Broad substring matches ("404", "not found") would otherwise misclassify unrelated
+    messages (e.g. "timeout after 404ms", "DNS: host not found") as confirmed absence.
     """
+    if not err or not err.strip():
+        return None
+
     err_lower = err.lower()
 
-    # Informational notices, endpoint scope limitations, or confirmed 404 / empty results
-    if "limitation:" in err_lower:
-        return None
-    if "not found in sec edgar directory" in err_lower:
-        return None
-    if "no certificate transparency records discovered" in err_lower:
-        return None
-    if "no profile discovered" in err_lower:
-        return None
-    if "not found (http 404)" in err_lower or "returned 404 not found" in err_lower:
-        return None
-    if "does not exist (http 404)" in err_lower:
-        return None
-
-    # Source unavailable: timeouts, 5xx, 429, rate limits, transport/network errors
+    # ── Phase 1: Source UNAVAILABLE (transport/network failures) ────────────
+    # Must be checked FIRST to prevent "timeout after 404ms" or
+    # "rate limit 404 response" from being classified as confirmed absence.
     unavailable_patterns = [
         "rate limit",
         "429",
@@ -100,11 +96,19 @@ def classify_error_message(err: str) -> str | None:
         "network execution disabled",
         "cooldown required",
         "mapping unavailable",
+        "dns resolution",
+        "name resolution",
+        "getaddrinfo",
+        "unreachable",
+        "dns:",
+        "dns error",
     ]
     if any(pat in err_lower for pat in unavailable_patterns):
         return "UNAVAILABLE"
 
-    # Source error: malformed data, byte limit exceeded, SSRF/policy block, decoding failure
+    # ── Phase 2: Source ERROR (parsing/policy failures) ─────────────────────
+    # Must be checked BEFORE 404/not-found to prevent "decode error: not found
+    # in charset table" from being classified as confirmed absence.
     error_patterns = [
         "malformed json",
         "malformed response",
@@ -118,6 +122,48 @@ def classify_error_message(err: str) -> str | None:
     if any(pat in err_lower for pat in error_patterns):
         return "ERROR"
 
+    # ── Phase 3: Informational notices and confirmed absence ───────────────
+    # Only reached after UNAVAILABLE and ERROR patterns have been excluded.
+    if "limitation:" in err_lower:
+        return None
+    if "not found in sec edgar directory" in err_lower:
+        return None
+    if "no certificate transparency records discovered" in err_lower:
+        return None
+    if "no profile discovered" in err_lower:
+        return None
+
+    # Structured HTTP 404 patterns: require explicit HTTP status context to
+    # prevent bare "404" or "not found" in unrelated messages from triggering
+    # false confirmed-absence classification.
+    _http_404_patterns = [
+        "http 404",
+        "returned 404",
+        "status 404",
+        "response 404",
+        "status_code=404",
+        "status code 404",
+        "(404)",
+        "404 not found",
+        "does not exist (http 404)",
+    ]
+    if any(pat in err_lower for pat in _http_404_patterns):
+        return None
+
+    # Explicit "no results" / "no records" / "empty" patterns
+    _empty_result_patterns = [
+        "no results",
+        "no records",
+        "no matches",
+        "empty results",
+        "0 results",
+        "zero results",
+    ]
+    if any(pat in err_lower for pat in _empty_result_patterns):
+        return None
+
+    # Fallback: unrecognized error messages default to ERROR (fail-safe;
+    # unknown errors must NOT imply confirmed absence).
     return "ERROR"
 
 
