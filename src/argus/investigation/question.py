@@ -65,6 +65,9 @@ class InvestigationQuestion(BaseModel):
     related_claims: list[str] = Field(default_factory=list)
     temporal_context: dict[str, Any] | None = None
     specialist_requirements: list[str] = Field(default_factory=list)
+    # Focused search queries derived from a structured objective; when present the
+    # planner uses them instead of concatenating entity names and question text.
+    search_queries: list[str] = Field(default_factory=list)
 
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     resolved_at: str | None = None

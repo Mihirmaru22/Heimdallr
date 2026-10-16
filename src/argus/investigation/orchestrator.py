@@ -1300,6 +1300,9 @@ class InvestigationEngine:
                     rationale="Recorded syndicated mirror under origin cluster ID.",
                 )
 
+        # Let retrieved sources qualify the objective's object (e.g. the vendor name).
+        self.planner.refine_objective_from_evidence(state)
+
         def get_best_evidence_for_pattern(pat_regex: str) -> dict[str, Any]:
             for d in docs:
                 if re.search(pat_regex, d.get("text", ""), re.IGNORECASE):

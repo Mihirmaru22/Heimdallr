@@ -19,6 +19,11 @@ from argus.investigation.branch import BranchStatus, InvestigationBranch
 from argus.investigation.evidence import EvidenceRequirement, EvidenceStatus
 from argus.investigation.hypothesis import HypothesisStatus, InvestigationHypothesis
 from argus.investigation.information_gain import InformationGainEstimator
+from argus.investigation.objective_parser import (
+    EnumerationObjective,
+    parse_enumeration_objective,
+    refine_object_from_evidence,
+)
 from argus.investigation.question import InvestigationQuestion, QuestionStatus, QuestionType
 from argus.investigation.state import InformationGap, InvestigationState
 from argus.capability_registry.registry import CapabilityRegistry
@@ -216,6 +221,19 @@ class InvestigationPlanner:
 
         domain = self._detect_domain(objective, contract)
 
+        # List-style objectives ("organizations that use X in Y") get an explicit
+        # structured interpretation instead of capitalized-word entity guessing.
+        # Explicit caller hints (target entities, domain, custom questions) take precedence.
+        if not (
+            contract.get("target_entities")
+            or contract.get("domain_hint")
+            or contract.get("initial_questions") is not None
+            or domain == "identity"
+        ):
+            enumeration = parse_enumeration_objective(objective)
+            if enumeration is not None:
+                return self._initialize_enumeration(state, root_branch, enumeration)
+
         # 2. Deconstruct objective into core entity targets and questions
         target_entities = contract.get("target_entities") or []
         if not isinstance(target_entities, list):
@@ -229,6 +247,7 @@ class InvestigationPlanner:
                 if w and w[0].isupper() and w not in {
                     "Identify", "Trace", "Investigate", "Verify", "Disambiguate",
                     "Parse", "Compare", "Research", "Evaluate",
+                    "Search", "Find", "List", "Show", "Get", "Enumerate",
                 }:
                     candidates.append(w.strip(".,;:\"'"))
             if candidates:
@@ -873,6 +892,131 @@ class InvestigationPlanner:
         )
         return state
 
+    def _initialize_enumeration(
+        self,
+        state: InvestigationState,
+        root_branch: InvestigationBranch,
+        enum: EnumerationObjective,
+    ) -> InvestigationState:
+        """Build the question topology for an 'organizations that <relation> <object>' objective."""
+        obj = enum.object
+        label = enum.answer_label
+        geo = f" {enum.geo_phrase()}" if enum.geography else ""
+
+        state.register_entity(name=obj, entity_type="TARGET_OBJECT", metadata={"role": "enumeration_object"})
+
+        q_enum = InvestigationQuestion(
+            question_text=enum.question_text(),
+            question_type=QuestionType.ENTITY_DISCOVERY,
+            priority=1.0,
+            is_critical=True,
+            related_entities=[obj],
+            specialist_requirements=["none"],
+            required_evidence=[
+                f"Sources naming specific {label}{geo} that use {obj} "
+                "(vendor customer disclosures, technographic providers, independent reporting, job postings)"
+            ],
+            search_queries=enum.discovery_queries(),
+        )
+        q_corr = InvestigationQuestion(
+            question_text=self._corroboration_question_text(enum),
+            question_type=QuestionType.RELATIONSHIP_VERIFICATION,
+            priority=0.85,
+            is_critical=False,
+            dependencies=[q_enum.question_id],
+            related_entities=[obj],
+            specialist_requirements=["none"],
+            required_evidence=[f"Vendor case studies or independent reporting that name {label} using {obj}"],
+            search_queries=enum.corroboration_queries(),
+        )
+        for q in (q_enum, q_corr):
+            state.questions[q.question_id] = q.model_dump()
+            state.unresolved_questions.append(q.question_id)
+            root_branch.questions.append(q.question_id)
+
+        enum_dict = enum.to_dict()
+        enum_dict["question_ids"] = {"discovery": q_enum.question_id, "corroboration": q_corr.question_id}
+        state.objective_contract["enumeration_objective"] = enum_dict
+
+        hyp = InvestigationHypothesis(
+            proposition=f"{label.capitalize()}{geo} that use {obj} can be named from attributable public sources.",
+            related_question_id=q_enum.question_id,
+            related_entities=[obj],
+            supporting_evidence_requirements=[f"Attributable sources naming {label} that use {obj}{geo}"],
+            refuting_evidence_requirements=[f"Sources stating named {label} do not use, or no longer use, {obj}"],
+        )
+        state.hypotheses[hyp.hypothesis_id] = hyp.model_dump()
+        state.information_gaps.append(
+            InformationGap(
+                description=f"Named {label}{geo} using {obj}",
+                target_entity=obj,
+                target_attribute="enumerated_organizations",
+                priority=1.0,
+                is_critical=True,
+                related_question_id=q_enum.question_id,
+            )
+        )
+
+        state.record_audit(
+            action_type="OBJECTIVE_INTERPRETED",
+            details=enum_dict,
+            rationale=(
+                f"Interpreted objective as: answer type {enum.answer_type} ({enum.answer_noun}), relation "
+                f"{enum.relation}, object '{obj}', geography '{enum.geography or 'unconstrained'}'."
+            ),
+        )
+        state.record_audit(
+            action_type="INVESTIGATION_INITIALIZED",
+            details={
+                "objective": state.objective,
+                "domain": "enumeration",
+                "initial_questions_count": len(state.questions),
+                "initial_hypotheses_count": len(state.hypotheses),
+                "primary_entity": obj,
+            },
+            rationale="Decomposed enumeration objective into discovery and corroboration questions.",
+        )
+        return state
+
+    @staticmethod
+    def _corroboration_question_text(enum: EnumerationObjective) -> str:
+        return (
+            f"Which of the reported {enum.answer_label} using {enum.object_name} are confirmed by the vendor "
+            "or an independent publisher, rather than only by technographic aggregators?"
+        )
+
+    def refine_objective_from_evidence(self, state: InvestigationState) -> bool:
+        """Qualify an enumeration object with the vendor name retrieved sources attach to it.
+
+        Updates pending questions' search queries so later searches use the
+        qualified name. Returns True when the objective changed.
+        """
+        enum_dict = state.objective_contract.get("enumeration_objective")
+        if not enum_dict or enum_dict.get("object_qualified"):
+            return False
+        enum = EnumerationObjective.from_dict(enum_dict)
+        texts = [(str(e.get("url") or ""), f"{e.get('title') or ''} {e.get('snippet') or ''}") for e in state.evidence]
+        if not refine_object_from_evidence(enum, texts):
+            return False
+        new_dict = enum.to_dict()
+        new_dict["question_ids"] = enum_dict.get("question_ids", {})
+        state.objective_contract["enumeration_objective"] = new_dict
+        qids = new_dict["question_ids"]
+        for role, text, queries in (
+            ("discovery", enum.question_text(), enum.discovery_queries()),
+            ("corroboration", self._corroboration_question_text(enum), enum.corroboration_queries()),
+        ):
+            q_dict = state.questions.get(qids.get(role, ""))
+            if q_dict and q_dict.get("question_id") in state.unresolved_questions:
+                q_dict["question_text"] = text
+                q_dict["search_queries"] = queries
+        state.record_audit(
+            action_type="OBJECTIVE_REFINED",
+            details={"object": enum.object, "object_qualified": enum.object_qualified, "sources": enum.object_qualifier_evidence},
+            rationale=f"Retrieved sources consistently name the object '{enum.object_qualified}'.",
+        )
+        return True
+
     def select_next_actions(
         self,
         state: InvestigationState,
@@ -942,6 +1086,13 @@ class InvestigationPlanner:
             else:
                 spec = q.specialist_requirements[0] if q.specialist_requirements else "none"
 
+            # Questions carrying objective-derived queries are answered by web research,
+            # not by registry specialists matched on incidental keywords.
+            if q.search_queries:
+                spec = "none"
+                cap_id = "general_web_research"
+                impl_id = "impl_argus_generalist_v1"
+
             # Determine query text
             ents = q.related_entities or list(state.entities.keys())
             ent_str = " ".join(ents[:2]) if ents else state.objective
@@ -998,7 +1149,15 @@ class InvestigationPlanner:
             ]
             distinctive_terms = " ".join(obj_words[:8])
 
-            if spec == "identity":
+            if q.search_queries:
+                used_queries = {a.get("query", "").strip().lower() for a in state.research_actions}
+                pending_queries = [sq for sq in q.search_queries if sq.strip().lower() not in used_queries]
+                if not pending_queries:
+                    # Every focused query has run; do not spend budget on boilerplate variants.
+                    continue
+                action_type = ActionType.SEARCH
+                query_str = pending_queries[0]
+            elif spec == "identity":
                 action_type = ActionType.INVESTIGATE_SPECIALIST
                 clean_target = (q.related_entities[0] if q.related_entities else ent_str).strip()
                 query_str = clean_target
@@ -1045,7 +1204,7 @@ class InvestigationPlanner:
                 for a in state.research_actions
                 if a.get("question_id") == q.question_id
             }
-            if query_str.strip().lower() in prior_queries:
+            if query_str.strip().lower() in prior_queries and not q.search_queries:
                 alt_candidates = [
                     f"{q.question_text}",
                     f"{ent_str} {' '.join(q.required_evidence[:2])}" if q.required_evidence else "",
