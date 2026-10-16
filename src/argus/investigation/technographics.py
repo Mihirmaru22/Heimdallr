@@ -20,6 +20,11 @@ from dataclasses import dataclass
 import re
 from typing import Any
 
+from argus.investigation.objective_parser import (
+    COUNTRY_ALIASES,
+    normalize_geography,
+    parse_enumeration_objective,
+)
 from argus.investigation.claim_verification import (
     SOURCE_TECHNOGRAPHIC,
     SOURCE_VENDOR,
@@ -28,22 +33,20 @@ from argus.investigation.claim_verification import (
 )
 
 
+# Generic page/table words that are never organization names. Product and vendor
+# words are rejected dynamically from the objective, not listed here.
 COMMON_NON_COMPANIES = {
     "api export",
+    "export",
     "technologies",
+    "technology",
     "company",
+    "companies",
     "industry",
     "employees",
     "revenue",
-    "united states",
-    "usa",
-    "india",
-    "germany",
-    "product lifecycle management",
-    "enterprise resource planning",
-    "siemens",
-    "teamcenter",
-    "siemens teamcenter",
+    "country",
+    "domain",
     "high confidence",
     "search companies",
     "unknown",
@@ -51,7 +54,26 @@ COMMON_NON_COMPANIES = {
     "explore who",
     "explore",
     "search",
+    "download",
+    "pricing",
+    "customers",
+    "contact",
 }
+
+# Column-header vocabulary of technographic tables (generic, not vendor specific).
+_HEADER_WORDS = {
+    "api", "export", "company", "companies", "name", "country", "location", "hq", "headquarters",
+    "industry", "sector", "employees", "employee", "size", "revenue", "technologies", "technology",
+    "tech", "domain", "website", "confidence", "founded", "first", "seen", "last", "jobs",
+}
+_ROW_STOP_WORDS = {"employees", "employee", "revenue", "industry", "country", "domain", "hq", "headquarters", "founded", "confidence"}
+_NAME_CONNECTORS = {"&", "and", "of", "de", "der", "la", "the", "y"}
+_USE_VERB_PHRASE = (
+    r"(?:(?:has|have|had|is|are|was|were)\s+)?(?:been\s+|now\s+|also\s+|recently\s+)?"
+    r"(?:uses|use|used|using|deploys|deployed|deploying|runs|ran|running|implemented|implements|implementing|"
+    r"adopted|adopts|adopting|selected|selects|chose|chosen|standardi[sz]ed\s+on|standardi[sz]es\s+on|"
+    r"migrated\s+to|moved\s+to|rolled\s+out|relies\s+on|relied\s+on|licensed|licenses|upgraded\s+to)"
+)
 
 
 @dataclass
@@ -69,6 +91,7 @@ class TechnographicFinding:
     confidence: float | None = None
     source_type: str = "technographic_provider"
     qualifier: str = "Third-Party Technographic Provider Assertion"
+    matched_alias: str = ""
 
 
 def classify_technographic_source(doc_url: str, software: str = "") -> tuple[str, float | None, str, str]:
@@ -106,193 +129,241 @@ def _provenance(doc_url: str, software: str) -> dict[str, Any]:
     return {"status": status, "confidence": confidence, "source_type": source_type, "qualifier": qualifier}
 
 
-def clean_company_name(raw_name: str) -> str:
-    """Sanitize extracted string into clean canonical company name."""
+_GEO_KEYS = sorted(COUNTRY_ALIASES, key=len, reverse=True)
+_GEO_TOKEN_RE = re.compile(r"(?:" + "|".join(re.escape(k) for k in _GEO_KEYS) + r")(?![A-Za-z])", re.IGNORECASE)
+_DOMAIN_RE = re.compile(r"[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?![A-Za-z0-9])")
+_NUMBER_RE = re.compile(r"\d[\d,.]*\s*[kKmMbB]?\+?(?![A-Za-z0-9])")
+_MONEY_RE = re.compile(r"\$\s?\d[\d,.]*\s*[kKmMbBtT]?\+?")
+_NAME_TOKEN_RE = re.compile(r"(?:[A-Z0-9][\w&'.\-]*|[a-z]{1,3}[A-Z][\w&'.\-]*)")
+_WORD_RE = re.compile(r"\$?[\w&'.\-]+|[·|,;:]")
+
+
+def clean_company_name(raw_name: str, excluded_words: set[str] | None = None) -> str:
+    """Return a plausible organization name, or "" for page furniture and product words."""
     if not raw_name:
         return ""
-    clean = raw_name.strip()
-    clean = re.sub(
-        r"^(?:API\s+Export|Company|Country|Industry|Employees|Revenue|Technologies|High\s+confidence|Verified|\d+\.?|\s+)+",
-        "",
-        clean,
-        flags=re.IGNORECASE,
-    ).strip()
-    clean = re.sub(
-        r"^(?:(?:B|A|The|\d+)\s+)?(?:Siemens\s+)?(?:Teamcenter\s+)?(?:PLM\s+Software\s+)?(?:High\s+confidence\s+|Verified\s+)?",
-        "",
-        clean,
-        flags=re.IGNORECASE,
-    ).strip()
-    clean = re.sub(r"\s+", " ", clean).strip()
-
-    if clean.lower() in COMMON_NON_COMPANIES:
+    clean = re.sub(r"\s+", " ", raw_name).strip(" ,;:-·|")
+    words = clean.split(" ")
+    while words and words[-1].lower() in _NAME_CONNECTORS:
+        words.pop()
+    clean = " ".join(words)
+    low = clean.lower()
+    if not clean or low in COMMON_NON_COMPANIES or normalize_geography(clean):
         return ""
-    if len(clean) < 3 or len(clean) > 60:
+    if excluded_words and all(w.lower() in excluded_words for w in words):
         return ""
-    if clean.startswith(("http", "www.", "{", "[", "curl")):
+    if len(clean) < 2 or len(clean) > 60:
         return ""
-    if any(clean.lower().startswith(p) for p in ("who ", "explore ", "search ")):
+    if clean.startswith(("http", "www.", "{", "[", "curl")) or _DOMAIN_RE.fullmatch(clean):
         return ""
-    if " as well" in clean.lower() or ". " in clean:
+    if all(w.lower() in _HEADER_WORDS for w in words):
+        return ""
+    if not _NAME_TOKEN_RE.match(words[0]):
         return ""
     return clean
 
 
 def detect_software_in_query(query: str) -> str:
-    """Identify the primary target software queried."""
-    q_lower = query.lower()
-    if "teamcenter" in q_lower:
-        return "Siemens Teamcenter"
-    elif "s/4hana" in q_lower or "s4hana" in q_lower:
-        return "SAP S/4HANA"
-    elif "sap" in q_lower:
-        return "SAP ERP"
-    elif "oracle" in q_lower:
-        return "Oracle Cloud ERP"
-    elif "workday" in q_lower:
-        return "Workday"
-    elif "salesforce" in q_lower:
-        return "Salesforce"
-    return "Enterprise Software"
+    """The object named by an enumeration objective (no fixed product list)."""
+    enum = parse_enumeration_objective(query or "")
+    return enum.object_name if enum else "Enterprise Software"
 
 
 def detect_country_in_query(query: str) -> str:
-    """Identify the target jurisdiction queried."""
-    q_lower = query.lower()
-    if any(k in q_lower for k in ("usa", "united states", "us ", "america", "american")):
-        return "United States"
-    elif any(k in q_lower for k in ("india", "indian", "gujarat", "mumbai")):
-        return "India"
-    elif any(k in q_lower for k in ("germany", "german", "deutschland")):
-        return "Germany"
-    elif any(k in q_lower for k in ("uk", "united kingdom", "britain")):
-        return "United Kingdom"
-    return ""
+    """The geography constraint named by an enumeration objective, or ""."""
+    enum = parse_enumeration_objective(query or "")
+    return enum.geography if enum else ""
+
+
+def _strip_header(prefix: str) -> str:
+    """Drop a run of table column headers ("Company Country Industry ...") and anything before it."""
+    words = list(re.finditer(r"\S+", prefix))
+    cut = None
+    run = 0
+    for i, w in enumerate(words):
+        if w.group(0).strip(",;:").lower() in _HEADER_WORDS:
+            run += 1
+            if run >= 2:
+                cut = w.end()
+        else:
+            run = 0
+    return prefix[cut:] if cut is not None else prefix
+
+
+def _parse_row(prefix: str, excluded_words: set[str]) -> dict[str, Any] | None:
+    """Parse '<Company> [domain] [country] [industry] [employees] [$revenue] ...' preceding a product mention.
+
+    Requires a structural delimiter after the company name (domain, country, number,
+    money or a field label). Without one the text is not treated as a table row.
+    """
+    pos = len(prefix) - len(prefix.lstrip(" ,;·|"))
+    name_tokens: list[str] = []
+    name_start = None
+    delimiter = None
+    while pos < len(prefix):
+        while pos < len(prefix) and prefix[pos] == " ":
+            pos += 1
+        if pos >= len(prefix):
+            break
+        rest = prefix[pos:]
+        prev = name_tokens[-1].lower() if name_tokens else ""
+        geo_m = _GEO_TOKEN_RE.match(rest)
+        if name_tokens and geo_m and prev not in _NAME_CONNECTORS and geo_m.group(0)[:1].isupper():
+            delimiter = ("country", geo_m)
+            break
+        dom_m = _DOMAIN_RE.match(rest)
+        if name_tokens and dom_m:
+            delimiter = ("domain", dom_m)
+            break
+        money_m = _MONEY_RE.match(rest)
+        num_m = _NUMBER_RE.match(rest)
+        if name_tokens and (money_m or num_m):
+            delimiter = ("number", None)
+            break
+        tok_m = re.match(r"\S+", rest)
+        tok = tok_m.group(0)
+        if name_tokens and (tok.lower() in _ROW_STOP_WORDS or tok in ("·", "|")):
+            delimiter = ("label", None)
+            break
+        bare = tok.strip(",;:")
+        if _NAME_TOKEN_RE.fullmatch(bare) or (name_tokens and bare.lower() in _NAME_CONNECTORS):
+            if name_start is None:
+                name_start = pos
+            name_tokens.append(bare)
+            pos += len(tok)
+            if tok.endswith((",", ";", ":")):
+                delimiter = ("punct", None)
+                break
+            continue
+        return None
+    if not name_tokens or delimiter is None or len(name_tokens) > 7:
+        return None
+    company = clean_company_name(" ".join(name_tokens), excluded_words)
+    if not company:
+        return None
+
+    after = prefix[pos:]
+    country = ""
+    if delimiter[0] == "domain":
+        after = after[delimiter[1].end():].lstrip()
+    geo_m = _GEO_TOKEN_RE.match(after)
+    if geo_m and geo_m.group(0)[:1].isupper():
+        country = normalize_geography(geo_m.group(0)) or geo_m.group(0)
+        after = after[geo_m.end():]
+    money = _MONEY_RE.search(after)
+    num = None
+    for nm in _NUMBER_RE.finditer(after):
+        if money and money.start() <= nm.start() < money.end():
+            continue
+        num = nm
+        break
+    first_num_pos = min([m.start() for m in (money, num) if m] or [len(after)])
+    industry_words = [w for w in re.findall(r"[A-Za-z&,\-]+", after[:first_num_pos])]
+    while industry_words and industry_words[-1].strip(",").lower() in excluded_words:
+        industry_words.pop()
+    industry = " ".join(industry_words).strip(" ,·|")
+    if industry and industry.split()[0].lower() in _ROW_STOP_WORDS:
+        industry = ""
+    return {
+        "company": company,
+        "name_start": name_start,
+        "country": country,
+        "industry": industry[:80],
+        "employees": num.group(0).strip() if num else "",
+        "revenue": money.group(0).replace(" ", "") if money else "",
+    }
+
+
+def _parse_prose(prefix: str, excluded_words: set[str]) -> dict[str, Any] | None:
+    """Parse '<Company> [has] <usage verb> [the] [Vendor] ' immediately preceding a product mention."""
+    name_run = r"(?:[A-Z0-9][\w&'.\-]*|[a-z]{1,3}[A-Z][\w&'.\-]*)(?:\s+(?:(?:&|and|of|de)\s+)?(?:[A-Z0-9][\w&'.\-]*|[a-z]{1,3}[A-Z][\w&'.\-]*)){0,5}"
+    m = re.search(
+        rf"(?:^|(?<=[\s,(]))(?P<name>{name_run})\s+{_USE_VERB_PHRASE}\s+(?:the\s+|its\s+|their\s+)?(?:[A-Z][\w&\-]*\s+){{0,2}}$",
+        prefix,
+    )
+    if not m:
+        return None
+    name = m.group("name")
+    # Drop sentence-initial filler ("In 2024 Acme ...", "Today Acme ...") conservatively.
+    words = name.split()
+    while len(words) > 1 and (words[0].lower() in {"in", "today", "now", "recently", "also", "the"} or words[0].isdigit()):
+        words.pop(0)
+    company = clean_company_name(" ".join(words), excluded_words)
+    if not company:
+        return None
+    return {"company": company, "name_start": m.start("name") + name.find(words[0]), "country": "", "industry": "", "employees": "", "revenue": ""}
 
 
 def extract_technographic_deployments(
     text: str,
     doc_url: str = "",
     target_query: str = "",
+    products: list[str] | None = None,
+    geography: str | None = None,
 ) -> list[TechnographicFinding]:
-    """Extract structured enterprise software deployments from technographic text."""
-    if not text or len(text) < 20:
+    """Extract '(organization, uses, product)' assertions for the objective's product.
+
+    ``products`` are the names of the objective's object (e.g. the user's
+    "Teamcenter" and the evidence-qualified "Siemens Teamcenter"); when omitted
+    they are parsed from ``target_query``. No fixed vendor or product list is used.
+
+    Rows are recognised by structure rather than by one provider's layout: the text
+    between consecutive product mentions is parsed as a row (company name followed by
+    a domain, country, number or field label) or as a usage sentence. Rows whose
+    stated country conflicts with the objective's geography are dropped; a country is
+    never assumed from the query.
+    """
+    if products is None:
+        enum = parse_enumeration_objective(target_query or "")
+        products = [enum.object_name] if enum else []
+        if geography is None and enum:
+            geography = enum.geography
+    names = sorted({p.strip() for p in products if p and p.strip()}, key=len, reverse=True)
+    if not text or len(text) < 20 or not names:
         return []
+    canonical = names[0]
+    excluded_words = {w.lower() for n in names for w in re.findall(r"[\w&\-]+", n)}
+    product_re = re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(n) for n in names) + r")(?![\w-])", re.IGNORECASE)
 
-    default_software = detect_software_in_query(target_query)
-    default_country = detect_country_in_query(target_query)
+    extracted: dict[str, TechnographicFinding] = {}
+    prev_end = 0
+    for m in product_re.finditer(text):
+        seg_start = prev_end
+        prev_end = m.end()
+        prefix_full = text[seg_start:m.start()]
+        # Rows and sentences do not span sentence breaks, line breaks or "|" separators.
+        boundary = 0
+        for b in re.finditer(r"[.!?](?=\s)|\n|\|", prefix_full):
+            boundary = b.end()
+        offset = seg_start + boundary
+        prefix = prefix_full[boundary:]
+        if len(prefix) > 400:
+            offset += len(prefix) - 400
+            prefix = prefix[-400:]
+        stripped = _strip_header(prefix)
+        offset += len(prefix) - len(stripped)
+        prefix = stripped
 
-    extracted_companies: dict[str, TechnographicFinding] = {}
-
-    # -------------------------------------------------------------------------
-    # Pattern 1: TheirStack / Tabular Rows
-    # Company Country Industry Employees Revenue? Technologies
-    # -------------------------------------------------------------------------
-    table_pattern = re.finditer(
-        r"([A-Z0-9][A-Za-z0-9\s.,&-]{2,50}?)\s+(United States|USA|India|Germany|United Kingdom|UK|Japan|France|Italy|Canada|Sweden)\s+([A-Za-z\s,&-]{3,65}?)\s+(\d+k?|\d+[\d,]*)\s*(?:\s+(\$[\d.]+[BMK]?\+?))?\s*(Siemens\s+Teamcenter|Teamcenter|SAP\s+S/4HANA|SAP\s+ERP|SAP|Oracle|Workday|Salesforce)",
-        text,
-    )
-    for m in table_pattern:
-        comp = clean_company_name(m.group(1))
-        if not comp:
+        parsed = _parse_prose(prefix, excluded_words) or _parse_row(prefix, excluded_words)
+        if not parsed:
             continue
-        country = m.group(2).strip()
-        industry = m.group(3).strip()
-        emp = m.group(4).strip()
-        rev = (m.group(5) or "").strip()
-        sw = m.group(6).strip()
-        if "teamcenter" in sw.lower() and "siemens" not in sw.lower():
-            sw = "Siemens Teamcenter"
-
-        quote = m.group(0).strip()
-        finding = TechnographicFinding(
-            company=comp,
-            software=sw or default_software,
-            country=country or default_country,
-            industry=industry,
-            employees=emp,
-            revenue=rev,
+        if geography and parsed["country"] and parsed["country"] != geography:
+            continue
+        company = parsed["company"]
+        if company in extracted:
+            continue
+        quote = text[offset + parsed["name_start"]:m.end()].strip()
+        matched = m.group(0)
+        extracted[company] = TechnographicFinding(
+            company=company,
+            software=canonical,
+            country=parsed["country"],
+            industry=parsed["industry"],
+            employees=parsed["employees"],
+            revenue=parsed["revenue"],
             evidence_quote=quote,
             source_url=doc_url,
-            **_provenance(doc_url, sw or default_software),
+            matched_alias=matched,
+            **_provenance(doc_url, canonical),
         )
-        extracted_companies[comp] = finding
-
-    # -------------------------------------------------------------------------
-    # Pattern 2: Card Format
-    # Company Employees 88k · Revenue $35B · Defense and Space Manufacturing Siemens Teamcenter
-    # -------------------------------------------------------------------------
-    card_pattern = re.finditer(
-        r"([A-Z0-9][A-Za-z0-9\s.,&-]{2,45}?)\s+Employees\s+(\d+k?|\d+[\d,]*)\s*·\s*Revenue\s*(\$[\d.]+[BMK]?\+?)\s*·\s*([A-Za-z\s,&-]{3,60}?)\s+(Siemens\s+Teamcenter|Teamcenter|SAP\s+S/4HANA|SAP\s+ERP|SAP|Oracle|Workday|Salesforce)",
-        text,
-    )
-    for m in card_pattern:
-        comp = clean_company_name(m.group(1))
-        if not comp or comp in extracted_companies:
-            continue
-        emp = m.group(2).strip()
-        rev = m.group(3).strip()
-        industry = m.group(4).strip()
-        sw = m.group(5).strip()
-        if "teamcenter" in sw.lower() and "siemens" not in sw.lower():
-            sw = "Siemens Teamcenter"
-
-        quote = m.group(0).strip()
-        extracted_companies[comp] = TechnographicFinding(
-            company=comp,
-            software=sw or default_software,
-            country="",  # not stated by this source pattern; never assumed from the query
-            industry=industry,
-            employees=emp,
-            revenue=rev,
-            evidence_quote=quote,
-            source_url=doc_url,
-            **_provenance(doc_url, sw or default_software),
-        )
-
-    # -------------------------------------------------------------------------
-    # Pattern 3: Case Study & Prose Statements
-    # <Company> deploys/utilizes/uses/integrates/relies on <Software> ...
-    # -------------------------------------------------------------------------
-    prose_pattern = re.finditer(
-        r"([A-Z0-9][A-Za-z0-9\s.,&-]{2,40}?)\s+(?:deploys|utilizes|uses|runs|integrates|implements|selected|collaborates with Siemens to build [^\n]+ using)\s+([A-Za-z0-9\s.,&-]{2,30}?(?:Teamcenter|SAP|Oracle|Workday|Salesforce)[A-Za-z0-9\s.,&-]*)",
-        text,
-    )
-    for m in prose_pattern:
-        comp = clean_company_name(m.group(1))
-        if not comp or comp in extracted_companies:
-            continue
-        predicate_clause = m.group(2).strip()
-
-        # Extract software name cleanly from clause
-        sw = default_software
-        for cand_sw in ("Siemens Teamcenter", "Teamcenter", "SAP S/4HANA", "SAP ERP", "Oracle Cloud ERP", "Workday", "Salesforce"):
-            if cand_sw.lower() in predicate_clause.lower():
-                sw = "Siemens Teamcenter" if "teamcenter" in cand_sw.lower() else cand_sw
-                break
-
-        # Check for employee/revenue mentions in surrounding sentence
-        emp = ""
-        m_emp = re.search(r"(\d+k|\d+,\d+|\d+)\s+employees", predicate_clause)
-        if m_emp:
-            emp = m_emp.group(1)
-
-        rev = ""
-        m_rev = re.search(r"(\$[\d.]+[BMK]?\+?)\s+revenue", predicate_clause)
-        if m_rev:
-            rev = m_rev.group(1)
-
-        quote = m.group(0).strip()
-        extracted_companies[comp] = TechnographicFinding(
-            company=comp,
-            software=sw,
-            country="",  # not stated by this source pattern; never assumed from the query
-            industry="",
-            employees=emp,
-            revenue=rev,
-            evidence_quote=quote,
-            source_url=doc_url,
-            **_provenance(doc_url, sw or default_software),
-        )
-
-    return list(extracted_companies.values())
+    return list(extracted.values())

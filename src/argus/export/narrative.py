@@ -59,16 +59,28 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         c for c in claims
         if "USES_" in str(c.get("predicate", "")).upper() or "SOFTWARE" in str(c.get("predicate", "")).upper()
     ]
-    is_technographic_objective = (
-        bool(software_deploy_claims)
-        or any(k in target_raw.lower() for k in ("who are using", "companies using", "companies who are using", "who use", "teamcenter", "technographic"))
-    )
+    # The deployment template is chosen from the interpreted objective or the claims
+    # themselves, not from product keywords in the query text.
+    from argus.investigation.objective_parser import EnumerationObjective, parse_enumeration_objective
+
+    enum_dict = data.get("enumeration_objective")
+    enum_obj = EnumerationObjective.from_dict(enum_dict) if enum_dict else parse_enumeration_objective(str(target_raw))
+    is_technographic_objective = bool(software_deploy_claims) or enum_obj is not None
 
     if is_technographic_objective:
-        from argus.investigation.technographics import detect_software_in_query, detect_country_in_query
-
-        target_sw = detect_software_in_query(target_raw)
-        target_country = detect_country_in_query(target_raw)
+        if enum_obj is not None:
+            target_sw = enum_obj.object_name
+            target_country = enum_obj.geography
+            if not enum_dict:
+                # Parsed from the query text only: prefer the fuller name the claims' sources use.
+                fuller = [str(c.get("object")) for c in software_deploy_claims if enum_obj.object.lower() in str(c.get("object") or "").lower()]
+                if fuller:
+                    target_sw = max(set(fuller), key=fuller.count)
+        else:
+            objects = [str(c.get("object") or "") for c in software_deploy_claims if c.get("object")]
+            target_sw = max(set(objects), key=objects.count) if objects else "the requested technology"
+            target_country = ""
+        object_words = {w.lower() for w in re.findall(r"[\w&\-]+", target_sw)}
         primary_name = f"{target_sw} Enterprise Deployments ({target_country or 'country unspecified'})"
 
         # Deduplicate companies while preserving attributes
@@ -94,7 +106,8 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         if not companies_seen and isinstance(entities, dict):
             for ek, ev in entities.items():
                 etype = ev.get("entity_type") if isinstance(ev, dict) else str(ev)
-                if str(etype).upper() == "ORGANIZATION" and len(ek) >= 3 and not any(ig in ek.lower() for ig in ("teamcenter", "search companies", "technologies")):
+                name_words = {w.lower() for w in re.findall(r"[\w&\-]+", ek)}
+                if str(etype).upper() == "ORGANIZATION" and len(ek) >= 3 and not (name_words and name_words <= object_words):
                     meta = ev.get("metadata", {}) if isinstance(ev, dict) else {}
                     companies_seen[ek] = {
                         "company": ek,
@@ -155,7 +168,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
             attr_suffix = f" ({', '.join(attrs)})" if attrs else ""
             loc_str = f" in {dep['country']}" if dep['country'] else ""
 
-            fact_str = f"{comp} — Deploys {dep['software']}{loc_str}{attr_suffix}"
+            fact_str = f"{comp} — reported to use {dep['software']}{loc_str}{attr_suffix}"
             categorized_findings[cat_title].append({
                 "fact": fact_str,
                 "status": dep["status"],
@@ -172,7 +185,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
             curated_entities.append({
                 "name": comp,
                 "type": "ORGANIZATION",
-                "role": f"{target_sw} Enterprise Deployer",
+                "role": f"Reported {target_sw} user",
                 "organization": comp,
                 "contact": contact_str or "Not disclosed",
             })
@@ -182,7 +195,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
             "executive_narrative": executive_narrative,
             "narrative_paragraphs": narrative_paragraphs,
             "roles_and_titles": [],
-            "organizations": {d["company"]: {"name": d["company"], "role": f"{target_sw} Deployer"} for d in deployments_list},
+            "organizations": {d["company"]: {"name": d["company"], "role": f"Reported {target_sw} user"} for d in deployments_list},
             "affiliations": [],
             "credentials": [],
             "locations": [target_country] if target_country else [],

@@ -81,6 +81,8 @@ _COUNTRY_ALIASES: dict[str, str] = {
     "finland": "Finland", "finnish": "Finland", "belgium": "Belgium", "austria": "Austria",
 }
 
+COUNTRY_ALIASES = _COUNTRY_ALIASES
+
 _GEO_ADJ_RE = "|".join(sorted((re.escape(k) for k in _COUNTRY_ALIASES), key=len, reverse=True))
 _NOUN_RE = "|".join(sorted(_ORG_NOUNS, key=len, reverse=True))
 _GEO_PREPS = r"(?:based\s+in|located\s+in|headquartered\s+in|operating\s+in|in|from|across|within)"
@@ -101,6 +103,16 @@ class EnumerationObjective:
     context_constraints: list[str] = field(default_factory=list)
     object_qualified: str = ""
     object_qualifier_evidence: list[str] = field(default_factory=list)
+
+    # Extractor dimensions this objective needs. Incidental extractors (hosts,
+    # e-mails, officers, subsidiaries, sanctions, temporal notes) and specialist
+    # chaining are outside the scope of an organization-enumeration objective.
+    extraction_scope = ("deployment",)
+
+    @property
+    def object_names(self) -> list[str]:
+        """All names the object is known by (qualified first)."""
+        return [n for n in dict.fromkeys([self.object_qualified, self.object]) if n]
 
     @property
     def object_name(self) -> str:

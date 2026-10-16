@@ -225,10 +225,13 @@ class TestNarrativeAndExporters:
         )
         provider_url = "https://theirstack.com/en/technology/siemens-teamcenter/us"
 
+        # Product names come from the interpreted objective (the engine passes the
+        # evidence-qualified name too); the extractor holds no product list of its own.
         findings = extract_technographic_deployments(
             theirstack_text,
             doc_url=provider_url,
             target_query="Search Companies who are using TEAMCENTER in usa",
+            products=["Siemens Teamcenter", "Teamcenter"],
         )
         assert len(findings) == 4
         comp_map = {f.company: f for f in findings}

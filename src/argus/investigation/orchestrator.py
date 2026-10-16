@@ -62,6 +62,7 @@ from argus.investigation.benchmark.v2.semantic_auditor import (
 from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
 from argus.investigation.technographics import extract_technographic_deployments
 from argus.investigation.claim_verification import add_support, ground_passage, verify_claim
+from argus.investigation.objective_parser import EnumerationObjective
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -1303,6 +1304,15 @@ class InvestigationEngine:
         # Let retrieved sources qualify the objective's object (e.g. the vendor name).
         self.planner.refine_objective_from_evidence(state)
 
+        # Objective-scoped extraction: an objective that declares the dimensions it
+        # needs runs only those extractors; other objectives keep the full extractor set.
+        enum_dict = state.objective_contract.get("enumeration_objective")
+        enum_objective = EnumerationObjective.from_dict(enum_dict) if enum_dict else None
+        extraction_scope = set(enum_objective.extraction_scope) if enum_objective else None
+
+        def in_scope(dimension: str) -> bool:
+            return extraction_scope is None or dimension in extraction_scope
+
         def get_best_evidence_for_pattern(pat_regex: str) -> dict[str, Any]:
             for d in docs:
                 if re.search(pat_regex, d.get("text", ""), re.IGNORECASE):
@@ -1556,7 +1566,7 @@ class InvestigationEngine:
                     information_gain += 0.35
 
         target_ents = (action.target_entities if action else []) or (state.objective_contract.get("target_entities") or []) or list(state.entities.keys())
-        if target_ents:
+        if target_ents and in_scope("target_sentences"):
             for ent in target_ents:
                 if ent not in state.entities and (match_entity_in_text(ent, all_text) or not all_text):
                     state.register_entity(name=ent, entity_type="TARGET_ENTITY")
@@ -1581,15 +1591,18 @@ class InvestigationEngine:
         # Extracts enterprise software deployments from live evidence passages and technographic telemetry.
         # Extraction runs per document only: a pass over concatenated documents can join text across
         # document boundaries and attribute the result to a document that never states it.
+        # The product names come from the interpreted objective, never from a fixed list.
+        deployment_products = enum_objective.object_names if (enum_objective and in_scope("deployment")) else []
         for d in docs:
             d_text = d.get("text", "")
             d_url = d.get("url", "")
             d_ev_id = d.get("evidence_id")
-            if d_text:
+            if d_text and deployment_products:
                 tech_findings = extract_technographic_deployments(
                     d_text,
                     doc_url=d_url,
-                    target_query=state.objective,
+                    products=deployment_products,
+                    geography=enum_objective.geography,
                 )
                 for tf in tech_findings:
                     if tf.company not in state.entities:
@@ -1621,7 +1634,7 @@ class InvestigationEngine:
                         if tf.revenue and not meta.get("revenue"):
                             meta["revenue"] = tf.revenue
 
-                    pred = "USES_PLM_SOFTWARE" if "teamcenter" in tf.software.lower() else "USES_SOFTWARE"
+                    pred = "USES_SOFTWARE"
                     candidate = {
                         "subject": tf.company,
                         "predicate": pred,
@@ -1637,6 +1650,10 @@ class InvestigationEngine:
                         "source_type": tf.source_type,
                         "qualifier": tf.qualifier,
                     }
+                    if tf.matched_alias and tf.matched_alias.lower() != tf.software.lower():
+                        # The source names the product by an alias the objective established
+                        # from evidence (e.g. "Teamcenter" for "Siemens Teamcenter").
+                        candidate["grounding_terms"] = [tf.matched_alias]
                     existing_claim = next(
                         (c for c in state.claims if c.get("subject") == tf.company and c.get("predicate") == pred and c.get("object") == tf.software),
                         None,
@@ -1650,164 +1667,167 @@ class InvestigationEngine:
                         # decides whether it is an independent voice.
                         add_support(existing_claim, verify_claim(candidate, state.evidence))
 
-        # A. Corporate Subsidiary Declarations
-        m_subs_block = re.findall(r"(?:subsidiaries(?:\s+include)?|Subsidiaries held|Wholly owned subsidiaries):\s*([^\n\r]+)", all_text, re.IGNORECASE)
-        for s_block in m_subs_block:
-            parent_cand = action.target_entities[0] if (action and action.target_entities) else "Parent Organization"
-            for sub_name in re.split(r"[,;]\s*", s_block):
-                sub_name_clean = sub_name.strip().rstrip(".")
-                if len(sub_name_clean) >= 3 and any(k in sub_name_clean for k in ("Ltd", "Limited", "LLC", "GmbH", "Inc", "Corp", "Systems", "Orbital", "Telemetry", "Defense")):
-                    dynamic_relations.append((sub_name_clean, parent_cand, "subsidiary", sub_name_clean))
+        # Incidental relation extractors (subsidiaries, officers, acquisitions, hosts,
+        # e-mails, succession, sanctions, ownership) run only when the objective needs them.
+        if in_scope("relations"):
+            # A. Corporate Subsidiary Declarations
+            m_subs_block = re.findall(r"(?:subsidiaries(?:\s+include)?|Subsidiaries held|Wholly owned subsidiaries):\s*([^\n\r]+)", all_text, re.IGNORECASE)
+            for s_block in m_subs_block:
+                parent_cand = action.target_entities[0] if (action and action.target_entities) else "Parent Organization"
+                for sub_name in re.split(r"[,;]\s*", s_block):
+                    sub_name_clean = sub_name.strip().rstrip(".")
+                    if len(sub_name_clean) >= 3 and any(k in sub_name_clean for k in ("Ltd", "Limited", "LLC", "GmbH", "Inc", "Corp", "Systems", "Orbital", "Telemetry", "Defense")):
+                        dynamic_relations.append((sub_name_clean, parent_cand, "subsidiary", sub_name_clean))
 
-        m_single_sub = re.finditer(
-            r"(?:Technical Infrastructure Subsidiary|Wholly owned subsidiary|Active Subsidiary|Subsidiary):\s*([A-Z][A-Za-z0-9\s.,&-]{2,50}?)(?:\.|\n|;|$)",
-            all_text,
-            re.IGNORECASE,
-        )
-        for m_sub in m_single_sub:
-            sub_cand = m_sub.group(1).strip()
-            parent_cand = action.target_entities[0] if (action and action.target_entities) else "Parent Organization"
-            if len(sub_cand) >= 3:
-                if sub_cand not in state.entities:
-                    state.register_entity(sub_cand, "SUBSIDIARY")
-                    new_entities_found.append(sub_cand)
-                dynamic_relations.append((sub_cand, parent_cand, "subsidiary", sub_cand))
-
-        # B. Corporate Officers & Leadership Titles
-        m_officers = re.finditer(
-            r"(?:Chief Executive Officer|Managing Director|Active Managing Director|Chief Technology Officer|CTO|CEO|President|General Counsel):\s*([A-Z][A-Za-z\s.'-]{2,40}?)(?:\.|\n|;|$)",
-            all_text,
-            re.IGNORECASE,
-        )
-        for m_off in m_officers:
-            off_name = m_off.group(1).strip()
-            org_cand = action.target_entities[0] if (action and action.target_entities) else "Corporate Entity"
-            if len(off_name) >= 3 and " " in off_name:
-                dynamic_relations.append((off_name, org_cand, "officer", off_name))
-
-        # C. Acquisitions
-        m_acq = re.finditer(
-            r"([A-Z][A-Za-z0-9\s.,&-]{2,40}?)\s+(?:completed acquisition of|acquired)\s+([A-Z][A-Za-z0-9\s.,&-]{2,40})",
-            all_text,
-        )
-        for ma in m_acq:
-            acquirer = ma.group(1).strip()
-            target = ma.group(2).strip()
-            dynamic_relations.append((target, acquirer, "acquired", target))
-
-        # D. Infrastructure Hostnames & Associated Domain Entities
-        found_hosts = re.findall(r"\b([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z0-9-]+\.)+(?:com|org|net|de|co\.uk|io))\b", all_text)
-        for host in set(found_hosts):
-            # Check contextual relevance of host
-            doc_urls = [d.get("url", "") for d in docs if host in d.get("text", "")]
-            primary_doc_url = doc_urls[0] if doc_urls else ""
-            if not is_contextually_relevant_host(
-                host,
-                doc_url=primary_doc_url,
-                target_objective=state.objective,
-                target_entities=list(state.entities.keys()),
-            ):
-                continue
-
-            if host not in state.entities:
-                state.register_entity(host, "INFRASTRUCTURE_ENDPOINT")
-                new_entities_found.append(host)
-            for d in docs:
-                if host in d.get("text", ""):
-                    org_cand = clean_entity_name(d.get("title", "").split(" - ")[0].split(":")[0].strip())
-                    if not org_cand or len(org_cand) < 3:
-                        org_cand = clean_entity_name(action.target_entities[0] if (action and action.target_entities) else "Host Entity")
-                    dynamic_relations.append((host, org_cand, "infrastructure", host))
-
-        # E. Admin / Contact Emails associated with domains
-        found_emails = re.findall(r"\b([a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}))\b", all_text)
-        for full_email, email_dom in found_emails:
-            dynamic_relations.append((full_email, email_dom, "admin_contact", full_email))
-            # Match person whose surname is present in the email prefix
-            email_user = full_email.split("@")[0].lower()
-            all_known = list(state.entities.keys()) + list(self.corpus.get_discoverable_entities() if hasattr(self.corpus, "get_discoverable_entities") else [])
-            for cand_p in all_known:
-                if " " in cand_p:
-                    surname = cand_p.split()[-1].lower()
-                    if len(surname) >= 4 and surname in email_user:
-                        if cand_p not in state.entities:
-                            state.register_entity(cand_p, "INDIVIDUAL")
-                            new_entities_found.append(cand_p)
-
-        # F. Corporate Succession & Historical Tenure
-        m_succ = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s+succeeded\s+([A-Z][A-Za-z\s.'-]{2,30})", all_text)
-        for ms in m_succ:
-            dynamic_relations.append((ms.group(2).strip(), ms.group(1).strip(), "succeeded", ms.group(2).strip()))
-
-        m_res = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s*(?:\bRESIGNED\b|\bstepped down\b)(?:\s+(?:in\s+)?(\d{4}))?", all_text)
-        for mr in m_res:
-            res_person = mr.group(1).strip()
-            if len(res_person) >= 3:
-                dynamic_relations.append((res_person, res_person, "tenure_status", "HISTORICAL_RESIGNED"))
-
-        # G. Regulatory Sanctions, OFAC / OFSI Designations
-        m_sanc = re.finditer(r"([A-Z][A-Za-z0-9\s.,&-]{2,40}?)\s*(?:sanctioned by|placed on SDN list by|designated by|US_OFAC|UK_OFSI|OFAC_SDN_ENTRY|UK_OFSI_ENTRY)\s*(US_OFAC|UK_OFSI|OFAC_SDN_ENTRY|UK_OFSI_ENTRY|[A-Za-z0-9_\s-]+)?", all_text)
-        for msn in m_sanc:
-            sanc_ent = msn.group(1).strip()
-            auth = (msn.group(2) or "SANCTIONS_REGULATOR").strip()
-            if "OFAC" in all_text:
-                auth = "US_OFAC"
-            elif "OFSI" in all_text:
-                auth = "UK_OFSI"
-            dynamic_relations.append((sanc_ent, sanc_ent, "sanctioned_by", auth))
-
-        # H. Beneficial Ownership & PEP Status
-        m_bo = re.finditer(r"(?:beneficial_owners|beneficial owners?|controlling shareholder):\s*([A-Z][A-Za-z\s.'-]{2,40})", all_text, re.IGNORECASE)
-        for mbo in m_bo:
-            owner = mbo.group(1).strip()
-            org_cand = action.target_entities[0] if (action and action.target_entities) else "Offshore Entity"
-            dynamic_relations.append((owner, org_cand, "beneficial_owner", owner))
-
-        m_pep = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s*(?:POLITICALLY_EXPOSED_PERSON|Former Deputy Minister|politically exposed person)", all_text)
-        for mp in m_pep:
-            pep_name = mp.group(1).strip()
-            if len(pep_name) >= 3:
-                dynamic_relations.append((pep_name, pep_name, "pep_status", "POLITICALLY_EXPOSED_PERSON"))
-
-        # Coded objects (e.g. HISTORICAL_RESIGNED) are grounded by the cue the source actually states.
-        relation_cues = {
-            "tenure_status": ("resigned", "stepped down"),
-            "pep_status": ("politically exposed person", "former deputy minister"),
-            "sanctioned_by": ("sanctioned", "ofac", "ofsi", "sdn", "designated"),
-        }
-        for pat_str, s, p, o in dynamic_relations:
-            existing = any(
-                r.get("subject") == s and r.get("predicate") == p and r.get("object") == o
-                for r in state.relationships
+            m_single_sub = re.finditer(
+                r"(?:Technical Infrastructure Subsidiary|Wholly owned subsidiary|Active Subsidiary|Subsidiary):\s*([A-Z][A-Za-z0-9\s.,&-]{2,50}?)(?:\.|\n|;|$)",
+                all_text,
+                re.IGNORECASE,
             )
-            if not existing:
-                state.relationships.append({"subject": s, "predicate": p, "object": o})
-                grounding_terms = None
-                if p in relation_cues:
-                    best_doc, passage = {}, ""
-                    for cue in relation_cues[p]:
-                        best_doc, passage = cite_passage(s, cue)
-                        if passage:
-                            grounding_terms = [cue]
-                            break
-                    if not passage:
-                        best_doc, passage = cite_passage(s)
-                else:
-                    best_doc, passage = cite_passage(*([s] if s == o else [s, o]))
-                relation_claim = {
-                    "subject": s,
-                    "predicate": p,
-                    "object": o,
-                    "status": "SUPPORTED",
-                    "evidence_id": best_doc.get("evidence_id"),
-                    "source_url": best_doc.get("url"),
-                    "source_passage": passage,
-                }
-                if grounding_terms:
-                    relation_claim["grounding_terms"] = grounding_terms
-                cid = state.add_claim(relation_claim)
-                new_claims_found.append(cid)
-                information_gain += 0.35
+            for m_sub in m_single_sub:
+                sub_cand = m_sub.group(1).strip()
+                parent_cand = action.target_entities[0] if (action and action.target_entities) else "Parent Organization"
+                if len(sub_cand) >= 3:
+                    if sub_cand not in state.entities:
+                        state.register_entity(sub_cand, "SUBSIDIARY")
+                        new_entities_found.append(sub_cand)
+                    dynamic_relations.append((sub_cand, parent_cand, "subsidiary", sub_cand))
+
+            # B. Corporate Officers & Leadership Titles
+            m_officers = re.finditer(
+                r"(?:Chief Executive Officer|Managing Director|Active Managing Director|Chief Technology Officer|CTO|CEO|President|General Counsel):\s*([A-Z][A-Za-z\s.'-]{2,40}?)(?:\.|\n|;|$)",
+                all_text,
+                re.IGNORECASE,
+            )
+            for m_off in m_officers:
+                off_name = m_off.group(1).strip()
+                org_cand = action.target_entities[0] if (action and action.target_entities) else "Corporate Entity"
+                if len(off_name) >= 3 and " " in off_name:
+                    dynamic_relations.append((off_name, org_cand, "officer", off_name))
+
+            # C. Acquisitions
+            m_acq = re.finditer(
+                r"([A-Z][A-Za-z0-9\s.,&-]{2,40}?)\s+(?:completed acquisition of|acquired)\s+([A-Z][A-Za-z0-9\s.,&-]{2,40})",
+                all_text,
+            )
+            for ma in m_acq:
+                acquirer = ma.group(1).strip()
+                target = ma.group(2).strip()
+                dynamic_relations.append((target, acquirer, "acquired", target))
+
+            # D. Infrastructure Hostnames & Associated Domain Entities
+            found_hosts = re.findall(r"\b([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z0-9-]+\.)+(?:com|org|net|de|co\.uk|io))\b", all_text)
+            for host in set(found_hosts):
+                # Check contextual relevance of host
+                doc_urls = [d.get("url", "") for d in docs if host in d.get("text", "")]
+                primary_doc_url = doc_urls[0] if doc_urls else ""
+                if not is_contextually_relevant_host(
+                    host,
+                    doc_url=primary_doc_url,
+                    target_objective=state.objective,
+                    target_entities=list(state.entities.keys()),
+                ):
+                    continue
+
+                if host not in state.entities:
+                    state.register_entity(host, "INFRASTRUCTURE_ENDPOINT")
+                    new_entities_found.append(host)
+                for d in docs:
+                    if host in d.get("text", ""):
+                        org_cand = clean_entity_name(d.get("title", "").split(" - ")[0].split(":")[0].strip())
+                        if not org_cand or len(org_cand) < 3:
+                            org_cand = clean_entity_name(action.target_entities[0] if (action and action.target_entities) else "Host Entity")
+                        dynamic_relations.append((host, org_cand, "infrastructure", host))
+
+            # E. Admin / Contact Emails associated with domains
+            found_emails = re.findall(r"\b([a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}))\b", all_text)
+            for full_email, email_dom in found_emails:
+                dynamic_relations.append((full_email, email_dom, "admin_contact", full_email))
+                # Match person whose surname is present in the email prefix
+                email_user = full_email.split("@")[0].lower()
+                all_known = list(state.entities.keys()) + list(self.corpus.get_discoverable_entities() if hasattr(self.corpus, "get_discoverable_entities") else [])
+                for cand_p in all_known:
+                    if " " in cand_p:
+                        surname = cand_p.split()[-1].lower()
+                        if len(surname) >= 4 and surname in email_user:
+                            if cand_p not in state.entities:
+                                state.register_entity(cand_p, "INDIVIDUAL")
+                                new_entities_found.append(cand_p)
+
+            # F. Corporate Succession & Historical Tenure
+            m_succ = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s+succeeded\s+([A-Z][A-Za-z\s.'-]{2,30})", all_text)
+            for ms in m_succ:
+                dynamic_relations.append((ms.group(2).strip(), ms.group(1).strip(), "succeeded", ms.group(2).strip()))
+
+            m_res = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s*(?:\bRESIGNED\b|\bstepped down\b)(?:\s+(?:in\s+)?(\d{4}))?", all_text)
+            for mr in m_res:
+                res_person = mr.group(1).strip()
+                if len(res_person) >= 3:
+                    dynamic_relations.append((res_person, res_person, "tenure_status", "HISTORICAL_RESIGNED"))
+
+            # G. Regulatory Sanctions, OFAC / OFSI Designations
+            m_sanc = re.finditer(r"([A-Z][A-Za-z0-9\s.,&-]{2,40}?)\s*(?:sanctioned by|placed on SDN list by|designated by|US_OFAC|UK_OFSI|OFAC_SDN_ENTRY|UK_OFSI_ENTRY)\s*(US_OFAC|UK_OFSI|OFAC_SDN_ENTRY|UK_OFSI_ENTRY|[A-Za-z0-9_\s-]+)?", all_text)
+            for msn in m_sanc:
+                sanc_ent = msn.group(1).strip()
+                auth = (msn.group(2) or "SANCTIONS_REGULATOR").strip()
+                if "OFAC" in all_text:
+                    auth = "US_OFAC"
+                elif "OFSI" in all_text:
+                    auth = "UK_OFSI"
+                dynamic_relations.append((sanc_ent, sanc_ent, "sanctioned_by", auth))
+
+            # H. Beneficial Ownership & PEP Status
+            m_bo = re.finditer(r"(?:beneficial_owners|beneficial owners?|controlling shareholder):\s*([A-Z][A-Za-z\s.'-]{2,40})", all_text, re.IGNORECASE)
+            for mbo in m_bo:
+                owner = mbo.group(1).strip()
+                org_cand = action.target_entities[0] if (action and action.target_entities) else "Offshore Entity"
+                dynamic_relations.append((owner, org_cand, "beneficial_owner", owner))
+
+            m_pep = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s*(?:POLITICALLY_EXPOSED_PERSON|Former Deputy Minister|politically exposed person)", all_text)
+            for mp in m_pep:
+                pep_name = mp.group(1).strip()
+                if len(pep_name) >= 3:
+                    dynamic_relations.append((pep_name, pep_name, "pep_status", "POLITICALLY_EXPOSED_PERSON"))
+
+            # Coded objects (e.g. HISTORICAL_RESIGNED) are grounded by the cue the source actually states.
+            relation_cues = {
+                "tenure_status": ("resigned", "stepped down"),
+                "pep_status": ("politically exposed person", "former deputy minister"),
+                "sanctioned_by": ("sanctioned", "ofac", "ofsi", "sdn", "designated"),
+            }
+            for pat_str, s, p, o in dynamic_relations:
+                existing = any(
+                    r.get("subject") == s and r.get("predicate") == p and r.get("object") == o
+                    for r in state.relationships
+                )
+                if not existing:
+                    state.relationships.append({"subject": s, "predicate": p, "object": o})
+                    grounding_terms = None
+                    if p in relation_cues:
+                        best_doc, passage = {}, ""
+                        for cue in relation_cues[p]:
+                            best_doc, passage = cite_passage(s, cue)
+                            if passage:
+                                grounding_terms = [cue]
+                                break
+                        if not passage:
+                            best_doc, passage = cite_passage(s)
+                    else:
+                        best_doc, passage = cite_passage(*([s] if s == o else [s, o]))
+                    relation_claim = {
+                        "subject": s,
+                        "predicate": p,
+                        "object": o,
+                        "status": "SUPPORTED",
+                        "evidence_id": best_doc.get("evidence_id"),
+                        "source_url": best_doc.get("url"),
+                        "source_passage": passage,
+                    }
+                    if grounding_terms:
+                        relation_claim["grounding_terms"] = grounding_terms
+                    cid = state.add_claim(relation_claim)
+                    new_claims_found.append(cid)
+                    information_gain += 0.35
 
         # 3b. Genuine Executive Officer & Leadership Extraction from Observed Evidence
         is_exec_goal = (
@@ -1884,6 +1904,8 @@ class InvestigationEngine:
                     "history": hist or existing.get("history", f"Executive tenure as {title or 'Officer'}."),
                 }
 
+        if not in_scope("executives"):
+            extracted_executives.clear()
         for ex_name, ex in extracted_executives.items():
             if ex_name not in state.entities:
                 state.register_entity(name=ex_name, entity_type="EXECUTIVE_OFFICER", metadata=ex)
@@ -2130,7 +2152,7 @@ class InvestigationEngine:
 
         # D. Temporal State Grounding
         m_dates = re.findall(r"\b(20\d\d-\d\d-\d\d|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,\s+20\d\d)?)\b", all_text)
-        if m_dates and any(k in all_text.lower() for k in ("as of", "handover", "resigned", "succeeded", "effective", "approved")):
+        if in_scope("temporal") and m_dates and any(k in all_text.lower() for k in ("as of", "handover", "resigned", "succeeded", "effective", "approved")):
             target_subj = action.target_entities[0] if (action and action.target_entities) else "Temporal State"
             best_doc = get_best_evidence_for_name(target_subj)
             temporal_sentence = extract_sentence_for_entity(best_doc.get("text", ""), target_subj)
@@ -2251,7 +2273,7 @@ class InvestigationEngine:
         # 5. Type-Based Multi-Specialist Chaining (for investigative workflows)
         active_caps = [c.capability_id for c in self.registry.list(include_inactive=False)]
 
-        if not is_20_exec_goal:
+        if not is_20_exec_goal and in_scope("chaining"):
             # Type 1a: Discovered Technical/Infrastructure Subsidiaries -> Chained to Infrastructure Specialist
             tech_subs = [e for e in new_entities_found if any(k in e for k in ("Telemetry", "Infrastructure", "Sensing", "Orbital", "Network", "Cloud"))]
             for tsub in tech_subs:

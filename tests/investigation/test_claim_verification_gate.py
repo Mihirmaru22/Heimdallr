@@ -20,6 +20,7 @@ from argus.investigation.claim_verification import (
     verify_claim,
 )
 from argus.investigation.orchestrator import InvestigationEngine
+from argus.investigation.planner import InvestigationPlanner
 from argus.investigation.state import InvestigationState
 from argus.investigation.store import InvestigationStore
 
@@ -49,6 +50,11 @@ def engine(tmp_path) -> InvestigationEngine:
     return InvestigationEngine(corpus=_NoCorpus(), store=InvestigationStore(tmp_path))
 
 
+def _enumeration_state(objective: str = OBJECTIVE) -> InvestigationState:
+    """State with the interpreted objective, as the production planner creates it."""
+    return InvestigationPlanner().initialize_investigation(objective, {"max_steps": 15})
+
+
 def _apply(engine: InvestigationEngine, state: InvestigationState, docs: list[tuple[str, str, str]]) -> None:
     documents = [
         {"url": url, "title": title, "text": text, "source_type": "live_web", "is_full_content": True}
@@ -69,7 +75,7 @@ def _deployment_claims(state: InvestigationState, company: str) -> list[dict[str
 
 def test_cross_document_text_cannot_invent_a_finding(engine):
     """A pass over concatenated documents once invented 'News Our partners include Acme Widgets'."""
-    state = InvestigationState(objective=OBJECTIVE)
+    state = _enumeration_state()
     _apply(engine, state, [
         ("https://news.example.org/partners", "Partners", "Company News Our partners include Acme Widgets"),
         ("https://directory.example.net/listing", "United States Industrial Machinery 5k $1B Siemens Teamcenter", "Directory listing page."),
@@ -79,7 +85,7 @@ def test_cross_document_text_cannot_invent_a_finding(engine):
 
 
 def test_two_technographic_aggregators_do_not_corroborate(engine):
-    state = InvestigationState(objective=OBJECTIVE)
+    state = _enumeration_state()
     _apply(engine, state, [
         (PROVIDER_URL, "Companies that use Siemens Teamcenter", ROW),
         (SECOND_PROVIDER_URL, "Companies using Siemens Teamcenter", ROW),
@@ -94,7 +100,7 @@ def test_two_technographic_aggregators_do_not_corroborate(engine):
 
 
 def test_aggregator_plus_independent_publisher_corroborates(engine):
-    state = InvestigationState(objective=OBJECTIVE)
+    state = _enumeration_state()
     _apply(engine, state, [
         (PROVIDER_URL, "Companies that use Siemens Teamcenter", ROW),
         (PRESS_URL, "Ford PLM rollout", "Ford Motor Company uses Siemens Teamcenter across its vehicle programs."),
@@ -107,7 +113,7 @@ def test_aggregator_plus_independent_publisher_corroborates(engine):
 
 
 def test_independent_single_source_is_supported_without_fabricated_confidence(engine):
-    state = InvestigationState(objective=OBJECTIVE)
+    state = _enumeration_state()
     _apply(engine, state, [(PRESS_URL, "Boeing PLM", "Boeing uses Siemens Teamcenter for aircraft configuration.")])
     claims = _deployment_claims(state, "Boeing")
     assert len(claims) == 1
@@ -115,8 +121,11 @@ def test_independent_single_source_is_supported_without_fabricated_confidence(en
     assert claims[0]["confidence"] is None
 
 
-def test_incidental_hosts_and_emails_are_never_verified_findings(engine):
-    state = InvestigationState(objective=OBJECTIVE)
+@pytest.mark.parametrize("objective", [OBJECTIVE, "Investigate TheirStack corporate infrastructure and leadership"])
+def test_incidental_hosts_and_emails_are_never_verified_findings(engine, objective):
+    # Enumeration objectives skip incidental extractors (T04); the legacy objective runs them,
+    # so the gate itself is exercised on host/e-mail/officer relations.
+    state = _enumeration_state(objective)
     page = (
         "Companies that use Siemens Teamcenter in United States | TheirStack. "
         "Use our API at https://api.theirstack.com/v1/companies/search or status.theirstack.com. "
@@ -126,14 +135,21 @@ def test_incidental_hosts_and_emails_are_never_verified_findings(engine):
     )
     _apply(engine, state, [(PROVIDER_URL, "Companies that use Siemens Teamcenter in United States", page)])
     incidental = [c for c in state.claims if c.get("predicate") in ("infrastructure", "admin_contact")]
+    if objective == OBJECTIVE:
+        assert not incidental  # out of scope for an organization-enumeration objective
+    else:
+        assert incidental  # extracted for this objective, but never verified
     for c in incidental:
         assert c["status"] == "UNVERIFIED", c
         assert not is_verified(c)
     assert not [c for c in state.claims if is_verified(c) and any(h in str(c.get("object")) for h in ("stripe", "jsdelivr", "support@"))]
 
 
-def test_every_claim_cites_evidence_that_contains_its_passage(engine):
-    state = InvestigationState(objective=OBJECTIVE)
+@pytest.mark.parametrize("objective", [OBJECTIVE, "Investigate TheirStack corporate infrastructure and leadership"])
+def test_every_claim_cites_evidence_that_contains_its_passage(engine, objective):
+    # Enumeration objectives skip incidental extractors (T04); the legacy objective runs them,
+    # so the gate itself is exercised on host/e-mail/officer relations.
+    state = _enumeration_state(objective)
     _apply(engine, state, [
         (PROVIDER_URL, "Companies that use Siemens Teamcenter", "Pricing. Contact support@theirstack.com. " + ROW),
         (PRESS_URL, "Ford PLM rollout", "Ford Motor Company uses Siemens Teamcenter across its vehicle programs."),

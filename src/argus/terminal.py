@@ -442,6 +442,7 @@ class OSINTTerminal:
             "objective": state.objective,
             "is_stopped": state.stop_state.is_stopped,
             "stop_reason": state.stop_state.stop_reason or "UNKNOWN",
+            "enumeration_objective": state.objective_contract.get("enumeration_objective"),
             "confidence": state.confidence_state.overall_confidence,
             "claims": claims_out,
             "entities": entities_out,
