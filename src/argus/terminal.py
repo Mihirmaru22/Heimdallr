@@ -32,6 +32,7 @@ from rich.text import Text
 from argus.export import OSINTExcelExporter, OSINTMarkdownExporter
 from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence
 from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
+from argus.investigation.claim_verification import is_verified
 from argus.investigation.live_web.controller import ControlledLiveWebRetriever
 from argus.investigation.orchestrator import InvestigationEngine
 from argus.investigation.state import InvestigationState
@@ -413,6 +414,8 @@ class OSINTTerminal:
                 "citation": cit,
                 "evidence_id": c.get("evidence_id"),
                 "source_passage": c.get("source_passage"),
+                "verification": c.get("verification"),
+                "source_class": c.get("source_class"),
             })
 
         entities_out = {}
@@ -498,7 +501,8 @@ class OSINTTerminal:
     ) -> None:
         """Render scan metrics summary box matching user's reference UI."""
         claims = data.get("claims", [])
-        verified_count = len([c for c in claims if c.get("status") in ("SUPPORTED", "CORROBORATED", "VENDOR_CONFIRMED", "TECHNOGRAPHIC_PROVIDER_ASSERTION")])
+        # Provider assertions and claims the verification gate did not pass are not "verified".
+        verified_count = len([c for c in claims if is_verified(c)])
         inferred_count = len([c for c in claims if c.get("status") == "INFERRED"])
         contradicted_count = len([c for c in claims if c.get("status") in ("CONTRADICTED", "REFUTED")])
         entities_count = len(data.get("entities", {}))

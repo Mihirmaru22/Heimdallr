@@ -61,6 +61,7 @@ from argus.investigation.benchmark.v2.semantic_auditor import (
 )
 from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
 from argus.investigation.technographics import extract_technographic_deployments
+from argus.investigation.claim_verification import add_support, ground_passage, verify_claim
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -533,7 +534,7 @@ class InvestigationEngine:
         # 2. Check explicitly scoped negative findings
         not_found_claims = [c for c in state.claims if c.get("status") == "NOT_FOUND"]
         if not_found_claims:
-            if any(is_relevant(c.get("subject", ""), c.get("object", "") + " " + c.get("source_passage", "")) for c in not_found_claims):
+            if any(is_relevant(c.get("subject", ""), c.get("object", "") + " " + (c.get("source_passage") or "")) for c in not_found_claims):
                 rel_supp = [
                     c for c in state.claims
                     if c.get("status") == "SUPPORTED" and is_relevant(c.get("subject", ""), c.get("object", "")) and claim_substantiates_objective(c)
@@ -1232,6 +1233,24 @@ class InvestigationEngine:
                     if claim_data.get("predicate") in ("candidate_profile", "IDENTITY_EQUIVALENCE"):
                         claim_data["status"] = "SUPPORTED"
 
+                # Cite the observation retrieved from the claim's own URL (never another document).
+                if not claim_data.get("evidence_id") and claim_data.get("source_url"):
+                    src_doc = next((d for d in docs if d.get("url") == claim_data.get("source_url")), None)
+                    if src_doc is not None:
+                        src_doc["evidence_id"] = state.add_evidence({
+                            "url": src_doc["url"],
+                            "source_type": src_doc.get("source_type"),
+                            "title": src_doc.get("title"),
+                            "snippet": src_doc.get("text", ""),
+                            "published_date": src_doc.get("published_date"),
+                            "syndication_cluster_id": src_doc.get("syndication_cluster_id"),
+                        })
+                        claim_data["evidence_id"] = src_doc["evidence_id"]
+                        if claim_data.get("predicate") in ("ACCOUNT_EXISTENCE", "account_exists", "candidate_profile"):
+                            # An account (candidate) profile is shown by the observation retrieved from that URL.
+                            claim_data["grounding_scope"] = "resource"
+                            claim_data.setdefault("source_passage", src_doc.get("text", ""))
+
                 cid = state.add_claim(claim_data)
                 new_claims_found.append(cid)
                 information_gain += 0.35
@@ -1285,7 +1304,7 @@ class InvestigationEngine:
             for d in docs:
                 if re.search(pat_regex, d.get("text", ""), re.IGNORECASE):
                     return d
-            return docs[0] if docs else {}
+            return {}
 
         def match_entity_in_text(ent_name: str, text: str) -> bool:
             """Robust boundary-aware entity matching supporting unicode, hyphens, punctuation, acronyms, and short names."""
@@ -1326,7 +1345,25 @@ class InvestigationEngine:
             for d in docs:
                 if match_entity_in_text(name_str, d.get("text", "")):
                     return d
-            return docs[0] if docs else {}
+            return {}
+
+        def cite_passage(*terms: str) -> tuple[dict[str, Any], str]:
+            """Find the document and verbatim passage that mention all terms.
+
+            Falls back to the first document mentioning the first term (with an
+            empty passage) so the verification gate can reject the claim rather
+            than borrowing an unrelated document's text.
+            """
+            terms_l = [t for t in terms if t]
+            for d in docs:
+                passage = ground_passage(d.get("text", ""), terms_l)
+                if passage:
+                    return d, passage
+            if terms_l:
+                for d in docs:
+                    if match_entity_in_text(terms_l[0], d.get("text", "")):
+                        return d, ground_passage(d.get("text", ""), terms_l[:1])
+            return {}, ""
 
         def extract_sentence_for_entity(doc_text: str, ent_name: str) -> str:
             raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", doc_text) if s.strip()]
@@ -1365,7 +1402,7 @@ class InvestigationEngine:
                     "status": "CONTRADICTED",
                     "evidence_id": doc.get("evidence_id"),
                     "source_url": doc.get("url"),
-                    "source_passage": doc.get("text", "")[:300],
+                    "source_passage": s_clean,
                 }
 
             neg_markers = [
@@ -1388,7 +1425,7 @@ class InvestigationEngine:
                     "status": st,
                     "evidence_id": doc.get("evidence_id"),
                     "source_url": doc.get("url"),
-                    "source_passage": doc.get("text", "")[:300],
+                    "source_passage": s_clean,
                 }
 
             # Substantive verbs ensuring an actual factual assertion is present
@@ -1442,7 +1479,7 @@ class InvestigationEngine:
                 "status": st,
                 "evidence_id": doc.get("evidence_id"),
                 "source_url": doc.get("url"),
-                "source_passage": doc.get("text", "")[:300],
+                "source_passage": s_clean,
             }
 
         # 2. Extract grounded entities matching corpus vocabulary or specialist output
@@ -1488,18 +1525,21 @@ class InvestigationEngine:
             for clm in adapter_res.get("claims", []) + adapter_res.get("findings", []):
                 if isinstance(clm, dict):
                     if "evidence_id" not in clm and docs:
-                        matching_doc = next((d for d in docs if d.get("url") == clm.get("source_url")), docs[0])
-                        clm["evidence_id"] = matching_doc.get("evidence_id")
-                        if not clm.get("source_url"):
-                            clm["source_url"] = matching_doc.get("url")
-                        if not clm.get("source_passage"):
-                            clm["source_passage"] = matching_doc.get("text", "")[:300]
+                        # Only the document the adapter actually cited; never docs[0].
+                        matching_doc = next((d for d in docs if clm.get("source_url") and d.get("url") == clm.get("source_url")), None)
+                        if matching_doc is not None:
+                            clm["evidence_id"] = matching_doc.get("evidence_id")
+                            if not clm.get("source_passage"):
+                                clm["source_passage"] = ground_passage(
+                                    matching_doc.get("text", ""),
+                                    [str(clm.get("subject") or ""), str(clm.get("object") or "")],
+                                )
                     cid = state.add_claim(clm)
                     new_claims_found.append(cid)
                     information_gain += 0.35
                 elif isinstance(clm, str):
                     subj = action.target_entities[0] if (action and action.target_entities) else "Entity"
-                    best_doc = docs[0] if docs else {}
+                    best_doc, passage = cite_passage(subj, clm)
                     cid = state.add_claim({
                         "subject": subj,
                         "predicate": "finding",
@@ -1507,7 +1547,7 @@ class InvestigationEngine:
                         "status": "SUPPORTED",
                         "evidence_id": best_doc.get("evidence_id"),
                         "source_url": best_doc.get("url"),
-                        "source_passage": best_doc.get("text", "")[:300],
+                        "source_passage": passage,
                     })
                     new_claims_found.append(cid)
                     information_gain += 0.35
@@ -1535,7 +1575,9 @@ class InvestigationEngine:
         dynamic_relations: list[tuple[str, str, str, str]] = []
 
         # 3-0. Enterprise Technographic Deployment Intelligence
-        # Extracts enterprise software deployments from live evidence passages and technographic telemetry
+        # Extracts enterprise software deployments from live evidence passages and technographic telemetry.
+        # Extraction runs per document only: a pass over concatenated documents can join text across
+        # document boundaries and attribute the result to a document that never states it.
         for d in docs:
             d_text = d.get("text", "")
             d_url = d.get("url", "")
@@ -1577,71 +1619,13 @@ class InvestigationEngine:
                             meta["revenue"] = tf.revenue
 
                     pred = "USES_PLM_SOFTWARE" if "teamcenter" in tf.software.lower() else "USES_SOFTWARE"
-                    existing_claim = next(
-                        (c for c in state.claims if c.get("subject") == tf.company and c.get("predicate") == pred and c.get("object") == tf.software),
-                        None,
-                    )
-                    if not existing_claim:
-                        cid = state.add_claim({
-                            "subject": tf.company,
-                            "predicate": pred,
-                            "object": tf.software,
-                            "status": tf.status,
-                            "confidence": tf.confidence,
-                            "evidence_id": d_ev_id,
-                            "source_url": tf.source_url or d_url,
-                            "source_passage": tf.evidence_quote or d_text[:300],
-                            "country": tf.country,
-                            "industry": tf.industry,
-                            "employees": tf.employees,
-                            "revenue": tf.revenue,
-                            "source_type": tf.source_type,
-                            "qualifier": tf.qualifier,
-                        })
-                        new_claims_found.append(cid)
-                        information_gain += 0.40
-                    else:
-                        old_url = existing_claim.get("source_url") or ""
-                        if old_url and d_url:
-                            dom1 = urlparse(old_url if "://" in old_url else f"https://{old_url}").netloc.lower()
-                            dom2 = urlparse(d_url if "://" in d_url else f"https://{d_url}").netloc.lower()
-                            if dom1 and dom2 and dom1 != dom2:
-                                existing_claim["status"] = "CORROBORATED"
-                                existing_claim["confidence"] = 0.98
-                                existing_claim["corroborated_by"] = d_url
-
-        if all_text:
-            primary_url = docs[0].get("url") if docs else ""
-            primary_ev = docs[0].get("evidence_id") if docs else None
-            extra_findings = extract_technographic_deployments(all_text, doc_url=primary_url, target_query=state.objective)
-            for tf in extra_findings:
-                if tf.company not in state.entities:
-                    state.register_entity(
-                        name=tf.company,
-                        entity_type="ORGANIZATION",
-                        metadata={
-                            "country": tf.country,
-                            "industry": tf.industry,
-                            "employees": tf.employees,
-                            "revenue": tf.revenue,
-                            "software": tf.software,
-                            "source_type": tf.source_type,
-                            "source_url": tf.source_url or primary_url,
-                            "qualifier": tf.qualifier,
-                        },
-                    )
-                    new_entities_found.append(tf.company)
-                    information_gain += 0.30
-                pred = "USES_PLM_SOFTWARE" if "teamcenter" in tf.software.lower() else "USES_SOFTWARE"
-                if not any(c.get("subject") == tf.company and c.get("predicate") == pred and c.get("object") == tf.software for c in state.claims):
-                    cid = state.add_claim({
+                    candidate = {
                         "subject": tf.company,
                         "predicate": pred,
                         "object": tf.software,
                         "status": tf.status,
-                        "confidence": tf.confidence,
-                        "evidence_id": primary_ev,
-                        "source_url": tf.source_url or primary_url,
+                        "evidence_id": d_ev_id,
+                        "source_url": d_url,
                         "source_passage": tf.evidence_quote,
                         "country": tf.country,
                         "industry": tf.industry,
@@ -1649,9 +1633,19 @@ class InvestigationEngine:
                         "revenue": tf.revenue,
                         "source_type": tf.source_type,
                         "qualifier": tf.qualifier,
-                    })
-                    new_claims_found.append(cid)
-                    information_gain += 0.40
+                    }
+                    existing_claim = next(
+                        (c for c in state.claims if c.get("subject") == tf.company and c.get("predicate") == pred and c.get("object") == tf.software),
+                        None,
+                    )
+                    if not existing_claim:
+                        cid = state.add_claim(candidate)
+                        new_claims_found.append(cid)
+                        information_gain += 0.40
+                    else:
+                        # A repeat sighting is a candidate support; the shared gate
+                        # decides whether it is an independent voice.
+                        add_support(existing_claim, verify_claim(candidate, state.evidence))
 
         # A. Corporate Subsidiary Declarations
         m_subs_block = re.findall(r"(?:subsidiaries(?:\s+include)?|Subsidiaries held|Wholly owned subsidiaries):\s*([^\n\r]+)", all_text, re.IGNORECASE)
@@ -1772,6 +1766,12 @@ class InvestigationEngine:
             if len(pep_name) >= 3:
                 dynamic_relations.append((pep_name, pep_name, "pep_status", "POLITICALLY_EXPOSED_PERSON"))
 
+        # Coded objects (e.g. HISTORICAL_RESIGNED) are grounded by the cue the source actually states.
+        relation_cues = {
+            "tenure_status": ("resigned", "stepped down"),
+            "pep_status": ("politically exposed person", "former deputy minister"),
+            "sanctioned_by": ("sanctioned", "ofac", "ofsi", "sdn", "designated"),
+        }
         for pat_str, s, p, o in dynamic_relations:
             existing = any(
                 r.get("subject") == s and r.get("predicate") == p and r.get("object") == o
@@ -1779,16 +1779,30 @@ class InvestigationEngine:
             )
             if not existing:
                 state.relationships.append({"subject": s, "predicate": p, "object": o})
-                best_doc = get_best_evidence_for_name(pat_str) or (docs[0] if docs else {})
-                cid = state.add_claim({
+                grounding_terms = None
+                if p in relation_cues:
+                    best_doc, passage = {}, ""
+                    for cue in relation_cues[p]:
+                        best_doc, passage = cite_passage(s, cue)
+                        if passage:
+                            grounding_terms = [cue]
+                            break
+                    if not passage:
+                        best_doc, passage = cite_passage(s)
+                else:
+                    best_doc, passage = cite_passage(*([s] if s == o else [s, o]))
+                relation_claim = {
                     "subject": s,
                     "predicate": p,
                     "object": o,
                     "status": "SUPPORTED",
                     "evidence_id": best_doc.get("evidence_id"),
                     "source_url": best_doc.get("url"),
-                    "source_passage": best_doc.get("text", "")[:300],
-                })
+                    "source_passage": passage,
+                }
+                if grounding_terms:
+                    relation_claim["grounding_terms"] = grounding_terms
+                cid = state.add_claim(relation_claim)
                 new_claims_found.append(cid)
                 information_gain += 0.35
 
@@ -1873,19 +1887,23 @@ class InvestigationEngine:
                 new_entities_found.append(ex_name)
                 information_gain += 0.20
 
-            best_doc = get_best_evidence_for_name(ex_name)
-            ev_id = best_doc.get("evidence_id")
-            ev_url = best_doc.get("url")
-            ev_pass = best_doc.get("text", "")[:300]
-
             if not any(c.get("subject") == ex_name and c.get("predicate") == "title" for c in state.claims):
-                state.add_claim({"subject": ex_name, "predicate": "title", "object": ex["title"], "status": "SUPPORTED", "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
-                state.add_claim({"subject": ex_name, "predicate": "organization", "object": ex["org"], "status": "SUPPORTED", "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
-                state.add_claim({"subject": ex_name, "predicate": "responsibility", "object": ex["responsibility"], "status": "SUPPORTED", "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
-                contact_val = ex["email"] if ex["email"] else "NOT_FOUND"
-                contact_status = "SUPPORTED" if ex["email"] else "NOT_FOUND"
-                state.add_claim({"subject": ex_name, "predicate": "contact_channel", "object": contact_val, "status": contact_status, "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
-                state.add_claim({"subject": ex_name, "predicate": "career_history", "object": ex["history"], "status": "SUPPORTED", "evidence_id": ev_id, "source_url": ev_url, "source_passage": ev_pass})
+                # Each attribute cites the passage that states it; the gate rejects
+                # attributes (e.g. defaulted responsibility text) that no source states.
+                for ex_pred, ex_obj in (
+                    ("title", ex["title"]),
+                    ("organization", ex["org"]),
+                    ("responsibility", ex["responsibility"]),
+                    ("career_history", ex["history"]),
+                ):
+                    ex_doc, ex_pass = cite_passage(ex_name, ex_obj)
+                    state.add_claim({"subject": ex_name, "predicate": ex_pred, "object": ex_obj, "status": "SUPPORTED", "evidence_id": ex_doc.get("evidence_id"), "source_url": ex_doc.get("url"), "source_passage": ex_pass})
+                if ex["email"]:
+                    ex_doc, ex_pass = cite_passage(ex_name, ex["email"])
+                    state.add_claim({"subject": ex_name, "predicate": "contact_channel", "object": ex["email"], "status": "SUPPORTED", "evidence_id": ex_doc.get("evidence_id"), "source_url": ex_doc.get("url"), "source_passage": ex_pass})
+                else:
+                    ex_doc = get_best_evidence_for_name(ex_name)
+                    state.add_claim({"subject": ex_name, "predicate": "contact_channel", "object": "NOT_FOUND", "status": "NOT_FOUND", "evidence_id": ex_doc.get("evidence_id"), "source_url": ex_doc.get("url"), "source_passage": extract_sentence_for_entity(ex_doc.get("text", ""), ex_name)})
                 information_gain += 0.30
 
             if is_exec_goal:
@@ -1952,6 +1970,7 @@ class InvestigationEngine:
                         "evidence_id": ev_id,
                         "source_url": src_url,
                         "source_passage": src_pass,
+                        "grounding_terms": [str(c_rec.resolved_value or c_rec.value_a)],
                     })
                     new_claims_found.append(cid)
                     information_gain += 0.40
@@ -1997,6 +2016,7 @@ class InvestigationEngine:
                             "source_url": d.get("url"),
                             "source_passage": d_text[:300],
                         })
+                        threat_cue = next(k for k in ("phishing", "lookalike", "homoglyph", "imposter", "typosquatting", "malware", "exfiltrates") if k in d_text.lower())
                         state.add_claim({
                             "subject": bad_domain,
                             "predicate": "security_assessment",
@@ -2004,7 +2024,8 @@ class InvestigationEngine:
                             "status": "SUPPORTED",
                             "evidence_id": d.get("evidence_id"),
                             "source_url": d.get("url"),
-                            "source_passage": d_text[:300],
+                            "source_passage": ground_passage(d_text, [bad_domain, threat_cue]),
+                            "grounding_terms": [threat_cue],
                         })
                         state.record_audit(
                             action_type="ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
@@ -2020,15 +2041,16 @@ class InvestigationEngine:
                 is_grounded, is_explicitly_absent, rationale = EntityScopeVerifier.verify_entity_presence(target_ent, docs)
                 if is_explicitly_absent or not is_grounded:
                     if not any(c.get("subject") == target_ent and c.get("status") == "NOT_FOUND" for c in state.claims):
-                        best_doc = docs[0] if docs else {}
+                        # An absence finding rests on all retrieved documents, so it cites
+                        # none of them individually rather than borrowing docs[0].
                         cid = state.add_claim({
                             "subject": target_ent,
                             "predicate": "existence_verification",
                             "object": rationale,
                             "status": "NOT_FOUND",
-                            "evidence_id": best_doc.get("evidence_id"),
-                            "source_url": best_doc.get("url"),
-                            "source_passage": best_doc.get("text", "")[:300] if best_doc else rationale,
+                            "evidence_id": None,
+                            "source_url": None,
+                            "source_passage": "",
                         })
                         new_claims_found.append(cid)
                         information_gain += 0.35
@@ -2059,7 +2081,10 @@ class InvestigationEngine:
         if not is_sufficient:
             target_subj = action.target_entities[0] if (action and action.target_entities) else "Target Hypothesis"
             if not any(c.get("subject") == target_subj and c.get("status") == "INSUFFICIENT_EVIDENCE" for c in state.claims):
-                best_doc = docs[0] if docs else {}
+                best_doc = next(
+                    (d for d in docs if any(m in (d.get("text") or "").lower() for m in EpistemicSufficiencyEvaluator.PRELIMINARY_MARKERS)),
+                    {},
+                )
                 cid = state.add_claim({
                     "subject": target_subj,
                     "predicate": "empirical_sufficiency",
@@ -2104,7 +2129,8 @@ class InvestigationEngine:
         m_dates = re.findall(r"\b(20\d\d-\d\d-\d\d|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,\s+20\d\d)?)\b", all_text)
         if m_dates and any(k in all_text.lower() for k in ("as of", "handover", "resigned", "succeeded", "effective", "approved")):
             target_subj = action.target_entities[0] if (action and action.target_entities) else "Temporal State"
-            best_doc = docs[0] if docs else {}
+            best_doc = get_best_evidence_for_name(target_subj)
+            temporal_sentence = extract_sentence_for_entity(best_doc.get("text", ""), target_subj)
             state.temporal_states.append({
                 "entity": target_subj,
                 "recorded_dates": m_dates,
@@ -2113,11 +2139,11 @@ class InvestigationEngine:
             state.add_claim({
                 "subject": target_subj,
                 "predicate": "temporal_grounding",
-                "object": extract_sentence_for_entity(best_doc.get("text", ""), target_subj),
+                "object": temporal_sentence,
                 "status": "SUPPORTED",
                 "evidence_id": best_doc.get("evidence_id"),
                 "source_url": best_doc.get("url"),
-                "source_passage": best_doc.get("text", "")[:300],
+                "source_passage": temporal_sentence,
             })
             information_gain += 0.30
 

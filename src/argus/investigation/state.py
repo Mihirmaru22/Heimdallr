@@ -16,6 +16,8 @@ import uuid
 
 from pydantic import BaseModel, Field
 
+from argus.investigation.claim_verification import is_verified, verify_claim
+
 
 class AuditTrailEntry(BaseModel):
     """Immutable audit record for every investigation transition."""
@@ -62,9 +64,11 @@ class ConfidenceState(BaseModel):
         self.evidence_coverage = round((resolved_q / total_q), 4) if total_q > 0 else 0.0
 
         total_claims = len(state.claims)
+        # A claim counts as confirmed only when the shared verification gate
+        # passed it; holding an evidence_id is not verification.
         supported_claims = sum(
             1 for c in state.claims
-            if (c.get("evidence_id") and any(e.get("evidence_id") == c.get("evidence_id") for e in state.evidence))
+            if is_verified(c)
             or c.get("status") in ("NOT_FOUND", "CONTRADICTED", "INSUFFICIENT_EVIDENCE")
         )
         self.confirmed_claims_count = supported_claims
@@ -193,9 +197,10 @@ class InvestigationState(BaseModel):
             self.entities[name]["metadata"].update(metadata)
 
     def add_claim(self, claim: dict[str, Any]) -> str:
-        """Add an evidence-backed claim to the state."""
+        """Add a claim to the state after the shared verification gate derives its status."""
         claim_id = claim.get("claim_id") or f"clm_{uuid.uuid4().hex[:8]}"
         claim["claim_id"] = claim_id
+        verify_claim(claim, self.evidence)
         claim["recorded_at"] = datetime.now(timezone.utc).isoformat()
         self.claims.append(claim)
         return claim_id

@@ -251,9 +251,12 @@ class TestNarrativeAndExporters:
         assert hermeus.revenue == ""
 
         # Verify Vendor provenance classification
-        v_status, v_conf, v_type, _ = classify_technographic_source("https://sw.siemens.com/en-US/case-studies/ford-motor/")
+        v_status, v_conf, v_type, _ = classify_technographic_source(
+            "https://sw.siemens.com/en-US/case-studies/ford-motor/", "Siemens Teamcenter"
+        )
         assert v_status == "VENDOR_CONFIRMED"
-        assert v_conf >= 0.95
+        # A publisher's class is not a probability; no confidence is fabricated.
+        assert v_conf is None
 
         # Verify Technographic Provider provenance classification
         p_status, p_conf, p_type, _ = classify_technographic_source("https://theirstack.com/en/technology/siemens-teamcenter/us")

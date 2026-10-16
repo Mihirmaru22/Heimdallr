@@ -8,6 +8,10 @@ Enforces the three-tier epistemic provenance model:
 1. VENDOR_CONFIRMED: Official vendor customer disclosures or case studies.
 2. TECHNOGRAPHIC_PROVIDER_ASSERTION: Third-party technographic telemetry (e.g., TheirStack, Enlyft).
 3. CORROBORATED: Independently verified across multiple distinct publisher domains.
+
+This module only *proposes* statuses from the publisher's source class. The final
+status (and any corroboration) is decided by the shared verification gate in
+``argus.investigation.claim_verification``; no numeric confidence is assigned here.
 """
 
 from __future__ import annotations
@@ -15,37 +19,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 from typing import Any
-from urllib.parse import urlparse
 
+from argus.investigation.claim_verification import (
+    SOURCE_TECHNOGRAPHIC,
+    SOURCE_VENDOR,
+    TECHNOGRAPHIC_PROVIDER_DOMAINS,  # noqa: F401  (re-exported for existing importers)
+    classify_source,
+)
 
-VENDOR_DOMAINS = {
-    "siemens.com",
-    "sw.siemens.com",
-    "plm.automation.siemens.com",
-    "news.siemens.com",
-    "sap.com",
-    "oracle.com",
-    "salesforce.com",
-    "workday.com",
-    "autodesk.com",
-    "ptc.com",
-    "3ds.com",
-    "dassault.com",
-}
-
-TECHNOGRAPHIC_PROVIDER_DOMAINS = {
-    "theirstack.com",
-    "enlyft.com",
-    "6sense.com",
-    "slintel.com",
-    "rocketreach.co",
-    "appsruntheworld.com",
-    "landbase.com",
-    "hgdata.com",
-    "datanyze.com",
-    "zoominfo.com",
-    "leadspace.com",
-}
 
 COMMON_NON_COMPANIES = {
     "api export",
@@ -85,48 +66,44 @@ class TechnographicFinding:
     evidence_quote: str = ""
     source_url: str = ""
     status: str = "TECHNOGRAPHIC_PROVIDER_ASSERTION"
-    confidence: float = 0.88
+    confidence: float | None = None
     source_type: str = "technographic_provider"
     qualifier: str = "Third-Party Technographic Provider Assertion"
 
 
-def classify_technographic_source(doc_url: str) -> tuple[str, float, str, str]:
-    """Classify provenance into vendor disclosure, technographic provider, or independent press."""
-    if not doc_url:
+def classify_technographic_source(doc_url: str, software: str = "") -> tuple[str, float | None, str, str]:
+    """Propose a provenance tier from the publisher's source class.
+
+    Returns ``(proposed_status, confidence, source_type, qualifier)``. Confidence is
+    always ``None``: a publisher's class says who asserts a deployment, not how
+    likely the assertion is to be true.
+    """
+    source_class = classify_source(doc_url, software)
+    if source_class == SOURCE_TECHNOGRAPHIC:
         return (
             "TECHNOGRAPHIC_PROVIDER_ASSERTION",
-            0.88,
+            None,
             "technographic_provider",
-            "Third-Party Technographic Provider Assertion",
+            "Third-Party Technographic Provider Assertion (Job Postings & Telemetry)",
         )
-
-    parsed = urlparse(doc_url if "://" in doc_url else f"https://{doc_url}")
-    domain = parsed.netloc.lower()
-
-    for vd in VENDOR_DOMAINS:
-        if vd in domain:
-            return (
-                "VENDOR_CONFIRMED",
-                0.96,
-                "vendor_official_disclosure",
-                "Vendor Customer Case Study / Official Disclosure",
-            )
-
-    for pd in TECHNOGRAPHIC_PROVIDER_DOMAINS:
-        if pd in domain:
-            return (
-                "TECHNOGRAPHIC_PROVIDER_ASSERTION",
-                0.88,
-                "technographic_provider",
-                "Third-Party Technographic Provider Assertion (Job Postings & Telemetry)",
-            )
-
+    if source_class == SOURCE_VENDOR:
+        return (
+            "VENDOR_CONFIRMED",
+            None,
+            "vendor_official_disclosure",
+            "Vendor Customer Case Study / Official Disclosure",
+        )
     return (
         "SUPPORTED",
-        0.90,
+        None,
         "independent_industry_press",
         "Independent Trade Press / Industry Report",
     )
+
+
+def _provenance(doc_url: str, software: str) -> dict[str, Any]:
+    status, confidence, source_type, qualifier = classify_technographic_source(doc_url, software)
+    return {"status": status, "confidence": confidence, "source_type": source_type, "qualifier": qualifier}
 
 
 def clean_company_name(raw_name: str) -> str:
@@ -202,7 +179,6 @@ def extract_technographic_deployments(
     if not text or len(text) < 20:
         return []
 
-    status_def, conf_def, src_type_def, qual_def = classify_technographic_source(doc_url)
     default_software = detect_software_in_query(target_query)
     default_country = detect_country_in_query(target_query)
 
@@ -238,10 +214,7 @@ def extract_technographic_deployments(
             revenue=rev,
             evidence_quote=quote,
             source_url=doc_url,
-            status=status_def,
-            confidence=conf_def,
-            source_type=src_type_def,
-            qualifier=qual_def,
+            **_provenance(doc_url, sw or default_software),
         )
         extracted_companies[comp] = finding
 
@@ -274,10 +247,7 @@ def extract_technographic_deployments(
             revenue=rev,
             evidence_quote=quote,
             source_url=doc_url,
-            status=status_def,
-            confidence=conf_def,
-            source_type=src_type_def,
-            qualifier=qual_def,
+            **_provenance(doc_url, sw or default_software),
         )
 
     # -------------------------------------------------------------------------
@@ -322,10 +292,7 @@ def extract_technographic_deployments(
             revenue=rev,
             evidence_quote=quote,
             source_url=doc_url,
-            status=status_def,
-            confidence=conf_def,
-            source_type=src_type_def,
-            qualifier=qual_def,
+            **_provenance(doc_url, sw or default_software),
         )
 
     return list(extracted_companies.values())
