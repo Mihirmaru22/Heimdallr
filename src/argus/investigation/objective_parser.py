@@ -27,6 +27,8 @@ from dataclasses import asdict, dataclass, field
 import re
 from typing import Any, Iterable
 
+from argus.investigation.geography import TAKES_ARTICLE, build_aliases
+
 
 ANSWER_TYPE_ORGANIZATION = "ORGANIZATION"
 RELATION_USES = "USES"
@@ -57,29 +59,8 @@ _LEADING_COMMANDS = re.compile(
     re.IGNORECASE,
 )
 
-# Geography normalization (generic place names, not topic data).
-_COUNTRY_ALIASES: dict[str, str] = {
-    "usa": "United States", "us": "United States", "u.s.": "United States", "u.s": "United States",
-    "u.s.a.": "United States", "u.s.a": "United States", "united states": "United States",
-    "united states of america": "United States", "america": "United States", "american": "United States",
-    "uk": "United Kingdom", "u.k.": "United Kingdom", "britain": "United Kingdom",
-    "great britain": "United Kingdom", "united kingdom": "United Kingdom", "british": "United Kingdom",
-    "england": "United Kingdom", "english": "United Kingdom",
-    "india": "India", "indian": "India", "germany": "Germany", "german": "Germany",
-    "australia": "Australia", "australian": "Australia", "canada": "Canada", "canadian": "Canada",
-    "france": "France", "french": "France", "japan": "Japan", "japanese": "Japan",
-    "china": "China", "chinese": "China", "brazil": "Brazil", "brazilian": "Brazil",
-    "mexico": "Mexico", "mexican": "Mexico", "spain": "Spain", "spanish": "Spain",
-    "italy": "Italy", "italian": "Italy", "netherlands": "Netherlands", "dutch": "Netherlands",
-    "sweden": "Sweden", "swedish": "Sweden", "switzerland": "Switzerland", "swiss": "Switzerland",
-    "south korea": "South Korea", "korea": "South Korea", "korean": "South Korea",
-    "uae": "United Arab Emirates", "united arab emirates": "United Arab Emirates",
-    "ireland": "Ireland", "irish": "Ireland", "israel": "Israel", "israeli": "Israel",
-    "europe": "Europe", "european": "Europe", "eu": "Europe",
-    "new zealand": "New Zealand", "south africa": "South Africa", "poland": "Poland", "polish": "Poland",
-    "norway": "Norway", "norwegian": "Norway", "denmark": "Denmark", "danish": "Denmark",
-    "finland": "Finland", "finnish": "Finland", "belgium": "Belgium", "austria": "Austria",
-}
+# Geography normalization from the world gazetteer (every country, no topic data).
+_COUNTRY_ALIASES: dict[str, str] = build_aliases()
 
 COUNTRY_ALIASES = _COUNTRY_ALIASES
 
@@ -126,7 +107,7 @@ class EnumerationObjective:
     def geo_phrase(self) -> str:
         if not self.geography:
             return ""
-        prefix = "the " if self.geography in ("United States", "United Kingdom", "Netherlands", "United Arab Emirates") else ""
+        prefix = "the " if self.geography in TAKES_ARTICLE else ""
         return f"in {prefix}{self.geography}"
 
     def question_text(self) -> str:

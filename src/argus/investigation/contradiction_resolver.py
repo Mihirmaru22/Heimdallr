@@ -86,10 +86,8 @@ class ContradictionResolver:
     # -------------------------------------------------------------------------
 
     DIMENSION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-        ("troop_strength", re.compile(r"\b(?:troop|troops|soldiers|combatants|army|forces|hoplites|infantry|cavalry)\b", re.I)),
-        ("civilizations", re.compile(r"\b(?:civilizations?|communicative|fermi|drake|extraterrestrial|intelligent\s+life)\b", re.I)),
-        ("battery_chemistry", re.compile(r"\b(?:sodium-ion|lithium\s+iron|lfp|chemistry)\b", re.I)),
-        ("thrust", re.compile(r"\b(?:thrust|aerospike|propulsion|static\s+fire|load-cell)\b", re.I)),
+        ("troop_strength", re.compile(r"\b(?:troop|troops|soldiers|combatants|army|forces|infantry|cavalry)\b", re.I)),
+        ("thrust", re.compile(r"\b(?:thrust|propulsion)\b", re.I)),
         ("payload", re.compile(r"\b(?:payload|capacity|lift|handling|load)\b", re.I)),
         ("energy_density", re.compile(r"\b(?:energy\s+density|wh/kg)\b", re.I)),
         ("battery_capacity", re.compile(r"\b(?:battery(?:\s+pack)?|storage|nominal\s+capacity)\b", re.I)),
@@ -97,25 +95,44 @@ class ContradictionResolver:
         ("efficacy", re.compile(r"\b(?:efficacy|biomarker|reduction|endpoints|phase\s+ii|phase\s+iii|trial)\b", re.I)),
         ("revenue", re.compile(r"\b(?:revenue|sales|earnings|turnover|valuation|purchase\s+price)\b", re.I)),
         ("completion_date", re.compile(r"\b(?:completion|readout|scheduled|timeline|window|launch)\b", re.I)),
-        ("fleet_size", re.compile(r"\b(?:fleet|vessels|ships|containerships|carriers)\b", re.I)),
+        ("fleet_size", re.compile(r"\b(?:fleet|vessels|ships|carriers)\b", re.I)),
         ("latency", re.compile(r"\b(?:latency|ping|delay|tps|throughput)\b", re.I)),
-        ("qubits", re.compile(r"\b(?:qubit|qubits|transmon)\b", re.I)),
+        ("qubits", re.compile(r"\b(?:qubit|qubits)\b", re.I)),
         ("temperature", re.compile(r"\b(?:temperature|base\s+temp|millikelvin|mK|kelvin)\b", re.I)),
         ("thermal_output", re.compile(r"\b(?:thermal\s+(?:output|rating)|mwth|mwe)\b", re.I)),
-        ("attribution", re.compile(r"\b(?:attributed\s+to|espionage\s+group|apt\d+|sandworm|threat\s+actor)\b", re.I)),
+        ("attribution", re.compile(r"\b(?:attributed\b(?:\s+\S+){0,6}?\s+to|blamed\s+on|espionage\s+group|threat\s+actor)\b", re.I)),
         ("sample_size", re.compile(r"\b(?:cohort|sample\s+size|patients|subjects)\b", re.I)),
-        ("foundation_date", re.compile(r"\b(?:dating|founded|foundation|bce|radiocarbon|calibrated\s+dates|citadel|century|stratigraphy|numismatic)\b", re.I)),
-        ("dating", re.compile(r"\b(?:dating|radiocarbon|calibrated\s+dates|citadel|century|stratigraphy|numismatic|hoard)\b", re.I)),
-        ("creep_life", re.compile(r"\b(?:creep|rupture\s+life|superalloy|stress)\b", re.I)),
-        ("heat_capacity", re.compile(r"\b(?:heat\s+capacity|volumetric|coolant|fluoride\s+salt)\b", re.I)),
+        ("foundation_date", re.compile(r"\b(?:dating|founded|foundation|bce|radiocarbon|calibrated\s+dates|century)\b", re.I)),
+        ("dating", re.compile(r"\b(?:dating|radiocarbon|calibrated\s+dates|century)\b", re.I)),
+        ("creep_life", re.compile(r"\b(?:creep|rupture\s+life)\b", re.I)),
+        ("heat_capacity", re.compile(r"\b(?:heat\s+capacity|volumetric)\b", re.I)),
         ("resignation_timing", re.compile(r"\b(?:resigned|resignation|retirement|stepped\s+down)\b", re.I)),
-        ("classification", re.compile(r"\b(?:asteroid|spectral|m-type|c-type|planet|dwarf\s+planet)\b", re.I)),
-        ("invention_credit", re.compile(r"\b(?:invented|inventor|telephone\s+invention|priority\s+dispute|bell|meucci|gray)\b", re.I)),
+        ("classification", re.compile(r"\b(?:classified\s+as|reclassified|classification|categori[sz]ed\s+as)\b", re.I)),
+        ("invention_credit", re.compile(r"\b(?:invented|inventor|credited\s+(?:to|with)|priority\s+dispute)\b", re.I)),
     ]
+
+    KIND_PHRASE_PATTERN = re.compile(
+        r"(?P<value>[A-Z][\w-]*(?:\s+[A-Z][\w-]*){0,3}(?:\s*\([A-Z0-9-]+\))?)\s+"
+        r"(?P<noun>[a-z][a-z-]{2,})\s+(?P<kind>chemistry|architecture|material|process|design|technology)\b"
+    )
+
+    # Categorical values are read from the sentence itself (the named party or class),
+    # never from a list of known answers.
+    _NAME = r"([A-Z][\w.&'-]*(?:\s+(?:of\s+|the\s+)?[A-Z0-9][\w.&'-]*){0,4})"
+    CATEGORICAL_PATTERNS: dict[str, list[re.Pattern[str]]] = {
+        "attribution": [re.compile(r"(?:attributed(?:\s+\S+){0,6}?\s+to|blamed\s+on|linked\s+to)\s+(?:the\s+)?" + _NAME)],
+        "invention_credit": [
+            re.compile(r"(?:invented\s+by|credited\s+to|discovered\s+by)\s+" + _NAME),
+            re.compile(_NAME + r"\s+(?:invented|is\s+credited|was\s+credited)"),
+        ],
+        "classification": [
+            re.compile(r"(?:re)?(?:classified|categori[sz]ed)\s+as\s+(?:an?\s+)?([a-z][\w-]*(?:\s+[a-z][\w-]*){0,2})", re.I),
+        ],
+    }
 
     NUMERIC_VALUE_PATTERN = re.compile(
         r"(\$)?\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*"
-        r"(kg|g|t|wh/kg|kj/m3-k|kj/m3|kwh|mwh|gwh|mwth|mwe|mw|gw|kw|w|kn|mn|n|lbf|mpa|gpa|kpa|bar|psi|hours|hrs|days|years|km|m|cm|mm|%|percent|pct|bce|bc|ce|ad|ms|μs|us|s|ns|tps|ops/sec|mk|k|qubits|vessels|ships|patients|subjects|civilizations?|soldiers|troops|combatants|hoplites|billion|million|b|m)?(?:\b|(?<=%))",
+        r"(kg|g|t|wh/kg|kj/m3-k|kj/m3|kwh|mwh|gwh|mwth|mwe|mw|gw|kw|w|kn|mn|n|lbf|mpa|gpa|kpa|bar|psi|hours|hrs|days|years|km|m|cm|mm|%|percent|pct|bce|bc|ce|ad|ms|μs|us|s|ns|tps|ops/sec|mk|k|qubits|vessels|ships|patients|subjects|soldiers|troops|combatants|billion|million|b|m)?(?:\b|(?<=%))",
         re.I,
     )
 
@@ -123,7 +140,7 @@ class ContradictionResolver:
         "official_certificate", "commercial_register", "regulatory_filing",
         "utility_dossier", "peer_reviewed_journal", "government_permit",
         "type_approval", "scientific_paper", "government_audit",
-        "metrology_report", "usda_trial_report", "iaea_technical_record",
+        "metrology_report",
         "government_advisory", "official_manifest", "laboratory_certification",
         "registry_search_negative", "iso_certification", "court_docket",
     }
@@ -144,11 +161,12 @@ class ContradictionResolver:
         u = (url or "").lower()
         if st in self.AUTHORITATIVE_SOURCE_TYPES:
             return 1
-        if any(dom in u for dom in (".gov", ".int", "tuv.com", "fraunhofer", "lloyds", "nist.gov", "ars.usda.gov", "iaea.org", "cisa.gov", "admin.ch", "esa.int", "nejm.org")):
+        host = urlparse(u).netloc if "://" in u else u
+        if re.search(r"\.(?:gov|mil|int)(?:\.[a-z]{2})?$|\.gov\.[a-z]{2}$", host.split(":")[0]):
             return 1
         if st in self.UNVERIFIED_SOURCE_TYPES:
             return 3
-        if any(dom in u for dom in ("forum", "blog", "x.com", "rumor", "brochure")):
+        if any(dom in u for dom in ("forum", "blog", "rumor", "brochure")):
             return 3
         return 2
 
@@ -181,10 +199,8 @@ class ContradictionResolver:
             return u in ("hours", "hrs", "days") or (not is_dollar and num > 0)
         if dim == "heat_capacity":
             return u in ("kj/m3-k", "kj/m3", "j/g-k") or (not is_dollar and num > 0)
-        if dim == "civilizations":
-            return u in ("civilization", "civilizations", "") and not is_dollar and not u.endswith("%") and u not in ("years", "hrs", "days")
         if dim == "troop_strength":
-            return u in ("troops", "soldiers", "combatants", "hoplites", "") and not is_dollar and not u.endswith("%") and u not in ("bce", "bc", "ce", "ad", "years", "hrs", "days")
+            return u in ("troops", "soldiers", "combatants", "") and not is_dollar and not u.endswith("%") and u not in ("bce", "bc", "ce", "ad", "years", "hrs", "days")
         return True
 
     @staticmethod
@@ -263,11 +279,8 @@ class ContradictionResolver:
             return True
         stopwords = {
             "the", "of", "and", "in", "at", "for", "to", "a", "an", "is", "was",
-            "division", "consortium", "corporation", "ltd", "inc", "co", "equation",
-            "grid", "power", "energy", "systems", "system", "technology", "technologies",
-            "group", "network", "networks", "data", "cloud", "telecom", "aerospace",
-            "therapeutics", "motors", "foundry", "company", "department", "unit",
-            "alliance", "oceanics", "supercomputing", "geothermal", "solutions",
+            "division", "consortium", "corporation", "ltd", "limited", "inc", "co", "llc", "plc",
+            "company", "department", "unit", "group", "holdings", "alliance",
         }
         distinctive_tokens = [tok for tok in re.findall(r"\b[a-zA-Z0-9_-]+\b", t_lower) if tok not in stopwords and len(tok) >= 3]
         if distinctive_tokens:
@@ -299,9 +312,16 @@ class ContradictionResolver:
 
             for s in sentences:
                 s_lower = s.lower()
-                # Identify property dimension
+                # Identify property dimension. A "<Value> <noun> <kind>" phrase ("Sodium-Ion
+                # battery chemistry", "Transformer model architecture") names its own
+                # categorical dimension; otherwise fall back to the measurement patterns.
                 matched_dim = None
+                kind_match = self.KIND_PHRASE_PATTERN.search(s)
+                if kind_match:
+                    matched_dim = f"{kind_match.group('noun').lower()}_{kind_match.group('kind').lower()}"
                 for dim_name, pat in self.DIMENSION_PATTERNS:
+                    if matched_dim:
+                        break
                     if pat.search(s_lower):
                         matched_dim = dim_name
                         break
@@ -363,34 +383,17 @@ class ContradictionResolver:
 
                 # Extract categorical value if present
                 cat_val = None
-                if matched_dim == "battery_chemistry":
-                    if "sodium-ion" in s_lower:
-                        cat_val = "sodium-ion"
-                    elif "lithium iron" in s_lower or "lfp" in s_lower:
-                        cat_val = "lfp"
-                elif matched_dim == "classification":
-                    if "m-type" in s_lower:
-                        cat_val = "m-type"
-                    elif "c-type" in s_lower or "carbonaceous" in s_lower:
-                        cat_val = "c-type"
-                    elif "dwarf planet" in s_lower:
-                        cat_val = "dwarf planet"
-                    elif "planet" in s_lower:
-                        cat_val = "planet"
-                elif matched_dim == "attribution":
-                    if "apt41" in s_lower:
-                        cat_val = "apt41"
-                    elif "sandworm" in s_lower:
-                        cat_val = "sandworm"
-                elif matched_dim == "invention_credit":
-                    if "bell" in s_lower:
-                        cat_val = "alexander graham bell"
-                    elif "meucci" in s_lower:
-                        cat_val = "antonio meucci"
-                    elif "gray" in s_lower:
-                        cat_val = "elisha gray"
-                elif matched_dim == "resignation_timing":
-                    month_match = re.search(r"\b(march|june|september|december|january|july|august)\b", s_lower)
+                if kind_match:
+                    cat_val = re.sub(r"\s+", " ", kind_match.group("value")).strip().lower()
+                for cat_pat in self.CATEGORICAL_PATTERNS.get(matched_dim, []):
+                    if cat_val:
+                        break
+                    m_cat = cat_pat.search(s)
+                    if m_cat:
+                        cat_val = m_cat.group(1).strip(" .,;:").lower()
+                        break
+                if matched_dim == "resignation_timing":
+                    month_match = re.search(r"\b(january|february|march|april|may|june|july|august|september|october|november|december)\b", s_lower)
                     if month_match:
                         cat_val = month_match.group(1)
 
@@ -557,7 +560,7 @@ class ContradictionResolver:
                                     u1 == u2
                                     or not u1
                                     or not u2
-                                    or (dim in ("troop_strength", "civilizations", "fleet_size", "sample_size"))
+                                    or (dim in ("troop_strength", "fleet_size", "sample_size"))
                                 )
                                 if is_compat:
                                     contradictions.append(
@@ -586,6 +589,18 @@ class ContradictionResolver:
         return contradictions
 
 
+_NEGATION_MARKERS = (
+    "does not exist", "did not exist", "never existed", "never issued", "was never", "were never",
+    "never acquired", "never granted", "zero affiliation", "no affiliation", "not affiliated",
+    "unrelated entity", "no record", "fictitious", "nonexistent", "no such", "no division",
+)
+
+
+def self_negation_marker(sentence: str) -> bool:
+    """True when a sentence denies existence or a link ("X does not exist", "never acquired")."""
+    return any(m in sentence for m in _NEGATION_MARKERS)
+
+
 class EntityScopeVerifier:
     """Enforces entity and relationship scope boundaries preventing parent contamination."""
 
@@ -597,7 +612,7 @@ class EntityScopeVerifier:
         indicators = (
             "verify whether", "does not exist", "department of", "division of", "vp of",
             "vice president of", "fictitious", "nonexistent", "negative verification",
-            "acquisition of", "mars bureau", "scramjet", "teleportation", "warp drive"
+            "acquisition of",
         )
         return any(ind in obj_lower for ind in indicators) or any(ind in ent_lower for ind in indicators)
 
@@ -610,36 +625,30 @@ class EntityScopeVerifier:
         all_text = " ".join((d.get("text") or d.get("text_content") or "") for d in docs).lower()
         target_lower = target_entity.lower()
 
-        # Check explicit negative records
-        neg_indicators = (
-            "does not exist", "never issued", "zero affiliation", "unrelated entity",
-            "no record in commercial", "fictitious entity", "no division", "subterranean mining division does not exist",
-            "lunar bioscience does not exist", "superconducting grid license does not exist",
-            "gdpr fine was never issued", "mars bureau does not exist", "teleportation freight does not exist",
-            "mach 20 scramjet does not exist", "warp drive starship does not exist",
-            "never acquired the linux foundation", "zero excess events", "not a superconductor"
-        )
-        for neg in neg_indicators:
-            if neg in all_text:
-                return False, True, f"Authoritative documentation explicitly confirmed negative finding: '{neg}'."
-
-        # Check full entity token matching
         tokens = [t for t in re.split(r"\W+", target_lower) if len(t) > 3 and t not in ("corporation", "limited", "company", "department", "division")]
         if not tokens:
             tokens = [target_lower]
-
-        # Check if the specific sub-entity / department / modifier appears in text
-        # If target has a modifier like "anti-gravity", "cybernetics", "lunar", "subsea", check for that modifier specifically!
-        sub_modifiers = [
-            t for t in tokens
-            if t not in ("kuka", "dynamics", "aethelgard", "biomedical", "onyx", "hypercomputing", "valerius", "thorne", "maritime", "quasar", "photovoltaics", "solaria", "aerospace", "zephyr", "microgrid", "borealis", "genomics", "vanguard", "hesperus", "nasa", "microsoft", "linux")
+        sentences = [
+            sent.strip()
+            for d in docs
+            for sent in re.split(r"(?<=[.!?])\s+", (d.get("text") or d.get("text_content") or "").lower())
+            if sent.strip()
         ]
 
-        if sub_modifiers:
-            # Sub-entity target: must match the specific sub-modifiers
-            found_sub = any(m in all_text for m in sub_modifiers)
-            if not found_sub:
-                return False, False, f"Parent organization was referenced, but specific sub-entity modifiers {sub_modifiers} were absent from all retrieved evidence."
+        # An explicit negative record is a sentence that names the target and denies it exists
+        # or denies the queried link.
+        # The sentence may drop the parent name ("the mining division does not exist").
+        named = tokens[1:] if len(tokens) > 1 else tokens
+        for sent in sentences:
+            if all(tok in sent for tok in named) and self_negation_marker(sent):
+                return False, True, f"Authoritative documentation explicitly confirmed negative finding: '{sent[:160]}'."
+
+        # A scoped target (a parent name plus sub-unit words) is grounded only where every
+        # distinctive word appears together in one sentence; the parent alone is not enough.
+        if len(tokens) > 1 and not any(all(tok in sent for tok in tokens) for sent in sentences):
+            missing = [t for t in tokens if t not in all_text]
+            if any(t in all_text for t in tokens) and missing:
+                return False, False, f"Parent organization was referenced, but specific sub-entity modifiers {missing} were absent from all retrieved evidence."
 
         # Full target matching
         if target_lower in all_text or all(tok in all_text for tok in tokens):
@@ -654,7 +663,7 @@ class EpistemicSufficiencyEvaluator:
     PRELIMINARY_MARKERS = [
         "preliminary", "inconclusive", "failed to replicate", "null result",
         "unconfirmed", "unsubstantiated", "rumor", "blog post", "forum chatter",
-        "preprint", "open question", "unproven", "undeciphered", "weathering prevents",
+        "preprint", "open question", "unproven",
         "cannot be determined", "in vitro only", "single-patient case",
         "internal dataset", "proprietary", "not public", "confidential"
     ]
@@ -670,17 +679,25 @@ class EpistemicSufficiencyEvaluator:
 
         combined_text = " ".join((d.get("text") or d.get("text_content") or "") for d in docs).lower()
 
-        # Check for proprietary / non-public trade secrets or missing internal specs
-        obj_lower = objective.lower()
-        if any(k in obj_lower for k in ("internal cluster topology", "internal topology", "exact memory dump", "internal dataset mixture", "pretraining token mixture", "raw hex dump")):
-            if not any(k in combined_text for k in ("exact hex", "full topology diagram", "released mixture ratios")):
-                return False, "Technical or organizational metrics requested are non-public or proprietary; public sources provide insufficient granularity."
-
         # Count preliminary indicators
         matched_markers = [m for m in cls.PRELIMINARY_MARKERS if m in combined_text]
         if matched_markers:
             # If document explicitly notes that finding is inconclusive, preliminary, unconfirmed, or failed
-            if any(k in combined_text for k in ("inconclusive", "cannot be drawn", "undeciphered", "authorship remains undetermined", "open question", "completely unverified", "failed to replicate", "unsubstantiated")):
+            if any(k in combined_text for k in ("inconclusive", "cannot be drawn", "remains undetermined", "open question", "completely unverified", "failed to replicate", "unsubstantiated")):
                 return False, f"Authoritative sources explicitly state findings are inconclusive or preliminary ({matched_markers[:2]})."
+
+        # A request for non-public detail (internal, proprietary, confidential...) is answered
+        # only if the evidence actually discusses the requested specifics.
+        obj_lower = objective.lower()
+        nonpublic = ("internal", "proprietary", "confidential", "unreleased", "undisclosed", "secret", "non-public", "private")
+        if any(re.search(rf"\b{re.escape(k)}\b", obj_lower) for k in nonpublic):
+            generic = {"investigate", "determine", "identify", "details", "detail", "information", "about", "their", "which", "whether"}
+            requested = {w for w in re.findall(r"[a-z][a-z-]{4,}", obj_lower) if w not in generic and w not in nonpublic}
+            covered = {w for w in requested if w in combined_text}
+            if requested and len(covered) * 2 < len(requested):
+                return False, (
+                    "Technical or organizational metrics requested are non-public or proprietary; public sources "
+                    f"provide insufficient granularity (covered {len(covered)} of {len(requested)} requested terms)."
+                )
 
         return True, "Evidence depth and authoritative sourcing satisfy epistemic sufficiency."

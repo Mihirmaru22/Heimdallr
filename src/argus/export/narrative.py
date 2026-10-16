@@ -261,7 +261,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
 
     # B. Leadership & Industry Associations
     assoc_matches = re.finditer(
-        r"President\s*[-—:]?\s*([A-Z][A-Za-z0-9\s.,&-]{3,50}?(?:Association|Council|Enterprises|Chamber|RITA|VCITE|IACC))",
+        r"President\s*[-—:]?\s*([A-Z][A-Za-z0-9\s.,&-]{3,50}?(?:Association|Council|Enterprises|Chamber|Society|Federation|Institute|Forum|Club|\b[A-Z]{3,8}\b))",
         combined_text,
     )
     for am in assoc_matches:
@@ -272,7 +272,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
             fact_sources[stmt] = _source_url_for(am.group(0), evidence_passages)
 
     # C. Certifications & Credentials
-    cred_matches = re.finditer(r"\b(CSM\s*[-—:]?\s*Certified\s+Scrum\s+Master|Certified\s+Scrum\s+Master|PMP|CISSP|CISA)\b", combined_text)
+    cred_matches = re.finditer(r"\b(Certified\s+[A-Z][\w-]*(?:\s+[A-Z][\w-]*){0,3})", combined_text)
     for cm in cred_matches:
         cred = cm.group(1).strip()
         if cred not in credentials:
@@ -281,7 +281,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
 
     # D. Headquarters & Locations
     loc_matches = re.finditer(
-        r"(?:Address|Location|Headquartered in|based in|Office)[\s:]*([^\n\r]+?(?:Rajkot|Gujarat|India|California|London|Singapore|Mumbai|Bangalore|Delhi|Ahmedabad)[^\n\r,.]*)",
+        r"(?:Address|Location|Headquartered in|based in)[\s:]+([A-Z][^\n\r.;]{2,80})",
         combined_text,
         re.IGNORECASE,
     )
@@ -404,7 +404,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
     # Always include primary target
     curated_entities.append({
         "name": primary_name,
-        "type": "INDIVIDUAL" if any(k in target_raw.lower() for k in ("ronak", "raiyani", "person", "who is", "executive")) else "PRIMARY_SUBJECT",
+        "type": "INDIVIDUAL" if any(k in target_raw.lower() for k in ("person", "who is", "executive")) else "PRIMARY_SUBJECT",
         "role": roles_and_titles[0] if roles_and_titles else "Subject Entity",
         "organization": list(organizations.keys())[0] if organizations else "N/A",
         "contact": contacts[0] if contacts else "None disclosed",

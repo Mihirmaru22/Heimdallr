@@ -322,14 +322,14 @@ class OSINTTerminal:
         render_banner()
         render_startup_status(self)
 
-        if interactive and not target:
+        while interactive and not (target or "").strip():
             target = Prompt.ask(
                 "[bold bright_green]Enter target entity or intelligence question to scan[/bold bright_green]",
-                default="List out companies in India which uses SAP ERP",
             )
             console.print()
 
-        target = target or "List out companies in India which uses SAP ERP"
+        if not (target or "").strip():
+            raise ValueError("No research objective given; pass --target or run interactively.")
         console.print(f"[bold cyan]>>> Initializing autonomous deep research for:[/bold cyan] [bold white underline]{target}[/bold white underline]\n")
 
         # Execute investigation

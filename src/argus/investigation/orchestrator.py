@@ -516,15 +516,12 @@ class InvestigationEngine:
         }
         target_concept_tokens = obj_tokens - stop_words - set(re.findall(r"\w{4,}", " ".join(contract_entities)))
 
+        # Organizational form words: they say what kind of body something is, not which one.
         GENERIC_CORP_TOKENS = {
-            "corp", "ltd", "inc", "llc", "company", "division", "department", "unit",
-            "foundry", "biofoundry", "supercomputing", "oceanics", "geothermal", "alliance", "energy",
-            "systems", "technologies", "power", "grid", "network", "networks", "group", "holdings",
-            "solutions", "telecom", "aerospace", "therapeutics", "motors", "center", "centre",
+            "corp", "corporation", "ltd", "limited", "inc", "llc", "plc", "gmbh", "company", "co",
+            "division", "department", "unit", "group", "holdings", "alliance", "consortium",
+            "center", "centre", "institute", "foundation", "agency", "bureau", "office",
         }
-
-        # Parent brand stems that might have scoped child queries
-        PARENT_BRAND_STEMS = {"helix", "zephyrus", "thalassa", "valles", "solaris", "titan", "apex", "biolink"}
 
         def is_relevant(subj: str, text: str) -> bool:
             s_low = (subj or "").lower()
@@ -541,8 +538,11 @@ class InvestigationEngine:
                     ce_distinctive = ce_tokens - GENERIC_CORP_TOKENS
                     s_distinctive = s_tokens - GENERIC_CORP_TOKENS
 
-                    # If contract entity specifies a scoped child/unit (e.g. cryogenic rocket division)
-                    child_modifiers = ce_distinctive - PARENT_BRAND_STEMS
+                    # If contract entity specifies a scoped child/unit (e.g. "<Brand> cryogenic
+                    # rocket division"), the leading distinctive token is the parent brand and the
+                    # remaining distinctive tokens scope the child.
+                    ce_ordered = [t for t in re.findall(r"\w{3,}", ce) if t not in GENERIC_CORP_TOKENS]
+                    child_modifiers = set(ce_ordered[1:]) - {ce_ordered[0]} if ce_ordered else set()
                     if len(child_modifiers) >= 1 and len(ce_distinctive) >= 2:
                         if any(m in combined for m in child_modifiers):
                             return True
@@ -1527,9 +1527,8 @@ class InvestigationEngine:
                 "zero affiliation", "no affiliation", "unrelated", "not affiliated",
                 "does not exist", "never granted", "never issued", "no division", "no record", "fictitious",
                 "insufficient evidence", "null result", "failed to replicate", "unconfirmed",
-                "inconclusive", "undeciphered", "unsubstantiated", "not a superconductor",
-                "zero excess events", "failed peer review", "no translation key has been scientifically validated",
-                "remain unproven", "unproven", "trade secret", "will not be disclosed", "in vitro",
+                "inconclusive", "unsubstantiated", "failed peer review",
+                "remain unproven", "unproven", "trade secret", "will not be disclosed",
                 "preliminary", "alleged", "allegedly", "speculative", "speculates", "anecdotal",
                 "unverified", "pending investigation", "cannot be confirmed", "rumored", "rumor",
                 "doubtful", "open question", "unresolved", "not yet established", "insufficient data",
@@ -1567,7 +1566,7 @@ class InvestigationEngine:
                 predicate = "leadership_role"
             elif any(w in words for w in ("subsidiary", "acquired", "parent", "operates")):
                 predicate = "corporate_structure"
-            elif any(w in words for w in ("discovered", "demonstrated", "measured", "calculated", "published", "developed", "eclipses", "orbit")):
+            elif any(w in words for w in ("discovered", "demonstrated", "measured", "calculated", "published", "developed")):
                 predicate = "scientific_finding"
             elif any(w in words for w in ("sanctioned", "sdn", "pep")):
                 predicate = "regulatory_status"
@@ -1783,7 +1782,7 @@ class InvestigationEngine:
                 parent_cand = action.target_entities[0] if (action and action.target_entities) else "Parent Organization"
                 for sub_name in re.split(r"[,;]\s*", s_block):
                     sub_name_clean = sub_name.strip().rstrip(".")
-                    if len(sub_name_clean) >= 3 and any(k in sub_name_clean for k in ("Ltd", "Limited", "LLC", "GmbH", "Inc", "Corp", "Systems", "Orbital", "Telemetry", "Defense")):
+                    if len(sub_name_clean) >= 3 and re.search(r"\b(?:Ltd|Limited|LLC|GmbH|Inc|Corp|Corporation|plc|PLC|AG|SA|S\.A|BV|B\.V|Pty|LLP|LP|Co)\b\.?", sub_name_clean):
                         dynamic_relations.append((sub_name_clean, parent_cand, "subsidiary", sub_name_clean))
 
             m_single_sub = re.finditer(
@@ -1796,7 +1795,7 @@ class InvestigationEngine:
                 parent_cand = action.target_entities[0] if (action and action.target_entities) else "Parent Organization"
                 if len(sub_cand) >= 3:
                     if sub_cand not in state.entities:
-                        state.register_entity(sub_cand, "SUBSIDIARY")
+                        state.register_entity(sub_cand, "SUBSIDIARY", metadata={"context": m_sub.group(0)})
                         new_entities_found.append(sub_cand)
                     dynamic_relations.append((sub_cand, parent_cand, "subsidiary", sub_cand))
 
@@ -1941,9 +1940,8 @@ class InvestigationEngine:
         # 3b. Genuine Executive Officer & Leadership Extraction from Observed Evidence
         is_exec_goal = (
             state.objective_contract.get("expected_executive_count") is not None
-            or any(k in state.objective.lower() for k in ("executive", "officer", "leadership", "20 current"))
+            or any(k in state.objective.lower() for k in ("executive", "officer", "leadership"))
         )
-        is_20_exec_goal = is_exec_goal
 
         def extract_clean_email(raw_val: str) -> str | None:
             if not raw_val or any(k in raw_val.lower() for k in ("none disclosed", "not disclosed", "none")):
@@ -2304,18 +2302,30 @@ class InvestigationEngine:
 
         insufficient_markers = [
             "insufficient evidence", "null result", "failed to replicate", "unconfirmed",
-            "inconclusive", "not confirmed", "undeciphered", "unsubstantiated",
-            "zero excess events", "failed peer review", "not a superconductor",
-            "no translation key has been scientifically validated", "scientifically unsubstantiated",
+            "inconclusive", "not confirmed", "unsubstantiated", "failed peer review",
         ]
+        # The objective's own content words; a sentence that negates one of them about the
+        # target ("X is ... not a superconductor" for "...superconductivity in X") refutes the
+        # proposition being investigated.
+        objective_stems = {w[:6] for w in re.findall(r"[a-z]{6,}", (state.objective or "").lower())}
+
+        def negates_objective_term(sentence: str) -> bool:
+            for m_neg in re.finditer(r"\b(?:not|no|never|neither|nor)\s+(?:an?\s+|the\s+)?([a-z]{6,})", sentence.lower()):
+                if m_neg.group(1)[:6] in objective_stems:
+                    return True
+            return False
+
         for d in docs:
             d_text = d.get("text", "")
-            if any(k in d_text.lower() for k in insufficient_markers):
+            d_sentences_all = [s.strip() for s in re.split(r"(?<=[.!?])\s+", d_text) if s.strip()]
+            if any(k in d_text.lower() for k in insufficient_markers) or any(negates_objective_term(s) for s in d_sentences_all):
                 target_subj = action.target_entities[0] if (action and action.target_entities) else "Target Hypothesis"
                 if any(match_entity_in_text(te, d_text) for te in target_entities_list):
-                    d_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", d_text) if s.strip()]
+                    d_sentences = d_sentences_all
                     for s in d_sentences:
-                        if any(k in s.lower() for k in insufficient_markers):
+                        if any(k in s.lower() for k in insufficient_markers) or (
+                            negates_objective_term(s) and any(match_entity_in_text(te, s) for te in target_entities_list)
+                        ):
                             if not any(c.get("subject") == target_subj and c.get("status") == "INSUFFICIENT_EVIDENCE" for c in state.claims):
                                 cid = state.add_claim({
                                     "subject": target_subj,
@@ -2542,9 +2552,23 @@ class InvestigationEngine:
         # 5. Type-Based Multi-Specialist Chaining (for investigative workflows)
         active_caps = [c.capability_id for c in self.registry.list(include_inactive=False)]
 
-        if not is_20_exec_goal and in_scope("chaining"):
+        if not is_exec_goal and in_scope("chaining"):
             # Type 1a: Discovered Technical/Infrastructure Subsidiaries -> Chained to Infrastructure Specialist
-            tech_subs = [e for e in new_entities_found if any(k in e for k in ("Telemetry", "Infrastructure", "Sensing", "Orbital", "Network", "Cloud"))]
+            # A subsidiary whose own evidence describes it as technical/infrastructure gets an
+            # infrastructure follow-up; the decision comes from the passage, not the name.
+            infra_context = re.compile(r"\b(?:infrastructure|network|hosting|cloud|data\s*cent(?:er|re)|telemetry|domains?|servers?)\b", re.I)
+            legal_form = re.compile(r"\b(?:Ltd|Limited|LLC|GmbH|Inc|Corp|Corporation|plc|PLC|AG|SA|BV|Pty|LLP|LP)\b\.?")
+
+            def entity_context(name: str) -> str:
+                meta_ctx = str(((state.entities.get(name) or {}).get("metadata") or {}).get("context", ""))
+                sentence = next((sent for sent in re.split(r"(?<=[.!?\n])\s+", all_text) if name in sent), "")
+                return f"{name} {meta_ctx} {sentence}"
+
+            tech_subs = [
+                e for e in new_entities_found
+                if ((state.entities.get(e) or {}).get("type") == "SUBSIDIARY" or legal_form.search(e))
+                and infra_context.search(entity_context(e))
+            ]
             for tsub in tech_subs:
                 if not any(tsub in str(q) for q in state.questions.values()):
                     q_chain_tsub = InvestigationQuestion(

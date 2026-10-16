@@ -52,6 +52,25 @@ class CorporateProbeSpecialist:
             except Exception:
                 self.sec_connector = None
 
+    def _descendant_entries(self, root_legal_name: str, max_depth: int = 3) -> list[dict[str, Any]]:
+        """Registry entries whose parent_company chain leads to root_legal_name, nearest first."""
+        found: list[dict[str, Any]] = []
+        frontier = {root_legal_name.lower()}
+        seen = set(frontier)
+        for _ in range(max_depth):
+            nxt = set()
+            for entry in self.db.values():
+                name = str(entry.get("legal_name", "")).lower()
+                parent = str(entry.get("parent_company", "")).lower()
+                if parent in frontier and name and name not in seen:
+                    found.append(entry)
+                    nxt.add(name)
+                    seen.add(name)
+            if not nxt:
+                break
+            frontier = nxt
+        return found
+
     def probe_corporate_entity(self, request: CorporateProbeRequest) -> CorporateProbeResult:
         """Execute corporate registry and filing queries against target entity.
         
@@ -376,24 +395,29 @@ class CorporateProbeSpecialist:
                         )
                     )
 
-            # 6. Multi-hop resolution support: AutoTech UK Limited -> AutoTech Perception UK Labs Ltd -> Director
-            if resolved_key == "autotech_corporation" and "autotech_uk_limited" in self.db:
-                uk_entry = self.db["autotech_uk_limited"]
-                uk_filings = uk_entry.get("filings", {})
-                for f_id, f_data in uk_filings.items():
+            # 6. Multi-hop resolution: registry entries whose parent chain leads to the
+            # resolved entity contribute their own subsidiaries and officers.
+            for desc in self._descendant_entries(legal_name):
+                desc_name = desc.get("legal_name", "")
+                desc_registry = "COMPANIES_HOUSE" if str(desc.get("jurisdiction", "")).startswith("GB") else "REGISTRY"
+                desc_url = (
+                    f"https://api.company-information.service.gov.uk/company/{desc.get('company_number')}"
+                    if desc_registry == "COMPANIES_HOUSE" else None
+                )
+                for f_id, f_data in desc.get("filings", {}).items():
                     for sub in f_data.get("subsidiaries", []):
                         sub_name = sub.get("name")
-                        prov_hash = hashlib.sha256(f"AutoTech UK Limited:sub:{sub_name}:{start_time.isoformat()}".encode()).hexdigest()
+                        prov_hash = hashlib.sha256(f"{desc_name}:sub:{sub_name}:{start_time.isoformat()}".encode()).hexdigest()
                         relationships.append(
                             CandidateCorporateRelationship(
                                 relationship_id=f"rel_multihop_sub_{sub_name}",
-                                subject_entity="AutoTech UK Limited",
+                                subject_entity=desc_name,
                                 predicate=CorporateRelationshipType.SUBSIDIARY,
                                 object_entity=sub_name,
-                                jurisdiction="GB",
-                                source_registry="COMPANIES_HOUSE",
-                                source_url=f"https://api.company-information.service.gov.uk/company/{uk_entry.get('company_number')}",
-                                observation=f"AutoTech UK Limited holds 100% of subsidiary '{sub_name}'",
+                                jurisdiction=desc.get("jurisdiction", jurisdiction),
+                                source_registry=desc_registry,
+                                source_url=desc_url,
+                                observation=f"{desc_name} holds 100% of subsidiary '{sub_name}'",
                                 provenance={"sha256_fingerprint": prov_hash, "retrieved_at": start_time.isoformat()},
                                 extraction_method="ch_group_accounts",
                                 confidence=0.95,
@@ -401,23 +425,20 @@ class CorporateProbeSpecialist:
                                 epistemic_status=EpistemicCorporateStatus.CANDIDATE_FACT,
                             )
                         )
-
-            if resolved_key == "autotech_corporation" and "autotech_perception_uk_labs_ltd" in self.db:
-                t2_entry = self.db["autotech_perception_uk_labs_ltd"]
-                for off in t2_entry.get("officers", []):
+                for off in desc.get("officers", []):
                     off_name = off.get("name")
                     off_title = off.get("title")
-                    prov_hash = hashlib.sha256(f"AutoTech Perception UK Labs Ltd:officer:{off_name}:{start_time.isoformat()}".encode()).hexdigest()
+                    prov_hash = hashlib.sha256(f"{desc_name}:officer:{off_name}:{start_time.isoformat()}".encode()).hexdigest()
                     relationships.append(
                         CandidateCorporateRelationship(
                             relationship_id=f"rel_multihop_officer_{off_name}",
-                            subject_entity="AutoTech Perception UK Labs Ltd",
+                            subject_entity=desc_name,
                             predicate=CorporateRelationshipType.OFFICER,
                             object_entity=off_name,
-                            jurisdiction="GB",
-                            source_registry="COMPANIES_HOUSE",
-                            source_url=f"https://api.company-information.service.gov.uk/company/{t2_entry.get('company_number')}",
-                            observation=f"Director '{off_name}' ({off_title}) of AutoTech Perception UK Labs Ltd",
+                            jurisdiction=desc.get("jurisdiction", jurisdiction),
+                            source_registry=desc_registry,
+                            source_url=desc_url,
+                            observation=f"Director '{off_name}' ({off_title}) of {desc_name}",
                             provenance={"sha256_fingerprint": prov_hash, "retrieved_at": start_time.isoformat()},
                             extraction_method="ch_officers_endpoint",
                             confidence=0.95,
