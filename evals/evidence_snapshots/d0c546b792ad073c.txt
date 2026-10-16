@@ -1,0 +1,5 @@
+URL: https://stacks.stanford.edu/file/druid:qr033xr6097/cameraready-try2-augmented.pdf
+TITLE: PDF CONSENSUS: BRIDGING THEORY AND PRACTICE - Stanford University
+DATE: 2026-10-15T07:52:23.983575+00:00
+
+This dissertation presents a new consensus algorithm called Raft, which was designed for un-derstandability. Raft first elects a server as leader, then concentrates all decision-making onto the leader. These two basic steps are relatively independent and form a better structure than Paxos, whose components are hard to separate. Raft elects a leader using voting and randomized timeouts. The ...

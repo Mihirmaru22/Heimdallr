@@ -1,0 +1,5 @@
+URL: https://stacks.stanford.edu/file/druid:qr033xr6097/cameraready-try2-augmented.pdf
+TITLE: CONSENSUS: BRIDGING THEORY AND PRACTICE - Stanford University
+DATE: 2026-10-15T07:20:30.892392+00:00
+
+We believe that Raft is superior to Paxos and other consensus algorithms, both for educational purposes and as a foundation for implementation. Results from a user study demonstrate that Raft is easier for students to learn than Paxos.

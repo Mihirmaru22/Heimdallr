@@ -1,0 +1,5 @@
+URL: https://github.com/aws/aws-sdk-php/issues/731
+TITLE: http://169.254.169.254/latest/meta-data/iam/security-credentials ...
+DATE: 2026-10-15T07:01:58.585221+00:00
+
+The fact that the instance metadata service is unreachable indicates that your code is not running on an Ec2 instance. This means that you will need to find a way to provide credentials to the instance of S3Client, either by passing them in directly or by setting up an ini file or environment variables as described here.

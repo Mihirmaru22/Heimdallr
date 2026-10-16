@@ -50,23 +50,59 @@ class InvestigationPlanner:
         if "domain_hint" in contract and contract["domain_hint"]:
             return str(contract["domain_hint"]).lower().strip()
 
-        obj_lower = objective.lower()
+        if "starting_platform" in contract or "username" in contract:
+            return "identity"
+
+        obj_lower = (objective or "").lower()
+
         if any(
             k in obj_lower
             for k in [
-                "vector database",
-                "database",
-                "databases",
-                "software",
-                "api",
-                "open-source",
-                "licensing",
-                "performance evidence",
-                "filtering capabilities",
-                "operational complexity",
-                "query engine",
+                "investigate username",
+                "starting platform",
+                "candidate accounts",
+                "identity probe",
+                "identity investigation",
+                "cross-platform identity",
+                "social profile",
+                "account existence",
+                "unacceptable merges",
             ]
         ):
+            return "identity"
+        is_entity_inquiry = any(
+            k in obj_lower
+            for k in [
+                "find everything about",
+                "who is",
+                "background on",
+                "tell me about",
+                "profile of",
+                "executive",
+                "founder",
+                "leadership",
+            ]
+        )
+
+        if is_entity_inquiry and not any(k in obj_lower for k in ["vector database", "query latency", "benchmark"]):
+            return "corporate"
+
+        technical_keywords = [
+            "vector database",
+            "database",
+            "databases",
+            "api",
+            "open-source",
+            "licensing",
+            "performance evidence",
+            "filtering capabilities",
+            "operational complexity",
+            "query engine",
+        ]
+        if not is_entity_inquiry:
+            technical_keywords.extend(["software", "query latency", "latency benchmark"])
+
+        if any(k in obj_lower for k in technical_keywords):
             return "technical"
 
         if any(
@@ -197,6 +233,15 @@ class InvestigationPlanner:
                     candidates.append(w.strip(".,;:\"'"))
             if candidates:
                 target_entities = [" ".join(candidates[:3])]
+            else:
+                clean_target = re.sub(
+                    r"^(?:find\s+(?:everything|out|all)?\s*(?:about)?|tell\s+me\s+about|who\s+is|background\s+on|investigate|research|trace|verify|search\s+for)\s+",
+                    "",
+                    objective.strip(),
+                    flags=re.IGNORECASE,
+                ).strip()
+                if clean_target:
+                    target_entities = [clean_target.title()]
 
         entity_type_map = {
             "technical": "TECHNICAL_SYSTEM",
@@ -204,6 +249,7 @@ class InvestigationPlanner:
             "scientific_policy": "SCIENTIFIC_TOPIC",
             "organization": "ORGANIZATION",
             "corporate": "TARGET_ORGANIZATION",
+            "identity": "IDENTITY_HANDLE",
         }
         ent_type = entity_type_map.get(domain, "CONCEPT")
 
@@ -534,8 +580,7 @@ class InvestigationPlanner:
                 supporting_evidence_requirements=[f"Official documentation of programs and alliances for {primary_entity}"],
                 refuting_evidence_requirements=[f"Evidence of discontinued operations or dissolved partnerships for {primary_entity}"],
             )
-            state.hypotheses[hyp_org.hypothesis_id] = hyp_org.model_dump()
-
+            state.hypotheses[hyp_org.hypothesis_id] = hyp_org.model_dump(            )
             state.information_gaps.append(
                 InformationGap(
                     description=f"Public products and programs for {primary_entity}",
@@ -544,6 +589,85 @@ class InvestigationPlanner:
                     priority=1.0,
                     is_critical=True,
                     related_question_id=q_prod.question_id,
+                )
+            )
+
+        elif domain == "identity":
+            username = contract.get("username") or primary_entity
+            starting_plat = contract.get("starting_platform", "github")
+
+            q_starting = InvestigationQuestion(
+                question_text=f"Does account '{username}' exist on starting platform '{starting_plat}', and what public profile information is available?",
+                question_type=QuestionType.ENTITY_DISCOVERY,
+                priority=1.0,
+                is_critical=True,
+                related_entities=[username],
+                specialist_requirements=["identity"],
+                required_evidence=[f"Public profile data or 404 confirmation for '{username}' on '{starting_plat}'"],
+            )
+            q_candidates = InvestigationQuestion(
+                question_text=f"What candidate accounts or public references exist for identifier '{username}' across external platforms?",
+                question_type=QuestionType.ENTITY_DISCOVERY,
+                priority=0.90,
+                is_critical=True,
+                dependencies=[q_starting.question_id],
+                related_entities=[username],
+                specialist_requirements=["identity"],
+                required_evidence=[f"External platform discovery records and provenance for '{username}'"],
+            )
+            q_equiv = InvestigationQuestion(
+                question_text=f"Which candidate accounts correlate to target identity '{username}' versus representing ambiguous collisions or distinct individuals?",
+                question_type=QuestionType.RELATIONSHIP_VERIFICATION,
+                priority=0.85,
+                is_critical=False,
+                dependencies=[q_candidates.question_id],
+                related_entities=[username],
+                specialist_requirements=["identity"],
+                required_evidence=[f"Corroborating biographical, project, or contextual evidence for '{username}'"],
+            )
+            q_privacy = InvestigationQuestion(
+                question_text=f"What access boundaries apply to discovered accounts of '{username}' (e.g. private Instagram profile), and was private content accessed?",
+                question_type=QuestionType.CONTRADICTION_RESOLUTION,
+                priority=0.80,
+                is_critical=False,
+                dependencies=[q_starting.question_id],
+                related_entities=[username],
+                specialist_requirements=["identity"],
+                required_evidence=[f"Access control classification distinguishing public metadata from private content for '{username}'"],
+            )
+
+            for q in [q_starting, q_candidates, q_equiv, q_privacy]:
+                state.questions[q.question_id] = q.model_dump()
+                state.unresolved_questions.append(q.question_id)
+                root_branch.questions.append(q.question_id)
+
+            hyp_ident = InvestigationHypothesis(
+                proposition=f"Discovered candidate accounts for '{username}' represent public-source identity hypotheses without assuming identity equivalence across platforms or bypassing access controls.",
+                related_question_id=q_starting.question_id,
+                related_entities=[username],
+                supporting_evidence_requirements=[f"Public source profile records with cryptographic provenance for '{username}'"],
+                refuting_evidence_requirements=[f"Confirmed non-existence, conflicting biographical data, or access restrictions for '{username}'"],
+            )
+            state.hypotheses[hyp_ident.hypothesis_id] = hyp_ident.model_dump()
+
+            state.information_gaps.append(
+                InformationGap(
+                    description=f"Starting account profile for '{username}' on '{starting_plat}'",
+                    target_entity=username,
+                    target_attribute="starting_account_profile",
+                    priority=1.0,
+                    is_critical=True,
+                    related_question_id=q_starting.question_id,
+                )
+            )
+            state.information_gaps.append(
+                InformationGap(
+                    description=f"Cross-platform candidate profile links for '{username}'",
+                    target_entity=username,
+                    target_attribute="cross_platform_candidates",
+                    priority=0.90,
+                    is_critical=True,
+                    related_question_id=q_candidates.question_id,
                 )
             )
 
@@ -822,6 +946,46 @@ class InvestigationPlanner:
             ents = q.related_entities or list(state.entities.keys())
             ent_str = " ".join(ents[:2]) if ents else state.objective
 
+            # Check if there are discovered candidate sources awaiting content retrieval
+            unretrieved = [
+                s for s in getattr(state, "discovered_sources", [])
+                if s.get("status") == "DISCOVERED"
+            ]
+            fetched_urls = {
+                (a.get("parameters", {}).get("url") or a.get("query"))
+                for a in state.research_actions
+                if a.get("action_type") == ActionType.FETCH
+            }
+            unfetched_for_q = [
+                s for s in unretrieved
+                if s.get("url") and s["url"] not in fetched_urls
+                and (
+                    not q.related_entities
+                    or any(re.search(rf"\b{re.escape(e)}\b", f"{s.get('title', '')} {s.get('snippet', '')}", re.IGNORECASE) for e in q.related_entities)
+                    or not any(re.search(rf"\b{re.escape(e)}\b", f"{s2.get('title', '')} {s2.get('snippet', '')}", re.IGNORECASE) for s2 in unretrieved for e in q.related_entities)
+                )
+            ]
+
+            if unfetched_for_q and spec in ("none", ""):
+                cand_source = unfetched_for_q[0]
+                fetch_url = cand_source["url"]
+                fetch_action = ResearchAction(
+                    question_id=q.question_id,
+                    action_type=ActionType.FETCH,
+                    rationale=f"Retrieve full source content from candidate source '{cand_source.get('title', fetch_url)}' ({fetch_url}) to evaluate evidence requirements for Question: {q.question_text}",
+                    specialist="none",
+                    capability_id="general_web_research",
+                    implementation_id="impl_argus_generalist_v1",
+                    target_entities=q.related_entities,
+                    query=fetch_url,
+                    parameters={"url": fetch_url, "doc_id": cand_source.get("doc_id")},
+                    priority=min(1.0, q.priority + 0.05),
+                    expected_information_gain=0.80,
+                    evidence_requirements=q.required_evidence,
+                )
+                candidate_actions.append(fetch_action)
+                continue
+
             # Extract distinctive key terms from objective to keep research tightly focused
             stop_words = {
                 "the", "a", "an", "per", "what", "which", "who", "identify", "determine", "investigate",
@@ -834,7 +998,13 @@ class InvestigationPlanner:
             ]
             distinctive_terms = " ".join(obj_words[:8])
 
-            if spec == "sanctions":
+            if spec == "identity":
+                action_type = ActionType.INVESTIGATE_SPECIALIST
+                clean_target = (q.related_entities[0] if q.related_entities else ent_str).strip()
+                query_str = clean_target
+                cap_id = "identity_resolution"
+                impl_id = "impl_identity_probe_specialist_v1"
+            elif spec == "sanctions":
                 action_type = ActionType.QUERY_SOURCE
                 query_str = f"{ent_str} sanctions screening beneficial ownership PEP offshore"
             elif q.question_type == QuestionType.ENTITY_DISCOVERY:
@@ -855,7 +1025,10 @@ class InvestigationPlanner:
             elif q.question_type == QuestionType.INFRASTRUCTURE_ATTRIBUTION:
                 action_type = ActionType.INVESTIGATE_SPECIALIST
                 spec = "infrastructure"
-                query_str = f"{ent_str} {distinctive_terms} domains certificate transparency telemetry"
+                clean_infra = (q.related_entities[0] if q.related_entities else ent_str).strip()
+                query_str = clean_infra
+                cap_id = "infrastructure_discovery"
+                impl_id = "impl_infrastructure_probe_specialist_v1"
             elif q.question_type == QuestionType.CONTRADICTION_RESOLUTION:
                 action_type = ActionType.SEEK_CONTRADICTION
                 if spec == "corporate":
@@ -884,6 +1057,23 @@ class InvestigationPlanner:
                         query_str = alt_q
                         break
 
+            action_params = {}
+            if spec == "identity":
+                clean_target = (q.related_entities[0] if q.related_entities else ent_str).strip()
+                action_params = {
+                    "identifier": clean_target,
+                    "username": state.objective_contract.get("username") or clean_target,
+                    "starting_platform": state.objective_contract.get("starting_platform"),
+                    "target_entity_context": state.objective_contract.get("known_context", {}),
+                }
+            elif spec == "infrastructure":
+                clean_infra = (q.related_entities[0] if q.related_entities else ent_str).strip()
+                action_params = {
+                    "domain": clean_infra,
+                    "target_domain": clean_infra,
+                    "query": clean_infra,
+                }
+
             action = ResearchAction(
                 question_id=q.question_id,
                 action_type=action_type,
@@ -894,6 +1084,7 @@ class InvestigationPlanner:
                 estimated_cost=top_cand.estimated_cost if top_cand else 0.0015,
                 target_entities=q.related_entities,
                 query=query_str,
+                parameters=action_params,
                 priority=q.priority,
                 evidence_requirements=q.required_evidence,
             )

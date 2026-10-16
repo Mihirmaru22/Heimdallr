@@ -25,7 +25,15 @@ class EvidenceStatus(str, Enum):
 
 
 class EvidenceRequirement(BaseModel):
-    """A concrete condition an observation must satisfy to substantiate a question or claim."""
+    """A concrete condition an observation must satisfy to substantiate a question or claim.
+
+    Architectural Integration Notice:
+    EvidenceRequirement and add_satisfying_evidence() provide evidentiary condition modeling.
+    This mechanism is currently disconnected from the production investigation engine loops
+    (InvestigationState, InvestigationPlanner, and InvestigationEngine), which rely on
+    InvestigationQuestion, InvestigationHypothesis, InformationGap, and claims/evidence graphs.
+    Broader integration into planner loops is reserved for a future architectural milestone.
+    """
 
     requirement_id: str = Field(default_factory=lambda: f"evr_{uuid.uuid4().hex[:8]}")
     description: str
@@ -41,6 +49,7 @@ class EvidenceRequirement(BaseModel):
 
     satisfied_by_evidence_ids: list[str] = Field(default_factory=list)
     discovered_source_types: list[str] = Field(default_factory=list)
+    independent_sources: list[str] = Field(default_factory=list)
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     satisfied_at: str | None = None
 
@@ -48,16 +57,28 @@ class EvidenceRequirement(BaseModel):
         self,
         evidence_id: str,
         source_type: str = "generic",
+        source_id: str | None = None,
         is_independent: bool = True,
     ) -> None:
-        """Register an evidentiary item against this requirement."""
+        """Register an evidentiary item against this requirement.
+        
+        Correct source-independence counting:
+        Tracks unique independent sources. Non-independent items contribute to evidence
+        records but do not inflate the independent source tally.
+        """
         if evidence_id not in self.satisfied_by_evidence_ids:
             self.satisfied_by_evidence_ids.append(evidence_id)
         if source_type not in self.discovered_source_types:
             self.discovered_source_types.append(source_type)
 
-        # Check satisfaction
-        sources_count = len(self.satisfied_by_evidence_ids) if is_independent else 1
+        # Track independent sources uniquely
+        if is_independent:
+            src_key = source_id or f"{source_type}:{evidence_id}"
+            if src_key not in self.independent_sources:
+                self.independent_sources.append(src_key)
+
+        # Sources count is the number of distinct independent sources registered, or 1 if non-independent evidence exists
+        sources_count = len(self.independent_sources)
         meets_sources = sources_count >= self.min_independent_sources
 
         if self.required_source_types:

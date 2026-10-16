@@ -1,0 +1,5 @@
+URL: https://raft.github.io/raft.pdf
+TITLE: In Search of an Understandable Consensus Algorithm - Raft
+DATE: 2026-10-15T07:21:27.152625+00:00
+
+Results from a user study demonstrate that Raft is easier for students to learn than Paxos. Raft also includes a new mechanism for changing the cluster membership, which uses overlapping majorities to guarantee safety.

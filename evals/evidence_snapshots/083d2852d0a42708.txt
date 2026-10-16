@@ -1,0 +1,5 @@
+URL: https://www.securitycompass.com/blog/what-is-169-254-169-254-2/
+TITLE: What is 169.254.169.254? - Security Compass
+DATE: 2026-10-15T07:01:58.583820+00:00
+
+The IP address 169.254.169.254 belongs to the link-local address range, reserved for internal communication between devices on the same network without using routers or external servers. Cloud providers like AWS, Google Cloud, and Microsoft Azure have standardized this IP as a special endpoint for accessing instance metadata.

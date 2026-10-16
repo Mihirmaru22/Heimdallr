@@ -1,0 +1,5 @@
+URL: https://www.w3schools.com/python/python_intro.asp
+TITLE: Introduction to Python - W3Schools
+DATE: 2026-10-15T06:39:28.018949+00:00
+
+Learn what Python is, what it can do, and why it is a popular programming language. Find out how Python syntax, interpreter, and platforms make it easy and versatile for web development, software development, mathematics, and more.

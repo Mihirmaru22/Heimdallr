@@ -7,6 +7,7 @@ The central execution core that drives persistent, hypothesis-driven investigati
 """
 
 from __future__ import annotations
+from argus.specialists.outcome import SpecialistOutcome, SpecialistStatus
 
 from datetime import datetime, timezone
 import concurrent.futures
@@ -58,6 +59,9 @@ from argus.investigation.benchmark.v2.semantic_auditor import (
     IndependentSemanticAuditor,
     SemanticSupportStatus,
 )
+from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
+from argus.investigation.technographics import extract_technographic_deployments
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -348,8 +352,24 @@ class InvestigationEngine:
         if not actions:
             # No open actions could be planned; evaluate termination
             state.stop_state.is_stopped = True
-            state.stop_state.stop_reason = InvestigationStopReason.SUFFICIENT_EVIDENCE.value
-            state.stop_state.stopping_rationale = "No remaining open action candidates with satisfied dependencies."
+            total_questions = len(state.questions)
+            resolved_count = len(state.resolved_questions)
+
+            if total_questions > 0 and len(state.unresolved_questions) == 0:
+                state.stop_state.stop_reason = InvestigationStopReason.OBJECTIVE_SATISFIED.value
+                state.stop_state.stopping_rationale = f"All {total_questions} investigation questions successfully resolved."
+            elif any(obs.get("outcome") == "SOURCE_UNAVAILABLE" or obs.get("status") == "SOURCE_UNAVAILABLE" for obs in state.observations):
+                state.stop_state.stop_reason = InvestigationStopReason.SOURCE_UNAVAILABLE.value
+                state.stop_state.stopping_rationale = "Required primary sources are unavailable or inaccessible."
+            elif any(obs.get("status") in ("FAILED", "UNSUPPORTED_CAPABILITY") for obs in state.observations) and resolved_count == 0:
+                state.stop_state.stop_reason = InvestigationStopReason.EXECUTION_FAILED.value
+                state.stop_state.stopping_rationale = "Research actions failed or requested unsupported capabilities."
+            elif total_questions > 0 and (resolved_count / total_questions) < 0.70:
+                state.stop_state.stop_reason = InvestigationStopReason.NO_USEFUL_ACTIONS_REMAIN.value
+                state.stop_state.stopping_rationale = f"No useful actions remain with {len(state.unresolved_questions)} unresolved questions."
+            else:
+                state.stop_state.stop_reason = InvestigationStopReason.NO_USEFUL_ACTIONS_REMAIN.value
+                state.stop_state.stopping_rationale = "No remaining open action candidates with satisfied dependencies."
             state.stop_state.stopped_at = datetime.now(timezone.utc).isoformat()
             self.store.save_state(state)
             return state, True
@@ -382,6 +402,10 @@ class InvestigationEngine:
         })
 
         action.mark_executed(summary=f"Observation yielded gain={gain:.2f}")
+        for ra in state.research_actions:
+            if ra.get("action_id") == action.action_id:
+                ra["status"] = "EXECUTED"
+                ra["summary"] = f"Observation yielded gain={gain:.2f}"
 
         # 5. Post-step stopping evaluation
         should_stop, reason, rationale = self.stopping_policy.evaluate(state)
@@ -553,6 +577,11 @@ class InvestigationEngine:
             return "INSUFFICIENT_EVIDENCE"
 
         if not state.evidence:
+            # Do not infer that an unavailable source proves an account does not exist
+            if any("FAIL" in a.action_type or "TIMEOUT" in a.action_type or "UNAVAILABLE" in a.action_type for a in state.audit_trail) or any(
+                inv.get("outcome") in ("SOURCE_UNAVAILABLE", "SOURCE_ERROR", "TIMEOUT") for inv in state.specialist_invocations
+            ):
+                return "INSUFFICIENT_EVIDENCE"
             return "NOT_FOUND"
 
         return "INSUFFICIENT_EVIDENCE"
@@ -581,6 +610,171 @@ class InvestigationEngine:
     def synthesize_report(self, state: InvestigationState) -> InvestigationResult:
         """Synthesize final investigation findings into a domain-agnostic structured report."""
         return state.to_result()
+
+    def synthesize_identity_report(self, state: InvestigationState) -> Any:
+        """Synthesize final identity investigation findings into a structured, evidence-backed report."""
+        from argus.specialists.identity.contract import (
+            AccountClaimType,
+            IdentityInvestigationReport,
+        )
+        from argus.specialists.outcome import SpecialistStatus, SpecialistOutcome
+
+        contract = state.objective_contract or {}
+        username = contract.get("username") or (contract.get("target_entities") or [""])[0] or state.objective
+        starting_platform = contract.get("starting_platform") or "unknown"
+
+        sources_queried: list[str] = []
+        starting_account_resolved = False
+        starting_account_profile = None
+        outcome = SpecialistOutcome.SUCCESS_EMPTY
+
+        identity_outcomes = []
+        for inv in state.specialist_invocations:
+            for s in inv.get("sources_queried", []):
+                if s not in sources_queried:
+                    sources_queried.append(s)
+            if inv.get("specialist") == "identity" and inv.get("outcome"):
+                try:
+                    identity_outcomes.append(SpecialistOutcome(inv.get("outcome")))
+                except ValueError:
+                    pass
+
+        for obs in state.observations:
+            ad_res = obs.get("adapter_result") or {}
+            for s in ad_res.get("sources_queried", []):
+                if s not in sources_queried:
+                    sources_queried.append(s)
+            sa = ad_res.get("starting_account")
+            if sa:
+                starting_account_resolved = True
+                starting_account_profile = sa.get("raw_profile_data")
+            if obs.get("specialist") == "identity" and ad_res.get("outcome"):
+                try:
+                    identity_outcomes.append(SpecialistOutcome(ad_res.get("outcome")))
+                except ValueError:
+                    pass
+
+        if identity_outcomes:
+            for cand_out in (
+                SpecialistOutcome.SUCCESS_WITH_RESULTS,
+                SpecialistOutcome.PARTIAL_SUCCESS,
+                SpecialistOutcome.SOURCE_ERROR,
+                SpecialistOutcome.SOURCE_UNAVAILABLE,
+                SpecialistOutcome.TIMEOUT,
+                SpecialistOutcome.SUCCESS_EMPTY,
+            ):
+                if cand_out in identity_outcomes:
+                    outcome = cand_out
+                    break
+            else:
+                outcome = identity_outcomes[-1]
+
+        candidate_links = []
+        for c in state.claims:
+            pred = c.get("predicate", "")
+            if pred in (AccountClaimType.IDENTITY_EQUIVALENCE.value, "candidate_profile", "candidate_identity_link"):
+                candidate_links.append({
+                    "subject": c.get("subject"),
+                    "link_description": c.get("object"),
+                    "status": c.get("status"),
+                    "source_url": c.get("source_url"),
+                    "rationale": c.get("object") or "Candidate profile correlation hypothesis",
+                })
+
+        account_existence_claims = [
+            c for c in state.claims
+            if c.get("predicate") in (AccountClaimType.ACCOUNT_EXISTENCE.value, "account_exists")
+        ]
+        identity_equivalence_claims = [
+            c for c in state.claims
+            if c.get("predicate") in (AccountClaimType.IDENTITY_EQUIVALENCE.value, "candidate_profile", "candidate_identity_link")
+        ]
+        private_content_access_claims = [
+            c for c in state.claims
+            if c.get("predicate") in (AccountClaimType.PRIVATE_CONTENT_ACCESS.value, "private_content_access")
+        ]
+
+        source_failures = []
+        for audit in state.audit_trail:
+            if "FAIL" in audit.action_type or "TIMEOUT" in audit.action_type or "UNAVAILABLE" in audit.action_type:
+                source_failures.append({
+                    "action_type": audit.action_type,
+                    "details": audit.details,
+                    "rationale": audit.rationale,
+                })
+        for inv in state.specialist_invocations:
+            for e in inv.get("errors", []):
+                if "404" not in e.lower() and "limitation:" not in e.lower():
+                    source_failures.append({"source": inv.get("specialist"), "error": e})
+
+        platforms_queried = 0
+        platforms_skipped = 0
+        platforms_available = 0
+        for obs in state.observations:
+            ad_res = obs.get("adapter_result") or {}
+            if "platforms_queried" in ad_res:
+                platforms_queried = max(platforms_queried, ad_res.get("platforms_queried", 0))
+            if "platforms_skipped" in ad_res:
+                platforms_skipped = max(platforms_skipped, ad_res.get("platforms_skipped", 0))
+            if "platforms_available" in ad_res:
+                platforms_available = max(platforms_available, ad_res.get("platforms_available", 0))
+
+        coverage_gaps = [
+            gap.description for gap in state.information_gaps if not gap.is_resolved
+        ]
+
+        unresolved = [
+            state.questions[qid]
+            for qid in state.unresolved_questions
+            if qid in state.questions
+        ]
+
+        return IdentityInvestigationReport(
+            investigation_id=state.investigation_id,
+            starting_identifier=username,
+            starting_platform=starting_platform,
+            starting_account_resolved=starting_account_resolved,
+            starting_account_profile=starting_account_profile,
+            sources_queried=sources_queried,
+            findings=list(state.claims),
+            supporting_evidence=list(state.evidence),
+            candidate_identity_links=candidate_links,
+            contradictory_evidence=list(state.contradictions),
+            source_failures=source_failures,
+            coverage_gaps=coverage_gaps,
+            unresolved_questions=unresolved,
+            outcome=outcome,
+            platforms_queried=platforms_queried,
+            platforms_skipped=platforms_skipped,
+            platforms_available=platforms_available,
+            account_existence_claims=account_existence_claims,
+            identity_equivalence_claims=identity_equivalence_claims,
+            private_content_access_claims=private_content_access_claims,
+            epistemic_status=state.final_epistemic_status,
+            stopping_rationale=state.stop_state.stopping_rationale,
+            steps_taken=state.research_budget.get("steps_taken", 0),
+            created_at=state.created_at,
+        )
+
+    def investigate_identity(
+        self,
+        username: str,
+        starting_platform: str = "github",
+        context: dict[str, Any] | None = None,
+        max_steps: int = 10,
+    ) -> Any:
+        """Execute end-to-end identity investigation vertical slice."""
+        contract = {
+            "domain_hint": "identity",
+            "target_entities": [username],
+            "username": username,
+            "starting_platform": starting_platform,
+            "known_context": context or {},
+            "max_steps": max_steps,
+        }
+        objective = f"Investigate username '{username}' starting from platform '{starting_platform}' and resolve cross-platform public-source evidence."
+        state = self.run_to_completion(objective=objective, contract=contract, max_steps=max_steps)
+        return self.synthesize_identity_report(state)
 
     # -------------------------------------------------------------------------
     # Internal Dispatch & Execution
@@ -638,7 +832,12 @@ class InvestigationEngine:
             }
             impl_id = specialist_impl_map.get(spec)
 
-        if impl_id:
+        if action.action_type == ActionType.FETCH:
+            adapter = None
+        elif spec == "identity" and getattr(self, "identity_specialist", None):
+            from argus.capability_registry.adapters import IdentitySpecialistAdapter
+            adapter = IdentitySpecialistAdapter(specialist=self.identity_specialist)
+        elif impl_id:
             try:
                 adapter = get_adapter_for_implementation(impl_id)
             except KeyError:
@@ -680,10 +879,15 @@ class InvestigationEngine:
                     "limit": 3,
                     "timeout_sec": 5.0,
                 }
+                if getattr(action, "parameters", None):
+                    adapter_inputs.update(action.parameters)
+
                 adapter_res = adapter.execute(adapter_inputs, corpus=self.corpus)
-                if adapter_res.get("status") == "TIMEOUT":
+                raw_outcome = adapter_res.get("outcome")
+                raw_status = str(adapter_res.get("status", ""))
+                if raw_outcome == "TIMEOUT" or (raw_status == "TIMEOUT" and raw_outcome not in ("SOURCE_UNAVAILABLE", "SOURCE_ERROR")):
                     raise concurrent.futures.TimeoutError(adapter_res.get("error", f"Specialist {impl_id} timed out."))
-                elif adapter_res.get("status") == "FAILED":
+                elif raw_status == "FAILED" and raw_outcome not in ("SOURCE_UNAVAILABLE", "SOURCE_ERROR", "TIMEOUT"):
                     raise RuntimeError(adapter_res.get("error", f"Specialist {impl_id} failed."))
 
                 state.specialist_invocations.append({
@@ -692,13 +896,21 @@ class InvestigationEngine:
                     "implementation_id": impl_id,
                     "query": q_str,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "status": "SUCCESS",
+                    "status": adapter_res.get("status", "SUCCESS"),
+                    "outcome": adapter_res.get("outcome"),
+                    "errors": adapter_res.get("errors", []),
+                    "sources_queried": adapter_res.get("sources_queried", []),
                 })
             except (concurrent.futures.TimeoutError, TimeoutError) as te:
                 logger.warning("Adapter %s execution timed out: %s", impl_id, te)
                 action.mark_failed(f"Adapter execution timeout: {te}")
                 state.record_audit(
                     action_type="SPECIALIST_EXECUTION_TIMEOUT",
+                    details={"error": str(te), "implementation_id": impl_id},
+                    rationale="Capability specialist execution exceeded timeout threshold.",
+                )
+                state.record_audit(
+                    action_type="ADAPTER_EXECUTION_FAILED",
                     details={"error": str(te), "implementation_id": impl_id},
                     rationale="Capability specialist execution exceeded timeout threshold.",
                 )
@@ -709,7 +921,8 @@ class InvestigationEngine:
                     "specialist": spec,
                     "documents": [],
                     "text_content": "",
-                    "status": "TIMEOUT",
+                    "status": SpecialistStatus("TIMEOUT"),
+                    "outcome": "TIMEOUT",
                     "error": str(te),
                     "is_authoritative": False,
                 }
@@ -762,7 +975,53 @@ class InvestigationEngine:
                 "query": q_str,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
-        elif spec in ("none", "") or action.action_type in (ActionType.SEARCH, ActionType.FETCH):
+        elif action.action_type == ActionType.FETCH:
+            target_url = (action.parameters.get("url") if action.parameters else None) or q_str
+            fetched_doc = None
+            if hasattr(self.corpus, "get_by_url"):
+                fetched_doc = self.corpus.get_by_url(target_url)
+            elif hasattr(self.corpus, "get_document"):
+                fetched_doc = self.corpus.get_document(target_url)
+            elif hasattr(self.corpus, "get_by_id"):
+                fetched_doc = self.corpus.get_by_id(target_url)
+
+            if not fetched_doc and hasattr(self.corpus, "documents") and isinstance(self.corpus.documents, dict):
+                fetched_doc = self.corpus.documents.get(target_url)
+                if not fetched_doc:
+                    for d in self.corpus.documents.values():
+                        if getattr(d, "url", None) == target_url or getattr(d, "doc_id", None) == target_url:
+                            fetched_doc = d
+                            break
+
+            if not fetched_doc and hasattr(self.corpus, "doc_by_id") and isinstance(self.corpus.doc_by_id, dict):
+                fetched_doc = self.corpus.doc_by_id.get(target_url)
+
+            if not fetched_doc and hasattr(self.corpus, "search"):
+                matches = self.corpus.search(target_url, limit=1)
+                if matches:
+                    fetched_doc = matches[0]
+
+            if fetched_doc:
+                retrieved_docs.append(fetched_doc)
+            else:
+                action.mark_failed(f"Source '{target_url}' could not be retrieved from corpus or network.")
+                return {
+                    "observation_id": f"obs_unavail_{uuid.uuid4().hex[:8]}",
+                    "action_id": action.action_id,
+                    "query": q_str,
+                    "specialist": spec,
+                    "documents_count": 0,
+                    "documents": [],
+                    "combined_text": "",
+                    "runtime_sec": time.perf_counter() - start_t,
+                    "tokens": 0,
+                    "cost_usd": 0.0,
+                    "status": "SOURCE_UNAVAILABLE",
+                    "outcome": "SOURCE_UNAVAILABLE",
+                    "error": f"Source at '{target_url}' was unavailable or inaccessible.",
+                    "is_authoritative": False,
+                }
+        elif spec in ("none", "") or action.action_type == ActionType.SEARCH:
             docs = self.corpus.search(q_str, limit=3) if hasattr(self.corpus, "search") else []
             retrieved_docs.extend(docs)
         else:
@@ -797,6 +1056,7 @@ class InvestigationEngine:
             }
 
         elapsed = time.perf_counter() - start_t
+        is_fetch_action = (action.action_type == ActionType.FETCH)
         all_docs = [
             {
                 "doc_id": d.doc_id,
@@ -806,6 +1066,8 @@ class InvestigationEngine:
                 "source_type": d.source_type,
                 "syndication_cluster_id": getattr(d, "syndication_cluster_id", None),
                 "published_date": getattr(d, "published_date", None),
+                "is_full_content": is_fetch_action or getattr(d, "is_full_content", False),
+                "source_status": "RETRIEVED" if is_fetch_action else "DISCOVERED",
             }
             for d in retrieved_docs
         ]
@@ -887,7 +1149,7 @@ class InvestigationEngine:
                 # or removed from unresolved_questions, preventing artificial confidence inflation
                 # or false OBJECTIVE_SATISFIED termination.
                 q.status = QuestionStatus.NOT_FOUND
-                q.resolution_reason = f"Action execution terminated with status {status}: {err_msg}"
+                q.resolution_reason = f"Action execution terminated with status FAILED ({status}): {err_msg}"
                 state.questions[action.question_id] = q.model_dump()
             return 0.0
 
@@ -898,6 +1160,90 @@ class InvestigationEngine:
         information_gain = 0.0
         new_entities_found: list[str] = []
         new_claims_found: list[str] = []
+
+        # 0. Specialized Identity Observation Processing
+        is_ident_obs = (
+            observation.get("specialist") == "identity"
+            or (action and action.specialist == "identity")
+            or (observation.get("adapter_result") and observation.get("adapter_result", {}).get("capability_id") == "identity_resolution")
+        )
+        if is_ident_obs:
+            ad_res = observation.get("adapter_result") or {}
+            for ent in ad_res.get("entities", []):
+                state.register_entity(name=ent, entity_type="IDENTITY_HANDLE")
+
+            known_ctx = state.objective_contract.get("known_context") or {}
+            for claim_data in ad_res.get("claims", []):
+                cand_obj = claim_data.get("object", "")
+                has_bio_contra = False
+                if known_ctx:
+                    cand_low = cand_obj.lower()
+                    loc_known = str(known_ctx.get("location", "")).lower()
+                    prof_known = str(known_ctx.get("profession", "")).lower()
+                    role_known = str(known_ctx.get("role", "")).lower()
+                    target_prof = f"{prof_known} {role_known}".strip()
+
+                    # Check location conflict
+                    m_loc = re.search(r"(?:location|loc):\s*([^\n|]+)", cand_low)
+                    cand_loc = m_loc.group(1).strip() if m_loc else ""
+                    if loc_known and cand_loc:
+                        known_loc_tokens = {t for t in re.findall(r"\w{3,}", loc_known) if t not in {"the", "and", "near"}}
+                        cand_loc_tokens = {t for t in re.findall(r"\w{3,}", cand_loc) if t not in {"the", "and", "near"}}
+                        if known_loc_tokens and cand_loc_tokens and known_loc_tokens.isdisjoint(cand_loc_tokens):
+                            has_bio_contra = True
+
+                    # Check profession/role conflict
+                    m_bio = re.search(r"(?:bio|title|role|profession|career):\s*([^\n|]+)", cand_low)
+                    cand_bio = m_bio.group(1).strip() if m_bio else ""
+                    if target_prof and cand_bio:
+                        known_prof_tokens = {t for t in re.findall(r"\w{3,}", target_prof) if t not in {"the", "and", "for", "with"}}
+                        cand_bio_tokens = {t for t in re.findall(r"\w{3,}", cand_bio) if t not in {"the", "and", "for", "with"}}
+                        if known_prof_tokens and cand_bio_tokens and known_prof_tokens.isdisjoint(cand_bio_tokens):
+                            has_bio_contra = True
+
+                if has_bio_contra:
+                    claim_data["status"] = "CONTRADICTED"
+                    contra_rec = {
+                        "contradiction_id": f"contra_{uuid.uuid4().hex[:8]}",
+                        "field": "biographical_context",
+                        "subject": claim_data.get("subject"),
+                        "known_value": str(known_ctx),
+                        "observed_value": cand_obj,
+                        "status": "CONTRADICTED",
+                        "source_url": claim_data.get("source_url"),
+                        "rationale": f"Biographical conflict: candidate profile ({cand_obj[:120]}) contradicts target known context ({known_ctx})",
+                    }
+                    state.contradictions.append(contra_rec)
+                    state.record_audit(
+                        action_type="IDENTITY_CONTRADICTION_DETECTED",
+                        details=contra_rec,
+                        rationale="Candidate profile contradicts target known biographical context.",
+                    )
+                elif known_ctx and any(
+                    k.lower() in cand_obj.lower()
+                    for k in [
+                        str(known_ctx.get("profession", "")),
+                        str(known_ctx.get("company", "")),
+                        str(known_ctx.get("role", "")),
+                        str(known_ctx.get("location", "")),
+                    ] + [str(p) for p in known_ctx.get("known_projects", [])]
+                    if len(k) > 3
+                ):
+                    if claim_data.get("predicate") in ("candidate_profile", "IDENTITY_EQUIVALENCE"):
+                        claim_data["status"] = "SUPPORTED"
+
+                cid = state.add_claim(claim_data)
+                new_claims_found.append(cid)
+                information_gain += 0.35
+
+            if ad_res.get("starting_account"):
+                for gap in state.information_gaps:
+                    if gap.target_attribute == "starting_account_profile":
+                        gap.is_resolved = True
+            if ad_res.get("entities"):
+                for gap in state.information_gaps:
+                    if gap.target_attribute == "cross_platform_candidates":
+                        gap.is_resolved = True
 
         # 1. Evidence Extraction & Verification
         for d in docs:
@@ -911,6 +1257,21 @@ class InvestigationEngine:
                 "syndication_cluster_id": d.get("syndication_cluster_id"),
             })
             d["evidence_id"] = ev_id
+
+            # Register discovered source into state lifecycle tracking
+            src_url = d.get("url") or d.get("doc_id")
+            if src_url:
+                is_ret = d.get("is_full_content", False) or bool(action and action.action_type == ActionType.FETCH)
+                state.add_discovered_source(
+                    url=src_url,
+                    title=d.get("title", ""),
+                    snippet=text[:300],
+                    is_retrieved=is_ret,
+                    source_type=d.get("source_type", "web"),
+                    target_entity=action.target_entities[0] if (action and action.target_entities) else None,
+                )
+                if is_ret:
+                    state.mark_source_retrieved(src_url)
 
             # Check syndicated duplicates
             if d.get("syndication_cluster_id"):
@@ -1040,7 +1401,7 @@ class InvestigationEngine:
                 "achieves", "achieved", "features", "featured", "yields", "yielded", "maintains", "maintained",
                 "reaches", "reached", "shows", "showed", "signed", "ceded", "established", "establishes",
                 "ratified", "passed", "enacted", "manufactures", "manufactured", "deploys", "deployed",
-                "records", "recorded", "identifies", "identified", "secures", "secured", "routes", "routed", "clusters"
+                "records", "recorded", "identifies", "identified", "secures", "secured", "routes", "routed", "clusters", "registered", "registers"
             ]
             words = set(re.findall(r"\b\w+\b", s_clean.lower()))
             if not any(v in words for v in substantive_verbs):
@@ -1127,9 +1488,12 @@ class InvestigationEngine:
             for clm in adapter_res.get("claims", []) + adapter_res.get("findings", []):
                 if isinstance(clm, dict):
                     if "evidence_id" not in clm and docs:
-                        clm["evidence_id"] = docs[0].get("evidence_id")
-                        clm["source_url"] = docs[0].get("url")
-                        clm["source_passage"] = docs[0].get("text", "")[:300]
+                        matching_doc = next((d for d in docs if d.get("url") == clm.get("source_url")), docs[0])
+                        clm["evidence_id"] = matching_doc.get("evidence_id")
+                        if not clm.get("source_url"):
+                            clm["source_url"] = matching_doc.get("url")
+                        if not clm.get("source_passage"):
+                            clm["source_passage"] = matching_doc.get("text", "")[:300]
                     cid = state.add_claim(clm)
                     new_claims_found.append(cid)
                     information_gain += 0.35
@@ -1169,6 +1533,125 @@ class InvestigationEngine:
         # 3. Dynamic Relational Claim Extraction & Knowledge Graph Update
         # Reusable semantic patterns extracting corporate structure, officers, infrastructure, and sanctions
         dynamic_relations: list[tuple[str, str, str, str]] = []
+
+        # 3-0. Enterprise Technographic Deployment Intelligence
+        # Extracts enterprise software deployments from live evidence passages and technographic telemetry
+        for d in docs:
+            d_text = d.get("text", "")
+            d_url = d.get("url", "")
+            d_ev_id = d.get("evidence_id")
+            if d_text:
+                tech_findings = extract_technographic_deployments(
+                    d_text,
+                    doc_url=d_url,
+                    target_query=state.objective,
+                )
+                for tf in tech_findings:
+                    if tf.company not in state.entities:
+                        state.register_entity(
+                            name=tf.company,
+                            entity_type="ORGANIZATION",
+                            metadata={
+                                "country": tf.country,
+                                "industry": tf.industry,
+                                "employees": tf.employees,
+                                "revenue": tf.revenue,
+                                "software": tf.software,
+                                "source_type": tf.source_type,
+                                "source_url": tf.source_url or d_url,
+                                "qualifier": tf.qualifier,
+                            },
+                        )
+                        new_entities_found.append(tf.company)
+                        information_gain += 0.30
+                    else:
+                        ent_obj = state.entities[tf.company]
+                        meta = getattr(ent_obj, "metadata", {}) or {}
+                        if tf.country and not meta.get("country"):
+                            meta["country"] = tf.country
+                        if tf.industry and not meta.get("industry"):
+                            meta["industry"] = tf.industry
+                        if tf.employees and not meta.get("employees"):
+                            meta["employees"] = tf.employees
+                        if tf.revenue and not meta.get("revenue"):
+                            meta["revenue"] = tf.revenue
+
+                    pred = "USES_PLM_SOFTWARE" if "teamcenter" in tf.software.lower() else "USES_SOFTWARE"
+                    existing_claim = next(
+                        (c for c in state.claims if c.get("subject") == tf.company and c.get("predicate") == pred and c.get("object") == tf.software),
+                        None,
+                    )
+                    if not existing_claim:
+                        cid = state.add_claim({
+                            "subject": tf.company,
+                            "predicate": pred,
+                            "object": tf.software,
+                            "status": tf.status,
+                            "confidence": tf.confidence,
+                            "evidence_id": d_ev_id,
+                            "source_url": tf.source_url or d_url,
+                            "source_passage": tf.evidence_quote or d_text[:300],
+                            "country": tf.country,
+                            "industry": tf.industry,
+                            "employees": tf.employees,
+                            "revenue": tf.revenue,
+                            "source_type": tf.source_type,
+                            "qualifier": tf.qualifier,
+                        })
+                        new_claims_found.append(cid)
+                        information_gain += 0.40
+                    else:
+                        old_url = existing_claim.get("source_url") or ""
+                        if old_url and d_url:
+                            dom1 = urlparse(old_url if "://" in old_url else f"https://{old_url}").netloc.lower()
+                            dom2 = urlparse(d_url if "://" in d_url else f"https://{d_url}").netloc.lower()
+                            if dom1 and dom2 and dom1 != dom2:
+                                existing_claim["status"] = "CORROBORATED"
+                                existing_claim["confidence"] = 0.98
+                                existing_claim["corroborated_by"] = d_url
+
+        if all_text:
+            primary_url = docs[0].get("url") if docs else ""
+            primary_ev = docs[0].get("evidence_id") if docs else None
+            extra_findings = extract_technographic_deployments(all_text, doc_url=primary_url, target_query=state.objective)
+            for tf in extra_findings:
+                if tf.company not in state.entities:
+                    state.register_entity(
+                        name=tf.company,
+                        entity_type="ORGANIZATION",
+                        metadata={
+                            "country": tf.country,
+                            "industry": tf.industry,
+                            "employees": tf.employees,
+                            "revenue": tf.revenue,
+                            "software": tf.software,
+                            "source_type": tf.source_type,
+                            "source_url": tf.source_url or primary_url,
+                            "qualifier": tf.qualifier,
+                        },
+                    )
+                    new_entities_found.append(tf.company)
+                    information_gain += 0.30
+                pred = "USES_PLM_SOFTWARE" if "teamcenter" in tf.software.lower() else "USES_SOFTWARE"
+                if not any(c.get("subject") == tf.company and c.get("predicate") == pred and c.get("object") == tf.software for c in state.claims):
+                    cid = state.add_claim({
+                        "subject": tf.company,
+                        "predicate": pred,
+                        "object": tf.software,
+                        "status": tf.status,
+                        "confidence": tf.confidence,
+                        "evidence_id": primary_ev,
+                        "source_url": tf.source_url or primary_url,
+                        "source_passage": tf.evidence_quote,
+                        "country": tf.country,
+                        "industry": tf.industry,
+                        "employees": tf.employees,
+                        "revenue": tf.revenue,
+                        "source_type": tf.source_type,
+                        "qualifier": tf.qualifier,
+                    })
+                    new_claims_found.append(cid)
+                    information_gain += 0.40
 
         # A. Corporate Subsidiary Declarations
         m_subs_block = re.findall(r"(?:subsidiaries(?:\s+include)?|Subsidiaries held|Wholly owned subsidiaries):\s*([^\n\r]+)", all_text, re.IGNORECASE)
@@ -1218,14 +1701,25 @@ class InvestigationEngine:
         # D. Infrastructure Hostnames & Associated Domain Entities
         found_hosts = re.findall(r"\b([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z0-9-]+\.)+(?:com|org|net|de|co\.uk|io))\b", all_text)
         for host in set(found_hosts):
+            # Check contextual relevance of host
+            doc_urls = [d.get("url", "") for d in docs if host in d.get("text", "")]
+            primary_doc_url = doc_urls[0] if doc_urls else ""
+            if not is_contextually_relevant_host(
+                host,
+                doc_url=primary_doc_url,
+                target_objective=state.objective,
+                target_entities=list(state.entities.keys()),
+            ):
+                continue
+
             if host not in state.entities:
                 state.register_entity(host, "INFRASTRUCTURE_ENDPOINT")
                 new_entities_found.append(host)
             for d in docs:
                 if host in d.get("text", ""):
-                    org_cand = d.get("title", "").split(" - ")[0].split(":")[0].strip()
+                    org_cand = clean_entity_name(d.get("title", "").split(" - ")[0].split(":")[0].strip())
                     if not org_cand or len(org_cand) < 3:
-                        org_cand = action.target_entities[0] if (action and action.target_entities) else "Host Entity"
+                        org_cand = clean_entity_name(action.target_entities[0] if (action and action.target_entities) else "Host Entity")
                     dynamic_relations.append((host, org_cand, "infrastructure", host))
 
         # E. Admin / Contact Emails associated with domains
@@ -1633,15 +2127,28 @@ class InvestigationEngine:
             q = InvestigationQuestion.model_validate(q_dict)
 
             # Check for active contradictions in state or claims
-            current_contra_claims = [c for c in state.claims if c.get("status") == "CONTRADICTED"]
-            current_insufficient_claims = [c for c in state.claims if c.get("status") == "INSUFFICIENT_EVIDENCE"]
-            current_not_found_claims = [c for c in state.claims if c.get("status") == "NOT_FOUND"]
+            q_entities = q.related_entities or action.target_entities or []
+            current_contra_claims = [
+                c for c in state.claims
+                if c.get("status") == "CONTRADICTED"
+                and (not q_entities or c.get("subject") in q_entities or c.get("subject") == "Subject Matter")
+            ]
+            current_insufficient_claims = [
+                c for c in state.claims
+                if c.get("status") == "INSUFFICIENT_EVIDENCE"
+                and (not q_entities or c.get("subject") in q_entities or c.get("subject") == "Entity")
+            ]
+            current_not_found_claims = [
+                c for c in state.claims
+                if c.get("status") == "NOT_FOUND"
+                and c.get("predicate") != "contact_channel"
+                and (not q_entities or c.get("subject") in q_entities or c.get("subject") == "Entity")
+            ]
 
             unresolved_contras = [c for c in state.contradictions if c.get("status") == "UNRESOLVED_CONTRADICTION"]
             has_contra = bool(unresolved_contras) or bool(current_contra_claims)
 
             # Check if this question is a negative verification question or asking about an absent scoped entity
-            q_entities = q.related_entities or action.target_entities or []
             has_not_found = False
             for q_ent in q_entities:
                 if EntityScopeVerifier.is_negative_or_scoped_query(q_ent, state.objective):
@@ -1653,6 +2160,15 @@ class InvestigationEngine:
                 has_not_found = bool(current_not_found_claims)
 
             has_insufficient = bool(current_insufficient_claims) or (not is_sufficient)
+
+            # If search discovered candidate sources that are not yet retrieved,
+            # do not prematurely resolve the question as SUPPORTED.
+            is_search_action = bool(action and action.action_type == ActionType.SEARCH)
+            unretrieved_sources = [
+                s for s in state.get_unretrieved_sources()
+                if not action.target_entities or s.get("target_entity") in action.target_entities or not s.get("target_entity")
+            ]
+            has_pending_fetches = is_search_action and len(unretrieved_sources) > 0 and not has_contra and not has_not_found
 
             if has_contra:
                 q.resolve(
@@ -1672,6 +2188,13 @@ class InvestigationEngine:
                     reason=f"Comprehensive literature inspection confirmed evidence is insufficient, preliminary, or unconfirmed: {suff_rationale}",
                     claim_ids=[c.get("claim_id", "") for c in current_insufficient_claims],
                 )
+            elif has_pending_fetches:
+                q.status = QuestionStatus.INVESTIGATING
+                q.resolution_reason = f"Discovered {len(unretrieved_sources)} candidate source(s). Pending full content retrieval."
+                state.questions[action.question_id] = q.model_dump()
+                information_gain += 0.25
+                # Keep question open in unresolved_questions for follow-up content retrieval
+                return information_gain
             elif (new_entities_found or new_claims_found or is_20_exec_goal) and is_sufficient:
                 q.resolve(
                     status=QuestionStatus.SUPPORTED,
@@ -1732,6 +2255,15 @@ class InvestigationEngine:
             infra_domains = [dom for dom in extracted_domains if dom not in doc_hosts and len(dom) > 5]
 
             for dom in infra_domains:
+                doc_urls = [d.get("url", "") for d in docs if dom in d.get("text", "")]
+                primary_doc_url = doc_urls[0] if doc_urls else ""
+                if not is_contextually_relevant_host(
+                    dom,
+                    doc_url=primary_doc_url,
+                    target_objective=state.objective,
+                    target_entities=list(state.entities.keys()),
+                ):
+                    continue
                 if not any(dom in str(q) for q in state.questions.values()):
                     q_chain_infra = InvestigationQuestion(
                         question_text=f"What network infrastructure and CT SAN endpoints are registered to {dom}?",
