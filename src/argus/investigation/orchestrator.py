@@ -55,6 +55,7 @@ from argus.investigation.contradiction_resolver import (
     EntityScopeVerifier,
     EpistemicSufficiencyEvaluator,
 )
+from argus.investigation.reported_disputes import classify_sentence, detect_reported_disputes, split_sentences
 from argus.investigation.benchmark.v2.semantic_auditor import (
     IndependentSemanticAuditor,
     SemanticSupportStatus,
@@ -269,6 +270,30 @@ class ToolPermissionGate:
                 return False, f"Adversarial or shell metacharacters detected in action query: {query}"
 
         return True, ""
+
+
+# Role words that precede a name in running text ("founder and Chief Executive
+# Officer Dr. Jane Roe has stepped down"); they are not part of the person's name.
+_ROLE_PREFIX_WORDS = {
+    "chief", "executive", "officer", "operating", "financial", "technology", "scientific",
+    "founder", "co-founder", "president", "vice", "senior", "interim", "acting", "former",
+    "director", "chairman", "chairwoman", "chair", "head", "general", "counsel", "managing",
+    "ceo", "cfo", "cto", "coo", "cso", "and", "the", "our", "its", "board", "member",
+}
+
+
+def _name_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
+def person_name_from_span(span: str) -> str:
+    """The person's name at the end of a captured span, without leading role words."""
+    tokens = (span or "").strip().split()
+    while tokens and tokens[-1].lower() in {"has", "had", "have"}:
+        tokens.pop()
+    while tokens and tokens[0].lower().strip(".,") in _ROLE_PREFIX_WORDS:
+        tokens.pop(0)
+    return " ".join(tokens).strip(" ,")
 
 
 class InvestigationEngine:
@@ -1485,7 +1510,9 @@ class InvestigationEngine:
                 "disprove", "disproved", "disproven", "retracted", "debunked",
                 "debunk", "untrue", "denied", "contrary to", "inconsistent",
             ]
-            if any(m in s_clean.lower() for m in contra_markers):
+            # A sentence saying earlier information is outdated resolves a conflict
+            # rather than reporting an open one.
+            if any(m in s_clean.lower() for m in contra_markers) and classify_sentence(s_clean) != "supersession":
                 return {
                     "subject": entity,
                     "predicate": "conflict_noted",
@@ -1839,9 +1866,9 @@ class InvestigationEngine:
             for ms in m_succ:
                 dynamic_relations.append((ms.group(2).strip(), ms.group(1).strip(), "succeeded", ms.group(2).strip()))
 
-            m_res = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,30}?)\s*(?:\bRESIGNED\b|\bstepped down\b)(?:\s+(?:in\s+)?(\d{4}))?", all_text)
+            m_res = re.finditer(r"([A-Z][A-Za-z\s.'-]{2,40}?)\s*(?:\b(?:has|had|have)\s+)?(?:\bRESIGNED\b|\bresigned\b|\bstepped down\b)(?:\s+(?:in\s+)?(\d{4}))?", all_text)
             for mr in m_res:
-                res_person = mr.group(1).strip()
+                res_person = person_name_from_span(mr.group(1))
                 if len(res_person) >= 3:
                     dynamic_relations.append((res_person, res_person, "tenure_status", "HISTORICAL_RESIGNED"))
 
@@ -1887,7 +1914,9 @@ class InvestigationEngine:
                         best_doc, passage = {}, ""
                         for cue in relation_cues[p]:
                             best_doc, passage = cite_passage(s, cue)
-                            if passage:
+                            # cite_passage falls back to a passage naming only the
+                            # subject; the cue must be in the passage it returns.
+                            if passage and term_in_passage(cue, passage):
                                 grounding_terms = [cue]
                                 break
                         if not passage:
@@ -2030,14 +2059,6 @@ class InvestigationEngine:
                     )
 
         # 3c. Domain-General Contradiction Detection & Multi-Domain Conflict Resolution
-        contra_indicators = [
-            "directly contradicts", "contradict", "conflict", "dispute",
-            "incompatible", "competing accounts", "opposing claims",
-            "differing estimates", "differing accounts", "discrepancy between",
-            "in tension with", "unresolved tension", "divided over",
-            "succeeded by interim", "appointed interim ceo following resignation",
-            "earlier reports indicating", "outdated and contradicted",
-        ]
         topic_subject = action.target_entities[0] if (action and action.target_entities) else "Subject Matter"
         target_entities_list = (action.target_entities if action else []) or [topic_subject]
         all_candidate_subjects = list(
@@ -2102,42 +2123,121 @@ class InvestigationEngine:
                                 if rej_core and rej_core in clm_text:
                                     clm["status"] = "CONTRADICTED"
 
+        # Disputes and supersessions the sources themselves state ("later analyses
+        # contradict the cometary model", "earlier reports ... are outdated"). These
+        # rarely appear as two comparable values, so the resolver above misses them.
+        # An unresolved dispute is recorded with a grounded conflict claim; a
+        # supersession is recorded as resolved and leaves other claims untouched.
+        dispute_subjects = list(dict.fromkeys(
+            ((action.target_entities if action else []) or [])
+            + (state.objective_contract.get("target_entities") or [])
+        ))
+        for subj in dispute_subjects:
+            for d_rec in detect_reported_disputes(docs, subj):
+                if any(
+                    c.get("subject") == d_rec.subject
+                    and c.get("property_dim") == d_rec.property_dim
+                    and c.get("evidence_id_b") == d_rec.evidence_id_b
+                    for c in state.contradictions
+                ):
+                    continue
+                state.contradictions.append(d_rec.model_dump())
+                state.record_audit(
+                    action_type="SOURCE_REPORTED_CONFLICT",
+                    details={"subject": subj, "kind": d_rec.property_dim, "status": d_rec.status,
+                             "source_url": d_rec.source_b, "passage": d_rec.claim_b[:300]},
+                    rationale=d_rec.adjudication_rationale,
+                )
+                if d_rec.status == "UNRESOLVED_CONTRADICTION":
+                    cid = state.add_claim({
+                        "subject": subj,
+                        "predicate": "conflict_noted",
+                        "object": d_rec.claim_b,
+                        "status": "CONTRADICTED",
+                        "evidence_id": d_rec.evidence_id_b,
+                        "source_url": d_rec.source_b,
+                        "source_passage": d_rec.claim_b,
+                    })
+                    new_claims_found.append(cid)
+                information_gain += 0.30
+
         # 3d. Adversarial, Negative & Empirical Uncertainty Resolution
         # A. Lookalike Phishing / Homoglyph Neutralization
+        # Only documents about one of the investigation's targets count, and the threat
+        # finding cites a sentence that names the flagged domain or package together
+        # with the threat the source states. An affiliation is disavowed only with a
+        # party the source says is imitated: when the user asks about the malicious
+        # package itself, the old rule asserted that the package disavows itself.
+        lookalike_targets = [t for t in dict.fromkeys(target_entities_list + (state.objective_contract.get("target_entities") or [])) if t and t != "Subject Matter"]
+        flagged_name_re = re.compile(
+            r"[\'\"\u2018\u201c]([A-Za-z0-9][\w.-]{2,})[\'\"\u2019\u201d]"
+            r"|\b([a-z0-9][a-z0-9_-]*(?:\.[a-z0-9-]+)*\.(?:com|org|net|io|de|co\.uk|info|biz|xyz|app|dev))\b"
+        )
+        imitated_party_re = re.compile(
+            r"\b(?:mimic|mimics|mimicking|impersonat\w*|imitat\w*|spoof\w*|posing as|masquerading as)\s+(?:the\s+)?"
+            r"([A-Z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*)*)"
+        )
+        threat_re = re.compile(r"\b(phishing|lookalike|homoglyph|imposter|impersonat\w*|typosquat\w*|malicious|malware|exfiltrat\w*)\b", re.IGNORECASE)
         for d in docs:
             d_text = d.get("text", "")
-            if any(k in d_text.lower() for k in ("phishing", "lookalike", "homoglyph", "imposter", "typosquatting", "malware", "exfiltrates")):
-                m_bad_dom = re.search(r"\b([a-z0-9_.-]+(?:-py|\.(?:com|org|net|de|co\.uk|io)))\b", d_text)
-                if m_bad_dom:
-                    bad_domain = m_bad_dom.group(1)
-                    if not any(c.get("subject") == bad_domain and c.get("predicate") == "security_assessment" for c in state.claims):
-                        target_entity = action.target_entities[0] if (action and action.target_entities) else "Target Entity"
-                        state.add_claim({
-                            "subject": bad_domain,
-                            "predicate": "affiliation",
-                            "object": target_entity,
-                            "status": "CONTRADICTED",
-                            "evidence_id": d.get("evidence_id"),
-                            "source_url": d.get("url"),
-                            "source_passage": d_text[:300],
-                        })
-                        threat_cue = next(k for k in ("phishing", "lookalike", "homoglyph", "imposter", "typosquatting", "malware", "exfiltrates") if k in d_text.lower())
-                        state.add_claim({
-                            "subject": bad_domain,
-                            "predicate": "security_assessment",
-                            "object": f"Malicious typosquatted or imposter package identified: {d_text[:200]}",
-                            "status": "SUPPORTED",
-                            "evidence_id": d.get("evidence_id"),
-                            "source_url": d.get("url"),
-                            "source_passage": ground_passage(d_text, [bad_domain, threat_cue]),
-                            "grounding_terms": [threat_cue],
-                        })
-                        state.record_audit(
-                            action_type="ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
-                            details={"domain": bad_domain, "finding": "Lookalike / Phishing neutralized"},
-                            rationale="Neutralized adversary lookalike entity from verified registry.",
-                        )
-                        break
+            if not threat_re.search(d_text):
+                continue
+            if lookalike_targets and not any(term_in_passage(t, f"{d.get('title', '')} {d_text}") for t in lookalike_targets):
+                continue
+            # The flagged name is taken from the sentence that states the threat: a
+            # domain, or a quoted package or account name.
+            bad_domain, threat_sentence, threat_cue = "", "", ""
+            for sent in split_sentences(d_text):
+                m_cue = threat_re.search(sent)
+                if not m_cue:
+                    continue
+                m_name = flagged_name_re.search(sent)
+                if m_name:
+                    bad_domain = next(g for g in m_name.groups() if g)
+                    threat_sentence, threat_cue = sent, m_cue.group(1)
+                    break
+            if not bad_domain and len(d_text.strip()) <= 400:
+                # A short structured record (e.g. WHOIS fields on separate lines) states
+                # the threat on one line and the name on another; it is cited whole.
+                named = [t for t in lookalike_targets if term_in_passage(t, d_text)]
+                m_cue = threat_re.search(d_text)
+                if named and m_cue:
+                    bad_domain, threat_sentence, threat_cue = named[0], d_text.strip(), m_cue.group(1)
+            if not bad_domain:
+                continue
+            if any(c.get("subject") == bad_domain and c.get("predicate") == "security_assessment" for c in state.claims):
+                continue
+            # Disavow an affiliation only with the party the source says is being
+            # imitated, never with the flagged name itself.
+            m_imit = imitated_party_re.search(threat_sentence)
+            imitated = m_imit.group(1).strip(" .,;:") if m_imit else ""
+            if imitated and _name_key(imitated) != _name_key(bad_domain):
+                state.add_claim({
+                    "subject": bad_domain,
+                    "predicate": "affiliation",
+                    "object": imitated,
+                    "status": "CONTRADICTED",
+                    "evidence_id": d.get("evidence_id"),
+                    "source_url": d.get("url"),
+                    "source_passage": threat_sentence,
+                })
+            cid = state.add_claim({
+                "subject": bad_domain,
+                "predicate": "security_assessment",
+                "object": threat_sentence,
+                "status": "SUPPORTED",
+                "evidence_id": d.get("evidence_id"),
+                "source_url": d.get("url"),
+                "source_passage": threat_sentence,
+                "grounding_terms": [threat_cue],
+            })
+            new_claims_found.append(cid)
+            state.record_audit(
+                action_type="ADVERSARIAL_IMPENETRATION_NEUTRALIZED",
+                details={"domain": bad_domain, "finding": "Lookalike / Phishing neutralized", "threat": threat_cue},
+                rationale="Source identifies the domain or package as a threat.",
+            )
+            break
 
         # B. Negative Findings & Affiliation Disavowals
         # Check explicit negative indicators and EntityScopeVerifier
@@ -2276,7 +2376,15 @@ class InvestigationEngine:
                 and (not q_entities or c.get("subject") in q_entities or c.get("subject") == "Entity")
             ]
 
-            unresolved_contras = [c for c in state.contradictions if c.get("status") == "UNRESOLVED_CONTRADICTION"]
+            # An open contradiction about another subject does not make this question
+            # contradicted.
+            unresolved_contras = [
+                c for c in state.contradictions
+                if c.get("status") == "UNRESOLVED_CONTRADICTION"
+                and (not q_entities or any(
+                    term_in_passage(e, f"{c.get('subject', '')} {c.get('topic', '')}") for e in q_entities
+                ))
+            ]
             has_contra = bool(unresolved_contras) or bool(current_contra_claims)
 
             # Check if this question is a negative verification question or asking about an absent scoped entity

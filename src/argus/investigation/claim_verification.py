@@ -132,6 +132,9 @@ def term_in_passage(term: Any, passage: str) -> bool:
     return all(re.search(rf"(?<![a-z0-9]){re.escape(tok)}(?![a-z0-9])", p) for tok in tokens)
 
 
+_HONORIFIC_END = re.compile(r"\b(?:Dr|Mr|Ms|Mrs|Prof|Sr|Jr|St)\.$")
+
+
 def ground_passage(text: str, terms: Iterable[str], max_len: int = 400) -> str:
     """Return a verbatim excerpt of ``text`` that mentions every term, or ``""``.
 
@@ -143,8 +146,15 @@ def ground_passage(text: str, terms: Iterable[str], max_len: int = 400) -> str:
         return ""
     # Sentence boundaries are [.!?] followed by whitespace, so hostnames, e-mail
     # addresses and decimals ("$39.5B") stay inside one segment.
+    # An honorific ("Dr. Jane Roe") does not end a sentence.
+    segments: list[str] = []
     for m in re.finditer(r"(?:[^.!?\n]|[.!?](?=\S))+[.!?]?", text):
         seg = m.group(0)
+        if segments and _HONORIFIC_END.search(segments[-1]):
+            segments[-1] += seg
+        else:
+            segments.append(seg)
+    for seg in segments:
         if not all(term_in_passage(t, seg) for t in terms):
             continue
         seg_stripped = seg.strip()
