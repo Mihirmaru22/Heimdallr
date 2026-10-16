@@ -133,7 +133,7 @@ def incomplete_stop(state: Any) -> tuple[str, str]:
     """Stop reason and rationale for a run that ends with the objective not answered."""
     cov = coverage(state)
     gaps = cov["unanswered_critical"]
-    names = "; ".join(f"'{q.get('question_text', '')}' ({q.get('status')})" for q in gaps[:3])
+    names = "; ".join(f"'{q.get('question_text', '')}' ({getattr(q.get('status'), 'value', q.get('status'))})" for q in gaps[:3])
     denied = budget_denials(state)
     if gaps and denied:
         return (

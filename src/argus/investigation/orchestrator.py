@@ -1071,9 +1071,13 @@ class InvestigationEngine:
                 fetched_doc = self.corpus.doc_by_id.get(target_url)
 
             if not fetched_doc and hasattr(self.corpus, "search"):
-                matches = self.corpus.search(target_url, limit=1)
-                if matches:
-                    fetched_doc = matches[0]
+                # A text search on the URL returns the best-scoring document, which can be any
+                # page; only a document actually at the requested address counts as fetched.
+                matches = self.corpus.search(target_url, limit=3)
+                fetched_doc = next(
+                    (m for m in matches if getattr(m, "url", None) == target_url or getattr(m, "doc_id", None) == target_url),
+                    None,
+                )
 
             if fetched_doc:
                 retrieved_docs.append(fetched_doc)

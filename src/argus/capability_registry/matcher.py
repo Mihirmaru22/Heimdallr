@@ -90,7 +90,7 @@ class CapabilityMatcher:
             # 3. Question Type & Operation Taxonomy Matching
             q_score = 0.0
             for qt in cap.question_types:
-                if qt.upper() in q_type_str.upper() or q_type_str.upper() in qt.upper():
+                if self._question_type_matches(qt, q_type_str, cap):
                     q_score = 1.0
                     matched_reqs.append(f"QuestionType: {qt}")
                     break
@@ -286,6 +286,27 @@ class CapabilityMatcher:
 
         return selected_candidates
 
+    # Verbs a capability may prefix to a shared question type ("VERIFY_OFFICER_TENURE").
+    _QUESTION_TYPE_VERBS = ("VERIFY", "FIND", "CHECK", "RESOLVE")
+
+    @classmethod
+    def _question_type_matches(cls, cap_qt: str, q_type: str, cap: CapabilityDefinition) -> bool:
+        """Whole question-type match. A domain-qualified type such as ONION_ENTITY_DISCOVERY
+        or OFAC_GENERAL_LICENSE_VERIFICATION is not the generic ENTITY_DISCOVERY / GENERAL."""
+        a, b = cap_qt.upper(), q_type.upper()
+        if a == b:
+            return True
+        if cap.category.value == "GENERAL_RESEARCH" and (b in a or a in b):
+            return True
+        return any(a == f"{verb}_{b}" for verb in cls._QUESTION_TYPE_VERBS)
+
+    # Specialist domains whose evidence is only relevant when the requirement names that
+    # domain. Mirrors the dark-web boundary below in the other direction.
+    _DOMAIN_REQUIREMENT_TERMS = {
+        "ONION_AND_DARKWEB": ("onion", "dark web", "darknet", "hidden service", "ahmia", "tor v3", "tor hidden"),
+        "EMAIL_AND_ACCOUNT": ("email", "e-mail", "mailbox", "account", "username", "handle", "profile", "phone"),
+    }
+
     @staticmethod
     def _cap_satisfies_evidence(cap: CapabilityDefinition, req: str) -> bool:
         """Check if capability declared evidence types satisfy an evidence requirement."""
@@ -304,6 +325,9 @@ class CapabilityMatcher:
             or "tor hidden" in req_phrase
         )
         if is_darkweb_req and cap.category.value != "ONION_AND_DARKWEB":
+            return False
+        domain_terms = CapabilityMatcher._DOMAIN_REQUIREMENT_TERMS.get(cap.category.value)
+        if domain_terms and not any(t in req_phrase for t in domain_terms):
             return False
 
         for et in cap.evidence_types:

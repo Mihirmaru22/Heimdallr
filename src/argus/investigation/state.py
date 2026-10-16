@@ -313,12 +313,22 @@ class InvestigationState(BaseModel):
 
         for q in self.questions.values():
             text = q.get("question_text", "")
-            status = q.get("status")
+            status = getattr(q.get("status"), "value", q.get("status"))
             if q.get("is_critical") and not question_is_answered(q, index):
                 if status == PARTIALLY_RESOLVED:
                     continue  # stated below with its source classes
                 reason = q.get("resolution_reason") or "no evidence-backed answer was found"
                 limitations.append(f"Critical question not answered: '{text}' ({status}: {reason})")
+        for q in self.questions.values():
+            # Supporting questions are not required for the objective, but an unanswered one
+            # is still something the report did not establish.
+            if q.get("is_critical") or q.get("origin") == "chained" or q.get("status") == PARTIALLY_RESOLVED:
+                continue
+            if q.get("question_id") in self.resolved_questions and not question_is_answered(q, index):
+                limitations.append(
+                    f"Supporting question not answered: '{q.get('question_text', '')}' "
+                    f"({getattr(q.get('status'), 'value', q.get('status'))})."
+                )
         for q in self.questions.values():
             if q.get("status") != PARTIALLY_RESOLVED:
                 continue

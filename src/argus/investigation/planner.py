@@ -879,6 +879,8 @@ class InvestigationPlanner:
                 )
             )
 
+        self._scope_template_criticality(state, objective, target_entities)
+
         state.record_audit(
             action_type="INVESTIGATION_INITIALIZED",
             details={
@@ -891,6 +893,67 @@ class InvestigationPlanner:
             rationale=f"Decomposed objective into initial question topology for {domain} domain.",
         )
         return state
+
+    # Words that carry no topic: question scaffolding shared by every template.
+    _CRITICALITY_STOPWORDS = frozenset({
+        "what", "which", "who", "whom", "whose", "when", "where", "does", "have", "with", "that",
+        "this", "these", "those", "from", "into", "regarding", "about", "their", "there", "each",
+        "remain", "remaining", "documented", "established", "public", "known", "investigate",
+        "identify", "determine", "analyze", "analyse", "examine", "verify", "trace", "conduct",
+        "research", "evaluate", "resolve", "reconstruct", "find", "list", "held", "during",
+        "between", "against", "under", "over", "whether", "including", "include", "starting",
+    })
+
+    @classmethod
+    def _topic_terms(cls, text: str, exclude: set[str]) -> set[str]:
+        """Content-word stems of ``text`` (5-char prefixes), minus scaffolding and entity names."""
+        out = set()
+        for w in re.findall(r"[a-z][a-z\-]{3,}", text.lower()):
+            if w in cls._CRITICALITY_STOPWORDS or w in exclude:
+                continue
+            out.add(w[:5])
+        return out
+
+    def _scope_template_criticality(self, state: InvestigationState, objective: str, target_entities: list[str]) -> None:
+        """Keep a template sub-question critical only if it overlaps the user's objective.
+
+        Domain templates add generic sub-questions (e.g. "Who are the key executive officers
+        of X?") and mark several critical. A question the user never asked must not decide
+        whether the objective is satisfied. The objective's own question stays critical;
+        another critical question stays critical only when it shares at least two topic
+        terms with the objective (entity names excluded, since every template repeats them).
+        The questions themselves are kept and still researched.
+        """
+        entity_words = {
+            w for e in target_entities for w in re.findall(r"[a-z][a-z\-]{3,}", str(e).lower())
+        }
+        objective_terms = self._topic_terms(objective, entity_words)
+        demoted: list[dict[str, Any]] = []
+        for qid, q in state.questions.items():
+            if not q.get("is_critical"):
+                continue
+            text = q.get("question_text", "")
+            if text.strip() == objective.strip():
+                continue
+            shared = self._topic_terms(text, entity_words) & objective_terms
+            if len(shared) >= 2:
+                continue
+            q["is_critical"] = False
+            demoted.append({"question_id": qid, "question_text": text, "shared_terms": sorted(shared)})
+        if not demoted:
+            return
+        demoted_ids = {d["question_id"] for d in demoted}
+        for gap in state.information_gaps:
+            if gap.related_question_id in demoted_ids:
+                gap.is_critical = False
+        state.record_audit(
+            action_type="TEMPLATE_CRITICALITY_SCOPED",
+            details={"demoted": demoted},
+            rationale=(
+                f"{len(demoted)} template question(s) do not share the objective's topic and are "
+                "researched as non-critical."
+            ),
+        )
 
     def _initialize_enumeration(
         self,
