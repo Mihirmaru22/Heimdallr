@@ -327,7 +327,7 @@ class TestNarrativeAndExporters:
 
         # Categorized findings must include the sample size in header
         cat = synth["categorized_findings"]
-        cat_key = next(k for k in cat if "Verified Enterprise Deployments" in k)
+        cat_key = next(k for k in cat if "Reported Enterprise Deployments" in k)
         assert "[Sample: 2]" in cat_key
         assert any("Northrop Grumman" in f["fact"] and "$39B" in f["fact"] for f in cat[cat_key])
         assert any("Lockheed Martin" in f["fact"] and "VENDOR_CONFIRMED" == f["status"] for f in cat[cat_key])

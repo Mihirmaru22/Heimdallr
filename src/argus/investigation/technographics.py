@@ -228,7 +228,7 @@ def extract_technographic_deployments(
         if "teamcenter" in sw.lower() and "siemens" not in sw.lower():
             sw = "Siemens Teamcenter"
 
-        quote = f"{comp} in {country} ({industry}, {emp} employees, {rev} revenue) deploys {sw}."
+        quote = m.group(0).strip()
         finding = TechnographicFinding(
             company=comp,
             software=sw or default_software,
@@ -264,11 +264,11 @@ def extract_technographic_deployments(
         if "teamcenter" in sw.lower() and "siemens" not in sw.lower():
             sw = "Siemens Teamcenter"
 
-        quote = f"{comp} ({emp} employees, {rev} revenue, {industry}) deploys {sw}."
+        quote = m.group(0).strip()
         extracted_companies[comp] = TechnographicFinding(
             company=comp,
             software=sw or default_software,
-            country=default_country or "United States",
+            country="",  # not stated by this source pattern; never assumed from the query
             industry=industry,
             employees=emp,
             revenue=rev,
@@ -312,11 +312,11 @@ def extract_technographic_deployments(
         if m_rev:
             rev = m_rev.group(1)
 
-        quote = f"{comp} deploys {sw}."
+        quote = m.group(0).strip()
         extracted_companies[comp] = TechnographicFinding(
             company=comp,
             software=sw,
-            country=default_country or "United States",
+            country="",  # not stated by this source pattern; never assumed from the query
             industry="",
             employees=emp,
             revenue=rev,

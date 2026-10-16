@@ -20,7 +20,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from argus.export.narrative import generate_narrative_intelligence
+from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence, generate_narrative_intelligence
 from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
 
 
@@ -145,8 +145,8 @@ class OSINTExcelExporter:
         claims = data.get("claims", [])
         evidence = data.get("evidence", [])
         actions = data.get("research_actions", [])
-        confidence = data.get("confidence", 0.0)
-        stop_reason = data.get("stop_reason", "Completed")
+        confidence = data.get("confidence")
+        stop_reason = data.get("stop_reason") or "UNKNOWN"
 
         # Details Table
         details = [
@@ -155,7 +155,7 @@ class OSINTExcelExporter:
             ("Execution Status", "COMPLETED" if data.get("is_stopped", True) else "IN_PROGRESS"),
             ("Termination Reason", str(stop_reason)),
             ("Research Steps Taken", len(actions)),
-            ("Epistemic Confidence", f"{confidence * 100:.1f}%"),
+            ("Epistemic Confidence", format_confidence(confidence)),
             ("Total Evidence Items", len(evidence)),
             ("Generated At (UTC)", datetime.now(timezone.utc).isoformat()),
         ]
@@ -210,9 +210,9 @@ class OSINTExcelExporter:
                 row += 1
 
                 for it in items:
-                    conf_pct = f"{float(it.get('confidence', 0.9))*100:.0f}%"
-                    status = it.get("status", "SUPPORTED")
-                    cit = it.get("citation", "Authoritative Source")
+                    conf_pct = format_confidence(it.get("confidence"), decimals=0)
+                    status = it.get("status") or "UNVERIFIED"
+                    cit = it.get("citation") or NO_SOURCE_RECORDED
                     bullet_text = f"• {it.get('fact')}  [{status} | {conf_pct}] (Source: {cit})"
                     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
                     c = ws.cell(row=row, column=1, value=bullet_text)
@@ -226,9 +226,9 @@ class OSINTExcelExporter:
                     subj = clean_entity_name(sc.get("subject", ""))
                     pred = sc.get("predicate", "").replace("_", " ").title()
                     obj = sc.get("object", "")
-                    conf_val = sc.get("confidence", 0.9)
-                    citation = sc.get("citation") or sc.get("url") or "Authoritative Source"
-                    bullet_text = f"• {subj} — {pred}: {obj} (Confidence: {conf_val*100:.0f}%, Citation: {citation})"
+                    conf_val = sc.get("confidence")
+                    citation = sc.get("citation") or sc.get("url") or NO_SOURCE_RECORDED
+                    bullet_text = f"• {subj} — {pred}: {obj} (Confidence: {format_confidence(conf_val, decimals=0)}, Citation: {citation})"
                     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
                     c = ws.cell(row=row, column=1, value=bullet_text)
                     c.font = BODY_FONT
@@ -267,8 +267,8 @@ class OSINTExcelExporter:
             subj = claim.get("subject") or "N/A"
             pred = claim.get("predicate") or "N/A"
             obj = claim.get("object") or "N/A"
-            status = str(claim.get("status") or "SUPPORTED").upper()
-            conf = claim.get("confidence", 0.85)
+            status = str(claim.get("status") or "UNVERIFIED").upper()
+            conf = claim.get("confidence")
 
             # Resolve citation snippets
             ev_ids = claim.get("evidence_ids") or []
@@ -279,14 +279,14 @@ class OSINTExcelExporter:
                     url_snippet = ev_item.get("url") or ""
                     passage = ev_item.get("snippet") or ev_item.get("passage") or ""
                     citations.append(f"[{url_snippet}]: {passage[:100]}...")
-            citation_str = "\n".join(citations) if citations else str(claim.get("source_url") or claim.get("citation") or claim.get("url") or "Authoritative Source")
+            citation_str = "\n".join(citations) if citations else str(claim.get("source_url") or claim.get("citation") or claim.get("url") or NO_SOURCE_RECORDED)
 
             c_id_cell = ws.cell(row=row_idx, column=1, value=cid)
             c_subj_cell = ws.cell(row=row_idx, column=2, value=subj)
             c_pred_cell = ws.cell(row=row_idx, column=3, value=pred)
             c_obj_cell = ws.cell(row=row_idx, column=4, value=obj)
             c_stat_cell = ws.cell(row=row_idx, column=5, value=status)
-            c_conf_cell = ws.cell(row=row_idx, column=6, value=f"{float(conf)*100:.1f}%")
+            c_conf_cell = ws.cell(row=row_idx, column=6, value=format_confidence(conf))
             c_cit_cell = ws.cell(row=row_idx, column=7, value=citation_str)
 
             for c in (c_id_cell, c_subj_cell, c_pred_cell, c_obj_cell, c_conf_cell, c_cit_cell):

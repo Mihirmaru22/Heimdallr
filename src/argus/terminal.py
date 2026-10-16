@@ -30,6 +30,7 @@ from rich.table import Table
 from rich.text import Text
 
 from argus.export import OSINTExcelExporter, OSINTMarkdownExporter
+from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence
 from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
 from argus.investigation.live_web.controller import ControlledLiveWebRetriever
 from argus.investigation.orchestrator import InvestigationEngine
@@ -394,28 +395,24 @@ class OSINTTerminal:
             progress.update(task, description="Research complete. Corroborating findings...")
 
         # Structure normalized dictionary for terminal and Excel
+        # Citations come only from the claim's own recorded provenance. A claim
+        # without provenance keeps citation=None rather than borrowing another
+        # evidence item's URL; missing status/confidence stay explicitly unknown.
+        evidence_url_by_id = {ev.get("evidence_id"): ev.get("url") for ev in state.evidence if ev.get("evidence_id")}
         claims_out = []
         for c in state.claims:
-            subj = c.get("subject", "")
-            obj = c.get("object", "")
-            cit = c.get("citation")
-            if not cit:
-                for ev in state.evidence:
-                    snip = (ev.get("snippet") or ev.get("passage") or "").lower()
-                    if (subj.lower() in snip and len(subj) > 2) or (str(obj).lower() in snip and len(str(obj)) > 2):
-                        cit = ev.get("url")
-                        break
-            if not cit:
-                cit = state.evidence[0]["url"] if state.evidence else "Authoritative Filing"
+            cit = c.get("citation") or c.get("source_url") or evidence_url_by_id.get(c.get("evidence_id")) or None
 
             claims_out.append({
                 "claim_id": c.get("claim_id", ""),
-                "subject": subj,
+                "subject": c.get("subject", ""),
                 "predicate": c.get("predicate", ""),
-                "object": obj,
-                "status": c.get("status", "SUPPORTED"),
-                "confidence": c.get("confidence", 0.90),
+                "object": c.get("object", ""),
+                "status": c.get("status") or "UNVERIFIED",
+                "confidence": c.get("confidence"),
                 "citation": cit,
+                "evidence_id": c.get("evidence_id"),
+                "source_passage": c.get("source_passage"),
             })
 
         entities_out = {}
@@ -441,8 +438,8 @@ class OSINTTerminal:
             "target": target,
             "objective": state.objective,
             "is_stopped": state.stop_state.is_stopped,
-            "stop_reason": state.stop_state.stop_reason or "Target Objectives Satisfied",
-            "confidence": state.confidence_state.overall_confidence or 0.92,
+            "stop_reason": state.stop_state.stop_reason or "UNKNOWN",
+            "confidence": state.confidence_state.overall_confidence,
             "claims": claims_out,
             "entities": entities_out,
             "evidence": evidence_out,
@@ -483,9 +480,9 @@ class OSINTTerminal:
                 subj = c.get("subject", "N/A")
                 pred = c.get("predicate", "N/A").replace("_", " ").title()
                 obj = str(c.get("object", "N/A"))
-                status_badge = format_status_badge(c.get("status", "SUPPORTED"))
-                conf_str = f"{float(c.get('confidence', 0.9)) * 100:.0f}%"
-                cit = c.get("citation") or "Verified Record"
+                status_badge = format_status_badge(c.get("status") or "UNVERIFIED")
+                conf_str = format_confidence(c.get("confidence"), decimals=0)
+                cit = c.get("citation") or NO_SOURCE_RECORDED
 
                 table.add_row(subj, pred, obj, status_badge, conf_str, cit)
 
@@ -515,7 +512,7 @@ class OSINTTerminal:
         summary_text.append(f"Contradicted: {contradicted_count}  |  ", style="bold red")
         summary_text.append(f"Entities: {entities_count}  |  ", style="bold cyan")
         summary_text.append(f"Sources: {evidence_count}\n", style="bold magenta")
-        summary_text.append(f"Scanned in {elapsed:.2f}s  |  Confidence: {data.get('confidence', 0.9)*100:.1f}%\n", style="dim white")
+        summary_text.append(f"Scanned in {elapsed:.2f}s  |  Confidence: {format_confidence(data.get('confidence'))}\n", style="dim white")
 
         stop_reason = data.get("stop_reason")
         if stop_reason:

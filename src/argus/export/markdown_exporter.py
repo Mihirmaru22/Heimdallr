@@ -16,7 +16,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from argus.export.narrative import generate_narrative_intelligence
+from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence, generate_narrative_intelligence
 from argus.investigation.relevance import clean_entity_name
 
 
@@ -70,8 +70,8 @@ class OSINTMarkdownExporter:
         claims = data.get("claims", [])
         evidence = data.get("evidence", [])
         actions = data.get("research_actions", [])
-        confidence = float(data.get("confidence", 0.85))
-        stop_reason = data.get("stop_reason", "Completed")
+        confidence = data.get("confidence")
+        stop_reason = data.get("stop_reason") or "UNKNOWN"
         inv_id = data.get("investigation_id", "N/A")
         now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -86,7 +86,7 @@ class OSINTMarkdownExporter:
         lines.append(f"- **Target Objective:** {data.get('objective', target_name)}")
         lines.append(f"- **Investigation ID:** `{inv_id}`")
         lines.append(f"- **Generated Date:** {now_utc}")
-        lines.append(f"- **Overall Epistemic Confidence:** **{confidence * 100:.1f}%**")
+        lines.append(f"- **Overall Epistemic Confidence:** **{format_confidence(confidence)}**")
         lines.append(f"- **Research Actions Completed:** {len(actions)}")
         lines.append(f"- **Authoritative Evidence Passages:** {len(evidence)}")
         lines.append(f"- **Investigation Stopping Reason:** `{stop_reason}`")
@@ -103,9 +103,9 @@ class OSINTMarkdownExporter:
             if items:
                 lines.append(f"### {category}")
                 for it in items:
-                    conf_pct = f"{float(it.get('confidence', 0.9)) * 100:.0f}%"
-                    status = it.get("status", "SUPPORTED")
-                    cit = it.get("citation", "Authoritative Source")
+                    conf_pct = format_confidence(it.get("confidence"), decimals=0)
+                    status = it.get("status") or "UNVERIFIED"
+                    cit = it.get("citation") or NO_SOURCE_RECORDED
                     lines.append(f"- **{it.get('fact')}** `[{status} | {conf_pct}]`  ")
                     lines.append(f"  *Source Citation:* {cit}")
                 lines.append("")

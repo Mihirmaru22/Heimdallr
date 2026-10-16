@@ -19,6 +19,30 @@ from argus.investigation.relevance import (
 
 clean_entity_display_name = clean_entity_name
 
+NO_SOURCE_RECORDED = "No source recorded"
+# Facts pattern-matched from evidence text but not checked against it.
+EXTRACTED_STATUS = "UNVERIFIED"
+
+
+def format_confidence(value: Any, decimals: int = 1) -> str:
+    """Render a 0-1 confidence as a percentage, or 'n/a' when none was computed."""
+    if value is None:
+        return "n/a"
+    try:
+        return f"{float(value) * 100:.{decimals}f}%"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def _source_url_for(fragment: str, passages: list[dict[str, str]]) -> str | None:
+    """Return the URL of the first evidence passage that contains the fragment."""
+    if not fragment:
+        return None
+    for p in passages:
+        if fragment in p.get("text", ""):
+            return p.get("url") or None
+    return None
+
 
 
 def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
@@ -27,8 +51,8 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
     claims = data.get("claims", [])
     entities = data.get("entities", {})
     evidence = data.get("evidence", [])
-    confidence = data.get("confidence", 0.85)
-    stop_reason = data.get("stop_reason", "Completed")
+    confidence = data.get("confidence")
+    stop_reason = data.get("stop_reason") or "UNKNOWN"
 
     # Check for Enterprise Technographic / Software Deployment Intelligence
     software_deploy_claims = [
@@ -44,8 +68,8 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         from argus.investigation.technographics import detect_software_in_query, detect_country_in_query
 
         target_sw = detect_software_in_query(target_raw)
-        target_country = detect_country_in_query(target_raw) or "United States"
-        primary_name = f"{target_sw} Enterprise Deployments ({target_country})"
+        target_country = detect_country_in_query(target_raw)
+        primary_name = f"{target_sw} Enterprise Deployments ({target_country or 'country unspecified'})"
 
         # Deduplicate companies while preserving attributes
         companies_seen: dict[str, dict[str, Any]] = {}
@@ -57,13 +81,13 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
             companies_seen[comp] = {
                 "company": comp,
                 "software": c.get("object") or target_sw,
-                "country": c.get("country") or meta.get("country") or target_country,
+                "country": c.get("country") or meta.get("country") or "",
                 "industry": c.get("industry") or meta.get("industry") or "",
                 "employees": c.get("employees") or meta.get("employees") or "",
                 "revenue": c.get("revenue") or meta.get("revenue") or "",
-                "status": c.get("status") or "TECHNOGRAPHIC_PROVIDER_ASSERTION",
-                "confidence": float(c.get("confidence", 0.88)),
-                "citation": c.get("source_url") or c.get("citation") or "https://theirstack.com",
+                "status": c.get("status") or EXTRACTED_STATUS,
+                "confidence": c.get("confidence"),
+                "citation": c.get("source_url") or c.get("citation") or None,
                 "qualifier": c.get("qualifier") or "Technographic Telemetry Assertion",
             }
 
@@ -75,29 +99,28 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
                     companies_seen[ek] = {
                         "company": ek,
                         "software": target_sw,
-                        "country": meta.get("country") or target_country,
+                        "country": meta.get("country") or "",
                         "industry": meta.get("industry") or "",
                         "employees": meta.get("employees") or "",
                         "revenue": meta.get("revenue") or "",
-                        "status": "TECHNOGRAPHIC_PROVIDER_ASSERTION",
-                        "confidence": 0.88,
-                        "citation": meta.get("source_url") or "Technographic Telemetry Record",
+                        "status": EXTRACTED_STATUS,
+                        "confidence": None,
+                        "citation": meta.get("source_url") or None,
                         "qualifier": "Third-Party Technographic Provider Assertion",
                     }
 
         deployments_list = list(companies_seen.values())
 
         p1 = (
-            f"Autonomous technographic reconnaissance evaluated enterprise adoption of **{target_sw}** in **{target_country}**, "
-            f"retrieving and corroborating open-source deployment intelligence across authoritative vendor announcements and third-party technographic telemetry records. "
-            f"A verified intelligence sample of **{len(deployments_list)}** enterprise organizations was identified with active software deployment footprints."
+            f"This investigation looked for organizations using **{target_sw}**"
+            f"{f' in **{target_country}**' if target_country else ''}. "
+            f"Retrieved evidence named **{len(deployments_list)}** organization(s) as users; "
+            f"see each finding's status and source below for how well each is supported."
         )
 
         p2 = (
-            f"**Scope & Sampling Notice:** Findings presented in this dossier represent a verified empirical **sample** "
-            f"derived from indexed technographic telemetry (e.g. TheirStack telemetry, commercial job requisitions) and official customer disclosures, "
-            f"rather than an exhaustive census of all deployments in the jurisdiction. Key enterprise attributes—including workforce sizing, "
-            f"annual revenue brackets, and operating industry sectors—have been correlated where present in source evidence."
+            f"**Scope & Sampling Notice:** These findings are a sample: only the organizations named in the sources this run retrieved. "
+            f"They are not an exhaustive list of deployments. Workforce, revenue and industry are shown only where a source stated them."
         )
 
         vendor_count = len([d for d in deployments_list if d["status"] == "VENDOR_CONFIRMED"])
@@ -107,14 +130,15 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         p3 = (
             f"All deployment claims are qualified under Heimdallr's three-tier epistemic provenance model: "
             f"**{corrob_count}** multi-source corroborated, **{vendor_count}** vendor-confirmed disclosures, and "
-            f"**{provider_count}** third-party technographic provider assertions. Overall epistemic confidence is rated at "
-            f"**{confidence*100:.1f}%**. Investigation terminated under criteria: `{stop_reason}`."
+            f"**{provider_count}** third-party technographic provider assertions, and "
+            f"**{len(deployments_list) - corrob_count - vendor_count - provider_count}** with another status. "
+            f"Overall epistemic confidence: **{format_confidence(confidence)}**. Investigation terminated under criteria: `{stop_reason}`."
         )
 
         narrative_paragraphs = [p1, p2, p3]
         executive_narrative = "\n\n".join(narrative_paragraphs)
 
-        cat_title = f"Verified Enterprise Deployments ({target_sw} in {target_country}) [Sample: {len(deployments_list)}]"
+        cat_title = f"Reported Enterprise Deployments ({target_sw}{f' in {target_country}' if target_country else ''}) [Sample: {len(deployments_list)}]"
         categorized_findings = {
             cat_title: [],
         }
@@ -143,14 +167,14 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         for dep in deployments_list:
             comp = dep["company"]
             ind = dep["industry"]
-            cnt = dep["country"] or target_country
+            cnt = dep["country"]
             contact_str = f"{cnt} ({ind})" if ind else cnt
             curated_entities.append({
                 "name": comp,
                 "type": "ORGANIZATION",
                 "role": f"{target_sw} Enterprise Deployer",
                 "organization": comp,
-                "contact": contact_str or "Enterprise Customer",
+                "contact": contact_str or "Not disclosed",
             })
 
         return {
@@ -186,6 +210,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
     locations: list[str] = []
     contacts: list[str] = []
     relevant_infrastructure: list[dict[str, str]] = []
+    fact_sources: dict[str, str | None] = {}
 
     # Target entity name resolution
     primary_name = clean_entity_display_name(target_raw)
@@ -217,6 +242,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
             stmt = f"{person}: {stmt}"
         if stmt not in roles_and_titles:
             roles_and_titles.append(stmt)
+            fact_sources[stmt] = _source_url_for(rm.group(0), evidence_passages)
         if org and org not in organizations:
             organizations[org] = {"name": org, "role": role}
 
@@ -230,6 +256,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         stmt = f"President of {assoc_name}"
         if stmt not in affiliations:
             affiliations.append(stmt)
+            fact_sources[stmt] = _source_url_for(am.group(0), evidence_passages)
 
     # C. Certifications & Credentials
     cred_matches = re.finditer(r"\b(CSM\s*[-—:]?\s*Certified\s+Scrum\s+Master|Certified\s+Scrum\s+Master|PMP|CISSP|CISA)\b", combined_text)
@@ -237,6 +264,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         cred = cm.group(1).strip()
         if cred not in credentials:
             credentials.append(cred)
+            fact_sources[cred] = _source_url_for(cm.group(0), evidence_passages)
 
     # D. Headquarters & Locations
     loc_matches = re.finditer(
@@ -248,6 +276,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         loc = lm.group(1).strip()
         if len(loc) > 4 and loc not in locations:
             locations.append(loc)
+            fact_sources[loc] = _source_url_for(lm.group(0), evidence_passages)
 
     # E. Contact Channels
     email_matches = re.findall(r"\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b", combined_text)
@@ -255,6 +284,7 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         if not any(ig in em.lower() for ig in ("example.com", "domain.com", "sentry", "google")):
             if em not in contacts:
                 contacts.append(em)
+                fact_sources[em] = _source_url_for(em, evidence_passages)
 
     # F. Contextually Filtered Infrastructure
     # Filter raw claims and entities to only preserve contextually relevant infrastructure
@@ -278,31 +308,31 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
     # Paragraph 1: Executive Overview & Identification
     p1_parts = []
     if roles_and_titles:
-        p1_parts.append(f"Autonomous OSINT reconnaissance verified key leadership details for **{primary_name}**.")
-        p1_parts.append(f"Current verified positions include {', '.join(roles_and_titles[:2])}.")
+        p1_parts.append(f"Retrieved sources mention the following positions related to **{primary_name}**: {', '.join(roles_and_titles[:2])}.")
     else:
-        p1_parts.append(f"Investigation focused on **{primary_name}**, corroborating operational footprints, organizational affiliations, and public records across authoritative open sources.")
+        p1_parts.append(f"Investigation focused on **{primary_name}**. No positions or titles were found in the retrieved sources.")
 
     if credentials:
-        p1_parts.append(f"Professional credentials and technical accreditations include **{', '.join(credentials)}**.")
+        p1_parts.append(f"Credentials mentioned in sources: **{', '.join(credentials)}**.")
     narrative_paragraphs.append(" ".join(p1_parts))
 
     # Paragraph 2: Corporate Profile & Industry Footprint
     p2_parts = []
     if organizations:
         org_names = list(organizations.keys())
-        p2_parts.append(f"The primary operating enterprise identified is **{org_names[0]}**, specializing in enterprise digital transformation, custom software engineering, and system integration.")
+        p2_parts.append(f"Organizations named in sources: **{', '.join(org_names[:3])}**.")
     if locations:
-        p2_parts.append(f"Operational headquarters are confirmed in **{locations[0]}**.")
+        p2_parts.append(f"Location mentioned in sources: **{locations[0]}**.")
     if affiliations:
-        p2_parts.append(f"In addition to corporate executive duties, verified industry leadership roles include **{'; '.join(affiliations[:2])}**.")
+        p2_parts.append(f"Industry roles mentioned in sources: **{'; '.join(affiliations[:2])}**.")
     if p2_parts:
         narrative_paragraphs.append(" ".join(p2_parts))
 
     # Paragraph 3: Verification Rigor & Epistemic Status
     p3 = (
-        f"All intelligence findings have been empirically corroborated against primary web and professional filings "
-        f"with an overall epistemic confidence of **{confidence*100:.1f}%**. Investigation terminated under criteria: `{stop_reason}`."
+        f"The findings below were pattern-matched from {len(evidence_passages)} retrieved evidence passage(s) and have not been "
+        f"independently verified. Overall epistemic confidence: **{format_confidence(confidence)}**. "
+        f"Investigation terminated under criteria: `{stop_reason}`."
     )
     narrative_paragraphs.append(p3)
 
@@ -313,63 +343,46 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
         "Executive & Professional Identity": [],
         "Corporate & Organizational Footprint": [],
         "Industry Leadership & Accreditations": [],
-        "Verified Contacts & Locations": [],
+        "Contacts & Locations": [],
     }
 
+    def _extracted(fact: str, key: str) -> dict[str, Any]:
+        return {
+            "fact": fact,
+            "status": EXTRACTED_STATUS,
+            "confidence": None,
+            "citation": fact_sources.get(key),
+        }
+
     for rt in roles_and_titles:
-        categorized_findings["Executive & Professional Identity"].append({
-            "fact": rt,
-            "status": "SUPPORTED",
-            "confidence": 0.95,
-            "citation": evidence_passages[0]["url"] if evidence_passages else "LinkedIn Profile",
-        })
+        categorized_findings["Executive & Professional Identity"].append(_extracted(rt, rt))
 
     for cred in credentials:
-        categorized_findings["Executive & Professional Identity"].append({
-            "fact": f"Accredited Credential: {cred}",
-            "status": "SUPPORTED",
-            "confidence": 0.92,
-            "citation": evidence_passages[0]["url"] if evidence_passages else "Professional Certification Record",
-        })
+        categorized_findings["Executive & Professional Identity"].append(_extracted(f"Credential: {cred}", cred))
 
     for org_name in organizations.keys():
         categorized_findings["Corporate & Organizational Footprint"].append({
-            "fact": f"Corporate Entity: {org_name}",
-            "status": "SUPPORTED",
-            "confidence": 0.94,
-            "citation": evidence_passages[0]["url"] if evidence_passages else "Company Filing",
+            "fact": f"Organization: {org_name}",
+            "status": EXTRACTED_STATUS,
+            "confidence": None,
+            "citation": _source_url_for(org_name, evidence_passages),
         })
 
     for loc in locations:
-        categorized_findings["Corporate & Organizational Footprint"].append({
-            "fact": f"Office / Headquarters: {loc}",
-            "status": "SUPPORTED",
-            "confidence": 0.90,
-            "citation": "Official Website / Contact Page",
-        })
+        categorized_findings["Corporate & Organizational Footprint"].append(_extracted(f"Office / Headquarters: {loc}", loc))
 
     for aff in affiliations:
-        categorized_findings["Industry Leadership & Accreditations"].append({
-            "fact": aff,
-            "status": "SUPPORTED",
-            "confidence": 0.93,
-            "citation": "Industry Association Registry / Public Record",
-        })
+        categorized_findings["Industry Leadership & Accreditations"].append(_extracted(aff, aff))
 
     for em in contacts:
-        categorized_findings["Verified Contacts & Locations"].append({
-            "fact": f"Verified Corporate Email: {em}",
-            "status": "SUPPORTED",
-            "confidence": 0.96,
-            "citation": "Official Domain Contact Record",
-        })
+        categorized_findings["Contacts & Locations"].append(_extracted(f"Email found in sources: {em}", em))
 
     for inf in relevant_infrastructure:
-        categorized_findings["Verified Contacts & Locations"].append({
+        categorized_findings["Contacts & Locations"].append({
             "fact": f"Affiliated Network Host: {inf['host']} ({inf['affiliated_entity']})",
-            "status": "SUPPORTED",
-            "confidence": 0.90,
-            "citation": inf["citation"],
+            "status": EXTRACTED_STATUS,
+            "confidence": None,
+            "citation": inf["citation"] or None,
         })
 
     # Curate contextually clean entities (stripping platform CDNs)
@@ -402,16 +415,16 @@ def generate_narrative_intelligence(data: dict[str, Any]) -> dict[str, Any]:
                 "type": "INDUSTRY_BODY",
                 "role": "Industry Council / Association",
                 "organization": org_cand,
-                "contact": "Official Public Body",
+                "contact": "Not disclosed",
             })
 
     for inf in relevant_infrastructure:
         curated_entities.append({
             "name": inf["host"],
             "type": "INFRASTRUCTURE_ENDPOINT",
-            "role": "Verified Network Endpoint",
+            "role": "Network Endpoint",
             "organization": inf["affiliated_entity"],
-            "contact": "DNS / CT Record",
+            "contact": "Not disclosed",
         })
 
     return {
