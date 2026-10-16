@@ -59,6 +59,9 @@ from argus.investigation.benchmark.v2.semantic_auditor import (
     IndependentSemanticAuditor,
     SemanticSupportStatus,
 )
+from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
+from argus.investigation.technographics import extract_technographic_deployments
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -1531,6 +1534,125 @@ class InvestigationEngine:
         # Reusable semantic patterns extracting corporate structure, officers, infrastructure, and sanctions
         dynamic_relations: list[tuple[str, str, str, str]] = []
 
+        # 3-0. Enterprise Technographic Deployment Intelligence
+        # Extracts enterprise software deployments from live evidence passages and technographic telemetry
+        for d in docs:
+            d_text = d.get("text", "")
+            d_url = d.get("url", "")
+            d_ev_id = d.get("evidence_id")
+            if d_text:
+                tech_findings = extract_technographic_deployments(
+                    d_text,
+                    doc_url=d_url,
+                    target_query=state.objective,
+                )
+                for tf in tech_findings:
+                    if tf.company not in state.entities:
+                        state.register_entity(
+                            name=tf.company,
+                            entity_type="ORGANIZATION",
+                            metadata={
+                                "country": tf.country,
+                                "industry": tf.industry,
+                                "employees": tf.employees,
+                                "revenue": tf.revenue,
+                                "software": tf.software,
+                                "source_type": tf.source_type,
+                                "source_url": tf.source_url or d_url,
+                                "qualifier": tf.qualifier,
+                            },
+                        )
+                        new_entities_found.append(tf.company)
+                        information_gain += 0.30
+                    else:
+                        ent_obj = state.entities[tf.company]
+                        meta = getattr(ent_obj, "metadata", {}) or {}
+                        if tf.country and not meta.get("country"):
+                            meta["country"] = tf.country
+                        if tf.industry and not meta.get("industry"):
+                            meta["industry"] = tf.industry
+                        if tf.employees and not meta.get("employees"):
+                            meta["employees"] = tf.employees
+                        if tf.revenue and not meta.get("revenue"):
+                            meta["revenue"] = tf.revenue
+
+                    pred = "USES_PLM_SOFTWARE" if "teamcenter" in tf.software.lower() else "USES_SOFTWARE"
+                    existing_claim = next(
+                        (c for c in state.claims if c.get("subject") == tf.company and c.get("predicate") == pred and c.get("object") == tf.software),
+                        None,
+                    )
+                    if not existing_claim:
+                        cid = state.add_claim({
+                            "subject": tf.company,
+                            "predicate": pred,
+                            "object": tf.software,
+                            "status": tf.status,
+                            "confidence": tf.confidence,
+                            "evidence_id": d_ev_id,
+                            "source_url": tf.source_url or d_url,
+                            "source_passage": tf.evidence_quote or d_text[:300],
+                            "country": tf.country,
+                            "industry": tf.industry,
+                            "employees": tf.employees,
+                            "revenue": tf.revenue,
+                            "source_type": tf.source_type,
+                            "qualifier": tf.qualifier,
+                        })
+                        new_claims_found.append(cid)
+                        information_gain += 0.40
+                    else:
+                        old_url = existing_claim.get("source_url") or ""
+                        if old_url and d_url:
+                            dom1 = urlparse(old_url if "://" in old_url else f"https://{old_url}").netloc.lower()
+                            dom2 = urlparse(d_url if "://" in d_url else f"https://{d_url}").netloc.lower()
+                            if dom1 and dom2 and dom1 != dom2:
+                                existing_claim["status"] = "CORROBORATED"
+                                existing_claim["confidence"] = 0.98
+                                existing_claim["corroborated_by"] = d_url
+
+        if all_text:
+            primary_url = docs[0].get("url") if docs else ""
+            primary_ev = docs[0].get("evidence_id") if docs else None
+            extra_findings = extract_technographic_deployments(all_text, doc_url=primary_url, target_query=state.objective)
+            for tf in extra_findings:
+                if tf.company not in state.entities:
+                    state.register_entity(
+                        name=tf.company,
+                        entity_type="ORGANIZATION",
+                        metadata={
+                            "country": tf.country,
+                            "industry": tf.industry,
+                            "employees": tf.employees,
+                            "revenue": tf.revenue,
+                            "software": tf.software,
+                            "source_type": tf.source_type,
+                            "source_url": tf.source_url or primary_url,
+                            "qualifier": tf.qualifier,
+                        },
+                    )
+                    new_entities_found.append(tf.company)
+                    information_gain += 0.30
+                pred = "USES_PLM_SOFTWARE" if "teamcenter" in tf.software.lower() else "USES_SOFTWARE"
+                if not any(c.get("subject") == tf.company and c.get("predicate") == pred and c.get("object") == tf.software for c in state.claims):
+                    cid = state.add_claim({
+                        "subject": tf.company,
+                        "predicate": pred,
+                        "object": tf.software,
+                        "status": tf.status,
+                        "confidence": tf.confidence,
+                        "evidence_id": primary_ev,
+                        "source_url": tf.source_url or primary_url,
+                        "source_passage": tf.evidence_quote,
+                        "country": tf.country,
+                        "industry": tf.industry,
+                        "employees": tf.employees,
+                        "revenue": tf.revenue,
+                        "source_type": tf.source_type,
+                        "qualifier": tf.qualifier,
+                    })
+                    new_claims_found.append(cid)
+                    information_gain += 0.40
+
         # A. Corporate Subsidiary Declarations
         m_subs_block = re.findall(r"(?:subsidiaries(?:\s+include)?|Subsidiaries held|Wholly owned subsidiaries):\s*([^\n\r]+)", all_text, re.IGNORECASE)
         for s_block in m_subs_block:
@@ -1579,14 +1701,25 @@ class InvestigationEngine:
         # D. Infrastructure Hostnames & Associated Domain Entities
         found_hosts = re.findall(r"\b([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z0-9-]+\.)+(?:com|org|net|de|co\.uk|io))\b", all_text)
         for host in set(found_hosts):
+            # Check contextual relevance of host
+            doc_urls = [d.get("url", "") for d in docs if host in d.get("text", "")]
+            primary_doc_url = doc_urls[0] if doc_urls else ""
+            if not is_contextually_relevant_host(
+                host,
+                doc_url=primary_doc_url,
+                target_objective=state.objective,
+                target_entities=list(state.entities.keys()),
+            ):
+                continue
+
             if host not in state.entities:
                 state.register_entity(host, "INFRASTRUCTURE_ENDPOINT")
                 new_entities_found.append(host)
             for d in docs:
                 if host in d.get("text", ""):
-                    org_cand = d.get("title", "").split(" - ")[0].split(":")[0].strip()
+                    org_cand = clean_entity_name(d.get("title", "").split(" - ")[0].split(":")[0].strip())
                     if not org_cand or len(org_cand) < 3:
-                        org_cand = action.target_entities[0] if (action and action.target_entities) else "Host Entity"
+                        org_cand = clean_entity_name(action.target_entities[0] if (action and action.target_entities) else "Host Entity")
                     dynamic_relations.append((host, org_cand, "infrastructure", host))
 
         # E. Admin / Contact Emails associated with domains
@@ -2122,6 +2255,15 @@ class InvestigationEngine:
             infra_domains = [dom for dom in extracted_domains if dom not in doc_hosts and len(dom) > 5]
 
             for dom in infra_domains:
+                doc_urls = [d.get("url", "") for d in docs if dom in d.get("text", "")]
+                primary_doc_url = doc_urls[0] if doc_urls else ""
+                if not is_contextually_relevant_host(
+                    dom,
+                    doc_url=primary_doc_url,
+                    target_objective=state.objective,
+                    target_entities=list(state.entities.keys()),
+                ):
+                    continue
                 if not any(dom in str(q) for q in state.questions.values()):
                     q_chain_infra = InvestigationQuestion(
                         question_text=f"What network infrastructure and CT SAN endpoints are registered to {dom}?",

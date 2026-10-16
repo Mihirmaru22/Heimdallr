@@ -43,4 +43,8 @@ logs/
 *.zip
 storage/
 scratch/
+exports/*.xlsx
+exports/*.md
+!exports/.gitkeep
+evals/evidence_snapshots/*.txt
 

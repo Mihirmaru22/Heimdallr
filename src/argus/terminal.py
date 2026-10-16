@@ -29,7 +29,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-from argus.export.excel_exporter import OSINTExcelExporter
+from argus.export import OSINTExcelExporter, OSINTMarkdownExporter
 from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
 from argus.investigation.live_web.controller import ControlledLiveWebRetriever
 from argus.investigation.orchestrator import InvestigationEngine
@@ -287,9 +287,9 @@ def format_status_badge(status: str, con: Console | None = None) -> Text:
     s = str(status).upper()
     if target_console.no_color:
         return Text(f"[{s}]")
-    if s in ("SUPPORTED", "CORROBORATED", "VERIFIED", "ACTIVE"):
+    if s in ("SUPPORTED", "CORROBORATED", "VERIFIED", "ACTIVE", "VENDOR_CONFIRMED"):
         return Text(f" {s} ", style="bold black on bright_green")
-    elif s in ("INFERRED", "PENDING", "INVESTIGATING"):
+    elif s in ("INFERRED", "PENDING", "INVESTIGATING", "TECHNOGRAPHIC_PROVIDER_ASSERTION"):
         return Text(f" {s} ", style="bold black on bright_yellow")
     elif s in ("CONTRADICTED", "REFUTED", "FAILED", "HISTORICAL_RESIGNED"):
         return Text(f" {s} ", style="bold white on red")
@@ -304,6 +304,7 @@ class OSINTTerminal:
         self.export_dir = Path(export_dir)
         self.export_dir.mkdir(parents=True, exist_ok=True)
         self.exporter = OSINTExcelExporter(export_dir=self.export_dir)
+        self.md_exporter = OSINTMarkdownExporter(export_dir=self.export_dir)
         self.corpus = corpus if corpus is not None else ControlledLiveWebRetriever()
         self.engine = InvestigationEngine(corpus=self.corpus)
 
@@ -337,11 +338,12 @@ class OSINTTerminal:
         # Render Terminal Results Table
         self._display_results_table(results_data, target)
 
-        # Generate Excel Report
+        # Generate Intelligence Reports (Excel & Markdown)
         excel_path = self.exporter.export_investigation(results_data, output_filepath=output_file)
+        md_path = self.md_exporter.export_investigation(results_data)
 
         # Render Final Scan Summary Panel
-        self._display_summary_panel(results_data, elapsed, excel_path)
+        self._display_summary_panel(results_data, elapsed, excel_path, md_path=md_path)
 
         return excel_path
 
@@ -394,14 +396,26 @@ class OSINTTerminal:
         # Structure normalized dictionary for terminal and Excel
         claims_out = []
         for c in state.claims:
+            subj = c.get("subject", "")
+            obj = c.get("object", "")
+            cit = c.get("citation")
+            if not cit:
+                for ev in state.evidence:
+                    snip = (ev.get("snippet") or ev.get("passage") or "").lower()
+                    if (subj.lower() in snip and len(subj) > 2) or (str(obj).lower() in snip and len(str(obj)) > 2):
+                        cit = ev.get("url")
+                        break
+            if not cit:
+                cit = state.evidence[0]["url"] if state.evidence else "Authoritative Filing"
+
             claims_out.append({
                 "claim_id": c.get("claim_id", ""),
-                "subject": c.get("subject", ""),
+                "subject": subj,
                 "predicate": c.get("predicate", ""),
-                "object": c.get("object", ""),
+                "object": obj,
                 "status": c.get("status", "SUPPORTED"),
                 "confidence": c.get("confidence", 0.90),
-                "citation": c.get("citation") or (state.evidence[0]["url"] if state.evidence else "Authoritative Filing"),
+                "citation": cit,
             })
 
         entities_out = {}
@@ -478,10 +492,16 @@ class OSINTTerminal:
         console.print(table)
         console.print()
 
-    def _display_summary_panel(self, data: dict[str, Any], elapsed: float, excel_path: Path) -> None:
+    def _display_summary_panel(
+        self,
+        data: dict[str, Any],
+        elapsed: float,
+        excel_path: Path,
+        md_path: Path | None = None,
+    ) -> None:
         """Render scan metrics summary box matching user's reference UI."""
         claims = data.get("claims", [])
-        verified_count = len([c for c in claims if c.get("status") in ("SUPPORTED", "CORROBORATED")])
+        verified_count = len([c for c in claims if c.get("status") in ("SUPPORTED", "CORROBORATED", "VENDOR_CONFIRMED", "TECHNOGRAPHIC_PROVIDER_ASSERTION")])
         inferred_count = len([c for c in claims if c.get("status") == "INFERRED"])
         contradicted_count = len([c for c in claims if c.get("status") in ("CONTRADICTED", "REFUTED")])
         entities_count = len(data.get("entities", {}))
@@ -511,8 +531,11 @@ class OSINTTerminal:
             for lim in limitations[:3]:
                 summary_text.append(f"  • {lim}\n", style="dim white")
 
-        summary_text.append("\nExcel Output Saved to: ", style="bold bright_yellow")
+        summary_text.append("\nExcel Dossier Saved to: ", style="bold bright_yellow")
         summary_text.append(str(excel_path.resolve()), style="bold bright_cyan underline")
+        if md_path:
+            summary_text.append("\nMarkdown Dossier Saved to: ", style="bold bright_yellow")
+            summary_text.append(str(md_path.resolve()), style="bold bright_cyan underline")
 
         panel = Panel(
             summary_text,

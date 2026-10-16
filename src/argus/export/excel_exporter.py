@@ -20,6 +20,9 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from argus.export.narrative import generate_narrative_intelligence
+from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
+
 
 # Color Palette
 COLOR_HEADER_BG = "1A2530"       # Dark Navy Slate
@@ -33,6 +36,8 @@ STATUS_STYLES = {
     "CORROBORATED": ("C6EFCE", "006100"),
     "ACTIVE": ("E2F0D9", "385723"),
     "VERIFIED": ("C6EFCE", "006100"),
+    "VENDOR_CONFIRMED": ("C6EFCE", "006100"),
+    "TECHNOGRAPHIC_PROVIDER_ASSERTION": ("FFF2CC", "7F6000"),
     "INFERRED": ("FFF2CC", "7F6000"),
     "PENDING": ("FFF2CC", "7F6000"),
     "CONTRADICTED": ("FCE4D6", "C65911"),
@@ -122,43 +127,36 @@ class OSINTExcelExporter:
     def _build_summary_sheet(
         self, wb: openpyxl.Workbook, data: dict[str, Any], target_name: str
     ) -> None:
-        """Tab 1: High level executive dossier and KPI overview."""
+        """Tab 1: High level executive dossier, narrative brief, and KPI overview."""
         ws = wb.create_sheet(title="Executive Summary")
         ws.views.sheetView[0].showGridLines = True
+
+        synth = generate_narrative_intelligence(data)
+        primary_name = synth.get("primary_name") or clean_entity_name(target_name)
 
         # Header Title Banner
         ws.merge_cells("A1:F2")
         title_cell = ws["A1"]
-        title_cell.value = f"HEIMDALLR V3 — OSINT INTELLIGENCE DOSSIER: {target_name.upper()}"
+        title_cell.value = f"HEIMDALLR V4 — OSINT INTELLIGENCE DOSSIER: {primary_name.upper()}"
         title_cell.font = TITLE_FONT
         title_cell.fill = PatternFill(start_color=COLOR_HEADER_BG, end_color=COLOR_HEADER_BG, fill_type="solid")
         title_cell.alignment = Alignment(horizontal="center", vertical="center")
 
         claims = data.get("claims", [])
-        entities = data.get("entities", {})
         evidence = data.get("evidence", [])
         actions = data.get("research_actions", [])
         confidence = data.get("confidence", 0.0)
         stop_reason = data.get("stop_reason", "Completed")
 
-        # KPI Metrics Cards (Row 4-5)
-        metrics = [
-            ("Target Objective", target_name, "A", "B"),
-            ("Epistemic Confidence", f"{confidence * 100:.1f}%", "C", "C"),
-            ("Verified Claims", len([c for c in claims if c.get("status") in ("SUPPORTED", "CORROBORATED")]), "D", "D"),
-            ("Entities Mapped", len(entities), "E", "E"),
-            ("Sources Cited", len(evidence), "F", "F"),
-        ]
-
-        # Add Details Table
+        # Details Table
         details = [
             ("Investigation ID", data.get("investigation_id", "N/A")),
             ("Full Objective", data.get("objective", target_name)),
             ("Execution Status", "COMPLETED" if data.get("is_stopped", True) else "IN_PROGRESS"),
             ("Termination Reason", str(stop_reason)),
             ("Research Steps Taken", len(actions)),
+            ("Epistemic Confidence", f"{confidence * 100:.1f}%"),
             ("Total Evidence Items", len(evidence)),
-            ("Syndication Clusters", data.get("syndication_clusters_count", len({e.get("url", "") for e in evidence}))),
             ("Generated At (UTC)", datetime.now(timezone.utc).isoformat()),
         ]
 
@@ -178,27 +176,66 @@ class OSINTExcelExporter:
             row += 1
 
         row += 2
-        ws.cell(row=row, column=1, value="KEY FINDINGS HIGHLIGHTS").font = SECTION_FONT
+        ws.cell(row=row, column=1, value="EXECUTIVE INTELLIGENCE BRIEF").font = SECTION_FONT
         row += 1
 
-        # Summary bullets from top supported claims
-        supported_claims = [c for c in claims if c.get("status") in ("SUPPORTED", "CORROBORATED")]
-        if supported_claims:
-            for sc in supported_claims[:10]:
-                subj = sc.get("subject", "")
-                pred = sc.get("predicate", "").replace("_", " ").title()
-                obj = sc.get("object", "")
-                conf_val = sc.get("confidence", 0.9)
-                citation = sc.get("citation") or sc.get("url") or "Authoritative Source"
-
-                bullet_text = f"• {subj} -> {pred}: {obj} (Confidence: {conf_val*100:.0f}%, Citation: {citation})"
+        narrative_paragraphs = synth.get("narrative_paragraphs", [])
+        if narrative_paragraphs:
+            for p in narrative_paragraphs:
                 ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-                c = ws.cell(row=row, column=1, value=bullet_text)
+                c = ws.cell(row=row, column=1, value=p)
                 c.font = BODY_FONT
+                c.alignment = Alignment(wrap_text=True, vertical="top")
+                ws.row_dimensions[row].height = 40
                 row += 1
         else:
             ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-            ws.cell(row=row, column=1, value="No claims confirmed above threshold.").font = MUTED_FONT
+            c = ws.cell(row=row, column=1, value=synth.get("executive_narrative", "Intelligence synthesis in progress."))
+            c.font = BODY_FONT
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+            row += 1
+
+        row += 2
+        ws.cell(row=row, column=1, value="KEY CORROBORATED FINDINGS").font = SECTION_FONT
+        row += 1
+
+        categorized_findings = synth.get("categorized_findings", {})
+        has_cat = False
+        for category, items in categorized_findings.items():
+            if items:
+                has_cat = True
+                ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+                cat_cell = ws.cell(row=row, column=1, value=f"— {category.upper()} —")
+                cat_cell.font = Font(name="Segoe UI", size=10, bold=True, color=COLOR_SUBHEADER_BG)
+                row += 1
+
+                for it in items:
+                    conf_pct = f"{float(it.get('confidence', 0.9))*100:.0f}%"
+                    status = it.get("status", "SUPPORTED")
+                    cit = it.get("citation", "Authoritative Source")
+                    bullet_text = f"• {it.get('fact')}  [{status} | {conf_pct}] (Source: {cit})"
+                    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+                    c = ws.cell(row=row, column=1, value=bullet_text)
+                    c.font = BODY_FONT
+                    row += 1
+
+        if not has_cat:
+            supported_claims = [c for c in claims if c.get("status") in ("SUPPORTED", "CORROBORATED", "VENDOR_CONFIRMED", "TECHNOGRAPHIC_PROVIDER_ASSERTION")]
+            if supported_claims:
+                for sc in supported_claims[:10]:
+                    subj = clean_entity_name(sc.get("subject", ""))
+                    pred = sc.get("predicate", "").replace("_", " ").title()
+                    obj = sc.get("object", "")
+                    conf_val = sc.get("confidence", 0.9)
+                    citation = sc.get("citation") or sc.get("url") or "Authoritative Source"
+                    bullet_text = f"• {subj} — {pred}: {obj} (Confidence: {conf_val*100:.0f}%, Citation: {citation})"
+                    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+                    c = ws.cell(row=row, column=1, value=bullet_text)
+                    c.font = BODY_FONT
+                    row += 1
+            else:
+                ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+                ws.cell(row=row, column=1, value="No claims confirmed above threshold.").font = MUTED_FONT
 
         auto_fit_columns(ws)
 
@@ -242,7 +279,7 @@ class OSINTExcelExporter:
                     url_snippet = ev_item.get("url") or ""
                     passage = ev_item.get("snippet") or ev_item.get("passage") or ""
                     citations.append(f"[{url_snippet}]: {passage[:100]}...")
-            citation_str = "\n".join(citations) if citations else str(claim.get("citation") or "Grounded")
+            citation_str = "\n".join(citations) if citations else str(claim.get("source_url") or claim.get("citation") or claim.get("url") or "Authoritative Source")
 
             c_id_cell = ws.cell(row=row_idx, column=1, value=cid)
             c_subj_cell = ws.cell(row=row_idx, column=2, value=subj)
@@ -289,21 +326,42 @@ class OSINTExcelExporter:
 
         ws.row_dimensions[1].height = 25
 
+        synth = generate_narrative_intelligence(data)
+        curated_entities = synth.get("curated_entities", [])
+        curated_names = {e["name"].strip().lower() for e in curated_entities if e.get("name")}
+
+        target_obj = data.get("objective", "") or data.get("target", "")
+        primary_name = synth.get("primary_name", "")
+
         raw_entities = data.get("entities", {})
-        # Format if entities is dict or list
-        entity_list = []
+        entity_list = list(curated_entities)
+
         if isinstance(raw_entities, dict):
             for k, v in raw_entities.items():
+                if not k or k.strip().lower() in curated_names:
+                    continue
+                # Contextual relevance evaluation:
+                # If entity looks like a domain/host, verify context and relevance
+                if "." in k and not (" " in k):
+                    if not is_contextually_relevant_host(k, target_objective=target_obj, target_entities=[primary_name]):
+                        continue
+                clean_name = clean_entity_name(k)
                 if isinstance(v, dict):
-                    entity_list.append({"name": k, **v})
+                    entity_list.append({"name": clean_name, **v})
                 else:
-                    entity_list.append({"name": k, "type": str(v)})
+                    entity_list.append({"name": clean_name, "type": str(v)})
         elif isinstance(raw_entities, list):
             for e in raw_entities:
+                ename = e if isinstance(e, str) else (e.get("name") if isinstance(e, dict) else "")
+                if not ename or ename.strip().lower() in curated_names:
+                    continue
+                if "." in ename and not (" " in ename):
+                    if not is_contextually_relevant_host(ename, target_objective=target_obj, target_entities=[primary_name]):
+                        continue
                 if isinstance(e, str):
-                    entity_list.append({"name": e})
+                    entity_list.append({"name": clean_entity_name(e), "type": "ORGANIZATION"})
                 elif isinstance(e, dict):
-                    entity_list.append(e)
+                    entity_list.append({**e, "name": clean_entity_name(ename)})
 
         row_idx = 2
         for ent in entity_list:
@@ -311,9 +369,9 @@ class OSINTExcelExporter:
             etype = ent.get("entity_type") or ent.get("type") or "ORGANIZATION"
             aliases = ", ".join(ent.get("aliases", [])) if ent.get("aliases") else "None recorded"
             meta = ent.get("metadata") or {}
-            role = ent.get("title") or meta.get("title") or meta.get("responsibility") or "N/A"
+            role = ent.get("title") or meta.get("title") or meta.get("responsibility") or ent.get("role") or "N/A"
             org = ent.get("organization") or meta.get("org") or "N/A"
-            contact = ent.get("email") or meta.get("email") or meta.get("contact") or "None disclosed"
+            contact = ent.get("email") or meta.get("email") or meta.get("contact") or ent.get("contact") or "None disclosed"
 
             row_cells = [
                 ws.cell(row=row_idx, column=1, value=name),

@@ -70,22 +70,39 @@ class InvestigationPlanner:
             ]
         ):
             return "identity"
-        if any(
+        is_entity_inquiry = any(
             k in obj_lower
             for k in [
-                "vector database",
-                "database",
-                "databases",
-                "software",
-                "api",
-                "open-source",
-                "licensing",
-                "performance evidence",
-                "filtering capabilities",
-                "operational complexity",
-                "query engine",
+                "find everything about",
+                "who is",
+                "background on",
+                "tell me about",
+                "profile of",
+                "executive",
+                "founder",
+                "leadership",
             ]
-        ):
+        )
+
+        if is_entity_inquiry and not any(k in obj_lower for k in ["vector database", "query latency", "benchmark"]):
+            return "corporate"
+
+        technical_keywords = [
+            "vector database",
+            "database",
+            "databases",
+            "api",
+            "open-source",
+            "licensing",
+            "performance evidence",
+            "filtering capabilities",
+            "operational complexity",
+            "query engine",
+        ]
+        if not is_entity_inquiry:
+            technical_keywords.extend(["software", "query latency", "latency benchmark"])
+
+        if any(k in obj_lower for k in technical_keywords):
             return "technical"
 
         if any(
@@ -216,6 +233,15 @@ class InvestigationPlanner:
                     candidates.append(w.strip(".,;:\"'"))
             if candidates:
                 target_entities = [" ".join(candidates[:3])]
+            else:
+                clean_target = re.sub(
+                    r"^(?:find\s+(?:everything|out|all)?\s*(?:about)?|tell\s+me\s+about|who\s+is|background\s+on|investigate|research|trace|verify|search\s+for)\s+",
+                    "",
+                    objective.strip(),
+                    flags=re.IGNORECASE,
+                ).strip()
+                if clean_target:
+                    target_entities = [clean_target.title()]
 
         entity_type_map = {
             "technical": "TECHNICAL_SYSTEM",
