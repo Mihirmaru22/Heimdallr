@@ -25,12 +25,20 @@ from argus.investigation.objective_parser import (
     refine_object_from_evidence,
 )
 from argus.investigation.question import InvestigationQuestion, QuestionStatus, QuestionType
+from argus.investigation.question_intent import ObjectiveIntent, classify_intent, topic_phrase
 from argus.investigation.state import InformationGap, InvestigationState
 from argus.capability_registry.registry import CapabilityRegistry
 from argus.capability_registry.matcher import CapabilityMatcher
 from argus.capability_registry.defaults import get_default_capabilities
 
 logger = logging.getLogger(__name__)
+
+
+def _has_term(text: str, term: str) -> bool:
+    """Whole-word match ("api" is not found in "capital"); a trailing * matches a word prefix."""
+    if term.endswith("*"):
+        return re.search(rf"(?<!\w){re.escape(term[:-1])}", text) is not None
+    return re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text) is not None
 
 
 class InvestigationPlanner:
@@ -61,7 +69,7 @@ class InvestigationPlanner:
         obj_lower = (objective or "").lower()
 
         if any(
-            k in obj_lower
+            _has_term(obj_lower, k)
             for k in [
                 "investigate username",
                 "starting platform",
@@ -76,7 +84,7 @@ class InvestigationPlanner:
         ):
             return "identity"
         is_entity_inquiry = any(
-            k in obj_lower
+            _has_term(obj_lower, k)
             for k in [
                 "find everything about",
                 "who is",
@@ -89,29 +97,21 @@ class InvestigationPlanner:
             ]
         )
 
-        if is_entity_inquiry and not any(k in obj_lower for k in ["vector database", "query latency", "benchmark"]):
-            return "corporate"
-
         technical_keywords = [
-            "vector database",
-            "database",
-            "databases",
-            "api",
-            "open-source",
-            "licensing",
-            "performance evidence",
-            "filtering capabilities",
-            "operational complexity",
-            "query engine",
+            "database", "databases", "api", "apis", "sdk", "open-source", "open source", "licensing",
+            "framework", "programming language", "query engine", "latency", "throughput",
+            "performance evidence", "operational complexity", "source code",
         ]
+        if is_entity_inquiry and not any(_has_term(obj_lower, k) for k in technical_keywords + ["benchmark"]):
+            return "corporate"
         if not is_entity_inquiry:
-            technical_keywords.extend(["software", "query latency", "latency benchmark"])
+            technical_keywords.extend(["software", "benchmark", "benchmarks"])
 
-        if any(k in obj_lower for k in technical_keywords):
+        if any(_has_term(obj_lower, k) for k in technical_keywords):
             return "technical"
 
         if any(
-            k in obj_lower
+            _has_term(obj_lower, k)
             for k in [
                 "historical",
                 "history",
@@ -127,7 +127,7 @@ class InvestigationPlanner:
             return "historical"
 
         if any(
-            k in obj_lower
+            _has_term(obj_lower, k)
             for k in [
                 "scientific",
                 "public-policy",
@@ -141,7 +141,7 @@ class InvestigationPlanner:
             return "scientific_policy"
 
         if any(
-            k in obj_lower
+            _has_term(obj_lower, k)
             for k in [
                 "unfamiliar organization",
                 "public products, leadership, partnerships",
@@ -154,7 +154,7 @@ class InvestigationPlanner:
             return "organization"
 
         if any(
-            k in obj_lower
+            _has_term(obj_lower, k)
             for k in [
                 "corporate",
                 "company",
@@ -169,7 +169,7 @@ class InvestigationPlanner:
                 "acquisition",
                 "holding",
                 "holdings",
-                "incorporat",
+                "incorporat*",
                 "executive officers",
                 "ownership disclosure",
                 "jurisdiction",
@@ -179,7 +179,7 @@ class InvestigationPlanner:
                 "officer tenure",
                 "ciso",
                 "svp",
-                "vp ",
+                "vp",
             ]
         ):
             return "corporate"
@@ -239,26 +239,19 @@ class InvestigationPlanner:
         if not isinstance(target_entities, list):
             raise ValueError("Contract target_entities must be a list.")
 
+        intent = classify_intent(objective)
         if not target_entities:
-            # Extract distinctive capitalized multi-word phrases from objective
-            words = objective.split()
-            candidates = []
-            for i, w in enumerate(words):
-                if w and w[0].isupper() and w not in {
-                    "Identify", "Trace", "Investigate", "Verify", "Disambiguate",
-                    "Parse", "Compare", "Research", "Evaluate",
-                    "Search", "Find", "List", "Show", "Get", "Enumerate",
-                }:
-                    candidates.append(w.strip(".,;:\"'"))
-            if candidates:
-                target_entities = [" ".join(candidates[:3])]
-            else:
+            # Subjects are the objective's proper-noun names (question words, roles and
+            # places excluded); with none, the subject is the objective's topic phrase.
+            target_entities = list(intent.subjects)
+            if not target_entities:
                 clean_target = re.sub(
                     r"^(?:find\s+(?:everything|out|all)?\s*(?:about)?|tell\s+me\s+about|who\s+is|background\s+on|investigate|research|trace|verify|search\s+for)\s+",
                     "",
                     objective.strip(),
                     flags=re.IGNORECASE,
                 ).strip()
+                clean_target = topic_phrase(clean_target)
                 if clean_target:
                     target_entities = [clean_target.title()]
 
@@ -277,6 +270,8 @@ class InvestigationPlanner:
             state.register_entity(name=ent, entity_type=ent_type)
 
         primary_entity = target_entities[0] if target_entities else ("Target Entity" if domain in ("corporate", "organization") else "Research Subject")
+
+        subject_list = " and ".join(target_entities[:3]) if target_entities else primary_entity
 
         # 3. Formulate foundational investigation questions
         # Check if caller supplied validated custom initial questions
@@ -332,78 +327,60 @@ class InvestigationPlanner:
                 specialist_requirements=["none"],
                 required_evidence=[f"Technical specifications and empirical benchmarks addressing: {objective}"],
             )
-            q_filter = InvestigationQuestion(
-                question_text=f"What are the metadata filtering capabilities, indexing structures, and query constraints of {primary_entity}?",
-                question_type=QuestionType.ENTITY_DISCOVERY,
-                priority=0.95,
-                is_critical=True,
-                related_entities=[primary_entity],
-                specialist_requirements=["none"],
-                required_evidence=[f"Official technical documentation or benchmark evaluating filtering capabilities of {primary_entity}"],
-            )
-            q_ops = InvestigationQuestion(
-                question_text=f"What is the operational complexity, deployment footprint, and resource requirements of {primary_entity}?",
-                question_type=QuestionType.RELATIONSHIP_VERIFICATION,
-                priority=0.90,
-                is_critical=False,
-                dependencies=[q_filter.question_id],
-                related_entities=[primary_entity],
-                specialist_requirements=["none"],
-                required_evidence=[f"Operational deployment guides and maintenance documentation for {primary_entity}"],
-            )
-            q_lic = InvestigationQuestion(
-                question_text=f"What open-source software license, governance terms, and commercial constraints govern {primary_entity}?",
-                question_type=QuestionType.RELATIONSHIP_VERIFICATION,
-                priority=0.85,
-                is_critical=False,
-                dependencies=[q_filter.question_id],
-                related_entities=[primary_entity],
-                specialist_requirements=["none"],
-                required_evidence=[f"Software license file (e.g. Apache-2.0, AGPL, MIT) or repository license declaration for {primary_entity}"],
-            )
-            q_perf = InvestigationQuestion(
-                question_text=f"What empirical performance evidence, throughput, and query latency benchmarks are documented for {primary_entity}?",
-                question_type=QuestionType.RELATIONSHIP_VERIFICATION,
-                priority=0.85,
-                is_critical=False,
-                dependencies=[q_filter.question_id],
-                related_entities=[primary_entity],
-                specialist_requirements=["none"],
-                required_evidence=[f"Empirical benchmark results or reproducible performance metrics for {primary_entity}"],
-            )
+            # One question per facet the objective names ("compare A and B on X, Y and Z"),
+            # plus the standard technical facets; the objective itself stays the critical question.
+            named = [f for f in intent.facets if f]
+            facet_questions: list[InvestigationQuestion] = []
+            for facet in named:
+                facet_questions.append(InvestigationQuestion(
+                    question_text=f"What do documentation and independent sources report about the {facet} of {subject_list}?",
+                    question_type=QuestionType.ENTITY_DISCOVERY,
+                    priority=0.9,
+                    is_critical=False,
+                    related_entities=list(target_entities),
+                    specialist_requirements=["none"],
+                    required_evidence=[f"Official documentation or reproducible evaluation covering the {facet} of {subject_list}"],
+                ))
+            standard = [
+                ("capabilities", f"What capabilities, interfaces and documented limits does {subject_list} have?", "Official technical documentation"),
+                ("complex", f"What deployment footprint and operational complexity does {subject_list} involve?", "Deployment guides and operations documentation"),
+                ("licens", f"What license and usage terms govern {subject_list}?", "License file or repository license declaration"),
+                ("perform", f"What performance evidence (benchmarks, throughput, latency) is documented for {subject_list}?", "Reproducible benchmark results"),
+            ]
+            for _stem, text, evidence in standard:
+                facet_questions.append(InvestigationQuestion(
+                    question_text=text,
+                    question_type=QuestionType.RELATIONSHIP_VERIFICATION,
+                    priority=0.85,
+                    is_critical=False,
+                    related_entities=list(target_entities),
+                    specialist_requirements=["none"],
+                    required_evidence=[f"{evidence} for {subject_list}"],
+                ))
 
-            for q in [q_obj, q_filter, q_ops, q_lic, q_perf]:
+            for q in [q_obj, *facet_questions]:
                 state.questions[q.question_id] = q.model_dump()
                 state.unresolved_questions.append(q.question_id)
                 root_branch.questions.append(q.question_id)
 
+            first = facet_questions[0]
             hyp_tech = InvestigationHypothesis(
-                proposition=f"{primary_entity} supports flexible metadata filtering with manageable operational complexity under an open license.",
-                related_question_id=q_filter.question_id,
-                related_entities=[primary_entity],
-                supporting_evidence_requirements=[f"Technical benchmark or documentation confirming filtering capabilities of {primary_entity}"],
-                refuting_evidence_requirements=[f"Documentation demonstrating severe filtering limits or restrictive licensing in {primary_entity}"],
+                proposition=f"Documented evidence describes {subject_list} on the requested technical facets.",
+                related_question_id=first.question_id,
+                related_entities=list(target_entities),
+                supporting_evidence_requirements=[f"Technical documentation or benchmark covering {subject_list}"],
+                refuting_evidence_requirements=[f"Documentation showing {subject_list} lacks the described capabilities"],
             )
             state.hypotheses[hyp_tech.hypothesis_id] = hyp_tech.model_dump()
 
             state.information_gaps.append(
                 InformationGap(
-                    description=f"Filtering capability matrix for {primary_entity}",
+                    description=f"Requested technical facets for {subject_list}",
                     target_entity=primary_entity,
-                    target_attribute="filtering_capabilities",
+                    target_attribute="technical_facets",
                     priority=1.0,
                     is_critical=True,
-                    related_question_id=q_filter.question_id,
-                )
-            )
-            state.information_gaps.append(
-                InformationGap(
-                    description=f"Licensing model for {primary_entity}",
-                    target_entity=primary_entity,
-                    target_attribute="software_license",
-                    priority=0.85,
-                    is_critical=False,
-                    related_question_id=q_lic.question_id,
+                    related_question_id=first.question_id,
                 )
             )
 
@@ -793,6 +770,44 @@ class InvestigationPlanner:
                 )
             )
 
+        elif domain == "generic" and intent.kind in self._DIRECT_QUESTION_KINDS:
+            # A direct question (why / how / who / compare / what changed / is-it / find the X of)
+            # is decomposed by what it asks, not by a fixed topic template.
+            q_obj = InvestigationQuestion(
+                question_text=objective,
+                question_type=QuestionType.GENERAL,
+                priority=1.0,
+                is_critical=True,
+                related_entities=list(target_entities),
+                specialist_requirements=["none"],
+                search_queries=self._intent_queries(intent, target_entities, objective)[:2],
+                required_evidence=[f"Published sources that directly answer: {objective}"],
+            )
+            sub_questions = self._intent_questions(intent, target_entities, objective)
+            for q in [q_obj, *sub_questions]:
+                state.questions[q.question_id] = q.model_dump()
+                state.unresolved_questions.append(q.question_id)
+                root_branch.questions.append(q.question_id)
+
+            hyp_direct = InvestigationHypothesis(
+                proposition=f"Published sources answer the question: {objective}",
+                related_question_id=q_obj.question_id,
+                related_entities=list(target_entities),
+                supporting_evidence_requirements=[f"Sources that directly state an answer to: {objective}"],
+                refuting_evidence_requirements=[f"Sources that contradict the answer or show it is not publicly documented: {objective}"],
+            )
+            state.hypotheses[hyp_direct.hypothesis_id] = hyp_direct.model_dump()
+            state.information_gaps.append(
+                InformationGap(
+                    description=f"Direct answer ({intent.kind}) for: {objective}",
+                    target_entity=primary_entity,
+                    target_attribute=f"{intent.kind}_answer",
+                    priority=1.0,
+                    is_critical=True,
+                    related_question_id=q_obj.question_id,
+                )
+            )
+
         else:
             # Generic / Unrecognized / Interdisciplinary Domain Decomposition
             q_obj = InvestigationQuestion(
@@ -893,6 +908,104 @@ class InvestigationPlanner:
             rationale=f"Decomposed objective into initial question topology for {domain} domain.",
         )
         return state
+
+    _DIRECT_QUESTION_KINDS = frozenset({
+        "causal", "mechanism", "comparison", "change", "yes_no", "role", "attribute", "summary", "listing",
+    })
+
+    @staticmethod
+    def _intent_queries(intent: ObjectiveIntent, subjects: list[str], objective: str) -> list[str]:
+        """Short web queries built from the subjects and the words the objective asks about."""
+        base = " ".join([*subjects[:2], intent.focus, *intent.periods]).strip() or topic_phrase(objective)
+        extra = {
+            "causal": ["cause", "investigation findings"],
+            "mechanism": ["how it works", "explained"],
+            "comparison": ["comparison", "vs"],
+            "change": ["changes", "amendments"],
+            "yes_no": ["", "confirmed"],
+            "role": ["", "announced"],
+            "attribute": ["", "official"],
+            "summary": ["", "latest"],
+            "listing": ["", "list"],
+        }.get(intent.kind, [""])
+        out: list[str] = []
+        for word in extra:
+            q = re.sub(r"\s+", " ", f"{base} {word}").strip()
+            if q and q not in out:
+                out.append(q)
+        return out
+
+    def _intent_questions(self, intent: ObjectiveIntent, subjects: list[str], objective: str) -> list[InvestigationQuestion]:
+        """Sub-questions that follow from the form of a direct question."""
+        topic = " ".join([*subjects[:3], intent.focus]).strip() or topic_phrase(objective)
+        subject_text = " and ".join(subjects[:3]) or topic
+        when = f" ({' to '.join(intent.periods)})" if intent.periods else ""
+        specs: list[tuple[str, QuestionType, list[str]]] = []
+        if intent.kind == "causal":
+            event = intent.scope or topic
+            bare_event = re.sub(r"^the\s+", "", event)
+            specs = [
+                (f"What causes or reasons do official investigations and reliable sources give for {event}?", QuestionType.GENERAL, [f"{bare_event} cause", f"{bare_event} investigation report"]),
+                (f"What sequence of events led to {event}?", QuestionType.TEMPORAL_STATE, [f"{bare_event} timeline"]),
+                (f"Which explanations for {event} are disputed between sources?", QuestionType.CONTRADICTION_RESOLUTION, [f"{bare_event} disputed cause"]),
+            ]
+        elif intent.kind == "mechanism":
+            specs = [
+                (f"What are the main components or steps of {subject_text}?", QuestionType.GENERAL, [f"{subject_text} how it works"]),
+                (f"What limitations or open questions are documented for {subject_text}?", QuestionType.GENERAL, [f"{subject_text} limitations"]),
+            ]
+        elif intent.kind == "comparison":
+            facets = intent.facets or ["capabilities and documented limits"]
+            for_context = f" for {intent.context}" if intent.context else ""
+            for subject in subjects[:3] or [topic]:
+                for facet in facets:
+                    specs.append((f"What do sources report about the {facet} of {subject}{for_context}?", QuestionType.GENERAL, [f"{subject} {facet} {intent.context}".strip()]))
+            specs.append((f"Which sources compare {subject_text} directly, and what differences do they report?", QuestionType.GENERAL, [f"{' vs '.join(subjects[:3]) or topic} {' '.join(facets)}".strip()]))
+        elif intent.kind == "change":
+            specs = [
+                (f"What specific provisions or elements of {subject_text} changed{when}, and when?", QuestionType.TEMPORAL_STATE, [f"{subject_text} changes {' '.join(intent.periods)}".strip()]),
+                (f"What did the earlier and later versions of {subject_text} each say on the changed points?", QuestionType.TEMPORAL_STATE, [f"{subject_text} final text vs draft"]),
+            ]
+        elif intent.kind == "yes_no":
+            question = objective.strip().rstrip("?")
+            specs = [
+                (f"What evidence supports a yes answer to \"{question}?\"", QuestionType.GENERAL, [f"{topic}"]),
+                (f"What evidence supports a no answer to \"{question}?\"", QuestionType.NEGATIVE_VERIFICATION, [f"{topic} denied"]),
+            ]
+        elif intent.kind == "role":
+            role = " ".join(intent.facets) or intent.focus or "role"
+            specs = [
+                (f"Who is named as {role} of {subject_text} in official or recent sources?", QuestionType.OFFICER_TENURE, [f"{subject_text} {role}"]),
+                (f"When did each named person take or leave that role at {subject_text}?", QuestionType.TEMPORAL_STATE, [f"{subject_text} {role} appointed"]),
+            ]
+        elif intent.kind == "attribute":
+            scope = intent.scope or subject_text
+            for facet in intent.facets or [intent.focus]:
+                verb = "are" if facet.endswith("s") and not facet.endswith("ss") else "is"
+                specs.append((f"What {verb} the {facet} of {scope}, and as of what date?", QuestionType.GENERAL, [f"{scope} {facet}"]))
+        elif intent.kind == "summary":
+            specs = [
+                (f"Which {intent.scope or topic} are documented, with dates and parties?", QuestionType.GENERAL, [intent.scope or topic]),
+                (f"What is the current status or outcome of each of the {intent.scope or topic}?", QuestionType.TEMPORAL_STATE, [f"{intent.scope or topic} status outcome"]),
+            ]
+        elif intent.kind == "listing":
+            specs = [
+                (f"Which {intent.scope or 'items'} do sources name for \"{objective.strip().rstrip('?')}?\", each with its source?", QuestionType.GENERAL, [topic]),
+                (f"Which of the named {intent.scope or 'items'} are confirmed by more than one independent source?", QuestionType.GENERAL, []),
+            ]
+        out = []
+        for text, qtype, queries in specs:
+            out.append(InvestigationQuestion(
+                question_text=text,
+                question_type=qtype,
+                priority=0.9,
+                is_critical=False,
+                related_entities=list(subjects),
+                specialist_requirements=["none"],
+                search_queries=[q for q in queries if q],
+                required_evidence=[f"Published sources addressing: {text}"],
+            ))
+        return out
 
     # Words that carry no topic: question scaffolding shared by every template.
     _CRITICALITY_STOPWORDS = frozenset({
