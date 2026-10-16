@@ -39,6 +39,51 @@ class BaseCapabilityAdapter(ABC):
         """Execute capability operation and return structured observations."""
         raise NotImplementedError
 
+def simulated_registry(kind: str) -> Dict[str, Dict[str, Any]]:
+    """Frozen benchmark registry for a specialist. Only for benchmark and test runs.
+
+    These records are invented fixtures (e.g. "AutoTech Corporation"); live
+    investigations must never read them.
+    """
+    if kind == "identity":
+        from argus.evals.vertical_corpus import VERTICAL_PLATFORM_REGISTRY
+        return VERTICAL_PLATFORM_REGISTRY
+    if kind == "infrastructure":
+        from argus.evals.infrastructure_corpus import INFRASTRUCTURE_REGISTRY
+        return INFRASTRUCTURE_REGISTRY
+    if kind == "corporate":
+        from argus.evals.corporate_corpus import CORPORATE_REGISTRY_DATABASE
+        return CORPORATE_REGISTRY_DATABASE
+    raise KeyError(f"No simulated registry for '{kind}'")
+
+
+class NoLiveSourceAdapter(BaseCapabilityAdapter):
+    """Stands in for a specialist whose only data is a frozen benchmark corpus.
+
+    Outside benchmark runs it reports that no live source exists instead of
+    returning invented records; the failure surfaces in the report's limitations.
+    """
+
+    def __init__(self, implementation_id: str, capability: str) -> None:
+        self.implementation_id = implementation_id
+        self.capability = capability
+
+    def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:
+        return {
+            "execution_id": f"exec_{uuid.uuid4().hex[:8]}",
+            "implementation_id": self.implementation_id,
+            "query": inputs.get("query", ""),
+            "status": "FAILED",
+            "error": (
+                f"No live data source is configured for {self.capability}; "
+                "frozen benchmark records are not used outside benchmark runs."
+            ),
+            "documents_count": 0,
+            "documents": [],
+            "combined_text": "",
+            "authoritative": False,
+        }
+
 
 class ArgusResearchAdapter(BaseCapabilityAdapter):
     """Wraps Argus generalist search and corpus retrieval."""
@@ -81,13 +126,10 @@ class ArgusResearchAdapter(BaseCapabilityAdapter):
 class IdentitySpecialistAdapter(BaseCapabilityAdapter):
     """Wraps IdentityProbeSpecialist for developer persona and identity resolution."""
 
-    def __init__(self, specialist: Optional[IdentityProbeSpecialist] = None) -> None:
+    def __init__(self, specialist: Optional[IdentityProbeSpecialist] = None, simulated: bool = False) -> None:
         if specialist is None:
-            try:
-                from argus.evals.vertical_corpus import VERTICAL_PLATFORM_REGISTRY
-                self.specialist = IdentityProbeSpecialist(platform_registry=VERTICAL_PLATFORM_REGISTRY)
-            except ImportError:
-                self.specialist = IdentityProbeSpecialist()
+            registry = simulated_registry("identity") if simulated else None
+            self.specialist = IdentityProbeSpecialist(platform_registry=registry)
         else:
             self.specialist = specialist
 
@@ -260,13 +302,10 @@ class IdentitySpecialistAdapter(BaseCapabilityAdapter):
 class InfrastructureSpecialistAdapter(BaseCapabilityAdapter):
     """Wraps InfrastructureProbeSpecialist for DNS, TLS/SAN, and host discovery."""
 
-    def __init__(self, specialist: Optional[InfrastructureProbeSpecialist] = None) -> None:
+    def __init__(self, specialist: Optional[InfrastructureProbeSpecialist] = None, simulated: bool = False) -> None:
         if specialist is None:
-            try:
-                from argus.evals.infrastructure_corpus import INFRASTRUCTURE_REGISTRY
-                self.specialist = InfrastructureProbeSpecialist(registry=INFRASTRUCTURE_REGISTRY)
-            except ImportError:
-                self.specialist = InfrastructureProbeSpecialist()
+            registry = simulated_registry("infrastructure") if simulated else None
+            self.specialist = InfrastructureProbeSpecialist(registry=registry)
         else:
             self.specialist = specialist
 
@@ -392,13 +431,10 @@ class InfrastructureSpecialistAdapter(BaseCapabilityAdapter):
 class CorporateSpecialistAdapter(BaseCapabilityAdapter):
     """Wraps CorporateProbeSpecialist for statutory registries and restatement resolution."""
 
-    def __init__(self, specialist: Optional[CorporateProbeSpecialist] = None) -> None:
+    def __init__(self, specialist: Optional[CorporateProbeSpecialist] = None, simulated: bool = False) -> None:
         if specialist is None:
-            try:
-                from argus.evals.corporate_corpus import CORPORATE_REGISTRY_DATABASE
-                self.specialist = CorporateProbeSpecialist(registry_database=CORPORATE_REGISTRY_DATABASE)
-            except ImportError:
-                self.specialist = CorporateProbeSpecialist()
+            registry = simulated_registry("corporate") if simulated else None
+            self.specialist = CorporateProbeSpecialist(registry_database=registry)
         else:
             self.specialist = specialist
 
@@ -776,23 +812,38 @@ def unregister_capability_adapter(implementation_id: str) -> None:
         _CUSTOM_ADAPTERS.pop(implementation_id, None)
 
 
-def get_adapter_for_implementation(implementation_id: str) -> BaseCapabilityAdapter:
-    """Factory retrieving appropriate capability adapter by implementation ID."""
+def get_adapter_for_implementation(implementation_id: str, simulated: bool = False) -> BaseCapabilityAdapter:
+    """Factory retrieving appropriate capability adapter by implementation ID.
+
+    ``simulated=True`` wires specialists to the frozen benchmark corpora; it is for
+    benchmark and test runs only. Live runs get real connectors (SEC EDGAR, crt.sh)
+    with empty registries, and corpus-only specialists report that no live source exists.
+    """
     with _ADAPTER_LOCK:
         if implementation_id in _CUSTOM_ADAPTERS:
             return _CUSTOM_ADAPTERS[implementation_id]
 
     adapters: Dict[str, BaseCapabilityAdapter] = {
         "impl_argus_generalist_v1": ArgusResearchAdapter(),
-        "impl_identity_probe_specialist_v1": IdentitySpecialistAdapter(),
-        "impl_infrastructure_probe_specialist_v1": InfrastructureSpecialistAdapter(),
-        "impl_corporate_registry_specialist_v1": CorporateSpecialistAdapter(),
+        "impl_identity_probe_specialist_v1": IdentitySpecialistAdapter(simulated=simulated),
+        "impl_infrastructure_probe_specialist_v1": InfrastructureSpecialistAdapter(simulated=simulated),
+        "impl_corporate_registry_specialist_v1": CorporateSpecialistAdapter(simulated=simulated),
         "impl_challenger_identity_specialist_v2": ChallengerIdentityAdapter(),
-        "impl_opensanctions_probe_v1": OpenSanctionsCapabilityAdapter(),
-        "impl_onion_integrated_v1": OnionCapabilityAdapter(),
-        "impl_ahmia_search_v1": AhmiaCapabilityAdapter(),
-        "impl_torbot_crawler_v1": TorBotCapabilityAdapter(),
     }
+    if simulated:
+        adapters.update({
+            "impl_opensanctions_probe_v1": OpenSanctionsCapabilityAdapter(),
+            "impl_onion_integrated_v1": OnionCapabilityAdapter(),
+            "impl_ahmia_search_v1": AhmiaCapabilityAdapter(),
+            "impl_torbot_crawler_v1": TorBotCapabilityAdapter(),
+        })
+    else:
+        adapters.update({
+            "impl_opensanctions_probe_v1": NoLiveSourceAdapter("impl_opensanctions_probe_v1", "sanctions screening"),
+            "impl_onion_integrated_v1": NoLiveSourceAdapter("impl_onion_integrated_v1", "onion service intelligence"),
+            "impl_ahmia_search_v1": NoLiveSourceAdapter("impl_ahmia_search_v1", "onion search"),
+            "impl_torbot_crawler_v1": NoLiveSourceAdapter("impl_torbot_crawler_v1", "onion crawling"),
+        })
 
     # Vertical 6: Email & Account Intelligence Adapters
     if implementation_id == "impl_email_to_account_discovery_v1":

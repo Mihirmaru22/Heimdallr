@@ -308,7 +308,7 @@ class OSINTTerminal:
         self.exporter = OSINTExcelExporter(export_dir=self.export_dir)
         self.md_exporter = OSINTMarkdownExporter(export_dir=self.export_dir)
         self.corpus = corpus if corpus is not None else ControlledLiveWebRetriever()
-        self.engine = InvestigationEngine(corpus=self.corpus)
+        self.engine = InvestigationEngine(corpus=self.corpus, simulated_registries=False)
 
     def run_cli(
         self,

@@ -19,8 +19,6 @@ from typing import Any
 import uuid
 
 from argus.domain.jurisdiction_graph import JurisdictionEntityGraph
-from argus.evals.v2.corpus import CORPUS_V2_REGISTRY
-from argus.evals.v2.routing_evaluator import SpecialistRoutingClassifier
 from argus.investigation.action import ActionType, ResearchAction
 from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
 from argus.investigation.branch import BranchStatus, InvestigationBranch
@@ -47,7 +45,7 @@ from argus.verifier.temporal_reasoner import (
     TemporalStateReasoner,
 )
 from argus.capability_registry.registry import CapabilityRegistry
-from argus.capability_registry.adapters import get_adapter_for_implementation
+from argus.capability_registry.adapters import get_adapter_for_implementation, simulated_registry
 from argus.competition.security_gate import SecurityGateValidator
 from argus.investigation.contradiction_resolver import (
     ContradictionRecord,
@@ -306,23 +304,25 @@ class InvestigationEngine:
         store: InvestigationStore | None = None,
         corpus: Any | None = None,
         registry: CapabilityRegistry | None = None,
+        simulated_registries: bool | None = None,
     ) -> None:
         self.registry = registry or (getattr(planner, "registry", None) if planner else None) or CapabilityRegistry()
         self.planner = planner or InvestigationPlanner(registry=self.registry)
         self.stopping_policy = stopping_policy or InvestigationStoppingPolicy()
         self.store = store or InvestigationStore()
         self.corpus = corpus or INVESTIGATION_CORPUS_REGISTRY
-        self.router = SpecialistRoutingClassifier()
+        # Frozen benchmark registries (invented companies, hosts, accounts) belong to the
+        # offline benchmark corpus only. Default: on when no corpus is given (that run
+        # reads INVESTIGATION_CORPUS_REGISTRY), off for any supplied corpus such as the
+        # live web retriever.
+        self.simulated_registries = (corpus is None) if simulated_registries is None else simulated_registries
 
         # Specialist adaptations
-        try:
-            from argus.evals.corporate_corpus import CORPORATE_REGISTRY_DATABASE
-            from argus.evals.infrastructure_corpus import INFRASTRUCTURE_REGISTRY
-            from argus.evals.vertical_corpus import VERTICAL_PLATFORM_REGISTRY
-            self.identity_specialist = IdentityProbeSpecialist(platform_registry=VERTICAL_PLATFORM_REGISTRY)
-            self.infra_specialist = InfrastructureProbeSpecialist(registry=INFRASTRUCTURE_REGISTRY)
-            self.corp_specialist = CorporateProbeSpecialist(registry_database=CORPORATE_REGISTRY_DATABASE)
-        except ImportError:
+        if self.simulated_registries:
+            self.identity_specialist = IdentityProbeSpecialist(platform_registry=simulated_registry("identity"))
+            self.infra_specialist = InfrastructureProbeSpecialist(registry=simulated_registry("infrastructure"))
+            self.corp_specialist = CorporateProbeSpecialist(registry_database=simulated_registry("corporate"))
+        else:
             self.identity_specialist = IdentityProbeSpecialist()
             self.infra_specialist = InfrastructureProbeSpecialist()
             self.corp_specialist = CorporateProbeSpecialist()
@@ -938,7 +938,7 @@ class InvestigationEngine:
             adapter = IdentitySpecialistAdapter(specialist=self.identity_specialist)
         elif impl_id:
             try:
-                adapter = get_adapter_for_implementation(impl_id)
+                adapter = get_adapter_for_implementation(impl_id, simulated=self.simulated_registries)
             except KeyError:
                 adapter = None
 
