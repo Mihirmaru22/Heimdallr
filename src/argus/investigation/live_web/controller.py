@@ -139,7 +139,7 @@ class ControlledLiveWebRetriever:
         permitted, reason = self.is_url_permitted(url)
         if not permitted:
             logger.warning("Fetch denied by policy: %s (%s)", url, reason)
-            return LiveWebEvidenceRecord(
+            denied = LiveWebEvidenceRecord(
                 evidence_id=f"ev_err_{hashlib.md5(url.encode()).hexdigest()[:8]}",
                 original_url=url,
                 final_url=url,
@@ -154,6 +154,9 @@ class ControlledLiveWebRetriever:
                 extraction_method="blocked",
                 retrieval_error=reason,
             )
+            # Keep the denial visible to the investigation loop, like search denials.
+            self.evidence_records.append(denied)
+            return denied
 
         host = urlparse(url).netloc.lower()
         self.host_counts[host] = self.host_counts.get(host, 0) + 1

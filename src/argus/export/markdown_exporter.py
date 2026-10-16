@@ -97,6 +97,14 @@ class OSINTMarkdownExporter:
         lines.append(exec_narrative)
         lines.append("\n---\n")
 
+        # 3b. What this investigation did not establish
+        limitations = data.get("limitations") or []
+        if limitations:
+            lines.append("## Limitations & Open Questions\n")
+            for lim in limitations:
+                lines.append(f"- {lim}")
+            lines.append("\n---\n")
+
         # 4. Categorized Verified Findings
         lines.append("## Key Corroborated Findings\n")
         for category, items in categorized_findings.items():

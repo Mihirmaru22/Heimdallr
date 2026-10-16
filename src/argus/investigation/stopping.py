@@ -11,7 +11,7 @@ from enum import Enum
 import logging
 from typing import Any
 
-from argus.investigation.question import QuestionStatus
+from argus.investigation.resolution import budget_denials, coverage, incomplete_stop
 from argus.investigation.state import InvestigationState, StopState
 
 logger = logging.getLogger(__name__)
@@ -57,29 +57,15 @@ class InvestigationStoppingPolicy:
         if state.stop_state.stop_reason == InvestigationStopReason.SAFETY_STOP.value:
             return True, InvestigationStopReason.SAFETY_STOP, state.stop_state.stopping_rationale
 
-        # 2. Objective questions resolution check
+        # 2. Objective coverage. Only evidence-backed answers count (see resolution.py):
+        # a question closed as PARTIALLY_RESOLVED or with nothing found is not answered,
+        # and chained follow-up questions are excluded from the ratio.
         total_questions = len(state.questions)
-        resolved_count = len(state.resolved_questions)
-
-        # Critical questions check
-        critical_questions = [
-            q for q in state.questions.values() if q.get("is_critical", False)
-        ]
-        unresolved_critical = [
-            q
-            for q in critical_questions
-            if q.get("question_id", q.get("id")) in state.unresolved_questions
-            or (
-                q.get("question_id", q.get("id")) not in state.resolved_questions
-                and q.get("status")
-                not in (
-                    QuestionStatus.SUPPORTED.value,
-                    QuestionStatus.NOT_FOUND.value,
-                    QuestionStatus.CONTRADICTED.value,
-                    "INSUFFICIENT_EVIDENCE",
-                )
-            )
-        ]
+        cov = coverage(state)
+        unresolved_critical = cov["unanswered_critical"]
+        answered = cov["objective_answered"]
+        objective_total = cov["objective_total"]
+        ratio = cov["ratio"]
 
         # 1b. Executive contract completion check
         expected_exec = state.objective_contract.get("expected_executive_count")
@@ -97,27 +83,33 @@ class InvestigationStoppingPolicy:
             )
 
         if total_questions > 0 and len(state.unresolved_questions) == 0:
-            return (
-                True,
-                InvestigationStopReason.OBJECTIVE_SATISFIED,
-                f"All {total_questions} investigation questions successfully resolved.",
-            )
+            if not unresolved_critical and cov["any_answered"]:
+                return (
+                    True,
+                    InvestigationStopReason.OBJECTIVE_SATISFIED,
+                    f"All {total_questions} investigation questions closed; {answered}/{objective_total} objective questions answered by evidence and every critical question answered.",
+                )
+            reason, rationale = incomplete_stop(state)
+            return True, InvestigationStopReason(reason), rationale
 
-        if total_questions > 0 and len(unresolved_critical) == 0 and resolved_count / total_questions >= self.min_satisfaction_ratio:
+        if total_questions > 0 and len(unresolved_critical) == 0 and ratio >= self.min_satisfaction_ratio:
             return (
                 True,
                 InvestigationStopReason.SUFFICIENT_EVIDENCE,
-                f"Resolved {resolved_count}/{total_questions} questions with 0 unresolved critical questions.",
+                f"Answered {answered}/{objective_total} objective questions with 0 unanswered critical questions.",
             )
 
         # 3. Information gain plateau check
         if consecutive_zeros >= self.max_consecutive_zero_gains and steps_taken >= 3:
-            if total_questions > 0 and len(unresolved_critical) == 0 and resolved_count / total_questions >= 0.70:
+            if total_questions > 0 and len(unresolved_critical) == 0 and ratio >= 0.70:
                 return (
                     True,
                     InvestigationStopReason.SUFFICIENT_EVIDENCE,
-                    f"Plateau reached after {consecutive_zeros} zero gains with acceptable coverage ({resolved_count}/{total_questions} questions resolved).",
+                    f"Plateau reached after {consecutive_zeros} zero gains with acceptable coverage ({answered}/{objective_total} objective questions answered).",
                 )
+            if unresolved_critical and budget_denials(state):
+                reason, rationale = incomplete_stop(state)
+                return True, InvestigationStopReason(reason), rationale
             return (
                 True,
                 InvestigationStopReason.NO_INFORMATION_GAIN,
@@ -126,17 +118,17 @@ class InvestigationStoppingPolicy:
 
         # 4. Budget exhaustion check
         if steps_taken >= max_steps:
-            if len(unresolved_critical) == 0 and (total_questions == 0 or resolved_count / total_questions >= 0.70):
+            if len(unresolved_critical) == 0 and (total_questions == 0 or ratio >= 0.70):
                 return (
                     True,
                     InvestigationStopReason.BUDGET_EXHAUSTED_WITH_ACCEPTABLE_COVERAGE,
-                    f"Max step limit reached ({max_steps} steps) with acceptable coverage ({resolved_count}/{total_questions} questions resolved).",
+                    f"Max step limit reached ({max_steps} steps) with acceptable coverage ({answered}/{objective_total} objective questions answered).",
                 )
             else:
                 return (
                     True,
                     InvestigationStopReason.BUDGET_EXHAUSTED_WITH_CRITICAL_MISSING_FIELDS,
-                    f"Max step limit reached ({max_steps} steps) but {len(unresolved_critical)} critical questions remain unresolved.",
+                    f"Max step limit reached ({max_steps} steps) but {len(unresolved_critical)} critical questions remain unanswered.",
                 )
 
         return False, None, "Investigation in progress."

@@ -195,6 +195,18 @@ class OSINTExcelExporter:
             c.alignment = Alignment(wrap_text=True, vertical="top")
             row += 1
 
+        limitations = data.get("limitations") or []
+        if limitations:
+            row += 2
+            ws.cell(row=row, column=1, value="LIMITATIONS & OPEN QUESTIONS").font = SECTION_FONT
+            row += 1
+            for lim in limitations:
+                ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+                c = ws.cell(row=row, column=1, value=f"• {lim}")
+                c.font = BODY_FONT
+                c.alignment = Alignment(wrap_text=True, vertical="top")
+                row += 1
+
         row += 2
         ws.cell(row=row, column=1, value="KEY CORROBORATED FINDINGS").font = SECTION_FONT
         row += 1

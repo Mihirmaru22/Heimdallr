@@ -160,6 +160,9 @@ class InvestigationState(BaseModel):
         }
     )
     information_gain_history: list[dict[str, Any]] = Field(default_factory=list)
+    # Requests the retriever refused or failed (budget, policy, network), so a gap
+    # can be reported as "not retrieved" instead of "no evidence exists".
+    retrieval_denials: list[dict[str, Any]] = Field(default_factory=list)
 
     # Decision & termination states
     confidence_state: ConfidenceState = Field(default_factory=ConfidenceState)
@@ -295,6 +298,59 @@ class InvestigationState(BaseModel):
             "overall_confidence": self.confidence_state.overall_confidence,
         }
 
+    def generate_limitations(self) -> list[str]:
+        """Plain statements of what this investigation did not establish, and why."""
+        from argus.investigation.resolution import (
+            PARTIALLY_RESOLVED,
+            claims_index,
+            is_budget_denial,
+            positive_linked_claims,
+            question_is_answered,
+        )
+
+        index = claims_index(self.claims)
+        limitations: list[str] = []
+
+        for q in self.questions.values():
+            text = q.get("question_text", "")
+            status = q.get("status")
+            if q.get("is_critical") and not question_is_answered(q, index):
+                if status == PARTIALLY_RESOLVED:
+                    continue  # stated below with its source classes
+                reason = q.get("resolution_reason") or "no evidence-backed answer was found"
+                limitations.append(f"Critical question not answered: '{text}' ({status}: {reason})")
+        for q in self.questions.values():
+            if q.get("status") != PARTIALLY_RESOLVED:
+                continue
+            linked = positive_linked_claims(q, index)
+            kinds = sorted({str(c.get("status")) for c in linked})
+            limitations.append(
+                f"'{q.get('question_text', '')}' is answered only by unverified assertions "
+                f"({len(linked)} claim(s), {', '.join(kinds) or 'none'}); "
+                "no vendor confirmation or independent corroboration was found."
+            )
+
+        seen: set[str] = set()
+        for d in self.retrieval_denials:
+            key = f"{d.get('reason')}|{d.get('query') or d.get('url')}"
+            if key in seen:
+                continue
+            seen.add(key)
+            kind = "Retrieval budget denied" if is_budget_denial(d) else "Retrieval failed"
+            target = d.get("query") or d.get("url") or "request"
+            limitations.append(f"{kind}: '{target}' was not retrieved ({d.get('reason')}).")
+
+        if self.stop_state.budget_exhausted:
+            limitations.append(f"Execution terminated upon reaching budget limit ({self.research_budget.get('max_steps', 15)} steps).")
+        for gap in self.information_gaps:
+            if not gap.is_resolved and gap.is_critical:
+                limitations.append(f"Unresolved critical gap: {gap.description}")
+        for audit in self.audit_trail:
+            if audit.action_type in ("UNSUPPORTED_CAPABILITY_REQUESTED", "ADAPTER_EXECUTION_FAILED", "SECURITY_POLICY_VIOLATION"):
+                reason = audit.details.get("reason") or audit.details.get("error") or audit.rationale
+                limitations.append(f"{audit.action_type}: {reason}")
+        return limitations
+
     def to_result(self) -> InvestigationResult:
         """Synthesize a structured, domain-agnostic investigation result."""
         # Recompute calibration to guarantee up-to-date epistemic confidence
@@ -317,16 +373,7 @@ class InvestigationState(BaseModel):
             if qid in self.questions
         ]
 
-        limitations: list[str] = []
-        if self.stop_state.budget_exhausted:
-            limitations.append(f"Execution terminated upon reaching budget limit ({self.research_budget.get('max_steps', 15)} steps).")
-        for gap in self.information_gaps:
-            if not gap.is_resolved and gap.is_critical:
-                limitations.append(f"Unresolved critical gap: {gap.description}")
-        for audit in self.audit_trail:
-            if audit.action_type in ("UNSUPPORTED_CAPABILITY_REQUESTED", "ADAPTER_EXECUTION_FAILED", "SECURITY_POLICY_VIOLATION"):
-                reason = audit.details.get("reason") or audit.details.get("error") or audit.rationale
-                limitations.append(f"{audit.action_type}: {reason}")
+        limitations = self.generate_limitations()
 
         return InvestigationResult(
             investigation_id=self.investigation_id,

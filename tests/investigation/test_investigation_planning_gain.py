@@ -61,13 +61,23 @@ def test_stopping_policy_all_reasons():
     should_stop, reason, _ = policy.evaluate(state)
     assert should_stop is False
 
-    # 2. All questions resolved -> OBJECTIVE_SATISFIED
-    q = InvestigationQuestion(question_text="Q1", is_critical=True)
+    # 2. All questions answered -> OBJECTIVE_SATISFIED. A closed question counts only
+    # when its status is an evidence-backed answer (T05), so the question is SUPPORTED.
+    q = InvestigationQuestion(question_text="Q1", is_critical=True, status=QuestionStatus.SUPPORTED)
     state.questions[q.question_id] = q.model_dump()
     state.resolved_questions.append(q.question_id)
     should_stop, reason, _ = policy.evaluate(state)
     assert should_stop is True
     assert reason == InvestigationStopReason.OBJECTIVE_SATISFIED
+
+    # 2b. Closed but never answered -> not satisfied
+    state_open = InvestigationState(objective="Closed Unanswered")
+    q_open = InvestigationQuestion(question_text="Q1b", is_critical=True)
+    state_open.questions[q_open.question_id] = q_open.model_dump()
+    state_open.resolved_questions.append(q_open.question_id)
+    should_stop, reason, _ = policy.evaluate(state_open)
+    assert should_stop is True
+    assert reason == InvestigationStopReason.NO_USEFUL_ACTIONS_REMAIN
 
     # 3. Consecutive zero gains -> NO_INFORMATION_GAIN
     state_plateau = InvestigationState(objective="Plateau Test")

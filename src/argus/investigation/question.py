@@ -68,6 +68,9 @@ class InvestigationQuestion(BaseModel):
     # Focused search queries derived from a structured objective; when present the
     # planner uses them instead of concatenating entity names and question text.
     search_queries: list[str] = Field(default_factory=list)
+    # "planned" for questions derived from the objective; "chained" for follow-ups
+    # spawned from incidental discoveries (excluded from objective coverage).
+    origin: str = "planned"
 
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     resolved_at: str | None = None

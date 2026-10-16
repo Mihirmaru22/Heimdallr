@@ -61,7 +61,22 @@ from argus.investigation.benchmark.v2.semantic_auditor import (
 )
 from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
 from argus.investigation.technographics import extract_technographic_deployments
-from argus.investigation.claim_verification import add_support, ground_passage, verify_claim
+from argus.investigation.claim_verification import (
+    POSITIVE_STATUSES,
+    add_support,
+    ground_passage,
+    term_in_passage,
+    verify_claim,
+)
+from argus.investigation.resolution import (
+    budget_denials,
+    claim_kind_fits_question,
+    claims_index,
+    coverage,
+    incomplete_stop,
+    positive_linked_claims,
+    verified_linked_claims,
+)
 from argus.investigation.objective_parser import EnumerationObjective
 from urllib.parse import urlparse
 
@@ -357,21 +372,29 @@ class InvestigationEngine:
             total_questions = len(state.questions)
             resolved_count = len(state.resolved_questions)
 
-            if total_questions > 0 and len(state.unresolved_questions) == 0:
+            cov = coverage(state)
+
+            if total_questions > 0 and len(state.unresolved_questions) == 0 and not cov["unanswered_critical"] and cov["any_answered"]:
                 state.stop_state.stop_reason = InvestigationStopReason.OBJECTIVE_SATISFIED.value
-                state.stop_state.stopping_rationale = f"All {total_questions} investigation questions successfully resolved."
+                state.stop_state.stopping_rationale = (
+                    f"All {total_questions} investigation questions closed; "
+                    f"{cov['objective_answered']}/{cov['objective_total']} objective questions answered by evidence."
+                )
+            elif cov["unanswered_critical"] and budget_denials(state):
+                reason, rationale = incomplete_stop(state)
+                state.stop_state.stop_reason = reason
+                state.stop_state.stopping_rationale = rationale
+                state.stop_state.budget_exhausted = True
             elif any(obs.get("outcome") == "SOURCE_UNAVAILABLE" or obs.get("status") == "SOURCE_UNAVAILABLE" for obs in state.observations):
                 state.stop_state.stop_reason = InvestigationStopReason.SOURCE_UNAVAILABLE.value
                 state.stop_state.stopping_rationale = "Required primary sources are unavailable or inaccessible."
             elif any(obs.get("status") in ("FAILED", "UNSUPPORTED_CAPABILITY") for obs in state.observations) and resolved_count == 0:
                 state.stop_state.stop_reason = InvestigationStopReason.EXECUTION_FAILED.value
                 state.stop_state.stopping_rationale = "Research actions failed or requested unsupported capabilities."
-            elif total_questions > 0 and (resolved_count / total_questions) < 0.70:
-                state.stop_state.stop_reason = InvestigationStopReason.NO_USEFUL_ACTIONS_REMAIN.value
-                state.stop_state.stopping_rationale = f"No useful actions remain with {len(state.unresolved_questions)} unresolved questions."
             else:
-                state.stop_state.stop_reason = InvestigationStopReason.NO_USEFUL_ACTIONS_REMAIN.value
-                state.stop_state.stopping_rationale = "No remaining open action candidates with satisfied dependencies."
+                reason, rationale = incomplete_stop(state)
+                state.stop_state.stop_reason = reason
+                state.stop_state.stopping_rationale = rationale
             state.stop_state.stopped_at = datetime.now(timezone.utc).isoformat()
             self.store.save_state(state)
             return state, True
@@ -381,7 +404,10 @@ class InvestigationEngine:
         state.research_budget["steps_taken"] += 1
 
         # 3. Execute action via corpus or appropriate specialist
+        records = getattr(self.corpus, "evidence_records", None)
+        records_before = len(records) if isinstance(records, list) else 0
         obs = self._dispatch_action(action, state)
+        self._record_retrieval_denials(state, action, obs, records_before)
         state.observations.append(obs)
 
         # 4. Apply observation to state & update belief topology
@@ -781,6 +807,52 @@ class InvestigationEngine:
     # -------------------------------------------------------------------------
     # Internal Dispatch & Execution
     # -------------------------------------------------------------------------
+    def _record_retrieval_denials(
+        self,
+        state: InvestigationState,
+        action: ResearchAction,
+        obs: dict[str, Any],
+        records_before: int,
+    ) -> None:
+        """Surface requests the retriever refused or failed during this action.
+
+        The live retriever logs budget/policy denials and fetch errors in its own
+        ``evidence_records`` and returns nothing; without this the loop and the report
+        cannot tell "not retrieved" from "no evidence exists".
+        """
+        records = getattr(self.corpus, "evidence_records", None)
+        if not isinstance(records, list):
+            return
+        start = records_before if records_before <= len(records) else 0
+        denials = []
+        for rec in records[start:]:
+            err = getattr(rec, "retrieval_error", None) if not isinstance(rec, dict) else rec.get("retrieval_error")
+            if not err:
+                continue
+            get = rec.get if isinstance(rec, dict) else (lambda k, r=rec: getattr(r, k, None))
+            denials.append({
+                "action_id": action.action_id,
+                "question_id": action.question_id,
+                "query": action.query,
+                "url": get("original_url"),
+                "domain": get("domain"),
+                "http_status": get("http_status"),
+                "reason": err,
+                "step": state.research_budget.get("steps_taken", 0),
+            })
+        if not denials:
+            return
+        state.retrieval_denials.extend(denials)
+        obs["retrieval_denials"] = denials
+        if not obs.get("documents"):
+            obs["outcome"] = "RETRIEVAL_DENIED"
+        for d in denials:
+            state.record_audit(
+                action_type="RETRIEVAL_DENIED",
+                details={k: d[k] for k in ("query", "url", "http_status", "reason")},
+                rationale=f"Retriever did not return content for '{d['query'] or d['url']}': {d['reason']}",
+            )
+
     def _dispatch_action(self, action: ResearchAction, state: InvestigationState) -> dict[str, Any]:
         """Dispatch action to appropriate specialist or generalist search engine."""
         # Enforce deterministic application-level tool permission gate
@@ -1162,6 +1234,8 @@ class InvestigationEngine:
         information_gain = 0.0
         new_entities_found: list[str] = []
         new_claims_found: list[str] = []
+        # Existing claims that received another sighting in this observation.
+        supported_claims_found: list[str] = []
 
         # 0. Specialized Identity Observation Processing
         is_ident_obs = (
@@ -1666,6 +1740,8 @@ class InvestigationEngine:
                         # A repeat sighting is a candidate support; the shared gate
                         # decides whether it is an independent voice.
                         add_support(existing_claim, verify_claim(candidate, state.evidence))
+                        if existing_claim.get("claim_id"):
+                            supported_claims_found.append(existing_claim["claim_id"])
 
         # Incidental relation extractors (subsidiaries, officers, acquisitions, hosts,
         # e-mails, succession, sanctions, ownership) run only when the objective needs them.
@@ -2220,6 +2296,37 @@ class InvestigationEngine:
                 if not action.target_entities or s.get("target_entity") in action.target_entities or not s.get("target_entity")
             ]
             has_pending_fetches = is_search_action and len(unretrieved_sources) > 0 and not has_contra and not has_not_found
+            keep_open = False
+
+            # Link claims to the question this action ran for: the asserted claims this
+            # observation produced or re-sighted, plus claims already extracted from the
+            # same documents. A claim links only if its source is about one of the
+            # question's entities (when the question names any) and it states the kind of
+            # fact the question type asks for: a question about X is not answered by a
+            # claim from a page about Y, nor an infrastructure question by a founding date.
+            obs_evidence_ids = {d.get("evidence_id") for d in docs if d.get("evidence_id")}
+            regrounded = [c.get("claim_id") for c in state.claims if c.get("evidence_id") in obs_evidence_ids]
+            ev_text = {
+                e.get("evidence_id"): f"{e.get('title', '')} {e.get('snippet') or e.get('text') or ''}"
+                for e in state.evidence
+            }
+
+            def _about_question_entity(c: dict[str, Any]) -> bool:
+                if not q_entities:
+                    return True
+                text = f"{c.get('subject', '')} {c.get('object', '')} {ev_text.get(c.get('evidence_id'), '')}"
+                return any(term_in_passage(e, text) for e in q_entities)
+
+            index = claims_index(state.claims)
+            for cid in dict.fromkeys(new_claims_found + supported_claims_found + regrounded):
+                c = index.get(cid) or {}
+                if (
+                    c.get("status") in POSITIVE_STATUSES
+                    and claim_kind_fits_question(c, q.question_type)
+                    and _about_question_entity(c)
+                    and cid not in q.related_claims
+                ):
+                    q.related_claims.append(cid)
 
             if has_contra:
                 q.resolve(
@@ -2232,6 +2339,7 @@ class InvestigationEngine:
                     status=QuestionStatus.NOT_FOUND,
                     reason="Authoritative documentation confirmed target entity, department, or relationship does not exist or has zero operating records.",
                     claim_ids=[c.get("claim_id", "") for c in current_not_found_claims],
+                    evidence_ids=[d.get("evidence_id") for d in docs if d.get("evidence_id")],
                 )
             elif has_insufficient:
                 q.resolve(
@@ -2246,29 +2354,78 @@ class InvestigationEngine:
                 information_gain += 0.25
                 # Keep question open in unresolved_questions for follow-up content retrieval
                 return information_gain
-            elif (new_entities_found or new_claims_found or is_20_exec_goal) and is_sufficient:
-                q.resolve(
-                    status=QuestionStatus.SUPPORTED,
-                    reason=f"Substantiated by {len(new_entities_found)} entities and {len(new_claims_found)} claims.",
-                    claim_ids=new_claims_found,
-                )
-            elif len(docs) > 0 and is_sufficient:
-                q.resolve(
-                    status=QuestionStatus.SUPPORTED,
-                    reason=f"Substantiated by {len(docs)} retrieved authoritative evidence items.",
-                )
             else:
-                q.resolve(
-                    status=QuestionStatus.INSUFFICIENT_EVIDENCE,
-                    reason="Available evidence cannot substantiate the target question.",
-                )
+                # A question is SUPPORTED only by claims that passed the shared
+                # verification gate; documents arriving is not an answer.
+                index = claims_index(state.claims)
+                q_view = q.model_dump()
+                verified = verified_linked_claims(q_view, index)
+                asserted = positive_linked_claims(q_view, index)
+                used_queries = {a.get("query", "").strip().lower() for a in state.research_actions}
+                pending_queries = [sq for sq in q.search_queries if sq.strip().lower() not in used_queries]
+
+                if verified:
+                    kinds = ", ".join(sorted({str(c.get("status")) for c in verified}))
+                    q.resolve(
+                        status=QuestionStatus.SUPPORTED,
+                        reason=f"Answered by {len(verified)} verified claim(s) ({kinds}).",
+                        claim_ids=[c["claim_id"] for c in verified if c["claim_id"] not in q.resolved_by_claim_ids],
+                    )
+                elif pending_queries:
+                    # Not answered yet, but the question still has focused objective
+                    # queries to run; keep it open rather than closing it.
+                    keep_open = True
+                    q.status = QuestionStatus.INVESTIGATING
+                    q.resolution_reason = (
+                        f"No verified claim yet ({len(asserted)} unverified assertion(s)); "
+                        f"{len(pending_queries)} focused query(ies) remain."
+                    )
+                elif asserted:
+                    kinds = ", ".join(sorted({str(c.get("status")) for c in asserted}))
+                    q.resolve(
+                        status=QuestionStatus.PARTIALLY_RESOLVED,
+                        reason=(
+                            f"Only unverified assertions found: {len(asserted)} claim(s) ({kinds}); "
+                            "no vendor confirmation or independent corroboration."
+                        ),
+                        claim_ids=[c["claim_id"] for c in asserted if c["claim_id"] not in q.resolved_by_claim_ids],
+                    )
+                else:
+                    q.resolve(
+                        status=QuestionStatus.INSUFFICIENT_EVIDENCE,
+                        reason=f"Retrieved {len(docs)} document(s), but none yielded a claim that passed verification.",
+                    )
 
             state.questions[action.question_id] = q.model_dump()
-            if action.question_id in state.unresolved_questions:
-                state.unresolved_questions.remove(action.question_id)
-            if action.question_id not in state.resolved_questions:
-                state.resolved_questions.append(action.question_id)
-            information_gain += 0.40
+            if not keep_open:
+                if action.question_id in state.unresolved_questions:
+                    state.unresolved_questions.remove(action.question_id)
+                if action.question_id not in state.resolved_questions:
+                    state.resolved_questions.append(action.question_id)
+                information_gain += 0.40
+            else:
+                information_gain += 0.25 if (new_claims_found or supported_claims_found) else 0.0
+
+        # A question closed on unverified assertions becomes SUPPORTED once one of its
+        # claims is verified later (e.g. a vendor case study confirms a provider row).
+        index = claims_index(state.claims)
+        for qid, qd in state.questions.items():
+            if qd.get("status") != QuestionStatus.PARTIALLY_RESOLVED.value:
+                continue
+            verified = verified_linked_claims(qd, index)
+            if verified:
+                qp = InvestigationQuestion.model_validate(qd)
+                qp.resolve(
+                    status=QuestionStatus.SUPPORTED,
+                    reason=f"Answered by {len(verified)} claim(s) verified by later evidence.",
+                    claim_ids=[c["claim_id"] for c in verified if c["claim_id"] not in qp.resolved_by_claim_ids],
+                )
+                state.questions[qid] = qp.model_dump()
+                state.record_audit(
+                    action_type="QUESTION_UPGRADED",
+                    details={"question_id": qid, "claim_ids": [c["claim_id"] for c in verified]},
+                    rationale="Previously unverified answer confirmed by a verified claim.",
+                )
 
         # 5. Type-Based Multi-Specialist Chaining (for investigative workflows)
         active_caps = [c.capability_id for c in self.registry.list(include_inactive=False)]
@@ -2283,6 +2440,7 @@ class InvestigationEngine:
                         question_type=QuestionType.INFRASTRUCTURE_ATTRIBUTION,
                         priority=0.96,
                         is_critical=False,
+                        origin="chained",
                         related_entities=[tsub],
                         specialist_requirements=["infrastructure"],
                         required_evidence=[f"Certificate Transparency log, DNS, or network record for {tsub}"],
@@ -2321,6 +2479,7 @@ class InvestigationEngine:
                         question_type=QuestionType.INFRASTRUCTURE_ATTRIBUTION,
                         priority=0.95,
                         is_critical=False,
+                        origin="chained",
                         related_entities=[dom],
                         specialist_requirements=["infrastructure"],
                         required_evidence=[f"Certificate Transparency log or SAN entry for {dom}"],
@@ -2350,6 +2509,7 @@ class InvestigationEngine:
                             question_type=QuestionType.IDENTITY_CORRELATION,
                             priority=0.90,
                             is_critical=False,
+                            origin="chained",
                             related_entities=[person],
                             specialist_requirements=["identity"],
                             required_evidence=[f"Biographical employment profile for {person}"],
@@ -2380,6 +2540,7 @@ class InvestigationEngine:
                             question_type=QuestionType.ENTITY_DISCOVERY,
                             priority=0.85,
                             is_critical=False,
+                            origin="chained",
                             related_entities=[ent],
                             specialist_requirements=["sanctions_and_offshore"],
                             required_evidence=[f"OFAC SDN, UK OFSI, PEP disclosure, or Offshore Leaks record for {ent}"],
@@ -2406,6 +2567,7 @@ class InvestigationEngine:
                         question_type=QuestionType.IDENTITY_CORRELATION,
                         priority=0.80,
                         is_critical=False,
+                        origin="chained",
                         related_entities=[alias],
                         specialist_requirements=["identity"],
                         required_evidence=[f"GitHub or Keybase identity record for {alias}"],
