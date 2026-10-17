@@ -32,7 +32,24 @@ def execute_with_timeout(func: Any, timeout_sec: float, *args: Any, **kwargs: An
 
 
 class BaseCapabilityAdapter(ABC):
-    """Abstract capability execution adapter."""
+    """Abstract capability execution adapter.
+
+    Every adapter (vertical) can use the shared free language models (``self.llm``, for reading
+    and writing text) and the shared Laya decision maker (``self.decisions``, for every judgment).
+    """
+
+    @property
+    def llm(self) -> Any:
+        """The shared free-model service (free OpenRouter models, then local), or None if none is set up."""
+        from argus.llm.free_models import get_free_model_service
+
+        return get_free_model_service()
+
+    @property
+    def decisions(self) -> Any:
+        from argus.brain.decisions import get_decisions
+
+        return get_decisions()
 
     @abstractmethod
     def execute(self, inputs: Dict[str, Any], corpus: Any = None) -> Dict[str, Any]:

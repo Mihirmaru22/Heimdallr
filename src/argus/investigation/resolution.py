@@ -50,14 +50,28 @@ _TYPE_PREDICATE_CUES: dict[str, tuple[str, ...]] = {
 }
 
 
-def claim_kind_fits_question(claim: dict[str, Any], question_type: Any) -> bool:
-    """True when the claim states the kind of fact the question type asks for."""
+def claim_kind_fits_question(claim: dict[str, Any], question_type: Any, question_text: str = "") -> bool:
+    """True when the claim states the kind of fact the question type asks for.
+
+    Question types without a required kind accept any claim. For the others Laya decides when
+    the question text is given; the predicate cues are the answer without Laya.
+    """
     qtype = getattr(question_type, "value", question_type) or ""
     cues = _TYPE_PREDICATE_CUES.get(str(qtype))
     if not cues:
         return True
     pred = str(claim.get("predicate") or "").lower()
-    return any(c in pred for c in cues)
+    rule = any(c in pred for c in cues)
+    if not question_text:
+        return rule
+    from argus.brain.decisions import get_decisions
+
+    claim_text = " ".join(str(claim.get(k) or "") for k in ("subject", "predicate", "object")).strip()
+    passage = str(claim.get("source_passage") or "")[:600]
+    return get_decisions().yes_no(
+        "claim_answers_question", f"Question: {question_text}\nClaim: {claim_text}\nQuote: {passage}",
+        "Does this claim state the kind of fact the question asks for?", rule,
+    ).answer
 
 
 def claims_index(claims: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:

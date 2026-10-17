@@ -477,6 +477,7 @@ class OSINTTerminal:
             "unresolved_questions": unresolved_q,
             "limitations": limitations,
             "decision_engine": "Laya" if (hasattr(self.engine, "system1") and self.engine.system1() is not None) else None,
+            "decisions": _decision_summary(),
             "page_reader": (f"{reader.label} ({reader.pages_read} pages read, {reader.failures} failures)" if (reader := getattr(self.engine, "llm_reader", None)) else None),
         }
         if recorder is not None:
@@ -581,6 +582,13 @@ class OSINTTerminal:
             "\nDecision engine: Laya (ranks pages to fetch, filters pages before the model reads)" if data.get("decision_engine") else "\nDecision engine: off (laya not installed or HEIMDALLR_LAYA=0)",
             style="dim white",
         )
+        dec = data.get("decisions") or {}
+        if dec.get("decisions"):
+            summary_text.append(
+                f"\nDecisions: {dec['decisions']} ({dec['by_laya']} by Laya, {dec['by_rule']} by fallback rules; "
+                f"Laya differed from the rules {dec['laya_disagreed_with_rule']} times)",
+                style="dim white",
+            )
         if data.get("run_dir"):
             summary_text.append("\nRun Recording Saved to: ", style="bold bright_yellow")
             summary_text.append(str(Path(data["run_dir"]).resolve()), style="bold bright_cyan underline")
@@ -636,6 +644,15 @@ def build_parser() -> argparse.ArgumentParser:
         version=f"{PRODUCT_NAME} {PRODUCT_GENERATION} (argus core v{get_authoritative_package_version()})",
     )
     return parser
+
+
+def _decision_summary() -> dict[str, int]:
+    try:
+        from argus.brain.decisions import get_decisions
+
+        return get_decisions().summary()
+    except Exception:
+        return {}
 
 
 def main() -> None:

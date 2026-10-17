@@ -60,12 +60,17 @@ def extract_json_payload(raw_content: str) -> str:
 
 
 class OpenRouterLLMProvider(LLMProvider):
-    """OpenRouter LLM provider supporting structured Pydantic outputs."""
+    """OpenRouter LLM provider supporting structured Pydantic outputs. Free models only.
+
+    ``model`` must be a free OpenRouter id (ending in ":free"); without one, the first of
+    HEIMDALLR_FREE_MODELS is used. A paid id is refused (Ronak, 2026-10-17: no paid models).
+    For the shared daily quota and the local fallback, use argus.llm.free_models instead.
+    """
 
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "deepseek/deepseek-chat",
+        model: str | None = None,
         base_url: str = "https://openrouter.ai/api/v1",
         timeout: float = 60.0,
     ) -> None:
@@ -90,7 +95,12 @@ class OpenRouterLLMProvider(LLMProvider):
                 if self.api_key:
                     break
 
-        self.model = model
+        from argus.llm.free_models import require_free
+
+        if model is None:
+            configured = [m for m in os.environ.get("HEIMDALLR_FREE_MODELS", "").split(",") if m.strip()]
+            model = configured[0].strip() if configured else ""
+        self.model = require_free(model) if model else ""
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
@@ -101,6 +111,8 @@ class OpenRouterLLMProvider(LLMProvider):
         system_prompt: str | None = None,
         temperature: float = 0.0,
     ) -> T:
+        if not self.model:
+            raise ValueError("No free OpenRouter model configured (pass model='<id>:free' or set HEIMDALLR_FREE_MODELS)")
         schema = response_model.model_json_schema()
         schema_instruction = (
             f"You MUST respond ONLY with a valid JSON object strictly conforming to the following JSON schema:\n"

@@ -50,10 +50,6 @@ def check_claim_evidence_alignment(
         if not passage:
             continue
 
-        # Synthetic/mock fixture support in unit tests
-        if "evidence passage" in passage or "mock passage" in passage:
-            return True, "Synthetic test passage accepted"
-
         # 1. Object value grounding
         obj_grounded = False
         if obj_clean in {"true", "false", "yes", "no"}:

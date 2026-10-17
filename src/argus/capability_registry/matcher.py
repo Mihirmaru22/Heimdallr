@@ -33,6 +33,38 @@ class CapabilityMatcher:
     def __init__(self, fallback_to_general_research: bool = True) -> None:
         self.fallback_to_general_research = fallback_to_general_research
 
+    _JURISDICTIONS = {
+        "US": "the United States (US states, SEC, federal agencies)",
+        "GB": "the United Kingdom (England, Scotland, Wales, Companies House)",
+        "DE": "Germany (GmbH, German registers)",
+        "GLOBAL": "no particular country, or a country other than these",
+    }
+
+    @staticmethod
+    def jurisdiction_rule(text: str) -> str:
+        """Whole-word cues only: "us" inside "status" or "sec" inside "second" is not the US."""
+        low = text.lower()
+
+        def has(*terms: str) -> bool:
+            return any(re.search(rf"(?<![a-z]){re.escape(t)}(?![a-z])", low) for t in terms)
+
+        if has("delaware", "united states", "u.s.", "usa", "sec") or re.search(r"(?<![A-Za-z])US(?![A-Za-z])", text):
+            return "US"
+        if has("uk", "united kingdom", "companies house", "england", "britain", "scotland", "wales"):
+            return "GB"
+        if has("gmbh", "germany", "german"):
+            return "DE"
+        return "GLOBAL"
+
+    def jurisdiction_of(self, text: str) -> str:
+        """The country a question concerns, decided by Laya (the whole-word rule without Laya)."""
+        from argus.brain.decisions import get_decisions
+
+        return get_decisions().choose(
+            "question_jurisdiction", text, "Which country's records does this question concern?",
+            self._JURISDICTIONS, self.jurisdiction_rule(text),
+        ).answer
+
     def match(
         self,
         question: InvestigationQuestion,
@@ -52,14 +84,7 @@ class CapabilityMatcher:
         has_temporal_req = bool(temporal_context.get("as_of_date") or re.search(r"\b(19\d\d|20\d\d)\b", q_text))
         related_entities = question.related_entities or []
 
-        # Determine target jurisdiction if present
-        jurisdiction = "GLOBAL"
-        if "delaware" in q_text or "us" in q_text or "sec" in q_text:
-            jurisdiction = "US"
-        elif "uk" in q_text or "companies house" in q_text or "england" in q_text:
-            jurisdiction = "GB"
-        elif "gmbh" in q_text or "germany" in q_text:
-            jurisdiction = "DE"
+        jurisdiction = self.jurisdiction_of(question.question_text)
 
         for cap in capabilities:
             # 1. Health & Availability Filter (Fail closed on unhealthy states)

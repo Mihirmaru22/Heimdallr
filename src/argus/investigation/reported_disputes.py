@@ -62,8 +62,39 @@ def split_sentences(text: str) -> list[str]:
     return out
 
 
-def classify_sentence(sentence: str) -> str | None:
-    """``"supersession"``, ``"dispute"`` or ``None`` for one sentence."""
+# Words that make a sentence worth asking about at all; sentences without any are not sent to Laya.
+_CANDIDATE_RE = re.compile(
+    r"contradict|conflict|disput|incompatib|opposing|differing|discrepan|refut|disprov|retract|debunk|"
+    r"untrue|denied|contrary|inconsistent|outdated|supersed|obsolete|no longer|contested|unresolved|competing|rival",
+    re.IGNORECASE,
+)
+_SENTENCE_KINDS = {
+    "dispute": "the sentence says accounts, claims or findings conflict or contradict each other, without settling it",
+    "supersession": "the sentence says earlier information is outdated, superseded or no longer valid",
+    "none": "the sentence reports no conflict (including sentences saying there is no conflict)",
+}
+_UNSET: Any = object()
+
+
+def classify_sentence(sentence: str, rule: Any = _UNSET) -> str | None:
+    """``"supersession"``, ``"dispute"`` or ``None`` for one sentence, decided by Laya.
+
+    Only sentences containing a conflict word are asked; ``rule`` overrides the rule answer used
+    without Laya (a caller with its own marker list passes its answer).
+    """
+    if not sentence or not _CANDIDATE_RE.search(sentence):
+        return None
+    from argus.brain.decisions import get_decisions
+
+    fallback = classify_sentence_rule(sentence) if rule is _UNSET else rule
+    kind = get_decisions().choose(
+        "sentence_conflict", sentence, "Does this sentence report a conflict between accounts?",
+        _SENTENCE_KINDS, fallback or "none",
+    ).answer
+    return None if kind == "none" else kind
+
+
+def classify_sentence_rule(sentence: str) -> str | None:
     if not sentence:
         return None
     if _SUPERSESSION_RE.search(sentence):

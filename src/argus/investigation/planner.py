@@ -25,7 +25,7 @@ from argus.investigation.objective_parser import (
     refine_object_from_evidence,
 )
 from argus.investigation.question import InvestigationQuestion, QuestionStatus, QuestionType
-from argus.investigation.question_intent import ObjectiveIntent, classify_intent, topic_phrase
+from argus.investigation.question_intent import ObjectiveIntent, classify_intent, decide_intent, topic_phrase
 from argus.investigation.state import InformationGap, InvestigationState
 from argus.capability_registry.registry import CapabilityRegistry
 from argus.capability_registry.matcher import CapabilityMatcher
@@ -57,15 +57,34 @@ class InvestigationPlanner:
                 self.registry.register(cap, overwrite=True)
         self.matcher = matcher or CapabilityMatcher()
 
+    _DOMAIN_OPTIONS = {
+        "identity": "an online identity: a username, accounts or profiles on platforms",
+        "corporate": "a company: its officers, filings, ownership, subsidiaries, deals or business facts",
+        "technical": "technology: software, databases, APIs, frameworks, performance or benchmarks",
+        "historical": "history: past events, their sequence, participants and interpretations",
+        "scientific_policy": "science or public policy: evidence, competing explanations, uncertainty",
+        "organization": "a non-profit, foundation, NGO or other organization's work and leadership",
+        "generic": "anything else: a general question about any topic",
+    }
+
     @classmethod
     def _detect_domain(cls, objective: str, contract: dict[str, Any]) -> str:
-        """Detect investigation domain from explicit hint or semantic keywords."""
+        """Investigation domain: the user's explicit hint, else Laya (the keyword rules without Laya)."""
         if "domain_hint" in contract and contract["domain_hint"]:
             return str(contract["domain_hint"]).lower().strip()
 
         if "starting_platform" in contract or "username" in contract:
             return "identity"
 
+        from argus.brain.decisions import get_decisions
+
+        return get_decisions().choose(
+            "question_domain", objective, "Which kind of research question is this?",
+            cls._DOMAIN_OPTIONS, cls._detect_domain_rule(objective),
+        ).answer
+
+    @classmethod
+    def _detect_domain_rule(cls, objective: str) -> str:
         obj_lower = (objective or "").lower()
 
         if any(
@@ -239,7 +258,7 @@ class InvestigationPlanner:
         if not isinstance(target_entities, list):
             raise ValueError("Contract target_entities must be a list.")
 
-        intent = classify_intent(objective)
+        intent = decide_intent(objective)
         if not target_entities:
             # Subjects are the objective's proper-noun names (question words, roles and
             # places excluded); with none, the subject is the objective's topic phrase.
@@ -1041,6 +1060,9 @@ class InvestigationPlanner:
             w for e in target_entities for w in re.findall(r"[a-z][a-z\-]{3,}", str(e).lower())
         }
         objective_terms = self._topic_terms(objective, entity_words)
+        from argus.brain.decisions import get_decisions
+
+        decisions = get_decisions()
         demoted: list[dict[str, Any]] = []
         for qid, q in state.questions.items():
             if not q.get("is_critical"):
@@ -1049,7 +1071,11 @@ class InvestigationPlanner:
             if text.strip() == objective.strip():
                 continue
             shared = self._topic_terms(text, entity_words) & objective_terms
-            if len(shared) >= 2:
+            needed = decisions.yes_no(
+                "subquestion_critical", f"User question: {objective}\nSub-question: {text}",
+                "Must this sub-question be answered to answer the user's question?", len(shared) >= 2,
+            ).answer
+            if needed:
                 continue
             q["is_critical"] = False
             demoted.append({"question_id": qid, "question_text": text, "shared_terms": sorted(shared)})

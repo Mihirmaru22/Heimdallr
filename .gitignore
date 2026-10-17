@@ -41,7 +41,7 @@ htmlcov/
 *.db
 logs/
 *.zip
-storage/
+/storage/
 scratch/
 exports/*.xlsx
 exports/*.md

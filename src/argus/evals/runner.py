@@ -5,6 +5,7 @@ capturing full execution trajectories and feeding results to independent graders
 """
 
 from datetime import UTC, datetime
+import os
 import platform
 import subprocess
 from typing import Any
@@ -365,6 +366,11 @@ class ArgusEvalRunner:
         system1: System1DecisionEngine | None = None,
     ) -> None:
         self.corpus = frozen_corpus or build_default_frozen_corpus()
+        if llm is None and os.environ.get("HEIMDALLR_AGENT_MODELS", "").strip().lower() == "free":
+            # Planner, worker and verifier agents on the shared free models (OpenRouter ":free", then local).
+            from argus.llm.free_models import get_free_model_service
+
+            llm = get_free_model_service()
         self.llm = llm or DeterministicEvalLLM()
         self.evaluation_mode = evaluation_mode
         self.brain_mode = brain_mode

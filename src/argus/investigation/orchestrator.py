@@ -54,7 +54,7 @@ from argus.investigation.contradiction_resolver import (
     EntityScopeVerifier,
     EpistemicSufficiencyEvaluator,
 )
-from argus.investigation.reported_disputes import classify_sentence, detect_reported_disputes, split_sentences
+from argus.investigation.reported_disputes import classify_sentence, classify_sentence_rule, detect_reported_disputes, split_sentences
 from argus.investigation.benchmark.v2.semantic_auditor import (
     IndependentSemanticAuditor,
     SemanticSupportStatus,
@@ -345,16 +345,30 @@ class InvestigationEngine:
         self.contradiction_resolver = ContradictionResolver()
         self.semantic_auditor = IndependentSemanticAuditor()
 
+    @property
+    def llm(self) -> Any:
+        """The shared free-model service every component uses for text (None when none is set up)."""
+        from argus.llm.free_models import get_free_model_service
+
+        return get_free_model_service()
+
+    @property
+    def decisions(self) -> Any:
+        """The shared Laya decision maker."""
+        from argus.brain.decisions import get_decisions
+
+        return get_decisions()
+
     def system1(self) -> Any:
         """The Laya decision engine for live runs, or None (not a live corpus, turned off, or not installed)."""
         if not self._system1_checked:
             self._system1_checked = True
             if getattr(self.corpus, "is_live_web", False) and os.environ.get("HEIMDALLR_LAYA", "1").strip() != "0":
                 try:
-                    from argus.brain.system1 import System1DecisionEngine
+                    from argus.brain.decisions import get_decisions
 
-                    engine = System1DecisionEngine()
-                    self._system1 = engine if engine.is_available else None
+                    decisions = get_decisions()  # one Laya model for the whole run
+                    self._system1 = decisions.engine if decisions.available else None
                 except Exception as exc:
                     logger.info("Laya decision engine unavailable: %s", exc)
         return self._system1
@@ -1560,7 +1574,9 @@ class InvestigationEngine:
             ]
             # A sentence saying earlier information is outdated resolves a conflict
             # rather than reporting an open one.
-            if any(m in s_clean.lower() for m in contra_markers) and classify_sentence(s_clean) != "supersession":
+            if any(m in s_clean.lower() for m in contra_markers) and classify_sentence(
+                s_clean, rule="supersession" if classify_sentence_rule(s_clean) == "supersession" else "dispute"
+            ) == "dispute":
                 return {
                     "subject": entity,
                     "predicate": "conflict_noted",
@@ -2550,7 +2566,7 @@ class InvestigationEngine:
                 c = index.get(cid) or {}
                 if (
                     c.get("status") in POSITIVE_STATUSES
-                    and claim_kind_fits_question(c, q.question_type)
+                    and claim_kind_fits_question(c, q.question_type, q.question_text)
                     and _about_question_entity(c)
                     and cid not in q.related_claims
                 ):

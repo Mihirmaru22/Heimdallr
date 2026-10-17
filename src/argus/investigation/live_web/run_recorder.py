@@ -22,6 +22,7 @@ from argus.investigation.benchmark.corpus import InvestigationDocument
 from argus.investigation.live_web.models import LiveWebEvidenceRecord
 
 CALLS_FILE = "calls.jsonl"
+DECISIONS_FILE = "decisions.jsonl"
 META_FILE = "meta.json"
 
 
@@ -78,6 +79,9 @@ class RecordingCorpus:
             "limits": _limits(inner),
         }
         (self.run_dir / META_FILE).write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
+        from argus.brain.decisions import get_decisions
+
+        get_decisions().set_journal(self.run_dir / DECISIONS_FILE)  # Laya and rule answers, for comparison
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.inner, name)

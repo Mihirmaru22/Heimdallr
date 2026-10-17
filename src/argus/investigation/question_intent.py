@@ -207,3 +207,35 @@ def classify_intent(objective: str) -> ObjectiveIntent:
     if m or re.match(r"^(?:which|list|name|what)\b", low):
         return intent("listing", scope=m.group(1) if m else "")
     return intent("open")
+
+
+_INTENT_OPTIONS = {
+    "causal": "asks why something happened or what caused it",
+    "mechanism": "asks how something works or operates",
+    "comparison": "compares two or more things",
+    "change": "asks what changed over a period",
+    "yes_no": "asks whether something is true (a yes or no question)",
+    "role": "asks who holds a role or did something",
+    "attribute": "asks for a specific property or value of something",
+    "summary": "asks for a summary or overview",
+    "listing": "asks for a list of items, organizations, people or places",
+    "open": "an open question that fits none of the above",
+}
+
+
+def decide_intent(objective: str) -> ObjectiveIntent:
+    """The question form chosen by Laya; the parsed parts (subjects, facets, scope) come from the rules.
+
+    When Laya picks another form than the rules, the form-specific parts the rules found for their
+    form are dropped (the planner falls back to the subject and topic for those).
+    """
+    from argus.brain.decisions import get_decisions
+
+    found = classify_intent(objective)
+    kind = get_decisions().choose(
+        "question_form", objective, "What does this question ask for?", _INTENT_OPTIONS, found.kind,
+    ).answer
+    if kind == found.kind:
+        return found
+    return ObjectiveIntent(kind=kind, subjects=found.subjects, focus=found.focus, periods=found.periods,
+                           scope=topic_phrase(objective) if kind in ("listing", "summary", "causal") else "")

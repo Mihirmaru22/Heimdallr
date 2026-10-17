@@ -81,7 +81,7 @@ async def test_mock_llm_provider():
 async def test_openrouter_provider_json_formatting():
     provider = OpenRouterLLMProvider(
         api_key="test-key",
-        model="deepseek/deepseek-chat",
+        model="deepseek/deepseek-chat:free",
     )
 
     fake_response = MagicMock()
@@ -438,7 +438,7 @@ async def test_openrouter_provider_handles_conversational_prelude_and_thinking()
     Verify that OpenRouterLLMProvider robustly extracts valid JSON payloads even when
     models return conversational preludes, thinking blocks, or trailing commentary.
     """
-    provider = OpenRouterLLMProvider(api_key="test-key")
+    provider = OpenRouterLLMProvider(api_key="test-key", model="test/model:free")
 
     # Case 1: Conversational prelude + markdown code fence + trailing greeting
     prelude_content = (
