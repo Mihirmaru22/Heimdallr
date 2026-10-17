@@ -169,3 +169,48 @@ def test_offline_run_finds_employer_from_a_job_post(monkeypatch):
     claims = [c for c in state.claims if c.get("predicate") == "USES_SOFTWARE" and c.get("subject") == "Norvale Aerostructures"]
     assert claims and is_verified(claims[0]), [(c.get("subject"), c.get("verification")) for c in state.claims]
     assert claims[0]["source_url"] == job_url
+
+
+@pytest.mark.parametrize("text", [
+    "In 2004, SAP released SAP ERP as the successor of R/3.",  # sentence opening + year
+    "Versions and Modules: SAP ERP\nSAP ERP has several modules.",  # heading
+    "History 1972 SAP ERP",  # heading + one number
+])
+def test_headings_and_sentence_openings_are_not_companies(text):
+    assert extract_technographic_deployments(text, products=["SAP ERP"], geography="India") == []
+
+
+def test_real_rows_and_usage_sentences_still_extract():
+    rows = "Company Domain Country Employees\nRavensworth Tools ravensworth.in India 1200 SAP ERP\nKestrel Foods, India, 5,400 employees SAP ERP"
+    found = {f.company for f in extract_technographic_deployments(rows, products=["SAP ERP"], geography="India")}
+    assert found == {"Ravensworth Tools", "Kestrel Foods"}
+    prose = "Bharat Ceramics uses SAP ERP across its plants."
+    assert [f.company for f in extract_technographic_deployments(prose, products=["SAP ERP"])] == ["Bharat Ceramics"]
+
+
+def test_list_question_keeps_searching_after_first_answer_and_reports_consistently(monkeypatch):
+    job_url = "https://jobs.lever.co/norvale/123"
+    monkeypatch.setattr(SearchPipeline, "is_safe_url", staticmethod(lambda url: True))
+    monkeypatch.setattr(controller_mod, "create_safe_async_client", _mock_client_factory({
+        "jobs.lever.co/robots.txt": httpx.Response(404),
+        "jobs.lever.co/norvale/123": httpx.Response(200, text=JOB_PAGE, headers={"content-type": "text/html"}),
+    }))
+    seen: list[str] = []
+
+    class _Recording(_Engine):
+        async def search(self, query: Any) -> Any:
+            seen.append(query.query)
+            return await super().search(query)
+
+    monkeypatch.setattr(sources_mod, "get_search_source", lambda name: SearchSource("fake", "search.example", lambda t: _Recording("fake", [job_url])))
+    limits = ControlledRetrievalLimits(enforce_ssrf_protection=False, search_providers=("fake",), max_requests_per_host=40, max_requests_per_task=80)
+    retriever = ControlledLiveWebRetriever(limits=limits, snapshot_dir=tempfile.mkdtemp())
+    engine = InvestigationEngine(corpus=retriever, store=InvestigationStore(tempfile.mkdtemp()))
+
+    state = engine.run_to_completion(objective="companies in the USA using Quorvane Flux", max_steps=30)
+
+    enum = state.objective_contract["enumeration_objective"]
+    discovery = state.questions[enum["question_ids"]["discovery"]]
+    assert set(discovery["search_queries"]) <= set(seen), "every discovery query runs, not just the first"
+    if state.stop_state.stop_reason == "OBJECTIVE_SATISFIED":
+        assert not any(lim.startswith("Unresolved critical gap") for lim in state.generate_limitations())

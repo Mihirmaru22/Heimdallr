@@ -2486,19 +2486,31 @@ class InvestigationEngine:
                 used_queries = {a.get("query", "").strip().lower() for a in state.research_actions}
                 pending_queries = [sq for sq in q.search_queries if sq.strip().lower() not in used_queries]
 
-                if verified:
+                # A question whose answer is a list (the organizations of an enumeration
+                # objective) is not finished by its first verified item: it keeps running
+                # its remaining focused queries to find more.
+                enum_qids = set(((state.objective_contract.get("enumeration_objective") or {}).get("question_ids") or {}).values())
+                collects_list = action.question_id in enum_qids
+
+                if verified and not (collects_list and pending_queries):
                     kinds = ", ".join(sorted({str(c.get("status")) for c in verified}))
                     q.resolve(
                         status=QuestionStatus.SUPPORTED,
                         reason=f"Answered by {len(verified)} verified claim(s) ({kinds}).",
                         claim_ids=[c["claim_id"] for c in verified if c["claim_id"] not in q.resolved_by_claim_ids],
                     )
+                    for gap in state.information_gaps:
+                        if gap.related_question_id == q.question_id:
+                            gap.is_resolved = True
                 elif pending_queries:
-                    # Not answered yet, but the question still has focused objective
-                    # queries to run; keep it open rather than closing it.
+                    # Not finished: the question still has focused objective queries to
+                    # run; keep it open rather than closing it.
                     keep_open = True
                     q.status = QuestionStatus.INVESTIGATING
                     q.resolution_reason = (
+                        f"{len(verified)} verified and {len(asserted) - len(verified)} unverified answer(s) so far; "
+                        f"{len(pending_queries)} focused query(ies) remain."
+                        if verified else
                         f"No verified claim yet ({len(asserted)} unverified assertion(s)); "
                         f"{len(pending_queries)} focused query(ies) remain."
                     )

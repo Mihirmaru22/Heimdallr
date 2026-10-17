@@ -46,6 +46,18 @@ class InvestigationStoppingPolicy:
         self.max_consecutive_zero_gains = max_consecutive_zero_gains
         self.min_satisfaction_ratio = min_satisfaction_ratio
 
+    @staticmethod
+    def _planned_list_queries_pending(state: InvestigationState) -> bool:
+        enum_qids = set(((state.objective_contract.get("enumeration_objective") or {}).get("question_ids") or {}).values())
+        if not enum_qids:
+            return False
+        used = {str(a.get("query", "")).strip().lower() for a in state.research_actions}
+        for qid in enum_qids & set(state.unresolved_questions):
+            q = state.questions.get(qid) or {}
+            if any(sq.strip().lower() not in used for sq in q.get("search_queries") or []):
+                return True
+        return False
+
     def evaluate(self, state: InvestigationState) -> tuple[bool, InvestigationStopReason | None, str]:
         """Evaluate investigation state and determine if research should stop."""
         budget = state.research_budget
@@ -99,8 +111,10 @@ class InvestigationStoppingPolicy:
                 f"Answered {answered}/{objective_total} objective questions with 0 unanswered critical questions.",
             )
 
-        # 3. Information gain plateau check
-        if consecutive_zeros >= self.max_consecutive_zero_gains and steps_taken >= 3:
+        # 3. Information gain plateau check. A list question (an enumeration objective) runs
+        # its whole planned query list first: one fruitless query says nothing about the next
+        # source (e.g. a job board), and the list is short and fixed, so this always ends.
+        if consecutive_zeros >= self.max_consecutive_zero_gains and steps_taken >= 3 and not self._planned_list_queries_pending(state):
             if total_questions > 0 and len(unresolved_critical) == 0 and ratio >= 0.70:
                 return (
                     True,

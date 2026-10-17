@@ -68,6 +68,13 @@ _HEADER_WORDS = {
 }
 _ROW_STOP_WORDS = {"employees", "employee", "revenue", "industry", "country", "domain", "hq", "headquarters", "founded", "confidence"}
 _NAME_CONNECTORS = {"&", "and", "of", "de", "der", "la", "the", "y"}
+# Words that start sentences or headings but never make up a name on their own ("In 2004, ...").
+_FUNCTION_WORDS = {
+    "a", "an", "the", "in", "on", "at", "by", "for", "from", "to", "of", "with", "as", "and", "or", "but",
+    "if", "when", "while", "since", "after", "before", "during", "today", "now", "also", "then", "this",
+    "that", "these", "those", "it", "its", "we", "our", "you", "your", "they", "their", "he", "she",
+    "there", "here", "what", "which", "who", "how", "why", "all", "some", "many", "most", "more", "other",
+}
 _USE_VERB_PHRASE = (
     r"(?:(?:has|have|had|is|are|was|were)\s+)?(?:been\s+|now\s+|also\s+|recently\s+)?"
     r"(?:uses|use|used|using|deploys|deployed|deploying|runs|ran|running|implemented|implements|implementing|"
@@ -158,6 +165,8 @@ def clean_company_name(raw_name: str, excluded_words: set[str] | None = None) ->
         return ""
     if all(w.lower() in _HEADER_WORDS for w in words):
         return ""
+    if all(w.lower() in _FUNCTION_WORDS or w.isdigit() for w in words):
+        return ""
     if not _NAME_TOKEN_RE.match(words[0]):
         return ""
     return clean
@@ -241,6 +250,15 @@ def _parse_row(prefix: str, excluded_words: set[str]) -> dict[str, Any] | None:
     company = clean_company_name(" ".join(name_tokens), excluded_words)
     if not company:
         return None
+    # A heading ("Versions and Modules: ...") or a sentence opening ("Founded 1972 ...")
+    # has one delimiter at most; a technographic row carries a domain or country, or
+    # two separate data fields (e.g. employees and revenue, or a labelled column).
+    rest_fields = prefix[pos:]
+    if delimiter[0] not in ("domain", "country"):
+        fields = len(_NUMBER_RE.findall(rest_fields)) + len(_MONEY_RE.findall(rest_fields))
+        fields += sum(1 for w in re.findall(r"[A-Za-z]+", rest_fields) if w.lower() in _ROW_STOP_WORDS)
+        if fields < 2 and not _GEO_TOKEN_RE.search(rest_fields) and not _DOMAIN_RE.search(rest_fields):
+            return None
 
     after = prefix[pos:]
     country = ""
