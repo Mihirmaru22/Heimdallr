@@ -42,7 +42,9 @@ class System1DecisionEngine:
             from laya import Router
 
             logger.info("Initializing Laya System 1 Decision Router...")
-            self._router = Router(preload=self._preload)
+            import os
+
+            self._router = Router(preload=self._preload, device=os.environ.get("HEIMDALLR_LAYA_DEVICE") or None)
             self._is_available = True
             logger.info("Laya System 1 Decision Router initialized successfully.")
             return self._router

@@ -4,6 +4,7 @@ Run on a machine where Laya's model can download (first run fetches it):
 
     python -m argus.evals.laya_decisions            # table of accuracy per decision
     python -m argus.evals.laya_decisions --show     # also every example Laya or the rules got wrong
+    python -m argus.evals.laya_decisions --model english --model multilingual --model typed-decisions
 
 The examples are hand-labelled and deliberately spread across fields (medicine, law, sport,
 history, software, farming, finance, ...), so the score is not tuned to one kind of question.
@@ -20,6 +21,7 @@ from argus.capability_registry.matcher import CapabilityMatcher
 from argus.investigation.planner import InvestigationPlanner
 from argus.investigation.question_intent import _INTENT_OPTIONS, classify_intent
 from argus.investigation.reported_disputes import _SENTENCE_KINDS, classify_sentence_rule
+from argus.investigation.resolution import claim_kind_fits_question
 
 QUESTION_FORM = [
     ("Why did the Roman Republic collapse?", "causal"),
@@ -84,6 +86,41 @@ SENTENCE = [
 ]
 
 
+# (user question, template sub-question, must it be answered?)
+SUBQUESTION = [
+    ("Which hospitals in Ohio use Epic?", "Which Ohio hospitals have announced an Epic go-live?", True),
+    ("Which hospitals in Ohio use Epic?", "Who are the key executive officers of Epic Systems?", False),
+    ("Why did the Roman Republic collapse?", "What political crises preceded the end of the Republic?", True),
+    ("Why did the Roman Republic collapse?", "What is the current population of Rome?", False),
+    ("What is the evidence that microplastics harm human health?", "Which studies measured microplastics in human blood or tissue?", True),
+    ("What is the evidence that microplastics harm human health?", "Which companies manufacture plastic bottles?", False),
+    ("Who founded Patagonia?", "When and by whom was Patagonia founded?", True),
+    ("Who founded Patagonia?", "What is Patagonia's annual revenue?", False),
+]
+
+# (question, question type, claim "subject predicate object", does the claim answer it?)
+CLAIM_FIT = [
+    ("Who leads Acme Corp?", "OFFICER_TENURE", "Acme Corp chief_executive_officer Jane Doe", True),
+    ("Who leads Acme Corp?", "OFFICER_TENURE", "Acme Corp mentioned_in Jane Doe was named chief executive in 2021", True),
+    ("Who leads Acme Corp?", "OFFICER_TENURE", "Acme Corp headquartered_in Denver", False),
+    ("What is the contact email of the Riverside clinic?", "CONTACT_CHANNEL", "Riverside clinic email info@riverside.example", True),
+    ("What is the contact email of the Riverside clinic?", "CONTACT_CHANNEL", "Riverside clinic founded 1998", False),
+    ("Which servers host example.org?", "INFRASTRUCTURE_ATTRIBUTION", "example.org resolves_to 93.184.216.34", True),
+    ("Which servers host example.org?", "INFRASTRUCTURE_ATTRIBUTION", "example.org owned_by Example Foundation", False),
+    ("Who leads the Red Cross in Kenya?", "OFFICER_TENURE", "Kenya Red Cross secretary_general Ahmed Idris", True),
+]
+
+
+def _subq_rule(pair: str) -> bool:
+    objective, sub = pair.split("\n", 1)
+    return len(InvestigationPlanner._topic_terms(sub, set()) & InvestigationPlanner._topic_terms(objective, set())) >= 2
+
+
+def _claim(text: str) -> dict:
+    subject, predicate, obj = (text.split(" ", 2) + ["", ""])[:3]
+    return {"subject": subject, "predicate": predicate, "object": obj}
+
+
 def _run(service: DecisionService, show: bool) -> None:
     set_decisions(service)
     rows = []
@@ -119,19 +156,44 @@ def _run(service: DecisionService, show: bool) -> None:
     check("sentence conflict", SENTENCE, laya_choice("sentence_conflict", "Does this sentence report a conflict between accounts?", _SENTENCE_KINDS),
           lambda t: classify_sentence_rule(t) or "none")
 
-    print(f"{'decision':<20}{'examples':>9}{'Laya':>8}{'rules':>8}{'ms/ex':>8}")
+    def laya_yes_no(name, instructions):
+        def f(text):
+            d = service.yes_no(name, text, instructions, rule=None)
+            return d.answer if d.by == "laya" else None
+        return f
+
+    check("critical sub-question", [(f"User question: {o}\nSub-question: {q}", g) for o, q, g in SUBQUESTION],
+          laya_yes_no("subquestion_critical", "Must this sub-question be answered to answer the user's question?"),
+          lambda t: _subq_rule(t.replace("User question: ", "").replace("Sub-question: ", "")))
+    fit_rules = {f"Question: {q}\nClaim: {c}": claim_kind_fits_question(_claim(c), qt) for q, qt, c, _ in CLAIM_FIT}
+    check("claim answers question", [(f"Question: {q}\nClaim: {c}", g) for q, _, c, g in CLAIM_FIT],
+          laya_yes_no("claim_answers_question", "Does this claim state the kind of fact the question asks for?"),
+          lambda t: fit_rules[t])
+
+    print(f"{'decision':<24}{'examples':>9}{'Laya':>8}{'rules':>8}{'ms/ex':>8}")
     for name, n, lo, ro, ms in rows:
-        print(f"{name:<20}{n:>9}{lo:>8}{ro:>8}{ms:>8.1f}")
+        print(f"{name:<24}{n:>9}{lo:>8}{ro:>8}{ms:>8.1f}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--show", action="store_true", help="print every example Laya or the rules got wrong")
+    parser.add_argument("--model", action="append", default=[], help="Laya checkpoint (english, multilingual, typed-decisions); repeat to compare")
     args = parser.parse_args()
-    service = DecisionService(enabled=True)
-    if not service.available:
-        raise SystemExit("Laya is not available (pip install laya, and let it download its model once).")
-    _run(service, args.show)
+    import os
+
+    for model in args.model or [os.environ.get("HEIMDALLR_LAYA_MODEL", "")]:
+        os.environ["HEIMDALLR_LAYA_MODEL"] = model
+        service = DecisionService(enabled=True, laya_decides="all")
+        if not service.available:
+            raise SystemExit("Laya is not available (pip install laya, and let it download its model once).")
+        started = time.perf_counter()
+        service.yes_no("warmup", "warm up", "Is this a warm-up?", rule=None)  # loads the checkpoint; not timed below
+        load_s = time.perf_counter() - started
+        router = service.router()
+        device = getattr(router, "device", None) or "auto"
+        print(f"\nLaya checkpoint: {model or 'router default'}; device: {device}; load + first call {load_s:.1f} s")
+        _run(service, args.show)
 
 
 if __name__ == "__main__":

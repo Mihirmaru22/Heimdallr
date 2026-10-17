@@ -25,7 +25,7 @@ class FakeRouter:
 
 def use_laya(answer):
     router = FakeRouter(answer)
-    set_decisions(DecisionService(router=router, enabled=True))
+    set_decisions(DecisionService(router=router, enabled=True, laya_decides="all"))
     return router
 
 
@@ -132,3 +132,20 @@ def test_verifier_does_not_accept_pages_that_merely_say_evidence_passage():
     ev = Evidence(source_id="s", url="https://example.org", passage="See the evidence passage below about weather.")
     ok, _ = check_claim_evidence_alignment("Acme", [], "chief_executive", "Jane Doe", [ev])
     assert ok is False
+
+
+def test_laya_decides_only_the_measured_decisions_by_default():
+    router = FakeRouter(lambda t, q: {"type": "choice", "choice": "a", "confidence": 0.9})
+    d = DecisionService(router=router, enabled=True)
+    assert d.choose("question_domain", "t", "q", {"a": "", "b": ""}, rule="b").by == "laya"
+    assert d.choose("question_form", "t2", "q", {"a": "", "b": ""}, rule="b").answer == "b"
+    assert len(router.calls) == 1  # no shadow call by default
+
+
+def test_shadow_mode_journals_laya_without_using_it(monkeypatch):
+    monkeypatch.setenv("HEIMDALLR_LAYA_SHADOW", "1")
+    router = FakeRouter(lambda t, q: {"type": "choice", "choice": "a", "confidence": 0.9})
+    d = DecisionService(router=router, enabled=True, laya_decides="question_domain")
+    out = d.choose("question_form", "t", "q", {"a": "", "b": ""}, rule="b")
+    assert (out.answer, out.by, out.laya_answer) == ("b", "rule", "a")
+    assert d.summary()["laya_disagreed_with_rule"] == 1

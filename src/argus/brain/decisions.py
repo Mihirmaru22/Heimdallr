@@ -15,6 +15,12 @@ Not routed here, on purpose: safety and accounting checks that must give the sam
 time (SSRF and robots.txt, budgets, tool permissions, the evidence gate that checks a quote is on
 the page, resolution coverage). A wrong guess there would break a guarantee, not just a ranking.
 
+Which decisions Laya makes is set per decision, from measurement (python -m argus.evals.laya_decisions):
+    HEIMDALLR_LAYA_DECISIONS   comma-separated decision names Laya makes, or "all"
+                               (default: the ones where Laya beat the rules on Ronak's machine)
+    HEIMDALLR_LAYA_SHADOW=1    also ask Laya on the other decisions and journal its answer (slower)
+    HEIMDALLR_LAYA_MODEL       Laya checkpoint: english, multilingual or typed-decisions (default: Laya's router)
+    HEIMDALLR_LAYA_DEVICE      cuda or cpu (default: Laya's choice)
 HEIMDALLR_LAYA_MIN_CONFIDENCE (default 0): below this Laya confidence the rule answer is used.
 """
 
@@ -32,6 +38,12 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+# 2026-10-17, Ronak's machine, 50 labelled examples: Laya 9/12 vs rules 7/12 on question_domain;
+# Laya lost on question_form (13/21 vs 18/21), question_jurisdiction (6/8 vs 8/8) and
+# sentence_conflict (7/9 vs 8/9). Not yet measured: subquestion_critical, claim_answers_question.
+DEFAULT_LAYA_DECISIONS = frozenset({"question_domain"})
+
+
 @dataclass
 class Decision:
     name: str
@@ -45,8 +57,14 @@ class Decision:
 class DecisionService:
     """Laya's typed decisions (choice, yes/no, score) with a rule fallback and a journal."""
 
-    def __init__(self, router: Any = None, enabled: bool | None = None) -> None:
+    def __init__(self, router: Any = None, enabled: bool | None = None, laya_decides: str | None = None) -> None:
         self._router = router
+        spec = (laya_decides if laya_decides is not None else os.environ.get("HEIMDALLR_LAYA_DECISIONS", "")).strip()
+        self.laya_decides: frozenset[str] | None = (
+            None if spec.lower() == "all" else frozenset(n.strip() for n in spec.split(",") if n.strip()) if spec else DEFAULT_LAYA_DECISIONS
+        )  # None means every decision
+        self.shadow = os.environ.get("HEIMDALLR_LAYA_SHADOW", "").strip() == "1"
+        self.model = os.environ.get("HEIMDALLR_LAYA_MODEL", "").strip() or None
         self._checked = router is not None
         self.enabled = (os.environ.get("HEIMDALLR_LAYA", "1").strip() != "0") if enabled is None else enabled
         self.min_confidence = float(os.environ.get("HEIMDALLR_LAYA_MIN_CONFIDENCE", "0") or 0)
@@ -84,11 +102,18 @@ class DecisionService:
 
     def summary(self) -> dict[str, Any]:
         by_laya = [d for d in self.journal if d["by"] == "laya"]
-        disagree = [d for d in by_laya if d.get("rule") is not None and d["rule"] != d["laya"]]
+        disagree = [d for d in self.journal if d.get("laya") is not None and d.get("rule") is not None and d["rule"] != d["laya"]]
         return {"decisions": len(self.journal), "by_laya": len(by_laya), "by_rule": len(self.journal) - len(by_laya),
                 "laya_disagreed_with_rule": len(disagree)}
 
     # --- core ------------------------------------------------------------------------------
+
+    def owns(self, name: str) -> bool:
+        """True when Laya makes this decision (otherwise the rule does)."""
+        return self.laya_decides is None or name in self.laya_decides
+
+    def _asks(self, name: str) -> bool:
+        return self.owns(name) or self.shadow
 
     def _predict(self, text: str, question: dict[str, Any]) -> dict[str, Any] | None:
         router = self.router()
@@ -98,7 +123,8 @@ class DecisionService:
         if key in self._cache:
             return self._cache[key]
         try:
-            res = router.predict(text[:4000], {"q": question})
+            kwargs = {"model": self.model} if self.model else {}
+            res = router.predict(text[:4000], {"q": question}, **kwargs)
             ans = (res or {}).get("answers", {}).get("q")
         except Exception as exc:
             logger.debug("Laya decision failed: %s", exc)
@@ -128,14 +154,14 @@ class DecisionService:
 
     def _settle(self, name: str, text: str, laya: Any, conf: float | None, rule: Any, started: float) -> Decision:
         ms = (time.perf_counter() - started) * 1000
-        if laya is not None and (conf is None or conf >= self.min_confidence):
+        if self.owns(name) and laya is not None and (conf is None or conf >= self.min_confidence):
             return self._record(name, text, "laya", laya, rule, laya, conf, ms)
         return self._record(name, text, "rule", rule, rule, laya, conf, ms)
 
     def choose(self, name: str, text: str, instructions: str, options: dict[str, str], rule: str | None) -> Decision:
         """One of ``options`` (label -> description). ``rule`` is the answer without Laya."""
         started = time.perf_counter()
-        ans = self._predict(text, {"type": "choice", "instructions": instructions, "criteria": options})
+        ans = None if not self._asks(name) else self._predict(text, {"type": "choice", "instructions": instructions, "criteria": options})
         laya = conf = None
         if ans:
             choice = str(ans.get("choice", ""))
@@ -147,7 +173,7 @@ class DecisionService:
     def yes_no(self, name: str, text: str, question: str, rule: bool | None, threshold: float = 0.5) -> Decision:
         """True or False. Laya returns P(yes); ``threshold`` turns it into an answer."""
         started = time.perf_counter()
-        ans = self._predict(text, {"type": "noul", "instructions": question})
+        ans = None if not self._asks(name) else self._predict(text, {"type": "noul", "instructions": question})
         laya = conf = None
         if ans and ans.get("noul") is not None:
             p = _float(ans.get("noul"))
@@ -159,7 +185,7 @@ class DecisionService:
     def score(self, name: str, text: str, instructions: str, levels: list[str], rule: int | None) -> Decision:
         """Index into ``levels`` (lowest first)."""
         started = time.perf_counter()
-        ans = self._predict(text, {"type": "score", "instructions": instructions, "criteria": levels})
+        ans = None if not self._asks(name) else self._predict(text, {"type": "score", "instructions": instructions, "criteria": levels})
         laya = conf = None
         if ans and ans.get("score") is not None:
             try:
