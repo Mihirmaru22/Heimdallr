@@ -18,7 +18,7 @@ class FakeRouter:
         self.answer = answer
         self.calls = []
 
-    def predict(self, text, questions):
+    def predict(self, text, questions, **kwargs):
         self.calls.append((text, questions))
         return {"answers": {qid: self.answer(text, q) for qid, q in questions.items()}}
 
@@ -149,3 +149,14 @@ def test_shadow_mode_journals_laya_without_using_it(monkeypatch):
     out = d.choose("question_form", "t", "q", {"a": "", "b": ""}, rule="b")
     assert (out.answer, out.by, out.laya_answer) == ("b", "rule", "a")
     assert d.summary()["laya_disagreed_with_rule"] == 1
+
+
+def test_default_checkpoint_is_the_measured_best(monkeypatch):
+    from argus.brain.decisions import DEFAULT_LAYA_DECISIONS
+
+    router = use_laya(lambda t, q: {"type": "noul", "noul": 0.9})
+    assert get_decisions().model == "typed-decisions"
+    get_decisions().yes_no("x", "t", "q", rule=False)
+    assert router.calls and "claim_answers_question" in DEFAULT_LAYA_DECISIONS
+    monkeypatch.setenv("HEIMDALLR_LAYA_MODEL", "english")
+    assert DecisionService(router=router).model == "english"

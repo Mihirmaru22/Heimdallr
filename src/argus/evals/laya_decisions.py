@@ -183,7 +183,8 @@ def main() -> None:
     import os
 
     for model in args.model or [os.environ.get("HEIMDALLR_LAYA_MODEL", "")]:
-        os.environ["HEIMDALLR_LAYA_MODEL"] = model
+        if model:
+            os.environ["HEIMDALLR_LAYA_MODEL"] = model
         service = DecisionService(enabled=True, laya_decides="all")
         if not service.available:
             raise SystemExit("Laya is not available (pip install laya, and let it download its model once).")
@@ -192,7 +193,7 @@ def main() -> None:
         load_s = time.perf_counter() - started
         router = service.router()
         device = getattr(router, "device", None) or "auto"
-        print(f"\nLaya checkpoint: {model or 'router default'}; device: {device}; load + first call {load_s:.1f} s")
+        print(f"\nLaya checkpoint: {service.model}; device: {device}; load + first call {load_s:.1f} s")
         _run(service, args.show)
 
 

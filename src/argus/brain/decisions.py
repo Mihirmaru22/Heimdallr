@@ -19,7 +19,8 @@ Which decisions Laya makes is set per decision, from measurement (python -m argu
     HEIMDALLR_LAYA_DECISIONS   comma-separated decision names Laya makes, or "all"
                                (default: the ones where Laya beat the rules on Ronak's machine)
     HEIMDALLR_LAYA_SHADOW=1    also ask Laya on the other decisions and journal its answer (slower)
-    HEIMDALLR_LAYA_MODEL       Laya checkpoint: english, multilingual or typed-decisions (default: Laya's router)
+    HEIMDALLR_LAYA_MODEL       Laya checkpoint: english, multilingual or typed-decisions
+                               (default: typed-decisions, the most accurate of the three here)
     HEIMDALLR_LAYA_DEVICE      cuda or cpu (default: Laya's choice)
 HEIMDALLR_LAYA_MIN_CONFIDENCE (default 0): below this Laya confidence the rule answer is used.
 """
@@ -38,10 +39,16 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-# 2026-10-17, Ronak's machine, 50 labelled examples: Laya 9/12 vs rules 7/12 on question_domain;
-# Laya lost on question_form (13/21 vs 18/21), question_jurisdiction (6/8 vs 8/8) and
-# sentence_conflict (7/9 vs 8/9). Not yet measured: subquestion_critical, claim_answers_question.
-DEFAULT_LAYA_DECISIONS = frozenset({"question_domain"})
+# All three checkpoints measured on Ronak's machine, 2026-10-17, 66 labelled examples
+# (python -m argus.evals.laya_decisions --model english --model multilingual --model typed-decisions).
+# typed-decisions led, and beat the rules on two decisions:
+#     question_domain          9/12 against the rules' 7/12
+#     claim_answers_question    4/8 against the rules' 3/8  (a thin margin on a small set)
+# The rules stayed ahead on question_form (18/21), question_jurisdiction (8/8),
+# sentence_conflict (8/9) and subquestion_critical (7/8), so they keep those.
+# Laya takes a decision when a run of the eval shows it ahead; add the name here.
+DEFAULT_LAYA_DECISIONS = frozenset({"question_domain", "claim_answers_question"})
+DEFAULT_LAYA_MODEL = "typed-decisions"
 
 
 @dataclass
@@ -64,7 +71,7 @@ class DecisionService:
             None if spec.lower() == "all" else frozenset(n.strip() for n in spec.split(",") if n.strip()) if spec else DEFAULT_LAYA_DECISIONS
         )  # None means every decision
         self.shadow = os.environ.get("HEIMDALLR_LAYA_SHADOW", "").strip() == "1"
-        self.model = os.environ.get("HEIMDALLR_LAYA_MODEL", "").strip() or None
+        self.model = os.environ.get("HEIMDALLR_LAYA_MODEL", "").strip() or DEFAULT_LAYA_MODEL
         self._checked = router is not None
         self.enabled = (os.environ.get("HEIMDALLR_LAYA", "1").strip() != "0") if enabled is None else enabled
         self.min_confidence = float(os.environ.get("HEIMDALLR_LAYA_MIN_CONFIDENCE", "0") or 0)
