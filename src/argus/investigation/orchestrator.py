@@ -12,6 +12,7 @@ from argus.specialists.outcome import SpecialistOutcome, SpecialistStatus
 from datetime import datetime, timezone
 import concurrent.futures
 import logging
+import os
 import re
 import threading
 import time
@@ -321,6 +322,11 @@ class InvestigationEngine:
         # Optional local language model that reads pages (HEIMDALLR_LLM); its findings pass the same gate.
         self.llm_reader = llm_reader if llm_reader is not None else LLMReader.from_env()
         self._llm_read_pages: set[tuple[str, str, int]] = set()
+        # Laya (System 1) decides on live runs which found pages to read first and which pages are
+        # worth a model's reading time. HEIMDALLR_LAYA=0 turns it off; without the laya package
+        # it is simply absent.
+        self._system1: Any = None
+        self._system1_checked = False
 
         # Specialist adaptations
         if self.simulated_registries:
@@ -338,6 +344,20 @@ class InvestigationEngine:
         self.syndication_intel = SyndicationIntelligence()
         self.contradiction_resolver = ContradictionResolver()
         self.semantic_auditor = IndependentSemanticAuditor()
+
+    def system1(self) -> Any:
+        """The Laya decision engine for live runs, or None (not a live corpus, turned off, or not installed)."""
+        if not self._system1_checked:
+            self._system1_checked = True
+            if getattr(self.corpus, "is_live_web", False) and os.environ.get("HEIMDALLR_LAYA", "1").strip() != "0":
+                try:
+                    from argus.brain.system1 import System1DecisionEngine
+
+                    engine = System1DecisionEngine()
+                    self._system1 = engine if engine.is_available else None
+                except Exception as exc:
+                    logger.info("Laya decision engine unavailable: %s", exc)
+        return self._system1
 
     def start_investigation(
         self,
@@ -1402,7 +1422,7 @@ class InvestigationEngine:
             src_url = d.get("url") or d.get("doc_id")
             if src_url:
                 is_ret = d.get("is_full_content", False) or bool(action and action.action_type == ActionType.FETCH)
-                state.add_discovered_source(
+                src_rec = state.add_discovered_source(
                     url=src_url,
                     title=d.get("title", ""),
                     snippet=text[:300],
@@ -1410,6 +1430,10 @@ class InvestigationEngine:
                     source_type=d.get("source_type", "web"),
                     target_entity=action.target_entities[0] if (action and action.target_entities) else None,
                 )
+                if not is_ret and "triage_score" not in src_rec and (s1 := self.system1()) is not None:
+                    # Laya scores the search result; the planner fetches higher-scored pages first.
+                    q_title = state.questions.get(action.question_id, {}).get("question_text", "") if (action and action.question_id) else ""
+                    src_rec["triage_score"] = s1.score_snippet(d.get("title", ""), text[:500], src_url, q_title or state.objective, state.objective)
                 if is_ret:
                     state.mark_source_retrieved(src_url)
 
@@ -1804,12 +1828,23 @@ class InvestigationEngine:
             if action and action.question_id and action.question_id in state.questions:
                 q_text = state.questions[action.question_id].get("question_text") or q_text
             list_target = (enum_objective.answer_label, enum_objective.object_name, enum_objective.geography) if enum_objective else None
+            s1 = self.system1()
             for d in docs:
                 d_text, d_url = d.get("text", ""), d.get("url", "")
                 page_key = (state.investigation_id, d_url or d.get("doc_id", ""), len(d_text))
                 if not d_text or page_key in self._llm_read_pages:
                     continue
                 self._llm_read_pages.add(page_key)
+                if s1 is not None:
+                    # Laya's fast relevance gate keeps boilerplate and off-topic pages away from the model.
+                    relevant, _, kind = s1.triage_document(d_text, q_text, state.objective)
+                    if not relevant:
+                        state.record_audit(
+                            action_type="PAGE_SKIPPED_BY_TRIAGE",
+                            details={"url": d_url, "kind": kind},
+                            rationale="Laya judged the page not relevant to the question; the model did not read it.",
+                        )
+                        continue
                 for rf in self.llm_reader.read(q_text, d.get("title", ""), d_text, list_target=list_target):
                     if enum_objective:
                         named = next((n for n in enum_objective.object_names if term_in_passage(n, rf.quote)), None)

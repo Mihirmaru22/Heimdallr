@@ -113,6 +113,28 @@ class System1DecisionEngine:
         scored_results.sort(key=lambda x: x[0], reverse=True)
         return [item for _, item in scored_results[:top_k]]
 
+    def score_snippet(self, title: str, snippet: str, url: str, task_title: str, objective_target: str) -> float | None:
+        """Relevance probability of one search result (title + snippet), or None without Laya."""
+        router = self._ensure_router()
+        if router is None:
+            return None
+        questions = {
+            "relevance": {
+                "type": "noul",
+                "instructions": (
+                    f"Does this search snippet contain factual or operational details "
+                    f"relevant to '{task_title}' concerning '{objective_target}'?"
+                ),
+            }
+        }
+        try:
+            kwargs: dict[str, Any] = {"model": self._model_override} if self._model_override else {}
+            prediction = router.predict(f"Title: {title}\nSnippet: {snippet}\nURL: {url}", questions, **kwargs)
+            return float(prediction.get("answers", {}).get("relevance", {}).get("noul", 0.5))
+        except Exception as exc:
+            logger.debug("Laya snippet scoring failed for '%s': %s", url, exc)
+            return None
+
     @staticmethod
     def infer_document_boilerplate_heuristic(doc_text: str) -> tuple[bool, str]:
         """Fast heuristic (~0.05ms) to catch 404s, login walls, and empty cookie boilerplate."""

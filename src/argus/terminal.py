@@ -476,6 +476,7 @@ class OSINTTerminal:
             "relationships": state.relationships,
             "unresolved_questions": unresolved_q,
             "limitations": limitations,
+            "decision_engine": "Laya" if (hasattr(self.engine, "system1") and self.engine.system1() is not None) else None,
             "page_reader": (f"{reader.label} ({reader.pages_read} pages read, {reader.failures} failures)" if (reader := getattr(self.engine, "llm_reader", None)) else None),
         }
         if recorder is not None:
@@ -573,7 +574,11 @@ class OSINTTerminal:
             summary_text.append("\nMarkdown Dossier Saved to: ", style="bold bright_yellow")
             summary_text.append(str(md_path.resolve()), style="bold bright_cyan underline")
         summary_text.append(
-            f"\nPage reader: {data['page_reader']}" if data.get("page_reader") else "\nPage reader: off (set HEIMDALLR_LLM=ollama:<model> to read pages with a local model)",
+            f"\nPage reader: {data['page_reader']}" if data.get("page_reader") else "\nPage reader: off (set HEIMDALLR_LLM, e.g. openrouter:<free model>,ollama:qwen2.5:7b)",
+            style="dim white",
+        )
+        summary_text.append(
+            "\nDecision engine: Laya (ranks pages to fetch, filters pages before the model reads)" if data.get("decision_engine") else "\nDecision engine: off (laya not installed or HEIMDALLR_LAYA=0)",
             style="dim white",
         )
         if data.get("run_dir"):

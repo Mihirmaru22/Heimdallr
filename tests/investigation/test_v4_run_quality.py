@@ -333,3 +333,103 @@ def test_link_in_the_question_is_fetched_as_a_user_request(monkeypatch):
     assert page_requests and page_requests[0].headers["user-agent"].startswith("Heimdallr-User")
     # Other pages on the same site still follow robots.txt.
     assert retriever.get_by_url("https://blocked.example/other") is None
+
+
+# --- Model chain (OpenRouter free models, local Ollama) and Laya decisions ---------------------
+
+from argus.investigation import llm_reader as llm_mod  # noqa: E402
+from argus.investigation.llm_reader import ReaderChain  # noqa: E402
+
+PAGE = "The finance team at Brightwater Foods, in Leeds, United Kingdom, now runs month-end close on Quorvane Flux."
+GOOD_REPLY = json.dumps({"findings": [{"subject": "Brightwater Foods", "relation": "uses", "value": "Quorvane Flux", "quote": PAGE}]})
+
+
+class _Resp:
+    def __init__(self, status, body):
+        self.status_code, self._body, self.text = status, body, json.dumps(body)
+
+    def json(self):
+        return self._body
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise httpx.HTTPStatusError("x", request=None, response=None)
+
+
+def test_rate_limited_free_model_hands_over_to_the_local_model(monkeypatch):
+    calls = []
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        calls.append((url, (headers or {}).get("Authorization")))
+        if "openrouter" in url:
+            return _Resp(429, {"error": {"message": "Rate limit exceeded: free-models-per-day"}})
+        return _Resp(200, {"message": {"content": GOOD_REPLY}})
+
+    monkeypatch.setattr(llm_mod.httpx, "post", fake_post)
+    monkeypatch.setattr(llm_mod, "OPENROUTER_MIN_INTERVAL", 0)
+    monkeypatch.setattr(llm_mod, "_openrouter_key", lambda: "or-key")
+    monkeypatch.setenv("HEIMDALLR_LLM", "openrouter:qwen/qwen-2.5-72b-instruct:free, ollama:qwen2.5:7b")
+    chain = LLMReader.from_env()
+    assert isinstance(chain, ReaderChain) and chain.label == "openrouter:qwen/qwen-2.5-72b-instruct:free > ollama:qwen2.5:7b"
+    assert [f.subject for f in chain.read("q", "t", PAGE)] == ["Brightwater Foods"]
+    assert calls[0] == ("https://openrouter.ai/api/v1/chat/completions", "Bearer or-key")
+    assert chain.exhausted == ["openrouter:qwen/qwen-2.5-72b-instruct:free"]
+    chain.read("q", "t", PAGE + " ")
+    assert sum("openrouter" in u for u, _ in calls) == 1, "a refused model is not asked again in the same run"
+
+
+def test_single_unreachable_model_turns_reading_off_without_failing_the_run(monkeypatch):
+    def down(*a, **k):
+        raise httpx.ConnectError("connection refused")
+
+    monkeypatch.setattr(llm_mod.httpx, "post", down)
+    reader = LLMReader("ollama", "qwen2.5:7b", "http://localhost:11434")
+    assert reader.read("q", "t", PAGE) == [] and reader.disabled
+    assert reader.read("q", "t", PAGE) == [] and reader.failures == 1
+
+
+def test_openrouter_needs_a_key(monkeypatch):
+    monkeypatch.setattr(llm_mod, "_openrouter_key", lambda: "")
+    assert LLMReader.from_spec("openrouter:meta-llama/llama-3.3-70b-instruct:free") is None
+
+
+class _FakeLaya:
+    def __init__(self, scores, irrelevant=()):
+        self.scores, self.irrelevant = scores, set(irrelevant)
+
+    def score_snippet(self, title, snippet, url, task_title, objective_target):
+        return self.scores.get(url, 0.5)
+
+    def triage_document(self, doc_text, task_title, objective_target):
+        return (not any(m in doc_text for m in self.irrelevant)), 0.9, "factual"
+
+
+def test_laya_orders_fetches_and_keeps_irrelevant_pages_from_the_model(monkeypatch):
+    low, high = "https://low.example/page", CASE_URL
+    fetched = []
+    routes = {
+        "low.example/robots.txt": httpx.Response(404),
+        "low.example/page": httpx.Response(200, text="<html><body><main><p>" + "Cookie settings and newsletter signup. " * 10 + "</p></main></body></html>", headers={"content-type": "text/html"}),
+        "stories.example.net/robots.txt": httpx.Response(404),
+        "stories.example.net/brightwater": httpx.Response(200, text=CASE_PAGE, headers={"content-type": "text/html"}),
+    }
+
+    def handler(request):
+        if not request.url.path.endswith("robots.txt"):
+            fetched.append(f"https://{request.url.host}{request.url.path}")
+        return routes.get(f"{request.url.host}{request.url.path}", httpx.Response(404))
+
+    monkeypatch.setattr(SearchPipeline, "is_safe_url", staticmethod(lambda url: True))
+    monkeypatch.setattr(controller_mod, "create_safe_async_client", lambda *a, **k: httpx.AsyncClient(transport=httpx.MockTransport(handler), timeout=5))
+    monkeypatch.setattr(sources_mod, "get_search_source", lambda name: SearchSource("fake", "search.example", lambda t: _Engine([low, high])))
+    limits = ControlledRetrievalLimits(enforce_ssrf_protection=False, search_providers=("fake",), max_requests_per_host=60, max_requests_per_task=120)
+    reader = _FakeReader([ReadFinding("Brightwater Foods", "uses", "Quorvane Flux", "Brightwater Foods, in Leeds, United Kingdom, now runs month-end close on Quorvane Flux.", "United Kingdom")])
+    read_texts = []
+    original = reader.read
+    reader.read = lambda q, title, text, list_target=None: (read_texts.append(text), original(q, title, text, list_target))[1]
+    engine = InvestigationEngine(corpus=ControlledLiveWebRetriever(limits=limits, snapshot_dir=tempfile.mkdtemp()), store=InvestigationStore(tempfile.mkdtemp()), llm_reader=reader)
+    engine._system1, engine._system1_checked = _FakeLaya({low: 0.1, high: 0.95}, irrelevant=["Cookie settings"]), True
+    state = engine.run_to_completion(objective="which companies in the UK use Quorvane Flux", max_steps=8)
+    assert fetched and fetched[0] == high, fetched
+    assert not any("Cookie settings" in t for t in read_texts)
+    assert any(a.action_type == "PAGE_SKIPPED_BY_TRIAGE" for a in state.audit_trail)

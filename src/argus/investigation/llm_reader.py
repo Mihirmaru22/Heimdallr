@@ -11,11 +11,20 @@ a quote that is not on the page is dropped. Every finding then goes through the 
 as any other claim, which checks that the passage is in the cited evidence and names both sides.
 
 Configuration (environment):
-    HEIMDALLR_LLM        "ollama:<model>" (e.g. ollama:qwen2.5:7b-instruct) or "openai:<model>"
-    HEIMDALLR_LLM_URL    server base URL (default http://localhost:11434 for ollama,
-                         http://localhost:8080/v1 for openai-compatible)
+    HEIMDALLR_LLM        one model or a comma-separated chain, tried in order; a model that is
+                         rate-limited or unreachable hands over to the next for the rest of the run:
+                           "ollama:<model>"      local Ollama (e.g. ollama:qwen2.5:7b)
+                           "openrouter:<model>"  OpenRouter, e.g. a free model whose id ends in
+                                                 ":free" (key: OPENROUTER_API_KEY or .env)
+                           "openai:<model>"      any OpenAI-compatible local server
+                         e.g. "openrouter:qwen/qwen-2.5-72b-instruct:free,ollama:qwen2.5:7b"
+    HEIMDALLR_LLM_URL    base URL for ollama/openai backends (defaults http://localhost:11434,
+                         http://localhost:8080/v1)
     HEIMDALLR_LLM_MAX_PAGES  pages read per run (default 80)
 Unset HEIMDALLR_LLM means no model is used and runs behave as before.
+
+OpenRouter free models allow 20 requests a minute and 50 a day (1,000 a day once 10 credits
+have been bought); the reader spaces its calls and falls back to the next model when refused.
 """
 
 from __future__ import annotations
@@ -26,6 +35,7 @@ import json
 import logging
 import os
 import re
+import time
 from typing import Any
 
 import httpx
@@ -115,51 +125,100 @@ def _parse_findings(raw: str) -> list[dict[str, Any]]:
     return [f for f in items if isinstance(f, dict)] if isinstance(items, list) else []
 
 
-class LLMReader:
-    """Client for a local chat model; ``read`` returns findings grounded in the page text."""
+class ModelUnavailable(Exception):
+    """The model refused (rate limit, quota) or could not be reached; the next model takes over."""
 
-    def __init__(self, backend: str, model: str, base_url: str, timeout: float = 180.0, max_pages: int = 80) -> None:
+
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
+# OpenRouter free models: 20 requests per minute.
+OPENROUTER_MIN_INTERVAL = 3.1
+
+
+def _openrouter_key() -> str:
+    from argus.llm.openrouter import OpenRouterLLMProvider  # reads OPENROUTER_API_KEY / OPEN_ROUTER_API / .env
+
+    return OpenRouterLLMProvider().api_key
+
+
+class LLMReader:
+    """Client for one chat model; ``read`` returns findings grounded in the page text."""
+
+    def __init__(self, backend: str, model: str, base_url: str, timeout: float = 180.0, max_pages: int = 80, api_key: str = "") -> None:
         self.backend, self.model, self.base_url = backend, model, base_url.rstrip("/")
         self.timeout, self.max_pages = timeout, max_pages
+        self.api_key = api_key
         self.pages_read = 0
         self.failures = 0
+        self._last_call = 0.0
+        self.in_chain = False  # inside a ReaderChain, refusals are passed up so the next model reads
+        self.disabled = False
 
     @property
     def label(self) -> str:
         return f"{self.backend}:{self.model}"
 
     @classmethod
-    def from_env(cls) -> "LLMReader | None":
-        spec = os.environ.get("HEIMDALLR_LLM", "").strip()
-        if not spec or ":" not in spec:
-            return None
-        backend, model = spec.split(":", 1)
+    def from_spec(cls, spec: str, max_pages: int = 80) -> "LLMReader | None":
+        backend, _, model = spec.strip().partition(":")
         backend = backend.lower()
-        if backend not in ("ollama", "openai"):
-            logger.warning("HEIMDALLR_LLM backend %r not supported (use ollama: or openai:)", backend)
+        if not model:
             return None
-        default_url = "http://localhost:11434" if backend == "ollama" else "http://localhost:8080/v1"
+        if backend == "ollama":
+            return cls(backend, model, os.environ.get("HEIMDALLR_LLM_URL", "http://localhost:11434"), max_pages=max_pages)
+        if backend == "openai":
+            return cls(backend, model, os.environ.get("HEIMDALLR_LLM_URL", "http://localhost:8080/v1"), max_pages=max_pages)
+        if backend == "openrouter":
+            key = _openrouter_key()
+            if not key:
+                logger.warning("openrouter:%s skipped: no OPENROUTER_API_KEY", model)
+                return None
+            return cls(backend, model, OPENROUTER_URL, timeout=90.0, max_pages=max_pages, api_key=key)
+        logger.warning("HEIMDALLR_LLM backend %r not supported (use ollama:, openrouter: or openai:)", backend)
+        return None
+
+    @staticmethod
+    def from_env() -> "LLMReader | ReaderChain | None":
+        specs = [p for p in os.environ.get("HEIMDALLR_LLM", "").split(",") if p.strip()]
         max_pages = int(os.environ.get("HEIMDALLR_LLM_MAX_PAGES", "80") or 80)
-        return cls(backend, model, os.environ.get("HEIMDALLR_LLM_URL", default_url), max_pages=max_pages)
+        readers = [r for r in (LLMReader.from_spec(p, max_pages) for p in specs) if r is not None]
+        if not readers:
+            return None
+        return readers[0] if len(readers) == 1 else ReaderChain(readers, max_pages=max_pages)
 
     def _chat(self, system: str, user: str) -> str:
-        if self.backend == "ollama":
-            resp = httpx.post(
-                f"{self.base_url}/api/chat",
-                json={"model": self.model, "stream": False, "format": "json", "options": {"temperature": 0},
-                      "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
-                timeout=self.timeout,
-            )
-            resp.raise_for_status()
-            return str(resp.json().get("message", {}).get("content", ""))
-        resp = httpx.post(
-            f"{self.base_url}/chat/completions",
-            json={"model": self.model, "temperature": 0,
-                  "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
-            timeout=self.timeout,
-        )
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+        try:
+            if self.backend == "ollama":
+                resp = httpx.post(
+                    f"{self.base_url}/api/chat",
+                    json={"model": self.model, "stream": False, "format": "json", "options": {"temperature": 0}, "messages": messages},
+                    timeout=self.timeout,
+                )
+            else:
+                headers = {}
+                if self.backend == "openrouter":
+                    wait = OPENROUTER_MIN_INTERVAL - (time.monotonic() - self._last_call)
+                    if wait > 0:
+                        time.sleep(wait)
+                    self._last_call = time.monotonic()
+                    headers = {"Authorization": f"Bearer {self.api_key}", "X-Title": "Heimdallr Research"}
+                resp = httpx.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json={"model": self.model, "temperature": 0, "messages": messages},
+                    timeout=self.timeout,
+                )
+        except httpx.HTTPError as exc:
+            raise ModelUnavailable(f"{self.label} unreachable: {exc}") from exc
+        if resp.status_code in (401, 402, 403, 404, 429) or resp.status_code >= 500:
+            raise ModelUnavailable(f"{self.label} refused: HTTP {resp.status_code} {resp.text[:200]}")
         resp.raise_for_status()
-        return str(resp.json()["choices"][0]["message"]["content"])
+        data = resp.json()
+        if self.backend == "ollama":
+            return str(data.get("message", {}).get("content", ""))
+        if data.get("error"):
+            raise ModelUnavailable(f"{self.label} error: {data['error']}")
+        return str(data["choices"][0]["message"]["content"])
 
     def read(
         self,
@@ -169,7 +228,7 @@ class LLMReader:
         list_target: tuple[str, str, str] | None = None,
     ) -> list[ReadFinding]:
         """Findings on this page that answer ``question``; ``list_target`` = (noun, object, geography)."""
-        if not text or self.pages_read >= self.max_pages:
+        if not text or self.disabled or self.pages_read >= self.max_pages:
             return []
         self.pages_read += 1
         instruction = _list_instruction(*list_target) if list_target else ""
@@ -179,6 +238,13 @@ class LLMReader:
             user = f"Research question: {question}\n{instruction}\n\nPage title: {title}\nPage text:\n{chunk}"
             try:
                 raw = self._chat(_SYSTEM, user)
+            except ModelUnavailable as exc:
+                self.failures += 1
+                if self.in_chain:
+                    raise
+                logger.warning("%s; page reading is off for the rest of this run", exc)
+                self.disabled = True
+                return findings
             except Exception as exc:
                 self.failures += 1
                 logger.warning("LLM reader (%s) failed: %s", self.label, exc)
@@ -198,6 +264,41 @@ class LLMReader:
                     country=" ".join(str(item.get("country") or "").split()),
                 ))
         return findings
+
+
+class ReaderChain:
+    """Several models in order of preference. A model that is rate-limited or unreachable is
+    dropped for the rest of the run and the page is read by the next one."""
+
+    def __init__(self, readers: list[LLMReader], max_pages: int = 80) -> None:
+        self.readers, self.max_pages = readers, max_pages
+        for r in readers:
+            r.in_chain = True
+        self.pages_read = 0
+        self.exhausted: list[str] = []
+
+    @property
+    def failures(self) -> int:
+        return sum(r.failures for r in self.readers)
+
+    @property
+    def label(self) -> str:
+        return " > ".join(r.label for r in self.readers)
+
+    def read(self, question: str, title: str, text: str, list_target: tuple[str, str, str] | None = None) -> list[ReadFinding]:
+        if not text or self.pages_read >= self.max_pages:
+            return []
+        self.pages_read += 1
+        for reader in self.readers:
+            if reader.label in self.exhausted:
+                continue
+            try:
+                reader.pages_read = 0  # the chain enforces the page budget
+                return reader.read(question, title, text, list_target=list_target)
+            except ModelUnavailable as exc:
+                logger.warning("%s; switching to the next model", exc)
+                self.exhausted.append(reader.label)
+        return []
 
 
 def relation_predicate(relation: str) -> str:

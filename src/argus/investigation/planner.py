@@ -1294,7 +1294,15 @@ class InvestigationPlanner:
             ]
 
             if unfetched_for_q and spec in ("none", ""):
-                cand_source = unfetched_for_q[0]
+                # Links the user gave come first, then pages Laya scored as most relevant
+                # (unscored pages keep their discovery order).
+                def _fetch_rank(src: dict[str, Any]) -> float:
+                    if src.get("source_type") == "user_link":
+                        return -2.0
+                    score = src.get("triage_score")
+                    return -(score if isinstance(score, (int, float)) else 0.5)
+
+                cand_source = sorted(unfetched_for_q, key=_fetch_rank)[0]
                 fetch_url = cand_source["url"]
                 fetch_action = ResearchAction(
                     question_id=q.question_id,
