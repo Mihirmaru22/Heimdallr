@@ -32,9 +32,10 @@ from rich.text import Text
 from argus.export import OSINTExcelExporter, OSINTMarkdownExporter
 from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence
 from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
-from argus.investigation.claim_verification import is_verified
+from argus.investigation.claim_verification import is_gate_rejected, is_verified
 from argus.investigation.live_web.controller import ControlledLiveWebRetriever
 from argus.investigation.live_web.models import ControlledRetrievalLimits
+from argus.investigation.live_web.run_recorder import RecordingCorpus, ReplayCorpus, run_folder_name
 from argus.investigation.orchestrator import InvestigationEngine
 from argus.investigation.state import InvestigationState
 
@@ -307,7 +308,7 @@ DEEP_RUN_STEPS = 60
 class OSINTTerminal:
     """Coordinates terminal user interactions, engine execution, and report delivery."""
 
-    def __init__(self, export_dir: str = "exports", corpus: Any | None = None) -> None:
+    def __init__(self, export_dir: str = "exports", corpus: Any | None = None, record_runs: bool | None = None) -> None:
         self.export_dir = Path(export_dir)
         self.export_dir.mkdir(parents=True, exist_ok=True)
         self.exporter = OSINTExcelExporter(export_dir=self.export_dir)
@@ -315,6 +316,9 @@ class OSINTTerminal:
         # Full research run: every free search source and a budget sized for reading pages.
         self.corpus = corpus if corpus is not None else ControlledLiveWebRetriever(limits=ControlledRetrievalLimits.deep())
         self.engine = InvestigationEngine(corpus=self.corpus, simulated_registries=False)
+        # Live runs are recorded (exports/runs/<run>/) so they can be replayed offline with --replay.
+        self.record_runs = isinstance(self.corpus, ControlledLiveWebRetriever) if record_runs is None else record_runs
+        self.run_dir: Path | None = None
 
     def run_cli(
         self,
@@ -370,6 +374,11 @@ class OSINTTerminal:
         """
         if hasattr(self.corpus, "reset_task_budget"):
             self.corpus.reset_task_budget()
+        recorder = None
+        if self.record_runs:
+            self.run_dir = self.export_dir / "runs" / run_folder_name(target)
+            recorder = RecordingCorpus(self.corpus, self.run_dir, objective=target)
+            self.engine.corpus = recorder
 
         # Execution safeguard: at most DEEP_RUN_STEPS research steps unless a caller sets fewer.
         safety_budget = max_steps if (max_steps is not None and max_steps > 0) else DEEP_RUN_STEPS
@@ -424,6 +433,11 @@ class OSINTTerminal:
                 "source_class": c.get("source_class"),
             })
 
+        # Candidates the evidence gate turned down are not findings; they are kept apart
+        # (Excel "Rejected Candidates" sheet, Markdown appendix) so reports never present them as results.
+        rejected_out = [c for c in claims_out if is_gate_rejected(c)]
+        claims_out = [c for c in claims_out if not is_gate_rejected(c)]
+
         entities_out = {}
         for ent_name, ent_meta in state.entities.items():
             entities_out[ent_name] = ent_meta
@@ -442,7 +456,7 @@ class OSINTTerminal:
         limitations = state.generate_limitations() if hasattr(state, "generate_limitations") else []
         unresolved_q = list(state.unresolved_questions) if hasattr(state, "unresolved_questions") else []
 
-        return {
+        result = {
             "investigation_id": state.investigation_id,
             "target": target,
             "objective": state.objective,
@@ -451,6 +465,7 @@ class OSINTTerminal:
             "enumeration_objective": state.objective_contract.get("enumeration_objective"),
             "confidence": state.confidence_state.overall_confidence,
             "claims": claims_out,
+            "rejected_claims": rejected_out,
             "entities": entities_out,
             "evidence": evidence_out,
             "research_actions": state.research_actions,
@@ -459,6 +474,11 @@ class OSINTTerminal:
             "unresolved_questions": unresolved_q,
             "limitations": limitations,
         }
+        if recorder is not None:
+            self.engine.corpus = self.corpus
+            recorder.save_result({k: result[k] for k in ("objective", "stop_reason", "enumeration_objective", "claims", "rejected_claims", "limitations")})
+            result["run_dir"] = str(self.run_dir)
+        return result
 
     def _display_results_table(self, data: dict[str, Any], target: str) -> None:
         """Render verified findings in a rich terminal table."""
@@ -477,9 +497,10 @@ class OSINTTerminal:
         table.add_column("Conf", justify="right", style="yellow", width=7)
         table.add_column("Primary Citation / Source", style="dim", no_wrap=False, width=32)
 
-        claims = data.get("claims", [])
+        # Only findings the evidence gate passed, plus source-reported contradictions, are results.
+        claims = [c for c in data.get("claims", []) if is_verified(c) or c.get("status") in ("CONTRADICTED", "REFUTED")]
         if not claims:
-            table.add_row(target, "status", "No verified claims found", format_status_badge("NOT_FOUND"), "0%", "N/A")
+            table.add_row(target, "status", "No verified findings", format_status_badge("NOT_FOUND"), "0%", "N/A")
         else:
             # Prioritize primary deployment claims so that all discovered companies are displayed
             software_claims = [c for c in claims if "USES_" in c.get("predicate", "") or "SOFTWARE" in c.get("predicate", "")]
@@ -495,6 +516,8 @@ class OSINTTerminal:
                 cit = c.get("citation") or NO_SOURCE_RECORDED
 
                 table.add_row(subj, pred, obj, status_badge, conf_str, cit)
+            if len(ordered_claims) > 20:
+                table.caption = f"{len(ordered_claims) - 20} more verified findings in the Excel and Markdown reports"
 
         console.print(table)
         console.print()
@@ -517,7 +540,8 @@ class OSINTTerminal:
 
         summary_text = Text()
         summary_text.append("Scan Summary:\n", style="bold underline bright_green")
-        summary_text.append(f"Found: {len(claims)} claims  |  ", style="bold white")
+        rejected = data.get("rejected_claims", [])
+        summary_text.append(f"Candidates: {len(claims) + len(rejected)} (rejected by evidence check: {len(rejected)})  |  ", style="bold white")
         summary_text.append(f"Verified: {verified_count}  |  ", style="bold bright_green")
         summary_text.append(f"Inferred: {inferred_count}  |  ", style="bold yellow")
         summary_text.append(f"Contradicted: {contradicted_count}  |  ", style="bold red")
@@ -544,6 +568,9 @@ class OSINTTerminal:
         if md_path:
             summary_text.append("\nMarkdown Dossier Saved to: ", style="bold bright_yellow")
             summary_text.append(str(md_path.resolve()), style="bold bright_cyan underline")
+        if data.get("run_dir"):
+            summary_text.append("\nRun Recording Saved to: ", style="bold bright_yellow")
+            summary_text.append(str(Path(data["run_dir"]).resolve()), style="bold bright_cyan underline")
 
         panel = Panel(
             summary_text,
@@ -584,6 +611,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run without interactive prompts (for automation/testing)",
     )
     parser.add_argument(
+        "--replay",
+        type=str,
+        metavar="RUN_DIR",
+        help="Re-run a recorded run (exports/runs/<run>) offline, answering every web call from the recording",
+    )
+    parser.add_argument(
         "--version",
         "-v",
         action="version",
@@ -598,11 +631,17 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        terminal = OSINTTerminal()
+        if args.replay:
+            replay = ReplayCorpus(args.replay)
+            terminal = OSINTTerminal(corpus=replay, record_runs=False)
+            target = args.target or replay.objective
+        else:
+            terminal = OSINTTerminal()
+            target = args.target
         terminal.run_cli(
-            target=args.target,
+            target=target,
             output_file=args.output,
-            interactive=not args.no_interactive and not args.target,
+            interactive=not args.no_interactive and not target,
         )
     except KeyboardInterrupt:
         console.print("\n[dim]Investigation session aborted by user.[/dim]")

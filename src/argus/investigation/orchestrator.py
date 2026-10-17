@@ -1419,6 +1419,13 @@ class InvestigationEngine:
         enum_dict = state.objective_contract.get("enumeration_objective")
         enum_objective = EnumerationObjective.from_dict(enum_dict) if enum_dict else None
         extraction_scope = set(enum_objective.extraction_scope) if enum_objective else None
+        if extraction_scope is None and getattr(self.corpus, "is_live_web", False):
+            # The labelled-field extractors ("CEO: ...", "Subsidiaries: ...", "BIOGRAPHY:", hostnames,
+            # dated "as of" notes) were written for the labelled benchmark corpora. On real web pages
+            # they attach whatever they match to the action's target entity, e.g. a list of UK firms'
+            # CEOs became "officers of SAP ERP". Live runs use the sentence-level extractors, which
+            # take the subject from the sentence itself, and the evidence gate.
+            extraction_scope = {"target_sentences", "deployment", "chaining"}
 
         def in_scope(dimension: str) -> bool:
             return extraction_scope is None or dimension in extraction_scope

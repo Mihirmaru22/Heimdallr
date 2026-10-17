@@ -203,6 +203,13 @@ def _qualified(passage: str) -> str:
     return ""
 
 
+def is_gate_rejected(claim: dict[str, Any]) -> bool:
+    """A positive claim the gate turned down (as opposed to a negative or undetermined finding,
+    which makes no assertion and keeps its own status)."""
+    ver = claim.get("verification") or {}
+    return bool(ver) and not ver.get("passed") and not str(ver.get("reason", "")).startswith("non_positive_status")
+
+
 def is_verified(claim: dict[str, Any]) -> bool:
     """A claim counts as verified only if the gate passed it with a verified status."""
     ver = claim.get("verification") or {}

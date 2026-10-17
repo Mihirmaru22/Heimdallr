@@ -46,6 +46,8 @@ SNAPSHOT_DIR = Path("/data/shared/project/PlayGround/Argus/evals/evidence_snapsh
 class ControlledLiveWebRetriever:
     """Live web retriever with strict security, rate limiting, and source independence analysis."""
 
+    is_live_web = True
+
     def __init__(
         self,
         limits: ControlledRetrievalLimits | None = None,

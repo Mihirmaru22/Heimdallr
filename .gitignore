@@ -45,6 +45,7 @@ storage/
 scratch/
 exports/*.xlsx
 exports/*.md
+exports/runs/
 !exports/.gitkeep
 evals/evidence_snapshots/*.txt
 

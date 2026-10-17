@@ -154,6 +154,19 @@ class OSINTMarkdownExporter:
         else:
             lines.append("*No external evidence passages captured.*\n")
 
+        rejected = data.get("rejected_claims") or []
+        if rejected:
+            lines.append("---\n")
+            lines.append("## Appendix: Rejected Candidates (not findings)\n")
+            lines.append(f"The evidence check turned down {len(rejected)} candidate claim(s). They are listed for review only.\n")
+            for c in rejected[:50]:
+                reason = (c.get("verification") or {}).get("reason", "")
+                obj = str(c.get("object") or "").replace("\n", " ")[:160]
+                lines.append(f"- {c.get('subject')} | {c.get('predicate')} | {obj} — *{reason}*")
+            if len(rejected) > 50:
+                lines.append(f"- ... and {len(rejected) - 50} more (see the Excel report)")
+            lines.append("")
+
         lines.append("---\n")
         lines.append(f"*Dossier synthesized by Heimdallr V4 Autonomous Intelligence Engine at {now_utc}.*")
 

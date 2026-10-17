@@ -214,19 +214,55 @@ def _plural(noun: str) -> str:
     return noun + "s"
 
 
+# Words people put before the actual request ("find me the which companies...",
+# "can you please tell me all the firms..."). Only these may precede the organization noun
+# when it is not at the start, so "why do companies use X" is not read as a list request.
+_REQUEST_FILLER = frozenset({
+    "please", "can", "could", "would", "will", "you", "i", "we", "want", "need", "like", "to", "know",
+    "find", "out", "list", "show", "give", "get", "tell", "search", "for", "identify", "enumerate", "name",
+    "me", "us", "the", "a", "an", "all", "some", "any", "which", "what", "who", "are", "is", "of",
+    "top", "major", "main", "key", "biggest", "largest", "leading", "known", "notable", "other", "more",
+    "about", "and", "those", "these", "them", "there", "here",
+})
+_NOT_LIST_WORDS = frozenset({"why", "how", "when", "where", "do", "does", "did", "should", "would", "could", "can", "must", "might"})
+_WHO_USES = re.compile(rf"^(?:who|whoever)\s+(?:all\s+|else\s+)?(?P<rest>{_USE_VERBS}\s+.+)$", re.IGNORECASE)
+
+
 def parse_enumeration_objective(objective: str) -> EnumerationObjective | None:
-    """Parse a list-style 'organizations that use X' objective, or return None."""
+    """Parse a list-style 'organizations that use X' objective, or return None.
+
+    The request may be phrased loosely: any run of request words may come before the
+    organization noun ("find me the which companies in uk uses the SAP ERP"), and
+    "who uses X in Y" asks for organizations too.
+    """
     if not objective or not objective.strip():
         return None
     text = re.sub(r"\s+", " ", objective.strip()).rstrip("?.! ")
-    body = _LEADING_COMMANDS.sub("", text, count=1)
+    parsed = _parse_body(objective, _LEADING_COMMANDS.sub("", text, count=1))
+    if parsed:
+        return parsed
+    who = _WHO_USES.match(text)
+    if who:
+        return _parse_body(objective, f"organizations who {who.group('rest')}")
+    for m in re.finditer(rf"\b(?:(?:{_GEO_ADJ_RE})\s+)?(?:{_NOUN_RE})\b", text, re.IGNORECASE):
+        prefix = re.findall(r"[a-z']+", text[: m.start()].lower())
+        if prefix and all(w in _REQUEST_FILLER for w in prefix):
+            parsed = _parse_body(objective, text[m.start():])
+            if parsed:
+                return parsed
+    return None
 
+
+def _parse_body(objective: str, body: str) -> EnumerationObjective | None:
     m = re.match(
         rf"^(?:(?P<geo_adj>{_GEO_ADJ_RE})\s+)?(?P<mods>(?:[A-Za-z\-]+\s+){{0,2}}?)(?P<noun>{_NOUN_RE})\b(?P<rest>.*)$",
         body,
         re.IGNORECASE,
     )
     if not m:
+        return None
+    # "why do companies use X" / "how do banks use X" ask about reasons or manner, not for a list.
+    if set(m.group("mods").lower().split()) & _NOT_LIST_WORDS:
         return None
     noun = m.group("noun").lower()
     rest = m.group("rest")

@@ -117,6 +117,8 @@ class OSINTExcelExporter:
 
         self._build_summary_sheet(wb, investigation_data, target_name)
         self._build_claims_sheet(wb, investigation_data)
+        if investigation_data.get("rejected_claims"):
+            self._build_rejected_sheet(wb, investigation_data)
         self._build_entities_sheet(wb, investigation_data)
         self._build_evidence_sheet(wb, investigation_data)
         self._build_audit_sheet(wb, investigation_data)
@@ -317,6 +319,29 @@ class OSINTExcelExporter:
             c_cit_cell.alignment = Alignment(vertical="center", wrap_text=True)
             row_idx += 1
 
+        auto_fit_columns(ws)
+
+    def _build_rejected_sheet(self, wb: openpyxl.Workbook, data: dict[str, Any]) -> None:
+        """Candidates the evidence check turned down, with its reason; not findings."""
+        ws = wb.create_sheet(title="Rejected Candidates")
+        headers = ["Subject", "Relationship", "Value", "Why rejected", "Source"]
+        for col_idx, h in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col_idx, value=h)
+            cell.font = HEADER_FONT
+            cell.fill = PatternFill(start_color=COLOR_HEADER_BG, end_color=COLOR_HEADER_BG, fill_type="solid")
+            cell.border = THIN_BORDER
+        for row_idx, claim in enumerate(data.get("rejected_claims", []), start=2):
+            values = (
+                claim.get("subject") or "",
+                claim.get("predicate") or "",
+                str(claim.get("object") or "")[:300],
+                (claim.get("verification") or {}).get("reason", ""),
+                claim.get("citation") or NO_SOURCE_RECORDED,
+            )
+            for col_idx, value in enumerate(values, start=1):
+                c = ws.cell(row=row_idx, column=col_idx, value=value)
+                c.font = BODY_FONT
+                c.border = THIN_BORDER
         auto_fit_columns(ws)
 
     def _build_entities_sheet(self, wb: openpyxl.Workbook, data: dict[str, Any]) -> None:
