@@ -118,6 +118,15 @@ class ControlledLiveWebRetriever:
 
         return True, None
 
+    def is_known_blocked(self, url: str) -> bool:
+        """True when this site's robots.txt, already fetched, rules the URL out (no network call)."""
+        parsed = urlparse(url)
+        cached = self._robots.get(f"{parsed.scheme}://{parsed.netloc.lower()}")
+        if cached is None:
+            return False
+        parser, _ = cached
+        return parser is None or not parser.can_fetch(ROBOTS_AGENT, url)
+
     async def _robots_allows(self, url: str) -> tuple[bool, str | None]:
         """Honour the site's robots.txt for our user agent (RFC 9309), cached per host.
 

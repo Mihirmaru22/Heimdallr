@@ -170,10 +170,17 @@ def _display_object(raw: str) -> str:
     """Tidy the user's object phrase without changing what it names."""
     obj = raw.strip().strip("\"'").strip(" .,;:?!")
     obj = re.sub(r"\s+", " ", obj)
+    # A leading article or determiner is grammar, not part of the product name:
+    # "uses the teamcenter" names Teamcenter, and sources never write "the Teamcenter".
+    obj = re.sub(r"^(?:the|a|an|this|that|these|those|our|their|its|some|any)\s+", "", obj, flags=re.IGNORECASE)
+    all_lower = obj == obj.lower()
     words = []
     for w in obj.split(" "):
         # Shouted words ("TEAMCENTER") are normalized; short acronyms ("SAP", "ERP") are kept.
         if len(w) > 4 and w.isupper() and w.isalpha():
+            w = w.capitalize()
+        # An all-lowercase object ("teamcenter") is shown as a name; matching is case-insensitive.
+        elif all_lower and w.isalpha() and len(w) > 3:
             w = w.capitalize()
         words.append(w)
     return " ".join(words)

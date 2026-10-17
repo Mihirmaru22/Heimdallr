@@ -74,12 +74,26 @@ _FUNCTION_WORDS = {
     "if", "when", "while", "since", "after", "before", "during", "today", "now", "also", "then", "this",
     "that", "these", "those", "it", "its", "we", "our", "you", "your", "they", "their", "he", "she",
     "there", "here", "what", "which", "who", "how", "why", "all", "some", "many", "most", "more", "other",
+    "what's", "how's", "here's", "it's",
+}
+_DATE_WORDS = {
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+    "january", "february", "march", "april", "june", "july", "august", "september", "october", "november", "december",
+    "mon", "tue", "wed", "thu", "fri", "sat", "sun", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+}
+# Plural nouns that describe a set of organizations rather than name one.
+_GROUP_NOUNS = {
+    "companies", "customers", "organizations", "organisations", "users", "firms", "businesses", "clients",
+    "manufacturers", "vendors", "enterprises", "suppliers", "brands", "teams", "industries",
 }
 _USE_VERB_PHRASE = (
     r"(?:(?:has|have|had|is|are|was|were)\s+)?(?:been\s+|now\s+|also\s+|recently\s+)?"
     r"(?:uses|use|used|using|deploys|deployed|deploying|runs|ran|running|implemented|implements|implementing|"
     r"adopted|adopts|adopting|selected|selects|chose|chosen|standardi[sz]ed\s+on|standardi[sz]es\s+on|"
-    r"migrated\s+to|moved\s+to|rolled\s+out|relies\s+on|relied\s+on|licensed|licenses|upgraded\s+to)"
+    r"migrated\s+to|moved\s+to|rolled\s+out|relies\s+on|relied\s+on|licensed|licenses|upgraded\s+to|"
+    r"(?:begun|began|started|starts|continues)\s+(?:to\s+)?(?:use|using|deploy|deploying|implement|implementing|roll\s+out|rolling\s+out)|"
+    r"leverag(?:es|ed|ing)|(?:is|are|was|were)\s+leveraging|chooses|choose|choosing|picks|picked|"
+    r"switch(?:es|ed)?\s+to|went\s+live\s+(?:on|with)|goes\s+live\s+(?:on|with))"
 )
 
 
@@ -165,8 +179,10 @@ def clean_company_name(raw_name: str, excluded_words: set[str] | None = None) ->
         return ""
     if all(w.lower() in _HEADER_WORDS for w in words):
         return ""
-    if all(w.lower() in _FUNCTION_WORDS or w.isdigit() for w in words):
+    if all(w.lower() in _FUNCTION_WORDS or w.lower().rstrip(".") in _DATE_WORDS or w.isdigit() for w in words):
         return ""
+    if any(w.lower() in _GROUP_NOUNS for w in words):
+        return ""  # "Verified Companies", "PLM Software Customers": a description of a group, not a name
     if not _NAME_TOKEN_RE.match(words[0]):
         return ""
     return clean
@@ -296,7 +312,7 @@ def _parse_prose(prefix: str, excluded_words: set[str]) -> dict[str, Any] | None
     """Parse '<Company> [has] <usage verb> [the] [Vendor] ' immediately preceding a product mention."""
     name_run = r"(?:[A-Z0-9][\w&'.\-]*|[a-z]{1,3}[A-Z][\w&'.\-]*)(?:\s+(?:(?:&|and|of|de)\s+)?(?:[A-Z0-9][\w&'.\-]*|[a-z]{1,3}[A-Z][\w&'.\-]*)){0,5}"
     m = re.search(
-        rf"(?:^|(?<=[\s,(]))(?P<name>{name_run})\s+{_USE_VERB_PHRASE}\s+(?:the\s+|its\s+|their\s+)?(?:[A-Z][\w&\-]*\s+){{0,2}}$",
+        rf"(?:^|(?<=[\s,(]))(?P<name>{name_run})\s+{_USE_VERB_PHRASE}\s+(?:the\s+|its\s+|their\s+)?(?:[A-Z][\w&\-]*['’]?s?\s+){{0,2}}$",
         prefix,
     )
     if not m:
@@ -304,12 +320,21 @@ def _parse_prose(prefix: str, excluded_words: set[str]) -> dict[str, Any] | None
     name = m.group("name")
     # Drop sentence-initial filler ("In 2024 Acme ...", "Today Acme ...") conservatively.
     words = name.split()
-    while len(words) > 1 and (words[0].lower() in {"in", "today", "now", "recently", "also", "the"} or words[0].isdigit()):
+    while len(words) > 1 and (words[0].lower() in _FUNCTION_WORDS or words[0].isdigit()):
         words.pop(0)
     company = clean_company_name(" ".join(words), excluded_words)
     if not company:
         return None
     return {"company": company, "name_start": m.start("name") + name.find(words[0]), "country": "", "industry": "", "employees": "", "revenue": ""}
+
+
+# Sentence, line or "|" breaks; a period after a single capital ("U.S. Air Force") is an abbreviation.
+_SENTENCE_BREAK = r"(?<!\b[A-Z])[.!?](?=\s)|\n|\|"
+
+
+def _countries_in(passage: str) -> set[str]:
+    """Countries named (capitalized) in a passage."""
+    return {normalize_geography(g) for g in _GEO_TOKEN_RE.findall(passage) if g[:1].isupper()} - {""}
 
 
 _POSTING_BLOCK_RE = re.compile(r"(?m)^Job posting(?::[^\n]*)?$")
@@ -322,6 +347,38 @@ def _posting_country(location: str) -> str:
         if country:
             return country
     return ""
+
+
+_JOB_URL_RE = re.compile(r"/(?:jobs?|careers?|positions?|vacanc(?:y|ies)|requisitions?)(?:/|$|\?)|myworkdayjobs\.com|greenhouse\.io|lever\.co|ashbyhq\.com|smartrecruiters\.com|workable\.com|icims\.com", re.IGNORECASE)
+_COMPANY_LABEL_RE = re.compile(r"\b(?:Company|Employer|Hiring (?:company|organi[sz]ation)):\s+", re.IGNORECASE)
+
+
+def _job_title_with_company_label(text: str, doc_url: str, product_re: re.Pattern, excluded_words: set[str]) -> tuple[str, str, str] | None:
+    """A job page (or its search snippet) whose title names the product and whose text labels the company.
+
+    E.g. "Teamcenter Administrator - Acme Space ... Company: Acme Space". The employer is the
+    labelled name, accepted only when the title (first line) also carries it; the quote runs
+    from the title through the label, so both terms are in one passage of the source's text.
+    """
+    if not doc_url or not _JOB_URL_RE.search(doc_url):
+        return None
+    title_end = text.find("\n")
+    title = text[: title_end if title_end >= 0 else len(text)]
+    m_prod = product_re.search(title)
+    if not m_prod:
+        return None
+    m_label = _COMPANY_LABEL_RE.search(text, title_end if title_end >= 0 else 0)
+    if not m_label:
+        return None
+    following = re.findall(r"[^\s,;|()]+", text[m_label.end(): m_label.end() + 120])
+    for n in range(min(6, len(following)), 0, -1):
+        candidate = " ".join(following[:n])
+        if candidate in title and candidate.lower() not in title[m_prod.start(): m_prod.end()].lower():
+            employer = clean_company_name(candidate, excluded_words)
+            if employer == candidate:
+                end = m_label.end() + text[m_label.end():].find(candidate) + len(candidate)
+                return employer, text[: end].strip(), m_prod.group(0)
+    return None
 
 
 def extract_job_posting_deployments(
@@ -343,6 +400,16 @@ def extract_job_posting_deployments(
     excluded_words = {w.lower() for n in names for w in re.findall(r"[\w&\-]+", n)}
     starts = [m.start() for m in _POSTING_BLOCK_RE.finditer(text)]
     findings: list[TechnographicFinding] = []
+    if not starts:
+        titled = _job_title_with_company_label(text, doc_url, product_re, excluded_words)
+        if titled:
+            employer, quote, alias = titled
+            findings.append(TechnographicFinding(
+                company=employer, software=names[0], evidence_quote=quote, source_url=doc_url, matched_alias=alias,
+                status="SUPPORTED", confidence=None, source_type="employer_job_posting",
+                qualifier="Employer job posting naming the product (hiring requirement)",
+            ))
+        return findings
     for i, start in enumerate(starts):
         end = starts[i + 1] if i + 1 < len(starts) else len(text)
         block = text[start:end]
@@ -422,7 +489,7 @@ def extract_technographic_deployments(
         prefix_full = text[seg_start:m.start()]
         # Rows and sentences do not span sentence breaks, line breaks or "|" separators.
         boundary = 0
-        for b in re.finditer(r"[.!?](?=\s)|\n|\|", prefix_full):
+        for b in re.finditer(_SENTENCE_BREAK, prefix_full):
             boundary = b.end()
         offset = seg_start + boundary
         prefix = prefix_full[boundary:]
@@ -438,6 +505,13 @@ def extract_technographic_deployments(
             continue
         if geography and parsed["country"] and parsed["country"] != geography:
             continue
+        if geography and not parsed["country"]:
+            # A usage sentence that places the deployment in other countries only is out of scope.
+            tail_end = re.search(_SENTENCE_BREAK, text[m.end():])
+            sentence = prefix + text[m.start(): m.end() + (tail_end.start() if tail_end else 300)]
+            named = _countries_in(sentence)
+            if named and geography not in named:
+                continue
         company = parsed["company"]
         if company in extracted:
             continue

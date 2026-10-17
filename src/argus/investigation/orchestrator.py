@@ -867,6 +867,13 @@ class InvestigationEngine:
             })
         if not denials:
             return
+        # Candidate pages the site's robots.txt (already fetched) rules out are not
+        # queued for retrieval: each would spend a research step on a known refusal.
+        known_blocked = getattr(self.corpus, "is_known_blocked", None)
+        if callable(known_blocked):
+            for src in getattr(state, "discovered_sources", []) or []:
+                if src.get("status") == "DISCOVERED" and src.get("url") and known_blocked(src["url"]):
+                    src["status"] = "BLOCKED_BY_ROBOTS"
         state.retrieval_denials.extend(denials)
         obs["retrieval_denials"] = denials
         if not obs.get("documents"):

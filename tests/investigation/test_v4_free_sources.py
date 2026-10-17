@@ -214,3 +214,60 @@ def test_list_question_keeps_searching_after_first_answer_and_reports_consistent
     assert set(discovery["search_queries"]) <= set(seen), "every discovery query runs, not just the first"
     if state.stop_state.stop_reason == "OBJECTIVE_SATISFIED":
         assert not any(lim.startswith("Unresolved critical gap") for lim in state.generate_limitations())
+
+
+# --- Second live run (Teamcenter, United States): texts as the run retrieved them ---------
+
+def test_article_before_product_is_not_part_of_its_name():
+    enum = parse_enumeration_objective("which companies in usa uses the teamcenter")
+    assert enum.object == "Teamcenter" and enum.geography == "United States"
+    assert parse_enumeration_objective("companies using the Salesforce CRM in Germany").object == "Salesforce CRM"
+
+
+@pytest.mark.parametrize("text, company", [
+    ("U.S. Air Force uses Teamcenter PLM  Oct 31, 2023", "U.S. Air Force"),
+    ("To ensure fleet superiority and mission readiness, the U.S. Air Force has begun deploying Teamcenter™ as its enterprise-level product lifecycle management (PLM) solution.", "U.S. Air Force"),
+])
+def test_usage_sentences_from_the_live_run(text, company):
+    assert company in {f.company for f in extract_technographic_deployments(text, products=["Teamcenter"], geography="United States")}
+
+
+def test_usage_placed_in_another_country_is_out_of_scope():
+    text = "Tatra Trucks adopts Siemens’ Teamcenter to drive digital transformation in truck industry in Czechia - Siemens Newsroom"
+    assert extract_technographic_deployments(text, products=["Teamcenter"], geography="United States") == []
+    assert [f.company for f in extract_technographic_deployments(text, products=["Teamcenter"])] == ["Tatra Trucks"]
+
+
+def test_job_page_snippet_with_company_label_names_the_employer():
+    url = "https://boeing.wd1.myworkdayjobs.com/en-US/EXTERNAL_CAREERS/job/Teamcenter-Administrator---Millennium-Space-Systems_JR2026526282-1"
+    text = ("Teamcenter Administrator - Millennium Space Systems\n\nTeamcenter Administrator - Millennium Space Systems "
+            "Company: Millennium Space Systems Millennium Space Systems, a part of Boeing Defense, Space and Security (BDS), "
+            "is a fast, agile small satellite company focused on national security space.")
+    [f] = extract_technographic_deployments(text, doc_url=url, products=["Teamcenter"], geography="United States")
+    assert f.company == "Millennium Space Systems"
+    claim = verify_claim({"subject": f.company, "predicate": "USES_SOFTWARE", "object": "Teamcenter", "status": f.status,
+                          "evidence_id": "e", "source_url": url, "source_passage": f.evidence_quote},
+                         [{"evidence_id": "e", "url": url, "text": text}])
+    assert is_verified(claim)
+    # The same title on a page that is not a job posting is not read as one.
+    assert extract_technographic_deployments(text, doc_url="https://example.com/blog/post", products=["Teamcenter"]) == []
+
+
+def test_robots_refusal_is_remembered_without_new_requests(monkeypatch):
+    monkeypatch.setattr(SearchPipeline, "is_safe_url", staticmethod(lambda url: True))
+    monkeypatch.setattr(controller_mod, "create_safe_async_client", _mock_client_factory({
+        "news.example/robots.txt": httpx.Response(200, text="User-agent: *\nDisallow: /rss/articles/\n"),
+    }))
+    retriever = ControlledLiveWebRetriever(limits=ControlledRetrievalLimits(enforce_ssrf_protection=False), snapshot_dir=tempfile.mkdtemp())
+    assert not retriever.is_known_blocked("https://news.example/rss/articles/b")  # robots not fetched yet
+    assert retriever.get_by_url("https://news.example/rss/articles/a") is None
+    assert retriever.is_known_blocked("https://news.example/rss/articles/b")
+    assert not retriever.is_known_blocked("https://news.example/about")
+
+
+@pytest.mark.parametrize("text", [
+    "Real-world PLM examples | Customer experiences with Teamcenter  Sep 8, 2026 · Explore how organizations use Teamcenter.",
+    "As of 2026, 1,361 verified companies use Siemens Teamcenter PLM Software across industries.",
+])
+def test_dates_and_group_descriptions_are_not_companies(text):
+    assert extract_technographic_deployments(text, products=["Siemens Teamcenter", "Teamcenter"]) == []
