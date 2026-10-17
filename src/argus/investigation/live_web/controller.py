@@ -34,8 +34,11 @@ from argus.investigation.live_web.models import (
     SourceIndependenceProfile,
 )
 from argus.search.pipeline import SearchPipeline, create_safe_async_client
+from argus.search.wikipedia import research_user_agent
 
 logger = logging.getLogger(__name__)
+
+ROBOTS_AGENT = "Heimdallr-Research-Bot"
 
 SNAPSHOT_DIR = Path("/data/shared/project/PlayGround/Argus/evals/evidence_snapshots")
 
@@ -59,6 +62,7 @@ class ControlledLiveWebRetriever:
         self.evidence_records: list[LiveWebEvidenceRecord] = []
         self.cached_documents: dict[str, InvestigationDocument] = {}
         self._discoverable_entities: set[str] = set()
+        self._robots: dict[str, tuple[Any, str]] = {}
 
     def reset_task_budget(self) -> None:
         """Reset counters for a new investigation task."""
@@ -114,6 +118,38 @@ class ControlledLiveWebRetriever:
 
         return True, None
 
+    async def _robots_allows(self, url: str) -> tuple[bool, str | None]:
+        """Honour the site's robots.txt for our user agent (RFC 9309), cached per host.
+
+        A missing robots.txt (4xx) allows everything; an unreachable one (5xx or no
+        connection) is treated as disallowing, as the RFC requires.
+        """
+        from urllib.robotparser import RobotFileParser
+
+        parsed = urlparse(url)
+        origin = f"{parsed.scheme}://{parsed.netloc.lower()}"
+        if origin not in self._robots:
+            parser: RobotFileParser | None = RobotFileParser()
+            status_note = ""
+            try:
+                async with create_safe_async_client(timeout=self.limits.request_timeout_seconds) as client:
+                    resp = await client.get(f"{origin}/robots.txt", headers={"User-Agent": ROBOTS_AGENT}, follow_redirects=True)
+                if 400 <= resp.status_code < 500:
+                    parser.parse([])
+                elif resp.status_code >= 500:
+                    parser, status_note = None, f"HTTP {resp.status_code}"
+                else:
+                    parser.parse(resp.text.splitlines())
+            except Exception as exc:
+                parser, status_note = None, type(exc).__name__
+            self._robots[origin] = (parser, status_note)
+        parser, note = self._robots[origin]
+        if parser is None:
+            return False, f"robots.txt for {parsed.netloc} unreachable ({note}); not fetching"
+        if not parser.can_fetch(ROBOTS_AGENT, url):
+            return False, f"robots.txt of {parsed.netloc} disallows this page"
+        return True, None
+
     async def fetch_url_content(self, url: str) -> LiveWebEvidenceRecord:
         """Fetch URL content through safe client with redirect validation, size limits, and timeouts."""
         canon = self._canonicalize_url(url)
@@ -158,6 +194,27 @@ class ControlledLiveWebRetriever:
             self.evidence_records.append(denied)
             return denied
 
+        if self.limits.respect_robots_txt:
+            allowed, robots_reason = await self._robots_allows(url)
+            if not allowed:
+                denied = LiveWebEvidenceRecord(
+                    evidence_id=f"ev_err_{hashlib.md5(url.encode()).hexdigest()[:8]}",
+                    original_url=url,
+                    final_url=url,
+                    retrieval_timestamp=datetime.now(timezone.utc).isoformat(),
+                    http_status=403,
+                    title="Policy Rejection",
+                    domain=urlparse(url).netloc,
+                    publisher="",
+                    extracted_text="",
+                    content_hash="",
+                    source_type="live_web",
+                    extraction_method="blocked",
+                    retrieval_error=robots_reason,
+                )
+                self.evidence_records.append(denied)
+                return denied
+
         host = urlparse(url).netloc.lower()
         self.host_counts[host] = self.host_counts.get(host, 0) + 1
         self.requests_made += 1
@@ -165,7 +222,7 @@ class ControlledLiveWebRetriever:
 
         client = create_safe_async_client()
         headers = {
-            "User-Agent": "Heimdallr-Research-Bot/3.0 (+https://argus.internal/security-policy; bot@argus.internal)",
+            "User-Agent": research_user_agent().replace("Heimdallr-Research", ROBOTS_AGENT),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         }
 
@@ -174,6 +231,8 @@ class ControlledLiveWebRetriever:
         final_url = url
         http_status = 0
         raw_content = ""
+        raw_bytes = b""
+        content_type = ""
         error_msg = None
 
         while retries <= self.limits.max_retries:
@@ -201,7 +260,9 @@ class ControlledLiveWebRetriever:
                     continue
 
                 if http_status == 200:
-                    raw_content = resp.text[:self.limits.max_response_bytes]
+                    raw_bytes = resp.content[:self.limits.max_response_bytes]
+                    content_type = resp.headers.get("content-type", "")
+                    raw_content = "ok" if raw_bytes else ""
                     break
                 else:
                     error_msg = f"HTTP {http_status}"
@@ -215,18 +276,17 @@ class ControlledLiveWebRetriever:
                 if retries > self.limits.max_retries or (http_status == 200 and raw_content):
                     await client.aclose()
 
-        # Extract title and text
+        # Extract title and readable text (main content, JSON-LD job posts, PDF text)
         extracted_text = ""
         title = ""
+        extraction_method = "safe_html_text"
         if raw_content:
-            # Strip HTML tags cleanly
-            m_title = re.search(r"<title>(.*?)</title>", raw_content, re.IGNORECASE | re.DOTALL)
-            title = m_title.group(1).strip() if m_title else urlparse(final_url).netloc
+            from argus.investigation.live_web.page_reader import read_page
 
-            # Strip scripts, styles, and tags
-            no_scripts = re.sub(r"<(script|style).*?>.*?</\1>", " ", raw_content, flags=re.IGNORECASE | re.DOTALL)
-            clean_text = re.sub(r"<[^>]+>", " ", no_scripts)
-            extracted_text = " ".join(clean_text.split())
+            page = read_page(raw_bytes, content_type, fallback_title=urlparse(final_url).netloc)
+            title, extracted_text, extraction_method = page.title, page.text, page.method
+            if page.note and not extracted_text:
+                error_msg = page.note
 
         content_hash = hashlib.sha256(extracted_text.encode("utf-8")).hexdigest() if extracted_text else ""
 
@@ -249,7 +309,7 @@ class ControlledLiveWebRetriever:
             extracted_text=extracted_text,
             content_hash=content_hash,
             source_type="live_web",
-            extraction_method="safe_html_text",
+            extraction_method=extraction_method,
             retrieval_error=error_msg,
             canonical_url=canon,
         )
@@ -318,7 +378,7 @@ class ControlledLiveWebRetriever:
         return self.cached_documents
 
     def search(self, query: str, limit: int = 5) -> list[InvestigationDocument]:
-        """Execute live search via DuckDuckGo and return safe InvestigationDocuments."""
+        """Execute live search on the configured free sources and return safe InvestigationDocuments."""
         if not query or not query.strip():
             return []
         q_str = query.strip()
@@ -375,85 +435,94 @@ class ControlledLiveWebRetriever:
         """Lookup document by doc_id."""
         return self.cached_documents.get(doc_id)
 
+    def _search_denial(self, query: str, host: str, reason: str | None) -> None:
+        logger.warning("Live search denied by policy for query '%s' on %s: %s", query, host, reason)
+        self.evidence_records.append(LiveWebEvidenceRecord(
+            evidence_id=f"ev_err_search_{hashlib.md5(f'{host}|{query}'.encode()).hexdigest()[:8]}",
+            original_url=f"https://{host}",
+            final_url=f"https://{host}",
+            retrieval_timestamp=datetime.now(timezone.utc).isoformat(),
+            http_status=429 if "budget" in (reason or "").lower() or "limit" in (reason or "").lower() else 403,
+            title="Policy Rejection",
+            domain=host,
+            publisher=host,
+            extracted_text="",
+            content_hash="",
+            source_type="live_search_result",
+            extraction_method="blocked",
+            retrieval_error=reason,
+        ))
+
     async def _async_search(self, query: str, limit: int = 5) -> list[InvestigationDocument]:
-        """Perform search and safe retrieval via DuckDuckGoSearchProvider under budget and host accounting."""
+        """Search every configured free source under budget and host accounting, then merge results."""
+        from argus.investigation.live_web.search_sources import get_search_source, merge_results
+        from argus.search.models import SearchQuery
+
+        want = max(limit, self.limits.min_results_per_search)
+        providers = []
+        for name in self.limits.search_providers:
+            source = get_search_source(name)
+            if source is None:
+                continue
+            permitted, reason = self.is_url_permitted(f"https://{source.host}")
+            if not permitted:
+                self._search_denial(query, source.host, reason)
+                continue
+            try:
+                provider = source.make(self.limits.request_timeout_seconds)
+            except Exception as exc:  # e.g. an optional library missing on this machine
+                logger.warning("Search source %s unavailable: %s", source.name, exc)
+                continue
+            self.host_counts[source.host] = self.host_counts.get(source.host, 0) + 1
+            self.requests_made += 1
+            providers.append((source, provider))
+
+        async def run(provider):
+            return await provider.search(SearchQuery(query=query, num_results=min(50, want)))
+
+        responses = await asyncio.gather(*(run(p) for _, p in providers), return_exceptions=True)
+        per_source = []
+        for (source, _), resp in zip(providers, responses):
+            if isinstance(resp, BaseException):
+                logger.warning("Live search error on %s for query '%s': %s", source.name, query, resp)
+                continue
+            per_source.append((source.name, [r for r in resp.results if r.url]))
+
         results: list[InvestigationDocument] = []
-        search_host = "duckduckgo.com"
-        search_url = f"https://{search_host}"
-
-        permitted, reason = self.is_url_permitted(search_url)
-        if not permitted:
-            logger.warning("Live search denied by policy for query '%s': %s", query, reason)
-            ev_record = LiveWebEvidenceRecord(
-                evidence_id=f"ev_err_search_{hashlib.md5(query.encode()).hexdigest()[:8]}",
-                original_url=search_url,
-                final_url=search_url,
-                retrieval_timestamp=datetime.now(timezone.utc).isoformat(),
-                http_status=429 if "budget" in (reason or "").lower() or "limit" in (reason or "").lower() else 403,
-                title="Policy Rejection",
-                domain=search_host,
-                publisher=search_host,
-                extracted_text="",
-                content_hash="",
-                source_type="live_search_result",
-                extraction_method="blocked",
-                retrieval_error=reason,
+        for merged in merge_results(per_source, want):
+            r = merged.result
+            href, title, snippet = r.url, r.title, r.snippet
+            doc_id = f"doc_live_{hashlib.md5(href.encode()).hexdigest()[:8]}"
+            doc = InvestigationDocument(
+                doc_id=doc_id,
+                title=title,
+                url=href,
+                text_content=f"{title}\n\n{snippet}",
+                source_type="live_search",
+                published_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             )
-            self.evidence_records.append(ev_record)
-            return results
+            self.cached_documents[doc_id] = doc
+            results.append(doc)
 
-        self.host_counts[search_host] = self.host_counts.get(search_host, 0) + 1
-        self.requests_made += 1
+            # Save snapshot for reproducibility
+            snap_hash = hashlib.sha256(snippet.encode()).hexdigest()
+            snap_file = self.snapshot_dir / f"{snap_hash[:16]}.txt"
+            if not snap_file.exists():
+                snap_file.write_text(f"URL: {href}\nTITLE: {title}\nDATE: {datetime.now(timezone.utc).isoformat()}\n\n{snippet}", encoding="utf-8")
 
-        try:
-            from argus.search.duckduckgo import DuckDuckGoSearchProvider
-            from argus.search.models import SearchQuery
-
-            provider = DuckDuckGoSearchProvider(timeout=self.limits.request_timeout_seconds)
-            search_resp = await provider.search(SearchQuery(query=query, max_results=limit))
-
-            for r in search_resp.results:
-                href = r.url
-                title = r.title
-                snippet = r.snippet
-                if not href:
-                    continue
-
-                doc_id = f"doc_live_{hashlib.md5(href.encode()).hexdigest()[:8]}"
-                doc = InvestigationDocument(
-                    doc_id=doc_id,
-                    title=title,
-                    url=href,
-                    text_content=f"{title}\n\n{snippet}",
-                    source_type="live_search",
-                    published_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                )
-                self.cached_documents[doc_id] = doc
-                results.append(doc)
-
-                # Save snapshot for reproducibility
-                snap_hash = hashlib.sha256(snippet.encode()).hexdigest()
-                snap_file = self.snapshot_dir / f"{snap_hash[:16]}.txt"
-                if not snap_file.exists():
-                    snap_file.write_text(f"URL: {href}\nTITLE: {title}\nDATE: {datetime.now(timezone.utc).isoformat()}\n\n{snippet}", encoding="utf-8")
-
-                ev_record = LiveWebEvidenceRecord(
-                    evidence_id=f"ev_search_{doc_id}",
-                    original_url=href,
-                    final_url=href,
-                    retrieval_timestamp=datetime.now(timezone.utc).isoformat(),
-                    http_status=200,
-                    title=title,
-                    domain=urlparse(href).netloc,
-                    publisher=urlparse(href).netloc,
-                    extracted_text=f"{title}\n{snippet}",
-                    content_hash=snap_hash,
-                    source_type="live_search_result",
-                    extraction_method="ddgs_snippet",
-                )
-                self.evidence_records.append(ev_record)
-
-        except Exception as e:
-            logger.warning("Live search error for query '%s': %s", query, e)
+            self.evidence_records.append(LiveWebEvidenceRecord(
+                evidence_id=f"ev_search_{doc_id}",
+                original_url=href,
+                final_url=href,
+                retrieval_timestamp=datetime.now(timezone.utc).isoformat(),
+                http_status=200,
+                title=title,
+                domain=urlparse(href).netloc,
+                publisher=urlparse(href).netloc,
+                extracted_text=f"{title}\n{snippet}",
+                content_hash=snap_hash,
+                source_type="live_search_result",
+                extraction_method="ddgs_snippet" if merged.engines == ["duckduckgo"] else "+".join(merged.engines) + "_snippet",
+            ))
 
         return results

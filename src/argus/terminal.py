@@ -34,6 +34,7 @@ from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence
 from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
 from argus.investigation.claim_verification import is_verified
 from argus.investigation.live_web.controller import ControlledLiveWebRetriever
+from argus.investigation.live_web.models import ControlledRetrievalLimits
 from argus.investigation.orchestrator import InvestigationEngine
 from argus.investigation.state import InvestigationState
 
@@ -299,6 +300,10 @@ def format_status_badge(status: str, con: Console | None = None) -> Text:
         return Text(f" {s} ", style="dim white on grey23")
 
 
+# One research action per step; a deep run reads many pages, so it needs more than V3's 15.
+DEEP_RUN_STEPS = 60
+
+
 class OSINTTerminal:
     """Coordinates terminal user interactions, engine execution, and report delivery."""
 
@@ -307,7 +312,8 @@ class OSINTTerminal:
         self.export_dir.mkdir(parents=True, exist_ok=True)
         self.exporter = OSINTExcelExporter(export_dir=self.export_dir)
         self.md_exporter = OSINTMarkdownExporter(export_dir=self.export_dir)
-        self.corpus = corpus if corpus is not None else ControlledLiveWebRetriever()
+        # Full research run: every free search source and a budget sized for reading pages.
+        self.corpus = corpus if corpus is not None else ControlledLiveWebRetriever(limits=ControlledRetrievalLimits.deep())
         self.engine = InvestigationEngine(corpus=self.corpus, simulated_registries=False)
 
     def run_cli(
@@ -365,8 +371,8 @@ class OSINTTerminal:
         if hasattr(self.corpus, "reset_task_budget"):
             self.corpus.reset_task_budget()
 
-        # Legitimate execution safeguard limit (default 15 steps if unspecified)
-        safety_budget = max_steps if (max_steps is not None and max_steps > 0) else 15
+        # Execution safeguard: at most DEEP_RUN_STEPS research steps unless a caller sets fewer.
+        safety_budget = max_steps if (max_steps is not None and max_steps > 0) else DEEP_RUN_STEPS
 
         with Progress(
             SpinnerColumn("dots", style="bright_green"),

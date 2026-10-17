@@ -236,7 +236,7 @@ class TestInvestigationInputCompatibility:
         assert sig.parameters["depth"].default is None
 
     def test_execution_ceiling_preserved_when_depth_unspecified(self):
-        """When depth is None, internal execution safeguard ceiling of 15 steps is enforced."""
+        """When depth is None, the deep-run safeguard ceiling (DEEP_RUN_STEPS) is enforced."""
         terminal = OSINTTerminal()
         with patch.object(terminal.engine, "start_investigation", wraps=terminal.engine.start_investigation) as mock_start:
             with patch.object(terminal.engine, "execute_step") as mock_step:
@@ -259,7 +259,8 @@ class TestInvestigationInputCompatibility:
 
                 mock_start.assert_called_once()
                 contract = mock_start.call_args[1].get("contract") or mock_start.call_args[0][1]
-                assert contract["max_steps"] == 15
+                from argus.terminal import DEEP_RUN_STEPS
+                assert contract["max_steps"] == DEEP_RUN_STEPS
 
     def test_live_retrieval_initialized_by_default(self):
         """ControlledLiveWebRetriever is wired to production OSINTTerminal by default."""

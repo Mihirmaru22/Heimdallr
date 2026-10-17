@@ -52,6 +52,24 @@ class ControlledRetrievalLimits:
     max_response_bytes: int = 1_048_576  # 1 MB
     respect_robots_txt: bool = True
     enforce_ssrf_protection: bool = True
+    # Free search sources queried per search (see live_web/search_sources.py).
+    search_providers: tuple[str, ...] = ("duckduckgo",)
+    # Return at least this many merged results per search, whatever the caller's limit.
+    min_results_per_search: int = 0
+
+    @classmethod
+    def deep(cls) -> "ControlledRetrievalLimits":
+        """Budget for a full research run on the user's machine: every free source, more pages."""
+        from argus.investigation.live_web.search_sources import FREE_SEARCH_SOURCES
+
+        return cls(
+            max_requests_per_task=200,
+            max_duration_seconds=900.0,
+            max_requests_per_host=40,
+            request_timeout_seconds=15.0,
+            search_providers=FREE_SEARCH_SOURCES,
+            min_results_per_search=8,
+        )
 
 
 @dataclass

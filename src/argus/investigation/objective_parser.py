@@ -131,6 +131,12 @@ class EnumerationObjective:
         noun, obj, ctx, geo = self._query_parts()
         return [f"{noun} using {obj}{ctx}{geo}", f"{obj} customers{ctx}{geo}"]
 
+    def job_post_queries(self) -> list[str]:
+        """Queries for employers' public job posts naming the object (free job boards and career pages)."""
+        _, obj, _, geo = self._query_parts()
+        sites = ("boards.greenhouse.io", "jobs.lever.co", "jobs.ashbyhq.com", "myworkdayjobs.com")
+        return [f'"{obj}" jobs{geo}', *(f'"{obj}" site:{site}' for site in sites)]
+
     def corroboration_queries(self) -> list[str]:
         """Queries aimed at first-party or independent confirmation rather than aggregator lists."""
         _, obj, ctx, geo = self._query_parts()

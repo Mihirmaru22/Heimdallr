@@ -294,6 +294,75 @@ def _parse_prose(prefix: str, excluded_words: set[str]) -> dict[str, Any] | None
     return {"company": company, "name_start": m.start("name") + name.find(words[0]), "country": "", "industry": "", "employees": "", "revenue": ""}
 
 
+_POSTING_BLOCK_RE = re.compile(r"(?m)^Job posting(?::[^\n]*)?$")
+
+
+def _posting_country(location: str) -> str:
+    """Country named in a job location ("Austin, Texas, United States" -> "United States"), else ""."""
+    for part in reversed([p.strip() for p in re.split(r"[,;/()\-]", location or "") if p.strip()]):
+        country = normalize_geography(part)
+        if country:
+            return country
+    return ""
+
+
+def extract_job_posting_deployments(
+    text: str,
+    doc_url: str,
+    names: list[str],
+    geography: str | None = None,
+) -> list[TechnographicFinding]:
+    """Employers whose structured job posting (schema.org JobPosting) names the product.
+
+    The page reader renders each posting as "Job posting: <title>", "Employer: <name>",
+    "Location: ...", then the description. The evidence quote is the source's own text from
+    the posting line through the line naming the product, so the gate can ground both the
+    employer and the product in one passage.
+    """
+    if not names:
+        return []
+    product_re = re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(n) for n in names) + r")(?![\w-])", re.IGNORECASE)
+    excluded_words = {w.lower() for n in names for w in re.findall(r"[\w&\-]+", n)}
+    starts = [m.start() for m in _POSTING_BLOCK_RE.finditer(text)]
+    findings: list[TechnographicFinding] = []
+    for i, start in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(text)
+        block = text[start:end]
+        m_emp = re.search(r"(?m)^Employer: (.+)$", block)
+        if not m_emp:
+            continue
+        employer = clean_company_name(m_emp.group(1).strip(), excluded_words)
+        if not employer or employer != m_emp.group(1).strip():
+            continue
+        m_loc = re.search(r"(?m)^Location: (.+)$", block)
+        country = _posting_country(m_loc.group(1)) if m_loc else ""
+        if geography and country and country != geography:
+            continue
+        m_prod = product_re.search(block)
+        if not m_prod:
+            continue
+        if m_prod.start() < m_emp.start():
+            quote = block[: m_emp.end()]
+        else:
+            line_end = block.find("\n", m_prod.end())
+            quote = block[m_emp.start(): line_end if line_end >= 0 else len(block)]
+            if len(quote) > 1500:
+                continue  # too far apart to quote as one passage
+        findings.append(TechnographicFinding(
+            company=employer,
+            software=names[0],
+            country=country,
+            evidence_quote=quote.strip(),
+            source_url=doc_url,
+            matched_alias=m_prod.group(0),
+            status="SUPPORTED",
+            confidence=None,
+            source_type="employer_job_posting",
+            qualifier="Employer job posting naming the product (hiring requirement)",
+        ))
+    return findings
+
+
 def extract_technographic_deployments(
     text: str,
     doc_url: str = "",
@@ -325,7 +394,9 @@ def extract_technographic_deployments(
     excluded_words = {w.lower() for n in names for w in re.findall(r"[\w&\-]+", n)}
     product_re = re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(n) for n in names) + r")(?![\w-])", re.IGNORECASE)
 
-    extracted: dict[str, TechnographicFinding] = {}
+    extracted: dict[str, TechnographicFinding] = {
+        f.company: f for f in extract_job_posting_deployments(text, doc_url, names, geography)
+    }
     prev_end = 0
     for m in product_re.finditer(text):
         seg_start = prev_end

@@ -1092,7 +1092,7 @@ class InvestigationPlanner:
                 f"Sources naming specific {label}{geo} that use {obj} "
                 "(vendor customer disclosures, technographic providers, independent reporting, job postings)"
             ],
-            search_queries=enum.discovery_queries(),
+            search_queries=enum.discovery_queries() + enum.job_post_queries(),
         )
         q_corr = InvestigationQuestion(
             question_text=self._corroboration_question_text(enum),
