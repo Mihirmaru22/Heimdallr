@@ -316,6 +316,9 @@ class OSINTTerminal:
         # Full research run: every free search source and a budget sized for reading pages.
         self.corpus = corpus if corpus is not None else ControlledLiveWebRetriever(limits=ControlledRetrievalLimits.deep())
         self.engine = InvestigationEngine(corpus=self.corpus, simulated_registries=False)
+        if self.engine.llm_reader is not None and isinstance(getattr(self.corpus, "limits", None), ControlledRetrievalLimits):
+            # Model reading takes time on a local machine; the retrieval clock should not end the run early.
+            self.corpus.limits.max_duration_seconds = max(self.corpus.limits.max_duration_seconds, 3600.0)
         # Live runs are recorded (exports/runs/<run>/) so they can be replayed offline with --replay.
         self.record_runs = isinstance(self.corpus, ControlledLiveWebRetriever) if record_runs is None else record_runs
         self.run_dir: Path | None = None
@@ -473,6 +476,7 @@ class OSINTTerminal:
             "relationships": state.relationships,
             "unresolved_questions": unresolved_q,
             "limitations": limitations,
+            "page_reader": (f"{reader.label} ({reader.pages_read} pages read, {reader.failures} failures)" if (reader := getattr(self.engine, "llm_reader", None)) else None),
         }
         if recorder is not None:
             self.engine.corpus = self.corpus
@@ -568,6 +572,10 @@ class OSINTTerminal:
         if md_path:
             summary_text.append("\nMarkdown Dossier Saved to: ", style="bold bright_yellow")
             summary_text.append(str(md_path.resolve()), style="bold bright_cyan underline")
+        summary_text.append(
+            f"\nPage reader: {data['page_reader']}" if data.get("page_reader") else "\nPage reader: off (set HEIMDALLR_LLM=ollama:<model> to read pages with a local model)",
+            style="dim white",
+        )
         if data.get("run_dir"):
             summary_text.append("\nRun Recording Saved to: ", style="bold bright_yellow")
             summary_text.append(str(Path(data["run_dir"]).resolve()), style="bold bright_cyan underline")

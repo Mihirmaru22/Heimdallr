@@ -56,6 +56,8 @@ class ControlledRetrievalLimits:
     search_providers: tuple[str, ...] = ("duckduckgo",)
     # Return at least this many merged results per search, whatever the caller's limit.
     min_results_per_search: int = 0
+    # When a page refuses us or fails, read the Internet Archive's copy instead (cited as such).
+    archive_fallback: bool = False
 
     @classmethod
     def deep(cls) -> "ControlledRetrievalLimits":
@@ -69,6 +71,7 @@ class ControlledRetrievalLimits:
             request_timeout_seconds=15.0,
             search_providers=FREE_SEARCH_SOURCES,
             min_results_per_search=8,
+            archive_fallback=True,
         )
 
 

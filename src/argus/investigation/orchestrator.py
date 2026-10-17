@@ -59,7 +59,8 @@ from argus.investigation.benchmark.v2.semantic_auditor import (
     SemanticSupportStatus,
 )
 from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
-from argus.investigation.technographics import extract_technographic_deployments
+from argus.investigation.llm_reader import LLMReader, relation_predicate
+from argus.investigation.technographics import _countries_in, extract_technographic_deployments
 from argus.investigation.claim_verification import (
     POSITIVE_STATUSES,
     add_support,
@@ -76,7 +77,7 @@ from argus.investigation.resolution import (
     positive_linked_claims,
     verified_linked_claims,
 )
-from argus.investigation.objective_parser import EnumerationObjective
+from argus.investigation.objective_parser import EnumerationObjective, normalize_geography
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -305,6 +306,7 @@ class InvestigationEngine:
         corpus: Any | None = None,
         registry: CapabilityRegistry | None = None,
         simulated_registries: bool | None = None,
+        llm_reader: Any | None = None,
     ) -> None:
         self.registry = registry or (getattr(planner, "registry", None) if planner else None) or CapabilityRegistry()
         self.planner = planner or InvestigationPlanner(registry=self.registry)
@@ -316,6 +318,9 @@ class InvestigationEngine:
         # reads INVESTIGATION_CORPUS_REGISTRY), off for any supplied corpus such as the
         # live web retriever.
         self.simulated_registries = (corpus is None) if simulated_registries is None else simulated_registries
+        # Optional local language model that reads pages (HEIMDALLR_LLM); its findings pass the same gate.
+        self.llm_reader = llm_reader if llm_reader is not None else LLMReader.from_env()
+        self._llm_read_pages: set[tuple[str, str, int]] = set()
 
         # Specialist adaptations
         if self.simulated_registries:
@@ -346,6 +351,11 @@ class InvestigationEngine:
             objective_contract=contract,
             as_of_date=as_of_date,
         )
+        # Links written in the question are read first, as the user's own request for those pages.
+        for url in dict.fromkeys(u.rstrip(".,;:!?)") for u in re.findall(r"https?://[^\s<>\"'`]+", objective or "")):
+            state.add_discovered_source(url, title="Link given in the question", source_type="user_link")
+            if hasattr(self.corpus, "mark_user_requested"):
+                self.corpus.mark_user_requested(url)
         self.store.save_state(state)
         return state
 
@@ -1783,6 +1793,53 @@ class InvestigationEngine:
                     else:
                         # A repeat sighting is a candidate support; the shared gate
                         # decides whether it is an independent voice.
+                        add_support(existing_claim, verify_claim(candidate, state.evidence))
+                        if existing_claim.get("claim_id"):
+                            supported_claims_found.append(existing_claim["claim_id"])
+
+        # 3-1. Language-model reading (opt-in, local model). The model proposes findings with quotes;
+        # quotes are matched back to the page and every finding goes through the evidence gate.
+        if self.llm_reader is not None:
+            q_text = state.objective
+            if action and action.question_id and action.question_id in state.questions:
+                q_text = state.questions[action.question_id].get("question_text") or q_text
+            list_target = (enum_objective.answer_label, enum_objective.object_name, enum_objective.geography) if enum_objective else None
+            for d in docs:
+                d_text, d_url = d.get("text", ""), d.get("url", "")
+                page_key = (state.investigation_id, d_url or d.get("doc_id", ""), len(d_text))
+                if not d_text or page_key in self._llm_read_pages:
+                    continue
+                self._llm_read_pages.add(page_key)
+                for rf in self.llm_reader.read(q_text, d.get("title", ""), d_text, list_target=list_target):
+                    if enum_objective:
+                        named = next((n for n in enum_objective.object_names if term_in_passage(n, rf.quote)), None)
+                        if not named:
+                            continue
+                        geo = enum_objective.geography
+                        places = _countries_in(rf.quote) | ({normalize_geography(rf.country)} - {""})
+                        if geo and places and geo not in places:
+                            continue  # the page places this organization elsewhere
+                        candidate = {"subject": rf.subject, "predicate": "USES_SOFTWARE", "object": enum_objective.object_name, "grounding_terms": [named]}
+                        if rf.subject not in state.entities:
+                            state.register_entity(name=rf.subject, entity_type="ORGANIZATION", metadata={"country": rf.country or None, "source_url": d_url})
+                            new_entities_found.append(rf.subject)
+                    else:
+                        candidate = {"subject": rf.subject, "predicate": relation_predicate(rf.relation), "object": rf.value}
+                    candidate.update({
+                        "status": "SUPPORTED",
+                        "evidence_id": d.get("evidence_id"),
+                        "source_url": d_url,
+                        "source_passage": rf.quote,
+                        "extracted_by": f"llm_reader:{self.llm_reader.label}",
+                    })
+                    existing_claim = next(
+                        (c for c in state.claims if c.get("subject") == candidate["subject"] and c.get("predicate") == candidate["predicate"] and c.get("object") == candidate["object"]),
+                        None,
+                    )
+                    if existing_claim is None:
+                        new_claims_found.append(state.add_claim(candidate))
+                        information_gain += 0.40
+                    else:
                         add_support(existing_claim, verify_claim(candidate, state.evidence))
                         if existing_claim.get("claim_id"):
                             supported_claims_found.append(existing_claim["claim_id"])

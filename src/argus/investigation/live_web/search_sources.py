@@ -5,6 +5,8 @@ Every source here is free and reached through its public interface:
 - google_news: Google News RSS feeds
 - wikipedia: the official MediaWiki search API
 - searxng: a SearXNG instance the user runs (set HEIMDALLR_SEARXNG_URL)
+- tavily, exa, brave: search APIs with free tiers, used only when their key is set
+  (TAVILY_API_KEY, EXA_API_KEY, BRAVE_API_KEY); see argus.search.api_providers
 
 Each source counts against the retriever's per-host and per-task budgets like any fetch.
 """
@@ -19,7 +21,14 @@ from urllib.parse import urlparse
 from argus.search.models import SearchResult
 from argus.search.provider import SearchProvider
 
-FREE_SEARCH_SOURCES = ("duckduckgo", "google_news", "wikipedia", "searxng")
+FREE_SEARCH_SOURCES = ("duckduckgo", "google_news", "wikipedia", "searxng", "tavily", "exa", "brave")
+
+_API_SOURCES = {
+    # name: (host, key variable, provider class name in argus.search.api_providers)
+    "tavily": ("api.tavily.com", "TAVILY_API_KEY", "TavilySearchProvider"),
+    "exa": ("api.exa.ai", "EXA_API_KEY", "ExaSearchProvider"),
+    "brave": ("api.search.brave.com", "BRAVE_API_KEY", "BraveSearchProvider"),
+}
 
 
 @dataclass
@@ -63,6 +72,15 @@ def get_search_source(name: str) -> SearchSource | None:
         from argus.search.searxng import SearXNGSearchProvider
 
         return SearchSource(name, urlparse(base).netloc or base, lambda t: SearXNGSearchProvider(base_url=base, timeout=t))
+    if name in _API_SOURCES:
+        host, key_var, cls_name = _API_SOURCES[name]
+        key = os.environ.get(key_var, "").strip()
+        if not key:
+            return None
+        import argus.search.api_providers as api
+
+        cls = getattr(api, cls_name)
+        return SearchSource(name, host, lambda t: cls(api_key=key, timeout=t))
     return None
 
 

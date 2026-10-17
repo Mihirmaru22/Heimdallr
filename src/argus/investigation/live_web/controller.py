@@ -39,6 +39,18 @@ from argus.search.wikipedia import research_user_agent
 logger = logging.getLogger(__name__)
 
 ROBOTS_AGENT = "Heimdallr-Research-Bot"
+# Fetches of a link the user gave are made under this name (cf. ChatGPT-User, Claude-User).
+USER_AGENT_ON_REQUEST = "Heimdallr-User"
+
+WAYBACK_AVAILABLE = "https://archive.org/wayback/available"
+# Fewer readable characters than this means the page did not really load (cookie wall, script-only page).
+MIN_READABLE_CHARS = 200
+
+
+def _wayback_date(url: str) -> str:
+    m = re.search(r"/web/(\d{4})(\d{2})(\d{2})", url)
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}" if m else ""
+
 
 SNAPSHOT_DIR = Path("/data/shared/project/PlayGround/Argus/evals/evidence_snapshots")
 
@@ -65,6 +77,7 @@ class ControlledLiveWebRetriever:
         self.cached_documents: dict[str, InvestigationDocument] = {}
         self._discoverable_entities: set[str] = set()
         self._robots: dict[str, tuple[Any, str]] = {}
+        self.user_requested: set[str] = set()
 
     def reset_task_budget(self) -> None:
         """Reset counters for a new investigation task."""
@@ -119,6 +132,12 @@ class ControlledLiveWebRetriever:
             return False, f"Task duration budget exceeded ({round(elapsed, 1)}s/{self.limits.max_duration_seconds}s)"
 
         return True, None
+
+    def mark_user_requested(self, url: str) -> None:
+        """A page the user named in the question. Like ChatGPT-User or Google's user-triggered
+        fetchers, it is fetched once on the user's behalf without the crawler robots.txt check,
+        under a user agent that says so. Refusals (403, logins, CAPTCHAs) are still accepted."""
+        self.user_requested.add(self._canonicalize_url(url))
 
     def is_known_blocked(self, url: str) -> bool:
         """True when this site's robots.txt, already fetched, rules the URL out (no network call)."""
@@ -205,7 +224,8 @@ class ControlledLiveWebRetriever:
             self.evidence_records.append(denied)
             return denied
 
-        if self.limits.respect_robots_txt:
+        user_requested = canon in self.user_requested
+        if self.limits.respect_robots_txt and not user_requested:
             allowed, robots_reason = await self._robots_allows(url)
             if not allowed:
                 denied = LiveWebEvidenceRecord(
@@ -232,8 +252,10 @@ class ControlledLiveWebRetriever:
         self.seen_urls.add(canon)
 
         client = create_safe_async_client()
+        agent = research_user_agent()
+        agent = agent.replace("Heimdallr-Research", USER_AGENT_ON_REQUEST if user_requested else ROBOTS_AGENT)
         headers = {
-            "User-Agent": research_user_agent().replace("Heimdallr-Research", ROBOTS_AGENT),
+            "User-Agent": agent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         }
 
@@ -413,11 +435,21 @@ class ControlledLiveWebRetriever:
 
         # Fetch live via secure async fetcher
         record = self._run_async(self.fetch_url_content(clean_url))
+        archived_from = None
+        if self.limits.archive_fallback and not record.is_duplicate and not (record.http_status == 200 and len(record.extracted_text or "") >= MIN_READABLE_CHARS):
+            # The page refused us, failed, or had almost no text (often a script-only page).
+            # The Internet Archive's public copy is read instead and cited as an archived copy.
+            archived = self._run_async(self._archive_copy(clean_url))
+            if archived is not None:
+                record, archived_from = archived, clean_url
         if record and record.http_status in (200, 304) and record.extracted_text:
             doc_id = f"doc_live_{hashlib.md5(record.final_url.encode()).hexdigest()[:8]}"
+            title = record.title or urlparse(record.final_url).netloc
+            if archived_from:
+                title = f"[Archived copy {_wayback_date(record.final_url)}] {title}"
             doc = InvestigationDocument(
                 doc_id=doc_id,
-                title=record.title or urlparse(record.final_url).netloc,
+                title=title,
                 url=record.final_url,
                 text_content=record.extracted_text,
                 source_type="live_web",
@@ -426,6 +458,30 @@ class ControlledLiveWebRetriever:
             self.cached_documents[doc_id] = doc
             return doc
 
+        return None
+
+    async def _archive_copy(self, url: str) -> LiveWebEvidenceRecord | None:
+        """The Internet Archive's closest snapshot of ``url``, fetched like any page; None if there is none."""
+        permitted, _ = self.is_url_permitted(WAYBACK_AVAILABLE)
+        if not permitted:
+            return None
+        host = urlparse(WAYBACK_AVAILABLE).netloc
+        self.host_counts[host] = self.host_counts.get(host, 0) + 1
+        self.requests_made += 1
+        try:
+            async with create_safe_async_client(timeout=self.limits.request_timeout_seconds) as client:
+                resp = await client.get(WAYBACK_AVAILABLE, params={"url": url}, headers={"User-Agent": research_user_agent()})
+            closest = ((resp.json() or {}).get("archived_snapshots") or {}).get("closest") or {}
+        except Exception as exc:
+            logger.info("Wayback lookup failed for %s: %s", url, exc)
+            return None
+        if not closest.get("available") or str(closest.get("status", "200")) != "200" or not closest.get("timestamp"):
+            return None
+        # "id_" asks for the page as archived, without the archive's own toolbar.
+        snapshot = f"https://web.archive.org/web/{closest['timestamp']}id_/{url}"
+        record = await self.fetch_url_content(snapshot)
+        if record.http_status == 200 and len(record.extracted_text or "") >= MIN_READABLE_CHARS:
+            return record
         return None
 
     def get_document(self, identifier: str) -> InvestigationDocument | None:
