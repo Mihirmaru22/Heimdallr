@@ -143,7 +143,8 @@ def _openrouter_key() -> str:
 class LLMReader:
     """Client for one chat model; ``read`` returns findings grounded in the page text."""
 
-    def __init__(self, backend: str, model: str, base_url: str, timeout: float = 180.0, max_pages: int = 80, api_key: str = "") -> None:
+    def __init__(self, backend: str, model: str, base_url: str, timeout: float = 180.0, max_pages: int = 80, api_key: str = "", service: Any = None) -> None:
+        self.service = service  # the shared FreeModelService, when reading goes through it
         self.backend, self.model, self.base_url = backend, model, base_url.rstrip("/")
         self.timeout, self.max_pages = timeout, max_pages
         self.api_key = api_key
@@ -155,7 +156,7 @@ class LLMReader:
 
     @property
     def label(self) -> str:
-        return f"{self.backend}:{self.model}"
+        return self.model if self.service is not None else f"{self.backend}:{self.model}"
 
     @classmethod
     def from_spec(cls, spec: str, max_pages: int = 80) -> "LLMReader | None":
@@ -168,6 +169,9 @@ class LLMReader:
         if backend == "openai":
             return cls(backend, model, os.environ.get("HEIMDALLR_LLM_URL", "http://localhost:8080/v1"), max_pages=max_pages)
         if backend == "openrouter":
+            from argus.llm.free_models import require_free
+
+            model = require_free(model)
             key = _openrouter_key()
             if not key:
                 logger.warning("openrouter:%s skipped: no OPENROUTER_API_KEY", model)
@@ -180,12 +184,25 @@ class LLMReader:
     def from_env() -> "LLMReader | ReaderChain | None":
         specs = [p for p in os.environ.get("HEIMDALLR_LLM", "").split(",") if p.strip()]
         max_pages = int(os.environ.get("HEIMDALLR_LLM_MAX_PAGES", "80") or 80)
+        if not specs:
+            # Default: the project-wide free-model service (OpenRouter free models, then local qwen).
+            from argus.llm.free_models import get_free_model_service
+
+            service = get_free_model_service()
+            return LLMReader("service", service.label, "", max_pages=max_pages, service=service) if service else None
         readers = [r for r in (LLMReader.from_spec(p, max_pages) for p in specs) if r is not None]
         if not readers:
             return None
         return readers[0] if len(readers) == 1 else ReaderChain(readers, max_pages=max_pages)
 
     def _chat(self, system: str, user: str) -> str:
+        if self.service is not None:
+            from argus.llm.free_models import ModelUnavailable as ServiceUnavailable
+
+            try:
+                return self.service.chat(system, user, json_mode=True)
+            except ServiceUnavailable as exc:
+                raise ModelUnavailable(str(exc)) from exc
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         try:
             if self.backend == "ollama":
