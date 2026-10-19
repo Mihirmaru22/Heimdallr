@@ -50,3 +50,4 @@ exports/runs/
 evals/evidence_snapshots/*.txt
 
 exports/evals/
+exports/briefs/

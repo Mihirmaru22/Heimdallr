@@ -30,6 +30,7 @@ from rich.table import Table
 from rich.text import Text
 
 from argus.evals.run_scorecard import record_run, score_run
+from argus.intake.brief import ResearchBrief
 from argus.export import OSINTExcelExporter, OSINTMarkdownExporter
 from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence
 from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
@@ -327,6 +328,7 @@ class OSINTTerminal:
     def run_cli(
         self,
         target: str | None = None,
+        brief: "ResearchBrief | None" = None,
         mode: str = "deep",
         depth: int | None = None,
         output_file: str | None = None,
@@ -335,6 +337,9 @@ class OSINTTerminal:
         """Main execution flow for terminal session."""
         render_banner()
         render_startup_status(self)
+
+        if brief is not None:
+            target = brief.to_objective()
 
         while interactive and not (target or "").strip():
             target = Prompt.ask(
@@ -348,7 +353,7 @@ class OSINTTerminal:
 
         # Execute investigation
         start_time = time.perf_counter()
-        results_data = self._execute_investigation(target, mode=mode, max_steps=depth)
+        results_data = self._execute_investigation(target, mode=mode, max_steps=depth, brief=brief)
         elapsed = time.perf_counter() - start_time
 
         # Render Terminal Results Table
@@ -366,11 +371,25 @@ class OSINTTerminal:
 
         return excel_path
 
+    @staticmethod
+    def _answers_so_far(state: Any, contract: dict[str, Any]) -> int:
+        """How many answers would reach the sheet right now, counted the way the sheet counts them."""
+        from argus.export.answer_rows import build_answer_rows
+
+        claims = [c for c in state.claims if not is_gate_rejected(c)]
+        _, rows = build_answer_rows({
+            "objective": state.objective, "claims": claims, "evidence": state.evidence,
+            "enumeration_objective": state.objective_contract.get("enumeration_objective"),
+            "brief": contract.get("brief"),
+        })
+        return len(rows)
+
     def _execute_investigation(
         self,
         target: str,
         mode: str = "deep",
         max_steps: int | None = None,
+        brief: "ResearchBrief | None" = None,
     ) -> dict[str, Any]:
         """Execute autonomous deep research cycle and return structured data dictionary.
 
@@ -388,7 +407,10 @@ class OSINTTerminal:
             self.engine.corpus = recorder
 
         # Execution safeguard: at most DEEP_RUN_STEPS research steps unless a caller sets fewer.
-        safety_budget = max_steps if (max_steps is not None and max_steps > 0) else DEEP_RUN_STEPS
+        # A filled-in form sets its own budget through the contract.
+        contract = brief.to_contract() if brief is not None else {}
+        safety_budget = max_steps if (max_steps is not None and max_steps > 0) else int(contract.get("max_steps") or DEEP_RUN_STEPS)
+        contract["max_steps"] = safety_budget
 
         with Progress(
             SpinnerColumn("dots", style="bright_green"),
@@ -402,7 +424,8 @@ class OSINTTerminal:
             # Start investigation in engine with execution safeguard
             state = self.engine.start_investigation(
                 objective=target,
-                contract={"max_steps": safety_budget},
+                contract=contract,
+                as_of_date=(brief.as_of or None) if brief is not None else None,
             )
 
             for step in range(safety_budget):
@@ -413,6 +436,12 @@ class OSINTTerminal:
                 state, finished = self.engine.execute_step(state)
                 time.sleep(0.08)  # Smooth UI stepping
                 if finished:
+                    break
+                # The form may ask for a number of answers; stop once that many have passed the
+                # evidence check, rather than spending the rest of the budget.
+                wanted = int(contract.get("target_answer_count") or 0)
+                if wanted and self._answers_so_far(state, contract) >= wanted:
+                    progress.update(task, description=f"Found the {wanted} answers you asked for.")
                     break
 
             progress.update(task, description="Research complete. Corroborating findings...")
@@ -482,6 +511,7 @@ class OSINTTerminal:
             "limitations": limitations,
             "decision_engine": "Laya" if (hasattr(self.engine, "system1") and self.engine.system1() is not None) else None,
             "decisions": _decision_summary(),
+            "brief": brief.as_dict() if brief is not None else None,
             "page_reader": (f"{reader.label} ({reader.pages_read} pages read, {reader.failures} failures)" if (reader := getattr(self.engine, "llm_reader", None)) else None),
         }
         if recorder is not None:
@@ -648,6 +678,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run without interactive prompts (for automation/testing)",
     )
     parser.add_argument(
+        "--form",
+        action="store_true",
+        help="Fill in a research brief at the terminal instead of typing one question",
+    )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Serve the research brief form in a browser (http://127.0.0.1:8765 by default)",
+    )
+    parser.add_argument("--port", type=int, default=8765, help="Port for --web (default 8765)")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host for --web (default 127.0.0.1, this machine only)")
+    parser.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="Permit --web to listen beyond this machine. Only on a network you trust: the form starts research runs.",
+    )
+    parser.add_argument(
+        "--brief",
+        type=str,
+        metavar="BRIEF_JSON",
+        help="Run a brief saved earlier (exports/briefs/<file>.json)",
+    )
+    parser.add_argument(
         "--replay",
         type=str,
         metavar="RUN_DIR",
@@ -671,12 +724,37 @@ def _decision_summary() -> dict[str, int]:
         return {}
 
 
+def serve_brief_form(host: str = "127.0.0.1", port: int = 8765, allow_remote: bool = False) -> None:
+    """Serve the browser form; each submitted brief runs here and writes the usual reports."""
+    from argus.intake.webform import serve
+
+    if host not in ("127.0.0.1", "localhost", "::1") and not allow_remote:
+        raise ValueError(
+            f"--host {host} would let other machines start research runs; pass --allow-remote if that is what you want"
+        )
+
+    def runner(brief: ResearchBrief) -> list[str]:
+        terminal = OSINTTerminal()
+        excel_path = terminal.run_cli(brief=brief, interactive=False)
+        written = [str(Path(excel_path).resolve())]
+        if terminal.run_dir:
+            written.append(str(Path(terminal.run_dir).resolve()))
+        return written
+
+    serve(runner, host=host, port=port, brief_dir=Path("exports") / "briefs")
+
+
 def main() -> None:
     """CLI entrypoint for OSINT Terminal."""
     parser = build_parser()
     args = parser.parse_args()
 
     try:
+        if args.web:
+            serve_brief_form(host=args.host, port=args.port, allow_remote=args.allow_remote)
+            return
+
+        brief = None
         if args.replay:
             replay = ReplayCorpus(args.replay)
             terminal = OSINTTerminal(corpus=replay, record_runs=False)
@@ -684,10 +762,19 @@ def main() -> None:
         else:
             terminal = OSINTTerminal()
             target = args.target
+            if args.brief:
+                brief = ResearchBrief.load(args.brief)
+            elif args.form:
+                from argus.intake.terminal_form import fill_in_brief
+
+                brief = fill_in_brief()
+                saved = brief.save(terminal.export_dir / "briefs")
+                console.print(f"[dim]Brief saved to {saved} — re-run it with --brief {saved}[/dim]\n")
         terminal.run_cli(
             target=target,
+            brief=brief,
             output_file=args.output,
-            interactive=not args.no_interactive and not target,
+            interactive=not args.no_interactive and not target and brief is None,
         )
     except KeyboardInterrupt:
         console.print("\n[dim]Investigation session aborted by user.[/dim]")

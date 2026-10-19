@@ -18,6 +18,7 @@ import re
 from typing import Any
 from urllib.parse import urlparse
 
+from argus.intake.brief import brief_from_data
 from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
 
 # Positive statuses: the ones the evidence gate let through.
@@ -58,6 +59,7 @@ class AnswerRow:
     evidence_url: str = ""
     evidence_says: str = ""
     attributes: dict[str, str] = field(default_factory=dict)
+    known_to_user: bool = False  # the user listed it on the form under "ones you already know"
     _hosts: set[str] = field(default_factory=set, repr=False)
     _urls: list[str] = field(default_factory=list, repr=False)
     _quoted: bool = field(default=False, repr=False)
@@ -135,15 +137,19 @@ def answers_are_subjects(data: dict[str, Any]) -> bool:
     "Which companies use Teamcenter?" is answered by the subjects of "X uses Teamcenter".
     "Who is the chief executive of Acme?" is answered by the object. A list question carries a
     parsed enumeration objective; without one, the object is the answer.
+
+    A filled-in form is a list request by construction ("which <things> <do something>"), so it
+    does not depend on the objective's phrasing being parsed.
     """
-    return bool(data.get("enumeration_objective"))
+    return bool(data.get("enumeration_objective")) or brief_from_data(data) is not None
 
 
 def build_answer_rows(data: dict[str, Any]) -> tuple[list[str], list[AnswerRow]]:
     """The answer rows of a run, and the attribute columns that have any value.
 
     Rows are ordered strongest evidence first, then by how many sources confirm them, so the
-    reader starts at the top. Several claims about one answer become one row.
+    reader starts at the top. Several claims about one answer become one row. When the run came
+    from a filled-in form, the form's own limits apply last: see ``excluded_by_brief``.
     """
     claims = [c for c in data.get("claims") or [] if str(c.get("status") or "").upper() in POSITIVE]
     objective = str(data.get("objective") or data.get("target") or "")
@@ -153,12 +159,16 @@ def build_answer_rows(data: dict[str, Any]) -> tuple[list[str], list[AnswerRow]]
     rows: dict[str, AnswerRow] = {}
     attributes: dict[str, dict[str, str]] = {}
 
+    brief = brief_from_data(data)
+
     for claim in claims:
         subject = str(claim.get("subject") or "").strip()
         obj = str(claim.get("object") or "").strip()
         predicate = str(claim.get("predicate") or "").strip()
         ev = evidence.get(claim.get("evidence_id")) or {}
         url = str(claim.get("citation") or claim.get("source_url") or ev.get("url") or "").strip()
+        if brief is not None and url and brief.excludes_url(url):
+            continue  # the form said not to use this site, so nothing may rest on it
         quote = str(claim.get("source_passage") or ev.get("snippet") or "").strip()
 
         # An attribute of something already answered belongs in that row, not in a row of its own.
@@ -202,14 +212,54 @@ def build_answer_rows(data: dict[str, Any]) -> tuple[list[str], list[AnswerRow]]
         if not row.evidence_url and row._urls:
             row.evidence_url = row._urls[0]
 
+    if brief is not None:
+        for row in rows.values():
+            row.known_to_user = brief.is_known(row.answer)
+        rows = {k: r for k, r in rows.items()
+                if not brief.rejects(r.answer, r.evidence_strength, r.evidence_type)}
+
     order = {STRONG: 0, MODERATE: 1, WEAK: 2}
     ordered = sorted(rows.values(), key=lambda r: (order[r.evidence_strength], -r.sources, _norm(r.answer)))
     used_columns = [c for c, _ in ATTRIBUTE_COLUMNS if any(r.attributes.get(c) for r in ordered)]
     return used_columns, ordered
 
 
+def excluded_by_brief(data: dict[str, Any]) -> dict[str, int]:
+    """How many answers the filled-in form itself left out, and why.
+
+    The form narrows the sheet; the run still found these, so the count is reported rather than
+    quietly dropped. Empty when a plain question was asked.
+    """
+    brief = brief_from_data(data)
+    if brief is None:
+        return {}
+    # The same run read with the form's limits lifted: the question itself is unchanged, so the
+    # rows are comparable and the difference is only what the form removed.
+    unlimited = dict(data)
+    unlimited["brief"] = {**brief.as_dict(), "evidence_floor": "any", "evidence_kinds": [],
+                          "exclude_answers": [], "exclude_sites": []}
+    unlimited.pop("objective_contract", None)
+    _, all_rows = build_answer_rows(unlimited)
+    kept = {_norm(r.answer) for r in build_answer_rows(data)[1]}
+    reasons: dict[str, int] = {}
+    for row in all_rows:
+        if _norm(row.answer) in kept:
+            continue
+        # The most specific reason first: with every page of its evidence excluded, nothing else
+        # about the answer mattered.
+        if row._urls and all(brief.excludes_url(u) for u in row._urls):
+            why = "its only evidence was on a site you excluded"
+        else:
+            why = brief.rejects(row.answer, row.evidence_strength, row.evidence_type) or "the form left it out"
+        reasons[why] = reasons.get(why, 0) + 1
+    return reasons
+
+
 def answer_noun(data: dict[str, Any]) -> str:
     """What the rows are, in the question's own words ("companies", "answers")."""
+    brief = brief_from_data(data)
+    if brief is not None and brief.looking_for:
+        return brief.looking_for
     enum = data.get("enumeration_objective") or {}
     noun = str(enum.get("answer_noun") or "").strip() if isinstance(enum, dict) else ""
     return noun or "answers"

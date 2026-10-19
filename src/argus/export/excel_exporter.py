@@ -25,7 +25,8 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from argus.export.answer_rows import STRONG, WEAK, AnswerRow, answer_noun, build_answer_rows
+from argus.export.answer_rows import STRONG, WEAK, AnswerRow, answer_noun, build_answer_rows, excluded_by_brief
+from argus.intake.brief import EVIDENCE_FLOORS, brief_from_data
 from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence, generate_narrative_intelligence
 from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
 
@@ -79,6 +80,32 @@ SECTION_FONT = Font(name="Segoe UI", size=12, bold=True, color="1A2530")
 BODY_FONT = Font(name="Segoe UI", size=10)
 BOLD_BODY_FONT = Font(name="Segoe UI", size=10, bold=True)
 MUTED_FONT = Font(name="Segoe UI", size=9, italic=True, color="7F7F7F")
+
+
+def _brief_lines(data: dict[str, Any]) -> list[str]:
+    """What the filled-in form asked for, and how many answers it left out.
+
+    A form narrows the sheet. The run still found those answers, so the counts are stated here
+    rather than disappearing.
+    """
+    brief = brief_from_data(data)
+    if brief is None:
+        return []
+    out = ["", "Your form asked for:",
+           f"    {brief.looking_for} that {brief.criterion}" + (f", in {brief.where}" if brief.where else ""),
+           f"    minimum evidence: {brief.evidence_floor} ({EVIDENCE_FLOORS[brief.evidence_floor]})"]
+    if brief.evidence_kinds:
+        out.append(f"    evidence accepted: {', '.join(brief.evidence_kinds)}")
+    for label, values in (("left out", brief.exclude_answers), ("sites not used", brief.exclude_sites),
+                          ("read first", brief.seed_urls), ("already known to you", brief.known_examples)):
+        if values:
+            out.append(f"    {label}: {', '.join(values)}")
+    left_out = excluded_by_brief(data)
+    if left_out:
+        out.append("")
+        out.append("Answers the run found but your form left out:")
+        out += [f"    {count} because {why}" for why, count in sorted(left_out.items())]
+    return out
 
 
 def sanitize_filename(name: str) -> str:
@@ -184,7 +211,10 @@ class OSINTExcelExporter:
         noun = answer_noun(data)
         headers = [noun.title() if noun != "answers" else "Answer", *extra_columns,
                    "Evidence type", "Evidence strength", "Confirmed by", "Evidence URL",
-                   "What the evidence says", "Other sources", "What was found", "Status", "Owner", "Notes"]
+                   "What the evidence says", "Other sources", "What was found"]
+        if any(r.known_to_user for r in rows):
+            headers.append("New to you")  # the form listed ones already known
+        headers += ["Status", "Owner", "Notes"]
         return headers, extra_columns, rows
 
     def _build_answer_sheet(self, wb: openpyxl.Workbook, data: dict[str, Any], target_name: str) -> None:
@@ -212,7 +242,10 @@ class OSINTExcelExporter:
             r = 5 + i
             values = [row.answer, *[row.attributes.get(c, "") for c in extra_columns],
                       row.evidence_type, row.evidence_strength, row.sources, row.evidence_url,
-                      row.evidence_says, row.other_sources(), row.detail, "", "", ""]
+                      row.evidence_says, row.other_sources(), row.detail]
+            if "New to you" in headers:
+                values.append("already known" if row.known_to_user else "new")
+            values += ["", "", ""]
             for col, value in enumerate(values, start=1):
                 cell = ws.cell(row=r, column=col, value=value)
                 cell.font = BODY_FONT
@@ -289,6 +322,7 @@ class OSINTExcelExporter:
             "",
             f"Candidates turned down by the evidence check: {rejected}. They are listed on the Rejected Candidates "
             "sheet with the reason, and are not answers.",
+            *_brief_lines(data),
             "",
             "What this list does not cover:",
             *[f"    {str(limitation)}" for limitation in (data.get("limitations") or [])],
