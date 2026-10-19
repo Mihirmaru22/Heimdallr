@@ -29,6 +29,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
+from argus.evals.run_scorecard import record_run, score_run
 from argus.export import OSINTExcelExporter, OSINTMarkdownExporter
 from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence
 from argus.investigation.benchmark.corpus import INVESTIGATION_CORPUS_REGISTRY
@@ -357,8 +358,11 @@ class OSINTTerminal:
         excel_path = self.exporter.export_investigation(results_data, output_filepath=output_file)
         md_path = self.md_exporter.export_investigation(results_data)
 
+        # Record this question's numbers (exports/evals/runs.csv), so runs can be compared later.
+        scorecard_path = record_run(results_data, seconds=elapsed, export_dir=self.export_dir)
+
         # Render Final Scan Summary Panel
-        self._display_summary_panel(results_data, elapsed, excel_path, md_path=md_path)
+        self._display_summary_panel(results_data, elapsed, excel_path, md_path=md_path, scorecard=scorecard_path)
 
         return excel_path
 
@@ -534,6 +538,7 @@ class OSINTTerminal:
         elapsed: float,
         excel_path: Path,
         md_path: Path | None = None,
+        scorecard: Path | None = None,
     ) -> None:
         """Render scan metrics summary box matching user's reference UI."""
         claims = data.get("claims", [])
@@ -589,6 +594,17 @@ class OSINTTerminal:
                 f"Laya differed from the rules {dec['laya_disagreed_with_rule']} times)",
                 style="dim white",
             )
+        if scorecard is not None:
+            card = score_run(data, seconds=elapsed).row
+            summary_text.append(
+                f"\nScorecard: {card['answers']} answers ({card['answers_strong']} strong, {card['answers_weak']} weak), "
+                f"{card['pages_read']} pages from {card['sites_read']} sites, {card['claims_rejected']} candidates refused, "
+                f"{card['seconds']}s",
+                style="dim white",
+            )
+            summary_text.append("\nRun Numbers Appended to: ", style="bold bright_yellow")
+            summary_text.append(str(Path(scorecard).resolve()), style="bold bright_cyan underline")
+            summary_text.append("  (python -m argus.evals.run_scorecard --compare)", style="dim white")
         if data.get("run_dir"):
             summary_text.append("\nRun Recording Saved to: ", style="bold bright_yellow")
             summary_text.append(str(Path(data["run_dir"]).resolve()), style="bold bright_cyan underline")

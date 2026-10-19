@@ -49,3 +49,4 @@ exports/runs/
 !exports/.gitkeep
 evals/evidence_snapshots/*.txt
 
+exports/evals/
