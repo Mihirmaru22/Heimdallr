@@ -309,7 +309,9 @@ class OSINTExcelExporter:
             "",
             f"Question: {data.get('objective') or ''}",
             f"Run: {datetime.now(timezone.utc).strftime('%d %b %Y %H:%M UTC')}; stopped because {data.get('stop_reason') or 'UNKNOWN'}.",
-            f"Page reader: {data.get('page_reader') or 'off'}. Decision engine: {data.get('decision_engine') or 'rules only'}.",
+            f"Page reader: {data.get('page_reader') or 'off'}."
+            + (f" {data['reader_note']}" if data.get("reader_note") else "")
+            + f" Decision engine: {data.get('decision_engine') or 'rules only'}.",
             "",
             "Method: every answer comes from a page the run actually read. A finding is kept only when the "
             "quote beside it is the page's own words and the page names both the thing asked about and the answer. "

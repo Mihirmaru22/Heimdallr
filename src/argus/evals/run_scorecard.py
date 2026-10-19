@@ -41,7 +41,7 @@ COLUMNS = [
     "answers_with_quote", "quote_share", "sources_per_answer", "attributes_per_answer",
     # the evidence behind it
     "claims_kept", "claims_rejected", "gate_rejection_rate", "pages_read", "sites_read",
-    "searches", "steps", "pages_skipped_by_triage", "model_pages_read",
+    "searches", "steps", "pages_skipped_by_triage", "model_pages_read", "reader",
     # the decisions
     "decisions", "decisions_by_laya", "decisions_by_rule", "laya_differed",
     # what it left open
@@ -127,6 +127,9 @@ def score_run(data: dict[str, Any], seconds: float = 0.0) -> Scorecard:
         "steps": len(actions),
         "pages_skipped_by_triage": sum(1 for a in audit if action_type(a) == "PAGE_SKIPPED_BY_TRIAGE"),
         "model_pages_read": _int_in(data.get("page_reader") or ""),
+        # Which model read the pages: a run read by the local fallback is not comparable with one
+        # read by a free OpenRouter model, so the row says which it was.
+        "reader": str(data.get("page_reader") or "off").split(" (")[0],
         "decisions": int(decisions.get("decisions") or 0),
         "decisions_by_laya": int(decisions.get("by_laya") or 0),
         "decisions_by_rule": int(decisions.get("by_rule") or 0),

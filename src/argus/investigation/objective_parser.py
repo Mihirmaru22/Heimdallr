@@ -228,6 +228,59 @@ _NOT_LIST_WORDS = frozenset({"why", "how", "when", "where", "do", "does", "did",
 _WHO_USES = re.compile(rf"^(?:who|whoever)\s+(?:all\s+|else\s+)?(?P<rest>{_USE_VERBS}\s+.+)$", re.IGNORECASE)
 
 
+# The object is a name ("SAP ERP", "Siemens Teamcenter"), never a sentence. A longer phrase means
+# the parse ran past the question into whatever followed it, which no page will ever say.
+_MAX_OBJECT_WORDS = 8
+
+
+def _first_sentence(text: str) -> str:
+    """The object phrase up to the first sentence end, so a following sentence cannot join it."""
+    return re.split(r"[.?!;\n]", str(text or ""), maxsplit=1)[0].strip()
+
+
+def _is_namelike(obj: str) -> bool:
+    """Whether a parsed object could be the name of a thing rather than a run of prose."""
+    return 0 < len(obj.split()) <= _MAX_OBJECT_WORDS
+
+
+def enumeration_from_fields(
+    answer_noun: str,
+    criterion: str,
+    where: str = "",
+    raw: str = "",
+) -> EnumerationObjective | None:
+    """Build an objective from fields that are already separate, parsing only the criterion.
+
+    This is the path a filled-in research brief takes: the form asked for the thing wanted, what
+    must be true of it and where, each on its own, so none of them has to be recovered from a
+    sentence and none of them can end up inside another. Returns None when the criterion is not a
+    usage relation ("use X"), which leaves the objective to the ordinary planner.
+    """
+    noun = re.sub(r"\s+", " ", str(answer_noun or "").strip().lower()).strip(" .,:;?!")
+    criterion = _first_sentence(criterion)
+    if not noun or not criterion:
+        return None
+    rel = re.match(rf"^(?:{_CONNECTORS}\s+)?(?P<rel>{_USE_VERBS})\s+(?P<obj>.+)$", criterion, re.IGNORECASE)
+    if not rel:
+        return None
+    obj_raw, tail_geo, context = _split_trailing_context(rel.group("obj"))
+    obj = _display_object(obj_raw)
+    if not obj or obj.lower() in _ORG_NOUNS or not _is_namelike(obj):
+        return None
+    where = str(where or "").strip(" .,:;?!")
+    geography = normalize_geography(where) or (where.title() if where else "") or tail_geo
+    return EnumerationObjective(
+        raw=raw or f"Which {noun} {criterion}" + (f" in {where}" if where else "") + "?",
+        answer_type=ANSWER_TYPE_ORGANIZATION,
+        answer_noun=_plural(noun),
+        relation=RELATION_USES,
+        relation_phrase=re.sub(r"\s+", " ", rel.group("rel").lower()).strip(),
+        object=obj,
+        geography=geography,
+        context_constraints=context,
+    )
+
+
 def parse_enumeration_objective(objective: str) -> EnumerationObjective | None:
     """Parse a list-style 'organizations that use X' objective, or return None.
 
@@ -290,11 +343,12 @@ def _parse_body(objective: str, body: str) -> EnumerationObjective | None:
         relation_phrase = re.sub(r"\s+", " ", rel.group("rel").lower()).strip()
         obj_raw = rel.group("obj")
 
+    obj_raw = _first_sentence(obj_raw)
     obj_raw, tail_geo, tail_ctx = _split_trailing_context(obj_raw)
     geography = geography or tail_geo
     context.extend(tail_ctx)
     obj = _display_object(obj_raw)
-    if not obj or obj.lower() in _ORG_NOUNS:
+    if not obj or obj.lower() in _ORG_NOUNS or not _is_namelike(obj):
         return None
 
     return EnumerationObjective(

@@ -85,8 +85,18 @@ def fill_in_brief() -> ResearchBrief:
             continue
 
         console.print()
-        console.print(Panel(Text(brief.to_objective(), style="bold white"),
-                            title="[bold bright_green]The question this becomes[/bold bright_green]",
+        body = Text(brief.to_objective() + "\n", style="bold white")
+        enumeration = brief.to_enumeration()
+        if enumeration is not None:
+            # The research is given these fields, not the sentence above, so they are worth seeing.
+            body.append(f"\nlooking for: {enumeration.answer_noun}", style="dim white")
+            body.append(f"\nabout:       {enumeration.object_name}", style="dim white")
+            body.append(f"\nwhere:       {enumeration.geography or 'anywhere'}", style="dim white")
+            body.append("\nfirst searches:", style="dim white")
+            for query in enumeration.search_queries()[:4]:
+                body.append(f"\n  {query}", style="dim white")
+        console.print(Panel(body,
+                            title="[bold bright_green]What the research is given[/bold bright_green]",
                             border_style="bright_green"))
         if Prompt.ask("Start the research?", choices=["y", "n"], default="y") == "y":
             return brief

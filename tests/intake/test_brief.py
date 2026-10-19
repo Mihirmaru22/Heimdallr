@@ -1,6 +1,7 @@
 """The research brief: what the form collects, what it compiles to, what it changes."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -24,13 +25,29 @@ def test_a_form_run_lists_the_subjects_without_depending_on_the_phrasing():
     assert [r.answer for r in rows] == ["Lakeside Clinic"]
 
 
-def test_the_form_compiles_to_a_question_in_the_users_words():
-    brief = ResearchBrief.from_answers(FILLED)
-    question = brief.to_objective()
-    assert question.startswith("Which hospitals use Epic in Ohio?")
-    assert "Include each one's website and approximate size." in question
-    assert "state hospitals count too." in question
-    assert "https://trusted.example/list" in question  # fetched first, by the existing link path
+def test_the_question_is_the_question_and_nothing_else():
+    """Every other field is handed over as a field; none of them joins the sentence."""
+    question = ResearchBrief.from_answers(FILLED).to_objective()
+    assert question == "Which hospitals use Epic in Ohio?"
+    for leak in ("Include", "website", "state hospitals count too", "https://trusted.example/list"):
+        assert leak not in question
+
+
+def test_the_form_hands_over_structured_fields_not_prose():
+    contract = ResearchBrief.from_answers(FILLED).to_contract()
+    given = contract["enumeration_objective"]
+    assert given["object"] == "Epic"           # the product, not the rest of the sentence
+    assert given["geography"] == "Ohio"
+    assert given["answer_noun"] == "hospitals"
+    assert contract["seed_urls"] == ["https://trusted.example/list"]
+    assert contract["wanted_attributes"] == ["website", "approximate size"]
+    assert contract["notes"] == "state hospitals count too"
+
+
+def test_a_criterion_that_is_not_a_usage_relation_is_left_to_the_planner():
+    brief = ResearchBrief.from_answers({"looking_for": "vineyards", "criterion": "won a gold medal in 2025"})
+    assert brief.to_enumeration() is None
+    assert "enumeration_objective" not in brief.to_contract()
 
 
 def test_the_contract_carries_the_budget_the_count_and_the_brief():
@@ -151,3 +168,28 @@ def test_a_plain_question_is_unaffected_by_any_of_this():
     _, rows = build_answer_rows(data)
     assert [r.answer for r in rows] == ["Accenture"]
     assert excluded_by_brief(data) == {}
+
+
+def test_pages_to_read_first_reach_the_run_as_a_field():
+    """They used to be glued to the question so a regex could find them again."""
+    from argus.investigation.orchestrator import InvestigationEngine
+
+    brief = ResearchBrief.from_answers(FILLED)
+    state = InvestigationEngine().start_investigation(brief.to_objective(), contract=brief.to_contract())
+    requested = [s for s in state.discovered_sources if s.get("source_type") == "user_link"]
+    assert [s["url"] for s in requested] == ["https://trusted.example/list"]
+
+
+def test_a_run_says_when_the_free_models_were_not_configured(monkeypatch):
+    """A page read by the local fallback must not look like a choice of model."""
+    from argus.llm.free_models import configuration_note
+
+    for name in ("OPENROUTER_API_KEY", "OPEN_ROUTER_API", "HEIMDALLR_FREE_MODELS", "HEIMDALLR_LLM"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(Path, "exists", lambda self: False)  # no .env to read a key from
+    note = configuration_note()
+    assert "OPENROUTER_API_KEY" in note and "HEIMDALLR_FREE_MODELS" in note
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("HEIMDALLR_FREE_MODELS", "some/model:free")
+    assert configuration_note() == ""

@@ -224,22 +224,52 @@ class ResearchBrief:
     # --- what the run is given ---------------------------------------------------------------
 
     def to_objective(self) -> str:
-        """The question the research is given, in the user's own words."""
+        """The question, for the reports and for a reader. Only the question itself.
+
+        The research is given the fields (``to_contract``), not this sentence. Everything else the
+        form collected -- attributes, notes, pages to read first -- stays out of it: written into
+        one sentence they were read back as part of the product name, which is what broke the run
+        of 2026-10-19 ("SAP EPR in USA? Include each one's website..." became the thing searched
+        for). A field belongs in a field.
+        """
         parts = [f"Which {self.looking_for} {self.criterion}"]
         if self.where:
             parts.append(f"in {self.where}")
-        question = " ".join(parts).rstrip("?") + "?"
-        if self.attributes:
-            question += f" Include each one's {_join(self.attributes)}."
-        if self.notes:
-            question += f" {self.notes.rstrip('.')}."
-        if self.seed_urls:
-            question += " " + " ".join(self.seed_urls)
-        return question
+        return " ".join(parts).rstrip("?") + "?"
+
+    def to_enumeration(self) -> "Any | None":
+        """The form's fields as a structured objective, or None when they do not form one.
+
+        The form already holds, separately, what prose has to be parsed out of a typed question:
+        the thing wanted (``looking_for``), what must be true of it (``criterion``) and where
+        (``where``). Only the criterion is still read -- "use SAP ERP" is a relation and an object
+        -- and it is read on its own, so no other field can leak into the object.
+        """
+        from argus.investigation.objective_parser import enumeration_from_fields
+
+        return enumeration_from_fields(
+            answer_noun=self.looking_for, criterion=self.criterion, where=self.where,
+            raw=self.to_objective(),
+        )
 
     def to_contract(self) -> dict[str, Any]:
-        """The contract the engine is given, with the brief kept whole for the reports."""
+        """The contract the engine is given: the form's fields, as fields.
+
+        Nothing here is prose for the engine to parse back. The brief is kept whole as well, so
+        the reports and the sheet can say what the form asked for.
+        """
         contract: dict[str, Any] = {"max_steps": DEPTHS[self.depth], "brief": self.as_dict()}
+        enumeration = self.to_enumeration()
+        if enumeration is not None:
+            contract["enumeration_objective"] = enumeration.to_dict()
+        if self.seed_urls:
+            contract["seed_urls"] = list(self.seed_urls)
+        if self.attributes:
+            contract["wanted_attributes"] = list(self.attributes)
+        if self.notes:
+            contract["notes"] = self.notes
+        if self.as_of:
+            contract["as_of_date"] = self.as_of
         if self.how_many:
             contract["target_answer_count"] = self.how_many
         if self.known_examples:
@@ -286,12 +316,6 @@ class ResearchBrief:
     def is_known(self, answer: str) -> bool:
         norm = _norm(answer)
         return any(_norm(x) and _norm(x) in norm for x in self.known_examples)
-
-
-def _join(items: list[str]) -> str:
-    if len(items) == 1:
-        return items[0]
-    return ", ".join(items[:-1]) + f" and {items[-1]}"
 
 
 def brief_from_data(data: dict[str, Any]) -> ResearchBrief | None:

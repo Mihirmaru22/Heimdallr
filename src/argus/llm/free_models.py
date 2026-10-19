@@ -231,6 +231,31 @@ def get_free_model_service() -> FreeModelService | None:
     return _SERVICE
 
 
+def configuration_note() -> str:
+    """Why the free OpenRouter models are not in use, or "" when they are configured.
+
+    A run that falls back to the local model reads every page with the weaker model. Silence about
+    that looks like a model choice; it is almost always a missing environment variable, so the run
+    says which one (Ronak, 2026-10-19).
+    """
+    from argus.llm.openrouter import OpenRouterLLMProvider
+
+    key = OpenRouterLLMProvider().api_key
+    models = [m for m in os.environ.get("HEIMDALLR_FREE_MODELS", "").split(",") if m.strip()]
+    chain = os.environ.get("HEIMDALLR_LLM", "")
+    if "openrouter:" in chain:
+        return "" if key else "OpenRouter is in HEIMDALLR_LLM but no key is set (OPENROUTER_API_KEY), so its models were skipped."
+    missing = []
+    if not key:
+        missing.append("no OpenRouter key (OPENROUTER_API_KEY)")
+    if not models:
+        missing.append("no free model ids (HEIMDALLR_FREE_MODELS, comma-separated ids ending in ':free')")
+    if not missing:
+        return ""
+    return ("Free OpenRouter models were not used: " + " and ".join(missing)
+            + ". Every page was read by the local model instead.")
+
+
 def reset_free_model_service() -> None:
     """Forget the shared service (tests, or after changing the environment)."""
     global _SERVICE, _SERVICE_READY

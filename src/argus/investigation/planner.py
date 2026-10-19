@@ -240,6 +240,12 @@ class InvestigationPlanner:
 
         domain = self._detect_domain(objective, contract)
 
+        # A caller that already holds the objective's parts (the research brief form) hands them
+        # over as fields; nothing is parsed back out of a sentence.
+        given = contract.get("enumeration_objective")
+        if isinstance(given, dict) and given.get("object"):
+            return self._initialize_enumeration(state, root_branch, EnumerationObjective.from_dict(given))
+
         # List-style objectives ("organizations that use X in Y") get an explicit
         # structured interpretation instead of capitalized-word entity guessing.
         # Explicit caller hints (target entities, domain, custom questions) take precedence.

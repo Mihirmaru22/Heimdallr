@@ -15,6 +15,7 @@ from argus.investigation.objective_parser import (
     ANSWER_TYPE_ORGANIZATION,
     RELATION_USES,
     EnumerationObjective,
+    enumeration_from_fields,
     parse_enumeration_objective,
     refine_object_from_evidence,
 )
@@ -174,3 +175,49 @@ def test_planner_refinement_updates_pending_question_queries():
     assert state.questions[disc_id]["question_text"] == "Which organizations in the United States use Siemens Teamcenter?"
     assert all("Siemens Teamcenter" in q for q in state.questions[disc_id]["search_queries"])
     assert any(e.action_type == "OBJECTIVE_REFINED" for e in state.audit_trail)
+
+
+# --- the form's fields, handed over rather than written into a sentence (2026-10-19) ------------
+
+def test_an_object_never_runs_past_the_question_it_was_asked_in():
+    """The run of 2026-10-19 searched for "SAP EPR in USA? Include each one's website...".
+
+    A form wrote its extra requests into the question and the parser read the lot as the product
+    name, so every search and the evidence gate carried a string no page can contain.
+    """
+    enum = parse_enumeration_objective(
+        "Which companies use SAP EPR in USA? Include each one's website, location and approximate size."
+    )
+    assert enum is not None
+    assert enum.object == "SAP EPR"
+    assert enum.geography == "United States"
+
+
+def test_a_parsed_object_that_is_a_run_of_prose_is_refused():
+    assert parse_enumeration_objective(
+        "companies using whatever their procurement team happened to settle on last year somehow"
+    ) is None
+
+
+def test_fields_become_an_objective_without_being_parsed_out_of_prose():
+    enum = enumeration_from_fields(answer_noun="hospitals", criterion="use Epic", where="ohio")
+    assert (enum.answer_noun, enum.object, enum.geography) == ("hospitals", "Epic", "Ohio")
+    assert enum.answer_type == ANSWER_TYPE_ORGANIZATION and enum.relation == RELATION_USES
+    assert all("Epic" in q and "Ohio" in q for q in enum.discovery_queries())
+
+
+def test_fields_that_are_not_a_usage_relation_return_nothing():
+    assert enumeration_from_fields(answer_noun="vineyards", criterion="won a gold medal in 2025") is None
+    assert enumeration_from_fields(answer_noun="", criterion="use Epic") is None
+
+
+def test_the_planner_uses_a_given_objective_instead_of_reading_the_question():
+    given = enumeration_from_fields(answer_noun="hospitals", criterion="use Epic", where="ohio").to_dict()
+    planner = InvestigationPlanner()
+    # The question text is deliberately useless: only the fields may decide the run.
+    state = planner.initialize_investigation(
+        "please find these for me", {"max_steps": 15, "enumeration_objective": given}
+    )
+    assert state.objective_contract["enumeration_objective"]["object"] == "Epic"
+    assert [e["name"] for e in state.entities.values()] == ["Epic"]
+    assert any(e.action_type == "OBJECTIVE_INTERPRETED" for e in state.audit_trail)

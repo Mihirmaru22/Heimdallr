@@ -69,6 +69,16 @@ def get_authoritative_package_version() -> str:
     return "0.1.0"
 
 
+def _reader_note() -> str:
+    """What to say about the reading model, when something in its configuration is missing."""
+    try:
+        from argus.llm.free_models import configuration_note
+
+        return configuration_note()
+    except Exception:  # a note about the model must never stop a run
+        return ""
+
+
 def _select_box_style(con: Console | None = None) -> Any:
     """Select appropriate box style based on console capabilities and encoding."""
     target_console = con or console
@@ -513,6 +523,7 @@ class OSINTTerminal:
             "decisions": _decision_summary(),
             "brief": brief.as_dict() if brief is not None else None,
             "page_reader": (f"{reader.label} ({reader.pages_read} pages read, {reader.failures} failures)" if (reader := getattr(self.engine, "llm_reader", None)) else None),
+            "reader_note": _reader_note(),
         }
         if recorder is not None:
             self.engine.corpus = self.corpus
@@ -613,6 +624,8 @@ class OSINTTerminal:
             f"\nPage reader: {data['page_reader']}" if data.get("page_reader") else "\nPage reader: off (set HEIMDALLR_LLM, e.g. openrouter:<free model>,ollama:qwen2.5:7b)",
             style="dim white",
         )
+        if data.get("reader_note"):
+            summary_text.append(f"\n  {data['reader_note']}", style="yellow")
         summary_text.append(
             "\nDecision engine: Laya (ranks pages to fetch, filters pages before the model reads)" if data.get("decision_engine") else "\nDecision engine: off (laya not installed or HEIMDALLR_LAYA=0)",
             style="dim white",

@@ -385,8 +385,12 @@ class InvestigationEngine:
             objective_contract=contract,
             as_of_date=as_of_date,
         )
-        # Links written in the question are read first, as the user's own request for those pages.
-        for url in dict.fromkeys(u.rstrip(".,;:!?)") for u in re.findall(r"https?://[^\s<>\"'`]+", objective or "")):
+        # Pages the user asked for are read first, as their own request: links written in the
+        # question, and the "pages to read first" field of a research brief (which is given as a
+        # field, not glued onto the question).
+        given_urls = [str(u) for u in ((contract or {}).get("seed_urls") or []) if str(u).strip()]
+        found_urls = re.findall(r"https?://[^\s<>\"'`]+", objective or "")
+        for url in dict.fromkeys(u.rstrip(".,;:!?)") for u in [*given_urls, *found_urls]):
             state.add_discovered_source(url, title="Link given in the question", source_type="user_link")
             if hasattr(self.corpus, "mark_user_requested"):
                 self.corpus.mark_user_requested(url)
