@@ -1,0 +1,94 @@
+import { useEffect, useState } from "react";
+import type { FieldSpec, Spec } from "../api";
+
+const TYPES = ["string", "text", "url", "email", "phone", "number", "integer", "date", "boolean", "list"];
+const SEMANTICS = ["none", "company_name", "website_url", "contact_email", "phone", "address", "headquarters",
+  "country", "description", "page_title", "social_links", "pricing", "founded_year", "product_categories",
+  "source_url"];
+
+// Edits the fields table and the common crawl settings; everything else is in the JSON view.
+export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange: (s: Spec) => void }) {
+  const [json, setJson] = useState(JSON.stringify(spec, null, 2));
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [showJson, setShowJson] = useState(false);
+  useEffect(() => setJson(JSON.stringify(spec, null, 2)), [spec]);
+
+  const setField = (i: number, patch: Partial<FieldSpec>) =>
+    onChange({ ...spec, fields: spec.fields.map((f, j) => (j === i ? { ...f, ...patch } : f)) });
+  const move = (i: number, d: -1 | 1) => {
+    const fields = [...spec.fields];
+    const [f] = fields.splice(i, 1);
+    fields.splice(i + d, 0, f);
+    onChange({ ...spec, fields });
+  };
+  const toggleKey = (name: string) => {
+    const keys = spec.deduplication_keys.includes(name)
+      ? spec.deduplication_keys.filter((k) => k !== name) : [...spec.deduplication_keys, name];
+    onChange({ ...spec, deduplication_keys: keys });
+  };
+  const crawl = (patch: Partial<Spec["crawl"]>) => onChange({ ...spec, crawl: { ...spec.crawl, ...patch } });
+
+  return (
+    <div>
+      <table className="fields">
+        <thead><tr><th /><th>Name</th><th>Column label</th><th>Type</th><th>Extractor</th>
+          <th title="Record is invalid without it">Required</th><th title="Used to merge duplicates">Dedupe</th><th /></tr></thead>
+        <tbody>
+          {spec.fields.map((f, i) => (
+            <tr key={i}>
+              <td className="nowrap">
+                <button className="icon" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up">↑</button>
+                <button className="icon" disabled={i === spec.fields.length - 1} onClick={() => move(i, 1)} aria-label="Move down">↓</button>
+              </td>
+              <td><input value={f.name} onChange={(e) => setField(i, { name: e.target.value })} /></td>
+              <td><input value={f.label ?? ""} onChange={(e) => setField(i, { label: e.target.value })} /></td>
+              <td><select value={f.type} onChange={(e) => setField(i, { type: e.target.value })}>
+                {TYPES.map((t) => <option key={t}>{t}</option>)}</select></td>
+              <td><select value={f.semantic ?? "none"} onChange={(e) => setField(i, { semantic: e.target.value })}>
+                {SEMANTICS.map((t) => <option key={t} value={t}>{t === "none" ? "label / rules" : t}</option>)}</select></td>
+              <td className="c"><input type="checkbox" checked={!!f.required} onChange={(e) => setField(i, { required: e.target.checked })} /></td>
+              <td className="c"><input type="checkbox" checked={spec.deduplication_keys.includes(f.name)} onChange={() => toggleKey(f.name)} /></td>
+              <td><button className="icon" onClick={() => onChange({ ...spec, fields: spec.fields.filter((_, j) => j !== i),
+                deduplication_keys: spec.deduplication_keys.filter((k) => k !== f.name) })} aria-label="Remove field">✕</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button onClick={() => onChange({ ...spec, fields: [...spec.fields, { name: `field_${spec.fields.length + 1}`, type: "string", semantic: "none" }] })}>
+        Add field
+      </button>
+
+      <div className="settings">
+        <label>Start URLs (one per line)
+          <textarea rows={4} value={spec.crawl.start_urls.join("\n")}
+                    onChange={(e) => crawl({ start_urls: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} />
+        </label>
+        <div className="row wrap">
+          <label>Max pages<input type="number" min={1} value={spec.crawl.max_pages} onChange={(e) => crawl({ max_pages: +e.target.value })} /></label>
+          <label>Max depth<input type="number" min={0} value={spec.crawl.max_depth} onChange={(e) => crawl({ max_depth: +e.target.value })} /></label>
+          <label>Pages per site<input type="number" min={1} value={spec.crawl.max_pages_per_site} onChange={(e) => crawl({ max_pages_per_site: +e.target.value })} /></label>
+          <label>One record per<select value={spec.record_scope} onChange={(e) => onChange({ ...spec, record_scope: e.target.value as Spec["record_scope"] })}>
+            <option value="site">website</option><option value="page">page</option></select></label>
+          <label className="check"><input type="checkbox" checked={spec.crawl.use_sitemaps} onChange={(e) => crawl({ use_sitemaps: e.target.checked })} /> Use sitemaps</label>
+          <label className="check"><input type="checkbox" checked={spec.crawl.follow_links} onChange={(e) => crawl({ follow_links: e.target.checked })} /> Follow links</label>
+        </div>
+        <p className="muted small">Discovery: {spec.discovery.providers.join(", ")}
+          {spec.discovery.industry && <> · industry “{spec.discovery.industry}”</>}
+          {spec.discovery.region && <> · region {spec.discovery.region}</>}
+          {spec.discovery.countries.length > 0 && <> · {spec.discovery.countries.join(", ")}</>}
+          {" "}· up to {spec.discovery.max_results} sites</p>
+      </div>
+
+      <button className="link" onClick={() => setShowJson(!showJson)}>{showJson ? "Hide" : "Show"} full JSON</button>
+      {showJson && (
+        <div>
+          <textarea className="mono" rows={18} value={json} onChange={(e) => {
+            setJson(e.target.value);
+            try { onChange(JSON.parse(e.target.value)); setJsonError(null); } catch (err) { setJsonError(String(err)); }
+          }} />
+          {jsonError && <p className="error small">{jsonError}</p>}
+        </div>
+      )}
+    </div>
+  );
+}

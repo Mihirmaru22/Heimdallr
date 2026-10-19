@@ -51,3 +51,10 @@ evals/evidence_snapshots/*.txt
 
 exports/evals/
 exports/briefs/
+
+# WebData AI
+node_modules/
+frontend/dist/
+.env
+!.env.example
+*.tsbuildinfo

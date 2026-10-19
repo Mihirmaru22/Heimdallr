@@ -1,0 +1,57 @@
+[project]
+name = "webdata-ai"
+version = "0.1.0"
+description = "WebData AI: discover, crawl, extract and export web data to Excel, locally and for $0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "pydantic-settings",
+    "email-validator",
+    "sqlalchemy",
+    "psycopg[binary]",
+    "alembic",
+    "celery[redis]",
+    "redis",
+    "httpx",
+    "selectolax",
+    "extruct",
+    "protego",
+    "phonenumbers",
+    "tldextract",
+    "argon2-cffi",
+    "xlsxwriter",
+    "python-multipart",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "openpyxl",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101", "B008", "S311", "S112", "UP046", "UP047"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S104", "S105", "S106", "S107", "S113", "S608"]

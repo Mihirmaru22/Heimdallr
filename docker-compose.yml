@@ -1,0 +1,85 @@
+# Local-only stack: everything binds to 127.0.0.1. Start with `docker compose up --build`,
+# then open http://localhost:8080. Copy .env.example to .env first.
+name: webdata
+
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment:
+    WEBDATA_DATABASE_URL: postgresql+psycopg://webdata:${WEBDATA_DB_PASSWORD}@postgres:5432/webdata
+    WEBDATA_REDIS_URL: redis://redis:6379/0
+    WEBDATA_DATA_DIR: /data
+  volumes:
+    - exports:/data
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      WEBDATA_DB_PASSWORD: ${WEBDATA_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres-init.sh:/docker-entrypoint-initdb.d/10-webdata.sh:ro
+    ports: ["127.0.0.1:5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d webdata"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    <<: *backend
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+    ports: ["127.0.0.1:8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      retries: 10
+
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    depends_on:
+      api: { condition: service_healthy }
+
+  beat:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    depends_on:
+      api: { condition: service_healthy }
+
+  web:
+    build: ./frontend
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+  # Optional: the local test websites, for trying the crawler offline.
+  # `docker compose --profile demo up` then crawl http://test-sites:8765/ after adding
+  # "test-sites:8765" to WEBDATA_ALLOW_PRIVATE_TARGETS in .env.
+  test-sites:
+    profiles: ["demo"]
+    image: python:3.13-slim
+    command: ["python", "/sites/server.py", "--port", "8765", "--host", "0.0.0.0"]
+    volumes:
+      - ./test-sites:/sites:ro
+
+volumes:
+  pgdata:
+  exports:
