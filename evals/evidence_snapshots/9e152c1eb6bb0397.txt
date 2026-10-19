@@ -1,5 +1,0 @@
-URL: https://grokipedia.com/page/Anthropic
-TITLE: Anthropic — Grokipedia
-DATE: 2026-10-13T05:33:13.954411+00:00
-
-Anthropic operates as a Delaware public benefit corporation legally obligated to balance the interests of stockholders with its public benefit purpose of developing AI systems that are reliable, interpretable, steerable, and beneficial for humanity over the long term.

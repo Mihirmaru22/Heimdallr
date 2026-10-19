@@ -1,5 +1,0 @@
-URL: https://raft.github.io/raft.pdf
-TITLE: In Search of an Understandable Consensus Algorithm - Raft
-DATE: 2026-10-15T07:01:21.955659+00:00
-
-Abstract Raft is a consensus algorithm for managing a replicated log. It produces a result equivalent to (multi-)Paxos, and it is as efficient as Paxos, but its structure is different from Paxos; this makes Raft more understandable than Paxos and also provides a better foundation for building practical systems. In order to enhance understandability, Raft separates the key elements of consensus ...

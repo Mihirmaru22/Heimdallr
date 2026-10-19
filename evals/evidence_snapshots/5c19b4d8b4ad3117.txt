@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/Turing_Award
-TITLE: Turing Award - Wikipedia
-DATE: 2026-10-13T05:39:16.641347+00:00
-
-The award is named after Alan Turing, also referred as "Father of Computer Science", who was a British mathematician and reader in mathematics at the University of Manchester.

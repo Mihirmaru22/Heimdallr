@@ -1,5 +1,0 @@
-URL: https://nssdc.gsfc.nasa.gov/planetary/lunar/apollo11info.html
-TITLE: Apollo 11 - NSSDCA
-DATE: 2026-10-13T05:35:28.437651+00:00
-
-Where are they now? - A guide to the current locations of the Apollos.

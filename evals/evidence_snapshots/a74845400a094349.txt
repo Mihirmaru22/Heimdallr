@@ -1,5 +1,0 @@
-URL: https://amturing.acm.org/call_for_nominations.cfm
-TITLE: Call for Nominations, ACM A.M. Turing Award
-DATE: 2026-10-13T05:39:16.643405+00:00
-
-Dec 15, 2025 · The A. M. Turing Award is ACM's oldest and most prestigious award. It is presented annually to an individual who has made lasting contributions of a technical nature to the computing community.

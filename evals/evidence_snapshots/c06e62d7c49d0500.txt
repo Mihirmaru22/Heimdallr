@@ -1,5 +1,0 @@
-URL: https://aws.amazon.com/s3/
-TITLE: Cloud Object Storage – Amazon S3 – Amazon Web Services
-DATE: 2026-10-15T07:51:28.932493+00:00
-
-Amazon S3 is cloud object storage with industry-leading scalability, data availability, security, and performance. S3 is ideal for data lakes, mobile applications, backup and restore, archival, IoT devices, ML, AI, and analytics.

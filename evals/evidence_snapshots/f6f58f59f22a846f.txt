@@ -1,5 +1,0 @@
-URL: https://corephysicsfundamentals.com/blog/light
-TITLE: Speed of Light Exact Value in m/s, km/h, mph & How It Was ...
-DATE: 2026-10-13T05:36:28.417632+00:00
-
-Aug 25, 2026 · What Is the Speed of Light? The speed of light in a vacuum is exactly 299,792,458 metres per second. Not approximately — exactly. Since 1983, this number has been locked into the foundations of the metric system itself: one metre is now defined as the distance light covers in precisely 1/299,792,458 of a second.

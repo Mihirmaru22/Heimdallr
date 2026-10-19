@@ -1,5 +1,0 @@
-URL: https://stackoverflow.com/questions/56995444/what-exactly-does-http-169-254-169-254-latest-meta-data-instance-id-provide
-TITLE: amazon ec2 - What exactly does http://169.254.169.254/latest/meta-data ...
-DATE: 2026-10-15T07:01:58.582633+00:00
-
-The latest portion refers to potential changes to the format of the response. It is possible to request a particular version of the meta-data response, to provide backwards compatibility. Specifying latest will use the latest version of the meta-data response format. It should be perfectly fine for your use-case.

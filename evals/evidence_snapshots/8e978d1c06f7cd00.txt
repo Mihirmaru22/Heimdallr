@@ -1,5 +1,0 @@
-URL: https://towardsthecloud.com/blog/amazon-ec2-instance-metadata
-TITLE: How to Get EC2 Instance Metadata (IMDSv2 Commands + Examples)
-DATE: 2026-10-15T07:01:58.584519+00:00
-
-Retrieve EC2 instance metadata like instance type, ID, and region using curl, the ec2-metadata tool, or IMDSv2 tokens. Includes IPv4 and IPv6 examples.

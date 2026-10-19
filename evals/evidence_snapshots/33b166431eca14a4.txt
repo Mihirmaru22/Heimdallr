@@ -1,5 +1,0 @@
-URL: https://support.google.com/websearch/?hl=en
-TITLE: Google Search Help
-DATE: 2026-10-15T09:07:30.094778+00:00
-
-Official Google Search Help Center where you can find tips and tutorials on using Google Search and other answers to frequently asked questions.

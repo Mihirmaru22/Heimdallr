@@ -1,5 +1,0 @@
-URL: https://web.stanford.edu/~ouster/cgi-bin/papers/raft-atc14
-TITLE: In Search of an Understandable Consensus Algorithm
-DATE: 2026-10-15T07:20:30.890836+00:00
-
-In order to enhance understandability, Raft separates the key elements of consensus, such as leader election, log replication, and safety, and it enforces a stronger degree of coherency to reduce the number of states that must be considered. Results from a user study demonstrate that Raft is easier for students to learn than Paxos.

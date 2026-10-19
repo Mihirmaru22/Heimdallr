@@ -1,5 +1,0 @@
-URL: https://stackoverflow.com/questions/45281849/call-to-169-254-169-254-latest-meta-data-instance-id-fails-in-aws-deployment-scr
-TITLE: amazon web services - Call to 169.254.169.254/latest/meta-data/instance ...
-DATE: 2026-10-15T07:01:58.584311+00:00
-
-You need to add this to the top of the script: Start-Service -Name 'Dhcp' route add 169.254.169.254 MASK 255.255.255.255 0.0.0.0 The DHCP Client is stopped when the script is triggered. That why you don't have IP. And you also need to add a route to the meta-data service. Sysprep remove those routes.

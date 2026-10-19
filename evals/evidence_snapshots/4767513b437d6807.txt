@@ -1,5 +1,0 @@
-URL: https://www.fnal.gov/pub/science/particle-physics/key-discoveries.html
-TITLE: Science | Particle Physics | Key Discoveries - Fermilab
-DATE: 2026-10-13T05:39:07.477999+00:00
-
-Physicists first formed the theory of the Higgs field in the 1960s and predicted the existence of the Higgs boson in 1964. On July 4, 2012, scientists on two international experiments at the Large Hadron Collider at CERN laboratory announced the discovery of the Higgs boson by combining signals seen in different types of decays of the new particle.

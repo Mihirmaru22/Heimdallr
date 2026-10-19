@@ -1,5 +1,0 @@
-URL: https://support.google.com/?p=help&hl=en-GB
-TITLE: Google Help
-DATE: 2026-10-15T09:07:30.094582+00:00
-
-If you're having trouble accessing a Google product, there's a chance we're currently experiencing a temporary problem. You can check for outages and downtime on the Google Workspace Status Dashboard.

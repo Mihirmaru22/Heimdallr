@@ -1,5 +1,0 @@
-URL: https://www.acm.org/binaries/content/assets/awards/about-the-acm-a.m.-turing-award-fact-sheet.pdf
-TITLE: About the ACM A.M. Turing Award - Association for Computing ...
-DATE: 2026-10-13T05:39:16.644252+00:00
-
-The A.M. Turing Award is named for Alan Mathison Turing (1912-1954), the British mathematician and computer scientist who articulated the mathematical foundation and limits of computing, and who was a key contributor to the Allied cryptanalysis of the Enigma cipher during World War II.

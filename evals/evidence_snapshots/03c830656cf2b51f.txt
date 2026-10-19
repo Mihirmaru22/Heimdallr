@@ -1,5 +1,0 @@
-URL: https://www.esa.int/esapub/br/br137/Br_137-1.pdf
-TITLE: PDF International Space Station Overview
-DATE: 2026-10-13T05:41:10.375432+00:00
-
-International Space Station Overview This chapter provides an overview of the technical characteristics of the ISS elements as a prelude to the detailed utilisation accommodation and resource information given in the following chapters.

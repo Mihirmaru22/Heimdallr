@@ -1,5 +1,0 @@
-URL: https://www.w3schools.com/python/
-TITLE: Python Tutorial - W3Schools
-DATE: 2026-10-15T06:39:28.018709+00:00
-
-Python is a popular programming language. Python can be used on a server to create web applications. Python is easy to learn - You will enjoy it!

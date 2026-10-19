@@ -1,5 +1,0 @@
-URL: https://didit.me/blog/aml-sanctions-pep-screening-explained/
-TITLE: AML Sanctions & PEP Screening Explained for Compliance Teams
-DATE: 2026-10-13T06:51:31.353608+00:00
-
-Jun 15, 2026 · With our open marketplace of modules, you can configure your compliance workflows to include essential checks like AML sanctions and PEP screening, alongside other fraud prevention measures such as Wallet Screening (KYT (Know Your Transaction)).

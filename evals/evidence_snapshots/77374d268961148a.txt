@@ -1,5 +1,0 @@
-URL: https://apify.com/ryanclinton/opensanctions-search/api/python
-TITLE: OFAC, EU, UN Sanctions & PEP Screening for AML/KYC API in ...
-DATE: 2026-10-13T05:38:25.463976+00:00
-
-Screen names against OFAC, EU, UN, UK sanctions, PEP and watchlist data via OpenSanctions and get a risk-scored decision per match: block, escalate, review, or clear, with the evidence, review priority, and change monitoring.

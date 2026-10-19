@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/James_Webb_Space_Telescope
-TITLE: James Webb Space Telescope - Wikipedia
-DATE: 2026-10-13T05:35:53.233776+00:00
-
-The James Webb Space Telescope (JWST) is a space telescope designed to conduct infrared astronomy. It is the largest telescope in space, and is equipped with high-resolution and high-sensitivity instruments, allowing it to view objects too old, distant, or faint for the Hubble Space Telescope. [9]

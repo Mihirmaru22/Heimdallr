@@ -1,5 +1,0 @@
-URL: https://dev.to/dave_sng_ec0ec8421d812d35/building-a-production-grade-sanctions-screening-system-in-python-aml-compliance-in-2026-2jcl
-TITLE: Building a Production-Grade Sanctions Screening System in Python: AML ...
-DATE: 2026-10-13T06:41:16.508343+00:00
-
-For developers and FinTech teams, this means one thing: sanctions screening cannot be an afterthought — it must be embedded at every layer of your business logic.

@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/Google_DeepMind
-TITLE: Google DeepMind - Wikipedia
-DATE: 2026-10-13T05:34:02.859428+00:00
-
-Researchers from Google DeepMind, Google Research and Google Cloud AI Research developed Co-Scientist, a multi-agent AI system based on Gemini for scientific hypothesis generation and research planning.

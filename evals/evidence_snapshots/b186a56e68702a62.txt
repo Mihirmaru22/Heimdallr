@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/Raft_(algorithm)
-TITLE: Raft (algorithm) - Wikipedia
-DATE: 2026-10-15T07:01:21.952356+00:00
-
-Raft is a consensus algorithm designed as an alternative to the Paxos family of algorithms. It was meant to be more understandable than Paxos by means of separation of logic, but it is also formally proven safe and offers some additional features. [1]

@@ -1,5 +1,0 @@
-URL: https://docs.linuxfoundation.org/lfx/easycla/v2-current/automated-sanctions-screening
-TITLE: Automated Sanctions Screening | Linux Foundation Documentation
-DATE: 2026-10-13T05:40:36.666972+00:00
-
-The screening is performed by the LFX Sanctions Screening Service (SSS), a shared LFX platform service that checks organizations against sanctions and watch lists through a specialized trade-compliance provider.

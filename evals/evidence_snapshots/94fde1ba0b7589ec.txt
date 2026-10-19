@@ -1,5 +1,0 @@
-URL: https://metricsystem.net/si/defining-constants/speed-of-light/
-TITLE: speed of light – Metric System
-DATE: 2026-10-13T05:36:28.416925+00:00
-
-The numerical value of the speed of light in vacuum, symbol c, is defined to be exactly 299 792 458 when expressed in the unit metre per second, m s −1. The speed of light in vacuum is constant, regardless of the motion of the source or the inertial reference frame of the observer.

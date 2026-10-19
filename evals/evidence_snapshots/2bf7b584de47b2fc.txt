@@ -1,5 +1,0 @@
-URL: https://support.google.com/accounts/?hl=en
-TITLE: Google Account Help
-DATE: 2026-10-15T09:07:30.094280+00:00
-
-Official Google Account Help Center where you can find tips and tutorials on using Google Account and other answers to frequently asked questions.

@@ -1,5 +1,0 @@
-URL: https://www.heise.de/en/news/Restructuring-at-Google-s-AI-leadership-DeepMind-under-new-management-11401018.html
-TITLE: Restructuring at Google's AI leadership: DeepMind under new management
-DATE: 2026-10-13T06:51:45.561841+00:00
-
-Restructuring at Google's AI leadership: DeepMind under new management Google reorganizes its AI leadership: Demis Hassabis moves to a strategic role, while Jeff Dean leaves the company with three ...

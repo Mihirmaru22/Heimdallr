@@ -1,5 +1,0 @@
-URL: https://www.aflhyperscale.com/wp-content/uploads/securepdfs/2026/07/WP-05017_Building-AI-Training-Clusters-at-16K-Accelerators_-White-Paper-copy.pdf
-TITLE: Building AI Training Clusters at 16K Accelerators
-DATE: 2026-10-13T05:41:26.173411+00:00
-
-The worked example in this paper examines a 16,384-XPU AI training cluster. This scale represents a practical deployment boundary for a two-tier Clos fabric using current-generation switch silicon and commercially available optical connectivity.

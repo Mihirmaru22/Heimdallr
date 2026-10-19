@@ -1,5 +1,0 @@
-URL: https://www.repost.aws/knowledge-center/ec2-linux-metadata-retrieval
-TITLE: Troubleshoot instance metadata issues on my EC2 instance
-DATE: 2026-10-15T07:01:58.583442+00:00
-
-Don't frequently poll instance metadata. Use instance caching in your application wherever possible. If your software floods metadata requests in a tight loop without delay, then you might experience throttling or metadata failures. Use tcpdump, strace, or app debug logs to check for frequent repeat calls to 169.254.169.254.

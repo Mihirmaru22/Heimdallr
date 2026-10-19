@@ -1,5 +1,0 @@
-URL: https://pureai.com/articles/2026/08/06/google-reshuffles-deepmind-leadership-as-ai-race-shifts-from-research-to-execution.aspx
-TITLE: Google Reshuffles DeepMind Leadership as AI Race Shifts from ...
-DATE: 2026-10-13T05:34:08.032039+00:00
-
-Aug 6, 2026 · Google has overhauled the leadership of its artificial intelligence operations, moving Google DeepMind co-founder Demis Hassabis into a broader strategic role and placing longtime executive Koray Kavukcuoglu in charge of the company’s flagship models and AI products.

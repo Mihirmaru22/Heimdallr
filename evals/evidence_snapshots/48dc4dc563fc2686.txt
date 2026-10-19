@@ -1,5 +1,0 @@
-URL: https://devguide.python.org/versions/?highlight=End-of-life
-TITLE: Status of Python versions
-DATE: 2026-10-13T05:38:21.239210+00:00
-
-May 27, 2026 · Python releases go through five phases, as described in PEP 602. Release managers can adjust specific dates as needed. Before the first beta, the next full release can accept new features, bug fixes, and security fixes.

@@ -1,5 +1,0 @@
-URL: https://www.w3schools.com/python/python_intro.asp
-TITLE: Introduction to Python - W3Schools
-DATE: 2026-10-15T07:20:01.844105+00:00
-
-Python Syntax compared to other programming languages Python was designed for readability, and has some similarities to the English language with influence from mathematics. Python uses new lines to complete a command, as opposed to other programming languages which often use semicolons or parentheses.

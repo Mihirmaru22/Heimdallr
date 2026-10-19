@@ -1,5 +1,0 @@
-URL: https://github.com/ongardie/dissertation
-TITLE: Consensus: Bridging Theory and Practice - GitHub
-DATE: 2026-10-15T07:01:06.333083+00:00
-
-This repository contains Diego Ongaro's PhD dissertation, Consensus: Bridging Theory and Practice, published by Stanford University in 2014. The dissertation PDFs and the dissertation sources are licensed under the Creative Commons Attribution license, as described in the LICENSE file. Several pre-built PDFs are included: book.pdf: formatted for a printed book (8.5x11" pages, bigger inside ...

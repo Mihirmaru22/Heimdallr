@@ -1,5 +1,0 @@
-URL: https://blog.compliance7.com/2026/09/15/sanctions-and-pep-screening-guide/
-TITLE: Sanctions and PEP Screening: Requirements, Best Practices and ...
-DATE: 2026-10-13T06:51:31.352973+00:00
-
-Sep 15, 2026 · Sanctions screening and PEP screening are related but distinct AML controls. Sanctions screening checks whether a person or entity is listed and, depending on the applicable regime, whether an unlisted company is subject to sanctions through the ownership or control of a listed person.

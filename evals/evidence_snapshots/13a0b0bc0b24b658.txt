@@ -1,5 +1,0 @@
-URL: https://awards.acm.org/turing/nominations
-TITLE: ACM A.M. Turing Award - Association for Computing Machinery
-DATE: 2026-10-13T05:39:16.642922+00:00
-
-The A. M. Turing Award is ACM's oldest and most prestigious award. It is presented annually to an individual who has made lasting contributions of a technical nature to the computing community.

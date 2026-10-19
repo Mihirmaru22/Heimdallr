@@ -1,5 +1,0 @@
-URL: https://metricsystem.net/si/defining-constants/avogadro-constant/
-TITLE: Avogadro constant - Metric System
-DATE: 2026-10-13T05:37:02.162685+00:00
-
-Avogadro constant SI defining constant Name Symbol Base units Avogadro constant NA mol−1 The numerical value of the Avogadro constant, symbol NA, is defined to be exactly 6.022 140 76 × 1023 when expressed in the unit reciprocal mole, symbol mol−1.

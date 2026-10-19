@@ -1,5 +1,0 @@
-URL: https://ppc.land/github-loses-independence-as-microsoft-absorbs-developer-platform-into-coreai/
-TITLE: GitHub loses independence as Microsoft absorbs developer platform into ...
-DATE: 2026-10-13T05:34:52.871735+00:00
-
-GitHub, the world's largest code repository platform, lost its operational independence in August 2025 when Microsoft announced the developer service would be absorbed into its CoreAI division. Thomas Dohmke, who served as GitHub's chief executive officer since November 2021, resigned as part of the restructuring.

@@ -1,5 +1,0 @@
-URL: https://www.programiz.com/python-programming/guide
-TITLE: Python Programming
-DATE: 2026-10-15T07:20:01.844572+00:00
-
-Python is a powerful multipurpose programming language created by Guido van Rossum. It has a simple and easy-to-use syntax, making it a popular first-choice programming language for beginners. This is a comprehensive guide that explores the reasons you should consider learning Python and the ways you can get started with Python.

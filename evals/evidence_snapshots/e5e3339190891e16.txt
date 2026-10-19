@@ -1,5 +1,0 @@
-URL: https://www.sciencedirect.com/science/article/pii/S2352152X26005918
-TITLE: Advancing green lithium-ion battery supply chains: A two ...
-DATE: 2026-10-15T07:20:49.302779+00:00
-
-Apr 1, 2026 · To evaluate the proposed framework, a case study on the supply chain of Lithium-ion batteries used in electric vehicles in Iran is conducted. The results demonstrate that the developed approach can effectively lower costs and enhance the environmental sustainability of the battery supply chain.

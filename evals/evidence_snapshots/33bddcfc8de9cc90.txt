@@ -1,5 +1,0 @@
-URL: https://neuroai-research.github.io/2.1_LLM/papers/07_DeepSeek-V3_Technical_Report/
-TITLE: 7 2024 DeepSeek-V3 - NeuroAI Research
-DATE: 2026-10-13T05:41:51.510485+00:00
-
-We evaluate DeepSeek-V3 on a comprehensive array of benchmarks. Despite its economical training costs, comprehensive evaluations reveal that DeepSeek-V3-Base has emerged as the strongest open-source base model currently available, especially in code and math.

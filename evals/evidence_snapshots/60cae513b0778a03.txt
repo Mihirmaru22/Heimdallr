@@ -1,5 +1,0 @@
-URL: https://lag.net/papers/content/raft.pdf
-TITLE: In Search of an Understandable Consensus Algorithm - lag.net
-DATE: 2026-10-15T07:21:27.153189+00:00
-
-In order to enhance understandability, Raft separates the key elements of consensus, such as leader election and log replication, and it enforces a stronger degree of coherency to reduce the number of states that must be considered.

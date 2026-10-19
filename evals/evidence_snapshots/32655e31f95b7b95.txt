@@ -1,5 +1,0 @@
-URL: https://home.cern/science/physics/higgs-boson/
-TITLE: The Higgs boson – Home | CERN
-DATE: 2026-10-13T05:39:11.928105+00:00
-
-To confirm if it really was the Higgs boson, physicists needed to check its “spin” – the Higgs boson is the only particle to have a spin of zero. By examining two and a half times more data, they concluded in March 2013 that, indeed, some kind of Higgs boson had been discovered.

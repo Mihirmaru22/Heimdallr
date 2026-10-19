@@ -1,5 +1,0 @@
-URL: https://www.usenix.org/conference/atc14/technical-sessions/presentation/ongaro
-TITLE: In Search of an Understandable Consensus Algorithm - USENIX
-DATE: 2026-10-15T07:01:06.333714+00:00
-
-In Search of an Understandable Consensus Algorithm Diego Ongaro and John Ousterhout, Stanford University Awarded Best Paper! Raft is a consensus algorithm for managing a replicated log.

@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/History_of_Linux
-TITLE: History of Linux - Wikipedia
-DATE: 2026-10-13T05:38:51.386602+00:00
-
-Linux began in 1991 as a personal project by Finnish student Linus Torvalds to create a new free operating system kernel. The resulting Linux kernel has been marked by constant growth throughout its history.

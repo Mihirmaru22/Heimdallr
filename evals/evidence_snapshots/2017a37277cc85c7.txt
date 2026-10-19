@@ -1,5 +1,0 @@
-URL: https://arstechnica.com/gadgets/2025/08/github-will-be-folded-into-microsoft-proper-as-ceo-steps-down/
-TITLE: GitHub will be folded into Microsoft proper as CEO steps down
-DATE: 2026-10-13T05:34:52.872751+00:00
-
-Microsoft has owned GitHub since 2018, but the widely used developer platform has operated with at least a little independence from the rest of the company, with its own separate CEO and other ...

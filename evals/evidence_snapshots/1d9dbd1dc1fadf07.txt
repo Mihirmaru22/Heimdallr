@@ -1,5 +1,0 @@
-URL: https://www.python.org/
-TITLE: Welcome to Python.org
-DATE: 2026-10-15T07:20:01.841542+00:00
-
-The mission of the Python Software Foundation is to promote, protect, and advance the Python programming language, and to support and facilitate the growth of a diverse and international community of Python programmers.

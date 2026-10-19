@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/Higgs_boson
-TITLE: Higgs boson - Wikipedia
-DATE: 2026-10-13T05:39:07.475661+00:00
-
-The Higgs boson, sometimes called the Higgs particle, [10][11] is an elementary particle in the Standard Model of particle physics produced by the quantum excitation of the Higgs field, [12][13] one of the fields in particle physics theory. [13] In the Standard Model, the Higgs particle is a massive scalar boson that couples to (interacts with) particles whose mass arises from their ...

@@ -1,5 +1,0 @@
-URL: https://nssdc.gsfc.nasa.gov/planetary/lunar//apollo11.html
-TITLE: Apollo 11 - 25 years later - NSSDCA
-DATE: 2026-10-13T05:35:19.599913+00:00
-
-At 1:47 pm EDT, July 20, the Lunar Module "Eagle" carrying Neil Armstrong and Edwin Aldrin, separated from the Command Module "Columbia". Michael Collins, aboard the CM, took this picture of the LM as it prepared for its descent to the lunar surface.

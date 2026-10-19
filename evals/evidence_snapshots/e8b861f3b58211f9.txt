@@ -1,5 +1,0 @@
-URL: https://physics.nist.gov/cgi-bin/cuu/Value?na
-TITLE: CODATA Value: Avogadro constant - physics.nist.gov
-DATE: 2026-10-13T05:37:02.162440+00:00
-
-Avogadro constant Numerical value 6.022 140 76 x 1023 mol-1 Standard uncertainty (exact) Relative standard uncertainty (exact) Concise form 6.022 140 76 x 10 23 mol -1 Click here for correlation coefficient of this constant with other constants

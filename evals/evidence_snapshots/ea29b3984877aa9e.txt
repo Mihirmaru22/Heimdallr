@@ -1,5 +1,0 @@
-URL: https://simple.wikipedia.org/wiki/Anthropic
-TITLE: Anthropic - Simple English Wikipedia, the free encyclopedia
-DATE: 2026-10-13T05:32:56.615763+00:00
-
-Anthropic PBC[1] is an American artificial intelligence (AI) company. Their headquarters is in San Francisco, California. It has created many large language models (LLMs) named Claude and has a focus on AI safety. [2] Anthropic was founded in 2021 by former members of OpenAI, including siblings Daniela Amodei and Dario Amodei, who are president and CEO. [3] The company is privately held and as ...

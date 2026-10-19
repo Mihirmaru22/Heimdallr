@@ -1,5 +1,0 @@
-URL: https://voyager-mac.umd.edu/docs/v1_fds_recovery_2024/
-TITLE: Voyager 1 Recovery From FDS Anomaly (last update 7/14/2025)
-DATE: 2026-10-13T05:41:46.915688+00:00
-
-3. D1F1 (Ch46) nominally 0.15-1.1 MeV/nuc alphas 4. D1F2 (Ch47) nominally 0.13-10 MeV/nuc medium nuclei These two rates are consistent before and after the FDS anomaly. D1F2 counts at a low rate of ~5 x 10^-4. D1F1 is a bit flakey with two different values: mostly ~2 x 10^-3 but with a second more noisy group of values ~2 x 10^-2.

@@ -1,5 +1,0 @@
-URL: https://mashblog.com/posts/microsoft-absorbs-github-into-coreai-after-ceo-steps-down
-TITLE: Microsoft Absorbs GitHub Into CoreAI After CEO Steps Down
-DATE: 2026-10-13T05:35:13.847614+00:00
-
-Aug 11, 2025 · GitHub loses independence as CEO Thomas Dohmke steps down, with Microsoft folding the developer platform into its CoreAI division, ending 7 years of autonomy.

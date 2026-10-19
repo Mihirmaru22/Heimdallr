@@ -1,5 +1,0 @@
-URL: https://www.ahachemistry.com/0503-avogadro-constant-why-that-number.html
-TITLE: 0503 The Avogadro constant: Why is it that number?
-DATE: 2026-10-13T05:37:02.163203+00:00
-
-The value of the Avogadro constant is not an immutable universal constant like the speed of light, or Planck's constant. Its value depends on certain human decisions that have been made in the past. For example, it may have been decided, for whatever reason, that the Avogadro constant is the number of atoms in exactly 12 kg of the C-12 isotope, or in 17.00 tonnes of the O-18 isotope, or ...

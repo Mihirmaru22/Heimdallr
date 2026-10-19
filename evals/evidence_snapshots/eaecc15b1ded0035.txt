@@ -1,5 +1,0 @@
-URL: https://www.historytools.org/inventions/linus-benedict-torvalds-creator-of-linux-operating-system
-TITLE: Linus Torvalds – The Accidental Revolutionary Behind the ...
-DATE: 2026-10-13T05:38:59.076447+00:00
-
-Mar 28, 2024 · Over the next three decades, Torvalds‘ creation – the Linux kernel – would grow from those humble beginnings into the leading open source software project worldwide, powering everything from smartphones to stock exchanges to the internet itself.

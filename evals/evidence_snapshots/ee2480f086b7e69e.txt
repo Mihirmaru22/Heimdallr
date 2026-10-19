@@ -1,5 +1,0 @@
-URL: https://www.web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf
-TITLE: PDF Consensus: Bridging Theory and Practice - Stanford University
-DATE: 2026-10-15T07:01:06.331398+00:00
-
-This dissertation expands on a paper written by Diego Ongaro and John Ousterhout entitled In Search of an Understandable Consensus Algorithm [89]. Most of the paper's content is included in some form in this dissertation. It is reproduced in this dissertation and licensed under the Creative Commons Attribution license with permission from John Ousterhout.

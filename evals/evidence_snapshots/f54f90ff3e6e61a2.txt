@@ -1,5 +1,0 @@
-URL: https://pypi.org/project/ofac-sanctions-screening/
-TITLE: ofac-sanctions-screening · PyPI
-DATE: 2026-10-13T05:38:25.461431+00:00
-
-Screen any person, company, or crypto wallet against OFAC SDN, EU, UK (OFSI), UN + 100+ global watchlists (powered by OpenSanctions) and get a PASS / WARN / BLOCK verdict — in one call, with cited sources. Free demo, no signup — start screening in 10 seconds, no API key.

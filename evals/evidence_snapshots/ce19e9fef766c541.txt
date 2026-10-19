@@ -1,5 +1,0 @@
-URL: https://pages.cs.wisc.edu/~sastry/hs323/calculus.pdf
-TITLE: The Newton-Leibniz controversy over the invention of the ...
-DATE: 2026-10-13T05:37:51.387110+00:00
-
-Perhaps one the most infamous controversies in the history of science is the one between Newton and Leibniz over the invention of the infinitesimal calculus.

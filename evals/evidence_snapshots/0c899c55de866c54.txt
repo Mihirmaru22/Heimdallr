@@ -1,5 +1,0 @@
-URL: https://onlinelibrary.wiley.com/doi/10.1002/andp.201800292
-TITLE: The Avogadro Constant for the Definition and Realization of ...
-DATE: 2026-10-13T05:37:10.639951+00:00
-
-Dec 27, 2018 · Currently, the mole is defined via the mass of exactly 0.012 kg of the 12 C isotope which links it to the kilogram prototype. The history, changes, and implications of the revised definition of the mole are discussed here from the chemist's point of view.

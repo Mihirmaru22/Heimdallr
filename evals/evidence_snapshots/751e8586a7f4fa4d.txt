@@ -1,5 +1,0 @@
-URL: https://github.com/Zaneham/voyager-fds-emulator
-TITLE: GitHub - Zaneham/voyager-fds-emulator: Emulator for the ...
-DATE: 2026-10-13T05:41:42.904872+00:00
-
-Jan 21, 2026 · This is an emulator for the Flight Data Subsystem (FDS) used on Voyager 1 and Voyager 2. Voyager 1 launched September 5, 1977. Voyager 2 launched sixteen days earlier on August 20, 1977, because space mission naming conventions are not required to make sense. Both spacecraft are still operating.

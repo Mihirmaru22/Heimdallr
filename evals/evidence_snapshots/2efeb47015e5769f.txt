@@ -1,5 +1,0 @@
-URL: https://www.researchgate.net/publication/387512415_DeepSeek-V3_Technical_Report
-TITLE: DeepSeek-V3 Technical Report - ResearchGate
-DATE: 2026-10-13T05:41:51.510834+00:00
-
-Dec 26, 2024 · Furthermore, DeepSeek-V3 pioneers an auxiliary-loss-free strategy for load balancing and sets a multi-token prediction training objective for stronger performance.

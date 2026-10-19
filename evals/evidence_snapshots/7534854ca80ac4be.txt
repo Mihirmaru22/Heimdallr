@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/Dario_Amodei
-TITLE: Dario Amodei - Wikipedia
-DATE: 2026-10-13T05:33:24.402837+00:00
-
-Dario Amodei (born 1983) is an American artificial intelligence (AI) researcher and entrepreneur. In 2021, he and his sister Daniela Amodei co-founded Anthropic, the company behind the large language model series Claude. [2] Before that, he was the vice president of research at OpenAI. [3][4] At US$965 billion as of May 2026, Anthropic is one of the most valuable AI pure play companies ...

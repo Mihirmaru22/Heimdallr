@@ -1,5 +1,0 @@
-URL: https://www.wikiwand.com/en/Avogadro_constant
-TITLE: Avogadro constant - Wikiwand
-DATE: 2026-10-13T05:37:10.638916+00:00
-
-In chemistry, the Avogadro constant, commonly denoted NA, is a conversion constant or ratio between an amount of substance and the number of particles that it contains. The particles in question are any designated elementary entity, such as molecules, atoms, ions, or ion pairs.

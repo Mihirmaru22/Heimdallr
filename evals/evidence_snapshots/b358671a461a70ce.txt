@@ -1,5 +1,0 @@
-URL: https://fourweekmba.com/who-owns-github/
-TITLE: Who Owns GitHub - FourWeekMBA
-DATE: 2026-10-13T05:34:52.872937+00:00
-
-GitHub is a web-based platform for software development, allowing developers to host, review, and manage code repositories. After the acquisition, GitHub continues to operate as an independent product.

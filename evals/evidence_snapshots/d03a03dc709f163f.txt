@@ -1,5 +1,0 @@
-URL: https://www.lpi.usra.edu/lunar/missions/apollo/apollo_11/
-TITLE: Missions - Apollo 11 Mission - Lunar
-DATE: 2026-10-13T05:35:28.439003+00:00
-
-Apollo 11 was launched on July 16, 1969, at 8:32 AM Central Daylight Time (CDT) with the goal of performing the first human landing on the Moon. Commander Neil Armstrong, Command Module Pilot Michael Collins, and Lunar Module Pilot Edwin “Buzz” Aldrin entered lunar orbit on the afternoon of July 19.

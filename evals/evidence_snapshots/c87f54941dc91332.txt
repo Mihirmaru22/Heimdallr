@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/Amount_of_substance
-TITLE: Amount of substance - Wikipedia
-DATE: 2026-10-13T05:37:02.161279+00:00
-
-The unit of amount of substance in the SI is the mole (symbol: mol), a base unit. [1] Since 2019, the mole has been defined such that the value of the Avogadro constant NA is exactly 6.022 140 76 × 1023 mol−1, defining a macroscopic unit convenient for use in laboratory-scale chemistry.

@@ -1,5 +1,0 @@
-URL: https://www.fenergo.com/blogs/peps-and-sanction-checks
-TITLE: PEP and Sanctions Screening: A Vital Step in KYC - Fenergo
-DATE: 2026-10-13T06:51:31.354506+00:00
-
-Jan 19, 2026 · PEP and sanctions screening is the process of identifying whether a customer, beneficial owner, or related party is a politically exposed person or appears on global sanctions lists. It helps financial institutions assess risk, apply appropriate due diligence, and comply with AML and KYC regulations. What is a PEP check?

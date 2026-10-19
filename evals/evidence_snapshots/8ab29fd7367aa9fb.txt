@@ -1,5 +1,0 @@
-URL: https://stacks.stanford.edu/file/druid:qr033xr6097/cameraready-try2-augmented.pdf
-TITLE: PDF CONSENSUS: BRIDGING THEORY AND PRACTICE - Stanford University
-DATE: 2026-10-15T07:01:06.331831+00:00
-
-The remainder of this dissertation introduces the replicated state machine problem and dis-cusses the strengths and weaknesses of Paxos (Chapter 2); presents the Raft consensus algorithm, its extensions for cluster membership changes and log compaction, and how clients interact with Raft (Chapters 3-6); evaluates Raft for understandability ...

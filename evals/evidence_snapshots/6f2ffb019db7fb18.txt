@@ -1,5 +1,0 @@
-URL: https://hidekazu-konishi.com/entry/python_version_support_and_eol_timeline.html
-TITLE: Python Version Support and EOL Timeline - Release Schedule ...
-DATE: 2026-10-13T05:38:21.239747+00:00
-
-Jul 26, 2026 · End of life (EOL) is the date after which a version receives no further fixes of any kind, including security fixes. Every Python 3.x version is supported for about five years in total.

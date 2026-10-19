@@ -1,5 +1,0 @@
-URL: https://arxiv.org/pdf/1703.03952
-TITLE: Higgs Boson Production at the LHC - arXiv.org
-DATE: 2026-10-13T05:39:11.927319+00:00
-
-For the production of Higgs boson at the LHC collider, we evaluate the fully cross section for the simplest spontaneous broken gauge boson involving exactly one physical SM Higgs boson via several mechanisms.

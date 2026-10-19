@@ -1,5 +1,0 @@
-URL: https://www.nobelprize.org/prizes/physics/2023/press-release/
-TITLE: Press release: The Nobel Prize in Physics 2023 - NobelPrize.org
-DATE: 2026-10-13T05:40:56.024708+00:00
-
-Oct 3, 2023 · The Nobel Prize in Physics 2023 was awarded to Pierre Agostini, Ferenc Krausz and Anne L’Huillier "for experimental methods that generate attosecond pulses of light for the study of electron dynamics in matter"

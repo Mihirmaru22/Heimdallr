@@ -1,5 +1,0 @@
-URL: https://registry-lookup.com/
-TITLE: Global Company Registry Search & Legal Entity Lookup
-DATE: 2026-10-13T05:33:51.888093+00:00
-
-Search 521M+ company registry records by legal name, registration number, LEI, address, jurisdiction, and status. Explore free legal entity profiles and API access.

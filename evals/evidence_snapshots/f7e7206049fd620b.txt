@@ -1,5 +1,0 @@
-URL: https://www.nature.com/articles/171737a0
-TITLE: Molecular Structure of Nucleic Acids: A Structure for ...
-DATE: 2026-10-13T05:36:39.666465+00:00
-
-The determination in 1953 of the structure of deoxyribonucleic acid (DNA), with its two entwined helices and paired organic bases, was a tour de force in X-ray crystallography.

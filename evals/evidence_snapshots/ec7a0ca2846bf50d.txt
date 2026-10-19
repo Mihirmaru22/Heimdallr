@@ -1,5 +1,0 @@
-URL: https://www.anthropic.com/company/leadership
-TITLE: Leadership at Anthropic \ Anthropic
-DATE: 2026-10-13T05:32:56.616249+00:00
-
-Meet the leadership team at Anthropic. Learn about the experienced leaders guiding our mission to build reliable, interpretable, and steerable AI systems.

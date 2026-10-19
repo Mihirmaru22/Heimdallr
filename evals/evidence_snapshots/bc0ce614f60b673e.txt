@@ -1,5 +1,0 @@
-URL: https://history-computer.com/inventions/linus-benedict-torvalds-creator-of-linux-operating-system/
-TITLE: Linus Benedict Torvalds – Creator of Linux Operating System
-DATE: 2026-10-13T05:39:03.722952+00:00
-
-May 23, 2025 · In April 1991, Linus Torvalds, a 21-year-old student of computer science at the University of Helsinki, Finland, began his personal project — to create a new operating system kernel.

@@ -1,5 +1,0 @@
-URL: https://spectrum.ieee.org/voyager-1
-TITLE: How NASA Is Hacking Voyager 1 Back to Life - IEEE Spectrum
-DATE: 2026-10-13T05:41:46.916154+00:00
-
-May 6, 2024 · Minuscule Memory Voyager 1 and its twin, Voyager 2—which also remains operational—were launched nearly 50 years ago, in 1977, to tour the solar system.

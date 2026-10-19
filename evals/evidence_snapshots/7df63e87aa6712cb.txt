@@ -1,5 +1,0 @@
-URL: https://www.datacenterdynamics.com/en/whitepapers/building-ai-training-clusters-at-16k-accelerators/
-TITLE: Building AI training clusters at 16k accelerators - DCD
-DATE: 2026-10-13T05:41:26.174324+00:00
-
-Aug 14, 2026 · This whitepaper from AFL examines the physical architecture required to support a 16k-XPU AI training cluster, focusing on the back-end scale-out fabric, fiber density, optical connectivity and long-term scalability.

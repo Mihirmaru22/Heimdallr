@@ -1,5 +1,0 @@
-URL: https://www.taskade.com/blog/github-history
-TITLE: Who Owns GitHub? Microsoft Since 2018: Full History (2026)
-DATE: 2026-10-13T05:35:00.527136+00:00
-
-Jun 5, 2026 · Microsoft acquired GitHub in 2018 to invest in the developer ecosystem at the center of modern software. By then Microsoft was already the most active organization on GitHub through open-source projects like VS Code.

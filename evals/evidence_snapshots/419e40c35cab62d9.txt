@@ -1,5 +1,0 @@
-URL: https://chem.libretexts.org/Bookshelves/General_Chemistry/ChemPRIME_(Moore_et_al.)/02:_Atoms_Molecules_and_Chemical_Reactions/2.10:_The_Avogadro_Constant
-TITLE: 2.10: The Avogadro Constant - Chemistry LibreTexts
-DATE: 2026-10-13T05:37:02.162927+00:00
-
-Notice that Equation $\text{2.10.1}$, which defines the Avogadro constant, has the same form as the equation which defined density. The preceding example used the Avogadro constant as a conversion factor in the same way that density was used.

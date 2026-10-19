@@ -1,5 +1,0 @@
-URL: https://arxiv.org/pdf/2110.08374
-TITLE: Gemini: Practical Reconfigurable Datacenter Networks with ...
-DATE: 2026-10-13T05:41:38.218510+00:00
-
-Gemini is a system designed to achieve these goals on commodity hard-ware while reconfiguring the network infrequently, render-ing these blocking designs practical enough for deployment in the near future.

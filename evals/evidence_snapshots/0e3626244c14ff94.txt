@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/Higgs_boson
-TITLE: Higgs boson - Wikipedia
-DATE: 2026-10-13T05:39:11.925250+00:00
-
-Both the field and the boson are named after physicist Peter Higgs, who in 1964, along with five other scientists in three teams, proposed the Higgs mechanism, a way for some particles to acquire mass.

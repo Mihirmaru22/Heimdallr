@@ -1,5 +1,0 @@
-URL: https://investors.arm.com/financials/sec-filings
-TITLE: SEC Filings - Arm®
-DATE: 2026-10-13T06:37:31.419414+00:00
-
-All SEC filings by Arm are searchable by type and date and available here on the Arm Investor Relations website.

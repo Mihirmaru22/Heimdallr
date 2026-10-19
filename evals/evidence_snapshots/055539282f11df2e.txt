@@ -1,5 +1,0 @@
-URL: https://raft.github.io/
-TITLE: Raft Consensus Algorithm
-DATE: 2026-10-15T07:20:30.893270+00:00
-
-Diego Ongaro's Ph.D. dissertation expands on the content of the paper in much more detail, and it includes a simpler cluster membership change algorithm. The dissertation also includes a formal specification of Raft written in TLA+; a slightly updated version of that specification is here.

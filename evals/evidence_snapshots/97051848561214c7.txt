@@ -1,5 +1,0 @@
-URL: https://www.arm.com/company/board
-TITLE: Board of Directors – Arm®
-DATE: 2026-10-13T05:34:50.665225+00:00
-
-Under his leadership, Arm has expanded beyond IP licensing into compute subsystems, creating significant customer value and, most recently, production silicon—marking a major strategic evolution.

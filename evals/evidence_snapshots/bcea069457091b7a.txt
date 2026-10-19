@@ -1,5 +1,0 @@
-URL: https://en.wikipedia.org/wiki/History_of_calculus
-TITLE: History of calculus - Wikipedia
-DATE: 2026-10-13T05:37:51.385709+00:00
-
-Infinitesimal calculus was developed in full in the late 17th century by Isaac Newton and Gottfried Wilhelm Leibniz independently of each other. An argument over priority led to the Leibniz–Newton calculus controversy, which continued until the death of Leibniz in 1716.

@@ -1,5 +1,0 @@
-URL: https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
-TITLE: Steal EC2 Metadata Credentials via SSRF - Hacking The Cloud
-DATE: 2026-10-15T07:01:58.584854+00:00
-
-One of the most common techniques in AWS exploitation is abusing the Instance Metadata Service (IMDS) associated with a target EC2 instance. Most EC2 instances can access their IMDS at 169.254.169.254. This service is only accessible from the specific EC2 instance it is associated with. The instance metadata service contains useful information about the instance, such as its IP address, its ...

@@ -1,5 +1,0 @@
-URL: https://www.nist.gov/si-redefinition/meet-constants
-TITLE: Meet the Constants | NIST
-DATE: 2026-10-13T05:36:28.418293+00:00
-
-Oct 12, 2018 · In the revised SI, these constants completely define the seven base SI units, from the second to the candela. The below graphic shows the seven base SI units and the constants used to define them. Click on each of the SI units (outer boxes) to see which constants (inner boxes) define them.

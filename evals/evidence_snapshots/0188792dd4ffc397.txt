@@ -1,5 +1,0 @@
-URL: https://www.linuxfordevices.com/tutorials/linux/history-of-linux
-TITLE: History of Linux – How did Linux Start and Who Created Linux?
-DATE: 2026-10-13T05:38:59.075919+00:00
-
-Oct 3, 2026 · Ask who created Linux and you’ll usually hear one name, Linus Torvalds. He started the Linux kernel in 1991 as a personal project while studying in Helsinki, and a much wider set of developers later built complete systems around it.

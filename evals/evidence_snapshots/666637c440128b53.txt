@@ -1,5 +1,0 @@
-URL: https://www.anthropic.com/company/leadership
-TITLE: Leadership at Anthropic \ Anthropic
-DATE: 2026-10-13T05:33:13.953543+00:00
-
-Brian Israel oversees the company’s Legal and Integrity & Compliance organizations. Rahul Patil leads the engineering organization across inference, product, infrastructure, and security as the company scales to meet growing enterprise demand worldwide.

@@ -1,5 +1,0 @@
-URL: https://handwiki.org/wiki/Physics:Avogadro_constant
-TITLE: Physics:Avogadro constant - HandWiki
-DATE: 2026-10-13T05:37:10.638384+00:00
-
-Jan 28, 2026 · Both the constant and the number are named after the Italian physicist and chemist Amedeo Avogadro. The Avogadro constant is used as a proportionality factor to define the amount of substance n(X), in a sample of a substance X, in terms of the number of elementary entities N(X) in that sample:

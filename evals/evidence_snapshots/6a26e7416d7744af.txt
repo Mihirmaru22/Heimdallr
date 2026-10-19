@@ -1,5 +1,0 @@
-URL: https://apify.com/apifmcpfactory/sanctions-screening/api/python
-TITLE: Sanctions & PEP Screening Suite: OFAC SDN, AML / KYC Check ...
-DATE: 2026-10-13T05:38:25.463439+00:00
-
-You can access the Sanctions Screening Suite: OFAC, EU, UK, UN & PEP Watchlists programmatically from your own applications by using the Apify API. You can also choose the language preference from below.

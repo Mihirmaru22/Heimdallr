@@ -1,5 +1,0 @@
-URL: https://hbp.web.cern.ch/
-TITLE: Higgs Boson Portal
-DATE: 2026-10-13T05:39:07.477397+00:00
-
-ATLAS is one of the four major experiments at the Large Hadron Collider (LHC) at CERN. It is a general-purpose particle physics experiment run by an international collaboration and, together with CMS, is designed to exploit the full discovery potential and the huge range of physics opportunities that the LHC provides.

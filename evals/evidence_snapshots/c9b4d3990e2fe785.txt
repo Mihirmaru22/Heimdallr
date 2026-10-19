@@ -1,5 +1,0 @@
-URL: https://www.python.org/psf/press-release/pr20191220/
-TITLE: Python Software Foundation: Press Release 20-Dec-2019
-DATE: 2026-10-13T05:38:21.239536+00:00
-
-Dec 20, 2019 · The CPython core developer community is retiring the Python 2 series after nearly 20 years of development. The last major version 2.7 will be released in April 2020, and then all development will cease for Python 2.

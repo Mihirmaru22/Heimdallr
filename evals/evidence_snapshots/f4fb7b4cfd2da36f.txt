@@ -1,5 +1,0 @@
-URL: https://www.companieshistory.com/company/anthropic/
-TITLE: Anthropic - companieshistory.com
-DATE: 2026-10-13T05:32:56.617800+00:00
-
-Anthropic is an American artificial intelligence company founded in 2021 by former OpenAI executives Dario and Daniela Amodei. The San Francisco-based public benefit corporation develops Claude, a leading family of large language models. The company serves millions of users globally through its API and consumer products while employing approximately 950 people. Anthropic achieved a valuation ...

@@ -1,5 +1,0 @@
-URL: https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1969-059A
-TITLE: NASA - NSSDCA - Spacecraft - Details
-DATE: 2026-10-13T06:52:48.861294+00:00
-
-Description Apollo 11 was the first mission in which humans walked on the lunar surface and returned to Earth. On 20 July 1969 two astronauts (Apollo 11 Commander Neil A. Armstrong and LM pilot Edwin E. "Buzz" Aldrin Jr.) landed in Mare Tranquilitatis (the Sea of Tranquility) on the Moon in the Lunar Module (LM) while the Command and Service Module (CSM) (with CM pilot Michael Collins ...

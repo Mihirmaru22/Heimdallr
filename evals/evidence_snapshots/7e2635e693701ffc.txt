@@ -1,5 +1,0 @@
-URL: https://theorg.com/iterate/meet-the-team-behind-anthropic
-TITLE: Meet the team behind Anthropic - The Org
-DATE: 2026-10-13T05:33:24.406353+00:00
-
-Anthropic is an AI alignment research company focused on ensuring safe and beneficial artificial intelligence. This article explores the organizational structure of Anthropic, highlighting the key roles and leadership that drive its mission forward.

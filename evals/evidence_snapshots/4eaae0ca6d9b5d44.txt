@@ -1,5 +1,0 @@
-URL: https://amturing.acm.org/?pg=awards.html
-TITLE: A.M. Turing Award
-DATE: 2026-10-13T05:39:16.642509+00:00
-
-ACM, the Association for Computing Machinery, today named Charles H. Bennett and Gilles Brassard as the recipients of the 2025 ACM A.M. Turing Award for their essential role in establishing the foundations of quantum information science and transforming secure communication and computing.

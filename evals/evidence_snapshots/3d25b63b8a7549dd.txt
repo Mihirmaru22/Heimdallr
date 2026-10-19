@@ -1,5 +1,0 @@
-URL: https://endoflife.date/python
-TITLE: Python - endoflife.date
-DATE: 2026-10-13T05:38:21.240333+00:00
-
-3 days ago · The end-of-life is scheduled 5 years after the first release but can be adjusted by the release manager of each branch. Every release gets: 2 years of planned releases with bugfixes. The detailed release information (including schedules) can be found among Release PEPs.

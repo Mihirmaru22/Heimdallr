@@ -1,5 +1,0 @@
-URL: https://www.greenzonecapital.com/research/optical-networking-cluster-fabric
-TITLE: Optical Networking and the AI Cluster Fabric: From ...
-DATE: 2026-10-13T05:41:26.174761+00:00
-
-Dec 18, 2025 · A deep-dive into the AI cluster networking stack — how optical transceivers, high-speed switches, and the fabric layer that connects thousands of GPUs are becoming the next structural bottleneck in large-scale AI infrastructure.

@@ -1,5 +1,0 @@
-URL: https://www.linuxfoundation.org/about
-TITLE: About the Linux Foundation
-DATE: 2026-10-13T05:40:40.875329+00:00
-
-We provide turnkey technology and support programs for developer enablement, business operations, training & certification, marketing and events, and membership development to help projects scale fast.

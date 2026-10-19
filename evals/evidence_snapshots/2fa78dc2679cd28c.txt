@@ -1,5 +1,0 @@
-URL: https://www.tizen.org/about/about-the-linux-foundation/
-TITLE: About the Linux Foundation
-DATE: 2026-10-13T05:40:40.876445+00:00
-
-The Linux Foundation promotes, protects and advances Linux by marshaling the resources of its members and the open source development community to ensure Linux remains free and technically advanced.

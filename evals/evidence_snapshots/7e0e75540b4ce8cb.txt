@@ -1,5 +1,0 @@
-URL: https://rdgonzaga.github.io/memory-block-blast/voyager/
-TITLE: The 2024 Voyager 1 FDS Memory Rescue - CSARCH2 Virtual Exhibit
-DATE: 2026-10-13T05:41:42.905540+00:00
-
-Unlike modern computers with vast storage, Voyager 1’s 1970s hardware relies on a tiny, fixed set of memory slots to handle every calculation. Without this functional memory space, the spacecraft loses its operational instructions and data, effectively rendering it lifeless.
