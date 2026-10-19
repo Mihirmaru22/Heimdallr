@@ -58,6 +58,37 @@ class OSINTMarkdownExporter:
         out_path.write_text(content, encoding="utf-8")
         return out_path
 
+    @staticmethod
+    def _answer_table_lines(data: dict[str, Any]) -> list[str]:
+        """The answers as one table, a row each, with the evidence beside them."""
+        from argus.export.answer_rows import STRONG, WEAK, answer_noun, build_answer_rows
+
+        extra_columns, rows = build_answer_rows(data)
+        if not rows:
+            return []
+        noun = answer_noun(data)
+        strengths = [r.evidence_strength for r in rows]
+        headers = [noun.title() if noun != "answers" else "Answer", *extra_columns,
+                   "Evidence", "Strength", "Sources", "What the evidence says"]
+
+        def cell(text: str) -> str:
+            return str(text).replace("|", "\\|").replace("\n", " ").strip()
+
+        out = [f"## Answers ({len(rows)} {noun})\n",
+               f"{strengths.count(STRONG)} on strong evidence (two or more independent sites), "
+               f"{strengths.count(WEAK)} stated once and worth verifying first.\n",
+               "| " + " | ".join(headers) + " |",
+               "|" + "|".join(["---"] * len(headers)) + "|"]
+        for row in rows:
+            says = cell(row.evidence_says)[:220]
+            link = f"[{row.evidence_type}]({row.evidence_url})" if row.evidence_url else row.evidence_type
+            out.append("| " + " | ".join([
+                f"**{cell(row.answer)}**", *[cell(row.attributes.get(c, "")) for c in extra_columns],
+                link, row.evidence_strength, str(row.sources), says,
+            ]) + " |")
+        out.append("\n---\n")
+        return out
+
     def _render_markdown_report(self, data: dict[str, Any], target_name: str) -> str:
         """Render the complete Markdown document."""
         synth = generate_narrative_intelligence(data)
@@ -105,7 +136,10 @@ class OSINTMarkdownExporter:
                 lines.append(f"- {lim}")
             lines.append("\n---\n")
 
-        # 4. Categorized Verified Findings
+        # 4. The answers, as a table: the same rows as the Excel "Answers" sheet.
+        lines.extend(self._answer_table_lines(data))
+
+        # 4b. Categorized Verified Findings
         lines.append("## Key Corroborated Findings\n")
         for category, items in categorized_findings.items():
             if items:

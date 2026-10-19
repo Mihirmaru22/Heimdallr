@@ -1,6 +1,11 @@
 """Heimdallr OSINT Excel Dossier Exporter.
 
+The first three sheets are the ones a person reads and works in: the answers, one row each, with
+the evidence beside them; a dashboard of counts; and how the list was built. The sheets after them
+are the record behind it (claims, entities, evidence, audit trail).
+
 Generates structured, multi-sheet Excel (.xlsx) workbooks containing:
+0. Answers: one row per thing found, its evidence type, strength, URL and quote, and columns to work in.
 1. Executive Dossier: Target, objective, run metadata, confidence, and metric summary.
 2. Verified Intelligence: Claim triples, epistemic statuses, confidence scores, and citations.
 3. Entity Dossier: Discovered entities, classifications, roles, and contacts.
@@ -20,6 +25,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from argus.export.answer_rows import STRONG, WEAK, AnswerRow, answer_noun, build_answer_rows
 from argus.export.narrative import NO_SOURCE_RECORDED, format_confidence, generate_narrative_intelligence
 from argus.investigation.relevance import clean_entity_name, is_contextually_relevant_host
 
@@ -29,6 +35,19 @@ COLOR_HEADER_BG = "1A2530"       # Dark Navy Slate
 COLOR_HEADER_FG = "FFFFFF"       # White
 COLOR_SUBHEADER_BG = "2E4053"    # Slate Accent
 COLOR_ZEBRA = "F8F9FA"           # Light subtle gray
+COLOR_TABLE_HEADER = "1F3864"    # Table header navy, as on the sheets Ronak keeps by hand
+COLOR_FILL_IN = "FFF9D6"         # Columns the reader fills in (status, owner, notes)
+COLOR_LINK = "0563C1"            # Excel's own hyperlink blue
+
+# Answer sheet: the columns that are always there, and how wide each one is.
+ANSWER_WIDTHS = {
+    "Answer": 40, "What the evidence says": 60, "Evidence URL": 45, "Other sources": 30,
+    "Website": 30, "Where": 20, "Industry": 24, "Approx size": 16,
+    "Evidence type": 16, "Evidence strength": 12, "Confirmed by": 11,
+    "What was found": 34, "Status": 14, "Owner": 12, "Notes": 34,
+}
+FILL_IN_COLUMNS = ("Status", "Owner", "Notes")
+STRENGTH_FILLS = {"Strong": ("C6EFCE", "006100"), "Moderate": ("FFF2CC", "7F6000"), "Weak": ("EBEBEB", "595959")}
 
 # Status Badge Styles (Fill, Font)
 STATUS_STYLES = {
@@ -115,6 +134,9 @@ class OSINTExcelExporter:
         # Remove default sheet
         wb.remove(wb.active)
 
+        self._build_answer_sheet(wb, investigation_data, target_name)
+        self._build_dashboard_sheet(wb, investigation_data)
+        self._build_method_sheet(wb, investigation_data)
         self._build_summary_sheet(wb, investigation_data, target_name)
         self._build_claims_sheet(wb, investigation_data)
         if investigation_data.get("rejected_claims"):
@@ -125,6 +147,157 @@ class OSINTExcelExporter:
 
         wb.save(out_path)
         return out_path
+
+    # --- the sheets a person reads ----------------------------------------------------------
+
+    def _table_header(self, ws: Any, headers: list[str], row: int = 4) -> None:
+        """The header band: navy, white, wrapped, with a filter and the rows below it frozen."""
+        for col, name in enumerate(headers, start=1):
+            cell = ws.cell(row=row, column=col, value=name)
+            cell.font = HEADER_FONT
+            cell.fill = PatternFill(start_color=COLOR_TABLE_HEADER, end_color=COLOR_TABLE_HEADER, fill_type="solid")
+            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            cell.border = THIN_BORDER
+            ws.column_dimensions[get_column_letter(col)].width = ANSWER_WIDTHS.get(name, 18)
+        ws.row_dimensions[row].height = 30
+        ws.freeze_panes = f"A{row + 1}"
+
+    def _sheet_title(self, ws: Any, title: str, subtitle: str, width: int) -> None:
+        """Row 1 the question, row 2 how to read the sheet, row 3 blank."""
+        t = ws.cell(row=1, column=1, value=title)
+        t.font = Font(name="Segoe UI", size=14, bold=True)
+        ws.row_dimensions[1].height = 20
+        sub = ws.cell(row=2, column=1, value=subtitle)
+        sub.font = Font(name="Segoe UI", size=9, color="595959")
+        sub.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=max(1, width))
+        ws.row_dimensions[2].height = 42
+
+    @staticmethod
+    def _answer_table(data: dict[str, Any]) -> tuple[list[str], list[str], list[AnswerRow]]:
+        """The Answers sheet's headers, its attribute columns and its rows.
+
+        The first column is named after what the question asked for ("Companies", "Hospitals"),
+        so the sheet reads as an answer rather than as a dump of claims.
+        """
+        extra_columns, rows = build_answer_rows(data)
+        noun = answer_noun(data)
+        headers = [noun.title() if noun != "answers" else "Answer", *extra_columns,
+                   "Evidence type", "Evidence strength", "Confirmed by", "Evidence URL",
+                   "What the evidence says", "Other sources", "What was found", "Status", "Owner", "Notes"]
+        return headers, extra_columns, rows
+
+    def _build_answer_sheet(self, wb: openpyxl.Workbook, data: dict[str, Any], target_name: str) -> None:
+        """Sheet 1: one row per thing found, with its evidence and columns to work in."""
+        headers, extra_columns, rows = self._answer_table(data)
+        noun = answer_noun(data)
+        ws = wb.create_sheet(title="Answers")
+
+        strengths = [r.evidence_strength for r in rows]
+        counts = f"{len(rows)} {noun}, {strengths.count(STRONG)} on strong evidence, {strengths.count(WEAK)} to verify"
+        asof = datetime.now(timezone.utc).strftime("%d %b %Y")
+        self._sheet_title(
+            ws,
+            str(data.get("objective") or target_name),
+            f"As of {asof}. {counts}. Every row passed the evidence check: the quote is the page's own words, "
+            f"at the URL beside it. Evidence strength: Strong = two or more independent sites, "
+            f"Moderate = one site with a quote, Weak = stated once without a quote worth keeping. "
+            f"Shaded columns are yours to fill in. Run stopped: {data.get('stop_reason') or 'UNKNOWN'}.",
+            len(headers),
+        )
+        self._table_header(ws, headers)
+        ws.auto_filter.ref = f"A4:{get_column_letter(len(headers))}{max(5, 4 + len(rows))}"
+
+        for i, row in enumerate(rows):
+            r = 5 + i
+            values = [row.answer, *[row.attributes.get(c, "") for c in extra_columns],
+                      row.evidence_type, row.evidence_strength, row.sources, row.evidence_url,
+                      row.evidence_says, row.other_sources(), row.detail, "", "", ""]
+            for col, value in enumerate(values, start=1):
+                cell = ws.cell(row=r, column=col, value=value)
+                cell.font = BODY_FONT
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
+                cell.border = THIN_BORDER
+                name = headers[col - 1]
+                if name in FILL_IN_COLUMNS:
+                    cell.fill = PatternFill(start_color=COLOR_FILL_IN, end_color=COLOR_FILL_IN, fill_type="solid")
+                elif name == "Evidence strength":
+                    bg, fg = STRENGTH_FILLS.get(str(value), STRENGTH_FILLS["Weak"])
+                    cell.fill = PatternFill(start_color=bg, end_color=bg, fill_type="solid")
+                    cell.font = Font(name="Segoe UI", size=10, bold=True, color=fg)
+                elif name in ("Evidence URL", "Website") and isinstance(value, str) and value.startswith("http"):
+                    cell.hyperlink = value
+                    cell.font = Font(name="Segoe UI", size=10, color=COLOR_LINK, underline="single")
+            ws.row_dimensions[r].height = 30
+        if not rows:
+            none_found = ws.cell(row=5, column=1, value="Nothing passed the evidence check on this run. See the Sources & Method sheet.")
+            none_found.font = MUTED_FONT
+
+    def _build_dashboard_sheet(self, wb: openpyxl.Workbook, data: dict[str, Any]) -> None:
+        """Sheet 2: counts over the Answers sheet, as formulas, so edits there keep them true."""
+        headers, _, rows = self._answer_table(data)
+        ws = wb.create_sheet(title="Dashboard")
+        last = max(5, 4 + len(rows))
+        strength = get_column_letter(headers.index("Evidence strength") + 1)
+        ev_type = get_column_letter(headers.index("Evidence type") + 1)
+        self._sheet_title(ws, "Dashboard", "Every number is a formula over the Answers sheet, so it follows your edits there.", 3)
+        self._table_header(ws, ["Measure", "Count", "Share"])
+        lines = [
+            ("Answers found", f"=COUNTA(Answers!A5:A{last})", None),
+            ("Strong evidence (two or more sites)", f'=COUNTIF(Answers!${strength}$5:${strength}${last},"Strong")', True),
+            ("Moderate evidence (one site, quoted)", f'=COUNTIF(Answers!${strength}$5:${strength}${last},"Moderate")', True),
+            ("Weak evidence (verify these first)", f'=COUNTIF(Answers!${strength}$5:${strength}${last},"Weak")', True),
+            ("Job posts as evidence", f'=COUNTIF(Answers!${ev_type}$5:${ev_type}${last},"Job post")', True),
+            ("Candidates the evidence check turned down", len(data.get("rejected_claims") or []), None),
+            ("Pages the run read", len({e.get("url") for e in data.get("evidence") or [] if e.get("url")}), None),
+        ]
+        for i, (label, value, share) in enumerate(lines):
+            r = 5 + i
+            ws.cell(row=r, column=1, value=label).font = BODY_FONT
+            ws.cell(row=r, column=2, value=value).font = BODY_FONT
+            if share:
+                pct = ws.cell(row=r, column=3, value=f"=IF($B$5=0,0,B{r}/$B$5)")
+                pct.font, pct.number_format = BODY_FONT, "0%"
+        ws.column_dimensions["A"].width = 42
+
+    def _build_method_sheet(self, wb: openpyxl.Workbook, data: dict[str, Any]) -> None:
+        """Sheet 3: how this list was built, and what it does not cover."""
+        ws = wb.create_sheet(title="Sources & Method")
+        ws.column_dimensions["A"].width = 140
+        ws.cell(row=1, column=1, value="How this list was built").font = Font(name="Segoe UI", size=14, bold=True)
+
+        queries = [str(a.get("query")) for a in data.get("research_actions") or [] if a.get("query")]
+        hosts = sorted({
+            (e.get("url") or "").split("/")[2] for e in data.get("evidence") or []
+            if (e.get("url") or "").count("/") >= 2
+        })
+        rejected = len(data.get("rejected_claims") or [])
+        lines = [
+            "",
+            f"Question: {data.get('objective') or ''}",
+            f"Run: {datetime.now(timezone.utc).strftime('%d %b %Y %H:%M UTC')}; stopped because {data.get('stop_reason') or 'UNKNOWN'}.",
+            f"Page reader: {data.get('page_reader') or 'off'}. Decision engine: {data.get('decision_engine') or 'rules only'}.",
+            "",
+            "Method: every answer comes from a page the run actually read. A finding is kept only when the "
+            "quote beside it is the page's own words and the page names both the thing asked about and the answer. "
+            "Nothing is inferred, and no quote is written by a model.",
+            "",
+            f"Searches run ({len(queries)}):",
+            *[f"    {q}" for q in dict.fromkeys(queries)],
+            "",
+            f"Sites read ({len(hosts)}): {', '.join(hosts) if hosts else 'none'}",
+            "",
+            f"Candidates turned down by the evidence check: {rejected}. They are listed on the Rejected Candidates "
+            "sheet with the reason, and are not answers.",
+            "",
+            "What this list does not cover:",
+            *[f"    {str(limitation)}" for limitation in (data.get("limitations") or [])],
+            *[f"    Unresolved: {str(q)}" for q in (data.get("unresolved_questions") or [])],
+        ]
+        for i, line in enumerate(lines, start=2):
+            cell = ws.cell(row=i, column=1, value=line)
+            cell.font = BODY_FONT if not line.startswith("    ") else MUTED_FONT
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
 
     def _build_summary_sheet(
         self, wb: openpyxl.Workbook, data: dict[str, Any], target_name: str
