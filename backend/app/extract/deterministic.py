@@ -231,8 +231,12 @@ def _website(doc: PageDoc) -> list[Candidate]:
     out = []
     for org in _orgs(doc):
         u = _first_str(org.get("url"))
-        if u and normalize_url(u, base=doc.url):
-            out.append(Candidate(normalize_url(u, base=doc.url), "jsonld", 0.9, f"JSON-LD Organization.url = {u}"))
+        norm = normalize_url(u, base=doc.url) if u else None
+        if norm:
+            if registered_domain(norm) == registered_domain(doc.url):  # "/in/" or "/en-us" -> the homepage
+                p = urlsplit(norm)
+                norm = f"{p.scheme}://{p.netloc}/"
+            out.append(Candidate(norm, "jsonld", 0.9, f"JSON-LD Organization.url = {u}"))
     parts = urlsplit(doc.url)
     out.append(Candidate(f"{parts.scheme}://{parts.netloc}/", "page_origin", 0.8, f"crawled site {parts.netloc}"))
     return out
@@ -242,8 +246,15 @@ def _website(doc: PageDoc) -> list[Candidate]:
 NARROW_MAILBOX_RE = re.compile(
     r"^(hr|careers?|jobs?|recruit\w*|talent|privacy|dataprotection|dpo|gdpr|drugsafety|pharmacovigilance|"
     r"safety|ethics|compliance|business\.?ethics|legal|investors?|investor[._]?relations|ir|noreply|no-reply|"
-    r"donotreply|webmaster|abuse|security|hr\.\w+)$")
+    r"donotreply|webmaster|abuse|security|accessibility|hr\.\w+|\w*(gdpr|dpo|privacy)\w*)$")
+PERSONAL_MAILBOX_RE = re.compile(r"^[a-z]+[._][a-z]+$")  # first.last: a person, not the company's contact
 PLACEHOLDER_EMAIL_RE = re.compile(r"lorem|ipsum|yourdomain|your-?email|domain\.com$|email\.com$|sentry|wixpress", re.I)
+
+
+def _same_company_domain(domain: str, site: str) -> bool:
+    """acme.com, mail.acme.com, or a sister domain sharing the brand (snowflake.com / snowflake.net)."""
+    reg = registered_domain(f"https://{domain}/") or domain
+    return reg == site or reg.split(".")[0] == site.split(".")[0]
 
 
 def _emails(doc: PageDoc) -> list[Candidate]:
@@ -267,13 +278,19 @@ def _emails(doc: PageDoc) -> list[Candidate]:
         seen.setdefault(addr.lower(), Candidate(addr, "regex", 0.7 if same else 0.3, _snippet(doc.text, addr)))
     out = []
     for c in seen.values():
-        local = c.value.split("@")[0].lower()
+        local, domain = c.value.lower().split("@", 1)
         if PLACEHOLDER_EMAIL_RE.search(c.value):  # template text, not a real mailbox
+            continue
+        # Another company's address (an agency, a distributor, a blog author) is never this company's contact,
+        # unless the site's own structured data declares it.
+        if c.method != "jsonld" and not _same_company_domain(domain, site):
             continue
         if local in ("info", "contact", "hello", "sales", "office", "support", "enquiries", "inquiries"):
             c.confidence = min(0.95, c.confidence + 0.05)  # role mailboxes people expect to contact
         elif NARROW_MAILBOX_RE.match(local):
             c.confidence = round(c.confidence - 0.25, 2)  # HR, privacy, drug safety...: real, but not "contact"
+        elif PERSONAL_MAILBOX_RE.match(local):
+            c.confidence = round(c.confidence - 0.2, 2)
         out.append(c)
     return out
 
@@ -387,12 +404,18 @@ def _founded(doc: PageDoc) -> list[Candidate]:
     return out
 
 
+CTA_RE = re.compile(r"^(learn|see|back to|find out|get( a| started)?|read|explore|discover|meet|watch|try|start|"
+                    r"sign|request|contact|view|what|why|how|more|overview|home|all |shop|buy|download|book)\b", re.I)
+ICON_TEXT_RE = re.compile(r"(arrow|chevron|caret)[-_ ]?(right|left|down|up)$", re.I)
+
+
 def _product_categories(doc: PageDoc) -> list[Candidate]:
     names = []
-    for url, text in doc.links:
+    for url, raw in doc.links:
+        text = ICON_TEXT_RE.sub("", raw).strip()
         path = urlsplit(url).path.lower()
         product_path = re.match(r"^/(?:[a-z]{2}/)?(products?|solutions?|platform|services)/[^/]+/?$", path)
-        if product_path and 2 <= len(text) <= 60:
+        if product_path and 2 <= len(text) <= 60 and not CTA_RE.match(text):
             if text not in names:
                 names.append(text)
     for item in doc.jsonld:

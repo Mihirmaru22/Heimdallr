@@ -50,3 +50,11 @@ def test_industry_is_a_field_people_can_ask_for():
     spec = interpret("Find pharmaceutical companies in the USA with their website and industry")
     (industry,) = [f for f in spec.fields if f.name == "industry"]
     assert industry.semantic == "industry"
+
+
+def test_in_us_means_the_united_states_but_contact_us_does_not():
+    from app.spec.interpret import interpret
+
+    assert interpret("find 50 cybersecurity companies in us").discovery.countries == ["US"]
+    assert interpret("find cybersecurity companies in the U.S.").discovery.countries == ["US"]
+    assert interpret("find cybersecurity companies and their contact us page").discovery.countries == []

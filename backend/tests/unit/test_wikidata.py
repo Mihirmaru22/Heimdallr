@@ -191,3 +191,12 @@ async def test_searxng_not_configured_or_json_disabled():
 def test_search_query_stays_under_wikidatas_length_limit():
     q = WikidataProvider.search_query(["Q507443", "Q1068236", "Q5532284", "Q11190"], [], "europe")
     assert len(q) <= 290 and "P17=Q145" in q and "P452=Q11190" in q
+
+
+def test_label_falls_back_to_the_language_neutral_label():
+    from app.discovery.providers import wd_label
+
+    assert wd_label({"labels": {"mul": {"value": "Roblox"}}}) == "Roblox"
+    assert wd_label({"labels": {"en": {"value": "Roblox Corporation"}, "mul": {"value": "Roblox"}}}) == \
+        "Roblox Corporation"
+    assert wd_label({"labels": {}}) is None

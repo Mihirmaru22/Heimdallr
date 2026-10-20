@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app.config import get_settings
 from app.crawl.urlnorm import normalize_url, registered_domain
 from app.db import session_scope, utcnow
-from app.discovery.providers import WIKIDATA_API, DiscoveryError, DiscoveryResult, WikidataProvider
+from app.discovery.providers import WIKIDATA_API, DiscoveryError, DiscoveryResult, WikidataProvider, wd_label
 from app.models import SecCompany
 from app.spec.models import ExtractionSpec
 
@@ -42,6 +42,11 @@ SYNONYMS = {
     "insurance": ["insurance"], "medical devices": ["surgical", "medical", "electromedical"],
     "cybersecurity": ["computer programming", "software"], "computer security": ["computer programming", "software"],
 }
+# Industries narrower than any SIC code: SEC files CrowdStrike and Microsoft alike under "Prepackaged
+# Software". For these, a company also needs its Wikidata entry to name the industry.
+NARROWER_THAN_SIC = {"cybersecurity", "computer security", "information security", "saas", "fintech", "ai",
+                     "artificial intelligence", "edtech", "healthtech", "adtech", "martech", "gaming", "video games"}
+GENERIC_WORDS = {"computer", "software", "technology", "information", "services"}
 STOP_WORDS = {"and", "the", "of", "for", "companies", "company", "industry", "sector", "services", "products"}
 
 
@@ -172,10 +177,10 @@ class SecEdgarProvider:
         d = spec.discovery
         return (not d.countries and not d.region) or "US" in d.countries or d.region == "north_america"
 
-    async def websites_from_wikidata(self, client: httpx.AsyncClient, ciks: list[int]) -> dict[int, tuple[str, str]]:
-        """CIK -> (website, English label) for companies whose Wikidata item has P5531 and P856."""
+    async def from_wikidata(self, client: httpx.AsyncClient, ciks: list[int]) -> dict[int, dict[str, Any]]:
+        """CIK -> website, label, industries (P452) and description of the Wikidata item carrying that CIK."""
         wd = WikidataProvider(client)
-        found: dict[int, tuple[str, str]] = {}
+        found: dict[int, dict[str, Any]] = {}
         for i in range(0, len(ciks), self.WIKIDATA_BATCH):
             chunk = ciks[i:i + self.WIKIDATA_BATCH]
             query = "haswbstatement:" + "|".join(f"P5531={c:010d}" for c in chunk)
@@ -186,13 +191,22 @@ class SecEdgarProvider:
             qids = [h["title"] for h in resp.json().get("query", {}).get("search", [])]
             if not qids:
                 continue
-            for qid, e in (await wd._entities(client, qids, "labels|claims")).items():
-                site = next((u for u in (normalize_url(w) for w in wd._claim_ids(e, "P856")) if u), None)
-                label = e.get("labels", {}).get("en", {}).get("value", "")
+            for e in (await wd._entities(client, qids, "labels|claims|descriptions")).values():
+                info = {"website": next((u for u in (normalize_url(w) for w in wd._claim_ids(e, "P856")) if u), ""),
+                        "label": wd_label(e) or "", "industries": set(wd._claim_ids(e, "P452")),
+                        "description": (e.get("descriptions", {}).get("en") or {}).get("value", "").lower()}
                 for raw in wd._claim_ids(e, "P5531"):
-                    if raw.isdigit() and site and int(raw) not in found:
-                        found[int(raw)] = (site, label or qid)
+                    if raw.isdigit() and int(raw) not in found:
+                        found[int(raw)] = info
         return found
+
+    @staticmethod
+    def confirms(info: dict[str, Any] | None, industry: str, industry_ids: list[str]) -> bool:
+        """Does the company's Wikidata entry say it is in this industry (P452 or its description)?"""
+        if not info:
+            return False
+        words = [w for w in _words(industry) if w not in GENERIC_WORDS] or _words(industry)
+        return bool(info["industries"] & set(industry_ids)) or any(w in info["description"] for w in words)
 
     async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
         d = spec.discovery
@@ -209,19 +223,26 @@ class SecEdgarProvider:
             codes = sic_codes_for(d.industry, descriptions)
             if not codes:
                 raise DiscoveryError(f"no SEC industry code matches {d.industry!r}")
+            narrow = d.industry.lower().strip() in NARROWER_THAN_SIC
             q = select(SecCompany).where(SecCompany.sic.in_(codes)).order_by(SecCompany.rank)
             if d.countries or d.region:
                 q = q.where(SecCompany.foreign.is_(False))
-            companies = db.execute(q.limit(d.max_results * 4)).scalars().all()
+            # Most broad-code companies fail the industry check, so look further down the list for those.
+            companies = db.execute(q.limit(d.max_results * (12 if narrow else 4))).scalars().all()
             db.expunge_all()
         if not companies:
             raise DiscoveryError("SEC EDGAR lists no companies for this industry")
         client = self.client or httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent})
+        industry_ids: list[str] = []
         try:
-            need = [c.cik for c in companies if not c.website]
             try:
-                wiki = await self.websites_from_wikidata(client, need) if need else {}
+                wiki = await self.from_wikidata(client, [c.cik for c in companies])
+                if narrow:
+                    industry_ids = await WikidataProvider(client).industry_ids(client, d.industry)
             except httpx.HTTPError as exc:
+                if narrow:
+                    raise DiscoveryError(f"Wikidata lookup failed ({type(exc).__name__}), and SEC alone cannot "
+                                         f"tell which companies are in {d.industry!r}") from None
                 wiki = {}
                 self.notes.append(f"sec_edgar: Wikidata website lookup failed ({type(exc).__name__}); "
                                   "only companies with a website in SEC's own data were used")
@@ -230,9 +251,14 @@ class SecEdgarProvider:
                 await client.aclose()
         out: list[DiscoveryResult] = []
         seen: set[str] = set()
-        missing = 0
+        missing = unconfirmed = 0
         for c in companies:
-            site, label = (c.website, "") if c.website else wiki.get(c.cik, ("", ""))
+            info = wiki.get(c.cik)
+            if narrow and not self.confirms(info, d.industry, industry_ids):
+                unconfirmed += 1
+                continue
+            site = c.website or (info or {}).get("website", "")
+            label = (info or {}).get("label", "")
             if not site:
                 missing += 1
                 continue
@@ -248,6 +274,9 @@ class SecEdgarProvider:
             out.append(DiscoveryResult(site, "sec_edgar", {k: v for k, v in hint.items() if v}, referrer=source))
             if len(out) >= d.max_results:
                 break
+        if unconfirmed:
+            self.notes.append(f"sec_edgar: SEC's industry code for {d.industry!r} is broad; {unconfirmed} companies "
+                              "whose Wikidata entry does not mention it were left out")
         if missing:
             self.notes.append(f"sec_edgar: {missing} matching companies have no known website and were left out")
         if not out:

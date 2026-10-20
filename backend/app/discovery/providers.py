@@ -90,6 +90,12 @@ class SeedProvider:
         return out
 
 
+def wd_label(entity: dict[str, Any]) -> str | None:
+    """English label, else the language-neutral ("mul") label Wikidata uses for many company names."""
+    labels = entity.get("labels", {})
+    return (labels.get("en") or labels.get("mul") or {}).get("value") or None
+
+
 class WikidataProvider:
     name = "wikidata"
     # The public query service stops any query at 60 s, so waiting longer than that is pointless.
@@ -190,7 +196,7 @@ class WikidataProvider:
         found: dict[str, Any] = {}
         for i in range(0, len(ids), 50):
             resp = await client.get(WIKIDATA_API, params={
-                "action": "wbgetentities", "ids": "|".join(ids[i:i + 50]), "props": props, "languages": "en",
+                "action": "wbgetentities", "ids": "|".join(ids[i:i + 50]), "props": props, "languages": "en|mul",
                 "format": "json"})
             resp.raise_for_status()
             found.update(resp.json().get("entities", {}))
@@ -225,7 +231,7 @@ class WikidataProvider:
             # Labels for each company's headquarters and the industry it matched on.
             hq_ids = sorted({q for e in entities.values() for q in self._claim_ids(e, "P159")[:1]}
                             | {q for e in entities.values() for q in self._claim_ids(e, "P452") if q in wanted})
-            hq_labels = {k: v.get("labels", {}).get("en", {}).get("value")
+            hq_labels = {k: wd_label(v)
                          for k, v in (await self._entities(client, hq_ids, "labels")).items()} if hq_ids else {}
             for qid in hits:
                 e = entities.get(qid) or {}
@@ -239,7 +245,7 @@ class WikidataProvider:
                 country = next((country_names[c] for c in self._claim_ids(e, "P17") if c in country_names), None)
                 hq = next((hq_labels.get(q) for q in self._claim_ids(e, "P159")[:1]), None)
                 industry = next((hq_labels.get(q) for q in self._claim_ids(e, "P452") if q in wanted), None)
-                hint = {"company_name": e.get("labels", {}).get("en", {}).get("value"), "headquarters": hq,
+                hint = {"company_name": wd_label(e), "headquarters": hq,
                         "country": country, "industry": industry, "website_url": url,
                         "_source": f"http://www.wikidata.org/entity/{qid}"}
                 out.append(DiscoveryResult(url, "wikidata", {k: v for k, v in hint.items() if v},

@@ -104,4 +104,34 @@ def test_general_contact_mailbox_beats_hr_offsite_and_placeholder_addresses():
     ranked = [c.value for c in sorted(found, key=lambda c: c.confidence, reverse=True)]
     assert ranked[0] == "info@acme.com"
     assert "info@loremacme.com" not in ranked
-    assert ranked.index("hr.operations@acme.com") < ranked.index("drugsafety@distributor.com")
+    assert "drugsafety@distributor.com" not in ranked  # another company's mailbox
+    assert ranked[-1] == "hr.operations@acme.com"
+
+
+def test_personal_and_privacy_mailboxes_rank_below_press():
+    html = """<html><body><a href="mailto:nicole.shevins@acme.com">x</a> <a href="mailto:gdpr_dpo@acme.com">y</a>
+      <a href="mailto:press@acme.com">z</a> <a href="mailto:info-italy@acme.com">w</a></body></html>"""
+    fields = [FieldSpec(name="contact_email", type="email", semantic="contact_email")]
+    found = extract_page(parse_page("https://acme.com/", html), fields)["contact_email"]
+    best = max(found, key=lambda c: c.confidence)
+    assert best.value in ("press@acme.com", "info-italy@acme.com")
+    scores = {c.value: c.confidence for c in found}
+    assert scores["nicole.shevins@acme.com"] < scores["press@acme.com"]
+    assert scores["gdpr_dpo@acme.com"] < scores["press@acme.com"]
+
+
+def test_product_links_skip_calls_to_action_and_icon_text():
+    html = """<html><body><nav>
+      <a href="/products/falcon">Falcon Insight</a> <a href="/products/all">See all products</a>
+      <a href="/products/x">Learn morearrow-right</a> <a href="/products/edr">EDRarrow-right</a></nav></body></html>"""
+    fields = [FieldSpec(name="products", type="list", semantic="product_categories")]
+    (cand,) = extract_page(parse_page("https://acme.com/", html), fields)["products"]
+    assert cand.value == ["Falcon Insight", "EDR"]
+
+
+def test_a_localized_organization_url_becomes_the_homepage():
+    html = """<html><head><script type="application/ld+json">
+      {"@type": "Organization", "name": "Acme", "url": "https://www.acme.com/in/"}</script></head></html>"""
+    fields = [FieldSpec(name="website_url", type="url", semantic="website_url")]
+    cands = extract_page(parse_page("https://www.acme.com/in/", html), fields)["website_url"]
+    assert cands[0].value == "https://www.acme.com/"

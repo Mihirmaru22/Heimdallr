@@ -60,6 +60,7 @@ COUNTRIES = {
     "japan": "JP", "australia": "AU", "singapore": "SG", "brazil": "BR",
 }
 
+US_RE = re.compile(r"\b(?:in|from|across|based in|headquartered in)\s+(?:the\s+)?(?:us|u\.s\.?(?:a\.?)?)(?![a-z])")
 URL_RE = re.compile(r"https?://[^\s,;'\")<>]+", re.I)
 DOMAIN_RE = re.compile(r"(?<![@\w.-])((?:[a-z0-9-]+\.)+[a-z]{2,24})(?![\w-])", re.I)
 COUNT_RE = re.compile(r"\b(?:up to|at most|max(?:imum)?|top|find|list)\s+(\d{1,5})\b", re.I)
@@ -106,7 +107,10 @@ def interpret(request: str, start_urls: list[str] | None = None) -> ExtractionSp
     count_match = COUNT_RE.search(request)
     max_results = int(count_match.group(1)) if count_match else 50
     region = next((v for k, v in REGIONS.items() if _has(text, k)), None)
-    countries = sorted({v for k, v in COUNTRIES.items() if _has(text, k)})
+    countries = {v for k, v in COUNTRIES.items() if _has(text, k)}
+    if US_RE.search(text):  # "us" alone is too common a word ("contact us") to match anywhere
+        countries.add("US")
+    countries = sorted(countries)
     industry_match = INDUSTRY_RE.search(request)
     industry = industry_match.group(1).strip() if industry_match else None
 
