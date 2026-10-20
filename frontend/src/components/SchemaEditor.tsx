@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { FieldSpec, Spec } from "../api";
 
 const TYPES = ["string", "text", "url", "email", "phone", "number", "integer", "date", "boolean", "list"];
-const DISCOVERY: [string, string][] = [["seeds", "start URLs"], ["wikidata", "Wikidata"], ["searxng", "web search (SearXNG)"], ["sec_edgar", "SEC EDGAR (US listed)"]];
+const DISCOVERY: [string, string][] = [["seeds", "start URLs"], ["wikidata", "Wikidata"], ["searxng", "web search (SearXNG)"], ["sec_edgar", "SEC EDGAR (US listed)"], ["gleif", "GLEIF (global register)"]];
 const SEMANTICS = ["none", "company_name", "website_url", "contact_email", "phone", "address", "headquarters",
   "country", "description", "page_title", "social_links", "pricing", "founded_year", "product_categories",
   "industry", "source_url"];

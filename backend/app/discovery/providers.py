@@ -417,8 +417,10 @@ class SearxngProvider:
 
 
 def providers_for(spec: ExtractionSpec) -> list[DiscoveryProvider]:
+    from app.discovery.gleif import GleifProvider
     from app.discovery.sec_edgar import SecEdgarProvider
 
     registry: dict[str, DiscoveryProvider] = {"seeds": SeedProvider(), "wikidata": WikidataProvider(),
-                                              "searxng": SearxngProvider(), "sec_edgar": SecEdgarProvider()}
+                                              "searxng": SearxngProvider(), "sec_edgar": SecEdgarProvider(),
+                                              "gleif": GleifProvider()}
     return [registry[name] for name in spec.discovery.providers if name in registry]

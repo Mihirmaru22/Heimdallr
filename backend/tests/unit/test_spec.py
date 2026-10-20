@@ -13,7 +13,7 @@ def test_interpreter_cybersecurity_example():
     names = [f.name for f in spec.fields]
     assert names[0] == "company_name"
     assert {"website_url", "contact_email", "pricing"} <= set(names)
-    assert spec.discovery.providers == ["wikidata", "searxng"]
+    assert spec.discovery.providers == ["wikidata", "gleif", "searxng"]
     assert spec.discovery.region == "europe"
     assert spec.discovery.max_results == 50
 

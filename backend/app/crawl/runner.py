@@ -330,7 +330,7 @@ class CrawlRunner:
                     candidates.setdefault(name, []).append({
                         # A curated registry label beats what a page calls itself ("JNJ.com").
                         "value": value, "method": row.method,
-                        "confidence": 0.92 if row.method in ("wikidata", "sec_edgar") and key == "company_name"
+                        "confidence": 0.92 if row.method in ("wikidata", "sec_edgar", "gleif") and key == "company_name"
                         else 0.7,
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
         with session_scope(self.org_id) as db:

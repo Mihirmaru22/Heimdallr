@@ -103,6 +103,11 @@ uv run python -m app.cli refresh-sec
 The `beat` scheduler then tops it up daily (new listings, and companies not checked for 30 days).
 With Docker Compose: `docker compose exec api python -m app.cli refresh-sec`.
 
+The GLEIF source (the global register of legal entities, every country) needs no setup or key. It
+searches legal names for the industry word ("pharmaceutical" finds "Sun Pharmaceutical Industries
+Ltd") in the requested countries, and takes websites from Wikidata items that carry the company's LEI.
+GLEIF records no industries or websites itself, so it finds fewer companies for broad words like "tech".
+
 Settings are read from environment variables or `backend/.env` (same names as `.env.example`;
 `WEBDATA_DATABASE_URL` defaults to `postgresql+psycopg://webdata:webdata@localhost:5432/webdata`).
 For a single-process demo without a worker, set `WEBDATA_CELERY_EAGER=true`; jobs then run

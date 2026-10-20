@@ -128,6 +128,9 @@ def interpret(request: str, start_urls: list[str] | None = None) -> ExtractionSp
         if ("US" in countries or region == "north_america") and not is_tech_niche(industry):
             # SEC lists every US-listed company by industry code; a registry goes before web search.
             providers = ["wikidata", "sec_edgar", "searxng"]
+        if industry:
+            # GLEIF (every country) finds companies whose legal name carries the industry word.
+            providers.insert(-1, "gleif")
     dedupe = ["website_url"] if "website_url" in used else ([fields[0].name] if fields else [])
     record_scope = "site" if entity in ("company", "store", "school", "university", "hospital") else "page"
     title = request.strip().split("\n")[0][:120] or "Extraction"
