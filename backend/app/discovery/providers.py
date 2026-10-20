@@ -59,6 +59,8 @@ class SeedProvider:
 
 class WikidataProvider:
     name = "wikidata"
+    # The public query service stops any query at 60 s, so waiting longer than that is pointless.
+    SPARQL_TIMEOUT = httpx.Timeout(65.0, connect=10.0)
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self.client = client
@@ -68,16 +70,32 @@ class WikidataProvider:
             timeout=30, headers={"User-Agent": get_settings().user_agent}, follow_redirects=False
         )
 
-    async def industry_ids(self, client: httpx.AsyncClient, industry: str) -> list[str]:
+    async def _search(self, client: httpx.AsyncClient, text: str) -> list[dict[str, Any]]:
         resp = await client.get(WIKIDATA_API, params={
-            "action": "wbsearchentities", "search": industry[:100], "language": "en", "type": "item",
-            "limit": 5, "format": "json",
+            "action": "wbsearchentities", "search": text[:100], "language": "en", "type": "item",
+            "limit": 7, "format": "json",
         })
         resp.raise_for_status()
-        return [r["id"] for r in resp.json().get("search", []) if QID_RE.match(r.get("id", ""))][:3]
+        return [r for r in resp.json().get("search", []) if QID_RE.match(r.get("id", ""))]
+
+    async def industry_ids(self, client: httpx.AsyncClient, industry: str) -> list[str]:
+        """Items companies use as their industry (P452). "pharmaceutical" on its own finds the drug
+        ("medication"), not the sector, so "<x> industry" is searched first and preferred."""
+        term = industry.strip().lower()
+        hits = await self._search(client, term if term.endswith("industry") else f"{term} industry")
+        hits += await self._search(client, term)
+
+        def score(hit: dict[str, Any]) -> int:
+            text = f"{hit.get('label', '')} {hit.get('description', '')}".lower()
+            return 2 * ("industry" in text) + ("sector" in text or "business" in text or "economic" in text)
+
+        ranked = sorted(dict((h["id"], h) for h in hits).values(), key=score, reverse=True)
+        return [h["id"] for h in ranked if score(h) > 0][:4] or [h["id"] for h in ranked][:2]
 
     @staticmethod
-    def build_query(industry_ids: list[str], countries: list[str], region: str | None, limit: int) -> str:
+    def build_query(industry_ids: list[str], countries: list[str], region: str | None, limit: int,
+                    lean: bool = False) -> str:
+        """`lean` drops the headquarters lookup and the dissolved filter, for a retry after a timeout."""
         lines = ["SELECT DISTINCT ?org ?orgLabel ?website ?hqLabel ?countryLabel WHERE {"]
         if industry_ids:
             values = " ".join(f"wd:{q}" for q in industry_ids if QID_RE.match(q))
@@ -91,11 +109,20 @@ class WikidataProvider:
             lines.append("  VALUES ?iso { " + " ".join(f'"{c}"' for c in isos) + " }")
         elif region in CONTINENTS:
             lines.append(f"  ?country wdt:P30 wd:{CONTINENTS[region]} .")
-        lines.append("  OPTIONAL { ?org wdt:P159 ?hq . }")
-        lines.append("  FILTER NOT EXISTS { ?org wdt:P576 ?dissolved . }")
+        if not lean:
+            lines.append("  OPTIONAL { ?org wdt:P159 ?hq . }")
+            lines.append("  FILTER NOT EXISTS { ?org wdt:P576 ?dissolved . }")
         lines.append('  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }')
         lines.append(f"}} LIMIT {int(limit)}")
         return "\n".join(lines)
+
+    async def _sparql(self, client: httpx.AsyncClient, query: str) -> list[dict[str, Any]]:
+        resp = await client.post(WIKIDATA_SPARQL, data={"query": query},
+                                 headers={"Accept": "application/sparql-results+json"}, timeout=self.SPARQL_TIMEOUT)
+        if resp.status_code == 429:
+            raise DiscoveryError("Wikidata rate limit reached; try again in a minute")
+        resp.raise_for_status()
+        return resp.json()["results"]["bindings"]
 
     async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
         d = spec.discovery
@@ -103,16 +130,27 @@ class WikidataProvider:
             raise DiscoveryError("Wikidata discovery needs an industry, countries or a region")
         client = self._client()
         try:
-            ids = await self.industry_ids(client, d.industry) if d.industry else []
+            try:
+                ids = await self.industry_ids(client, d.industry) if d.industry else []
+            except httpx.HTTPError as exc:
+                raise DiscoveryError(f"Wikidata search failed: {type(exc).__name__}") from None
             if d.industry and not ids:
-                raise DiscoveryError(f"Wikidata has no item matching industry {d.industry!r}")
-            query = self.build_query(ids, d.countries, d.region, d.max_results * 2)
-            resp = await client.get(WIKIDATA_SPARQL, params={"query": query, "format": "json"},
-                                    headers={"Accept": "application/sparql-results+json"})
-            if resp.status_code == 429:
-                raise DiscoveryError("Wikidata rate limit reached; try again later")
-            resp.raise_for_status()
-            rows = resp.json()["results"]["bindings"]
+                raise DiscoveryError(f"Wikidata has no industry matching {d.industry!r}")
+            limit = d.max_results * 2
+            try:
+                rows = await self._sparql(client, self.build_query(ids, d.countries, d.region, limit))
+            except (httpx.TimeoutException, httpx.HTTPStatusError) as exc:
+                # The shared query service times out under load (or answers 500/504); a smaller query
+                # usually gets through.
+                if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 500:
+                    raise DiscoveryError(f"Wikidata query rejected (HTTP {exc.response.status_code})") from None
+                try:
+                    rows = await self._sparql(client, self.build_query(ids, d.countries, d.region, limit, lean=True))
+                except httpx.TimeoutException:
+                    raise DiscoveryError("Wikidata did not answer within 60 seconds, twice; the public query "
+                                         "service is busy. Retry the job later or add start URLs.") from None
+            except httpx.HTTPError as exc:
+                raise DiscoveryError(f"Wikidata request failed: {type(exc).__name__}") from None
         except httpx.HTTPError as exc:
             raise DiscoveryError(f"Wikidata request failed: {type(exc).__name__}") from None
         finally:
@@ -133,9 +171,15 @@ class WikidataProvider:
                 "website_url": url,
                 "_source": org,
             }
+            # The label service falls back to the bare Q-id when an item has no English label.
+            if hint["company_name"] and QID_RE.match(hint["company_name"]):
+                hint.pop("company_name")
             out.append(DiscoveryResult(url, "wikidata", {k: v for k, v in hint.items() if v}, referrer=org))
             if len(out) >= d.max_results:
                 break
+        if not out:
+            raise DiscoveryError("Wikidata returned no companies with a website for this industry and region; "
+                                 "try a broader region or add start URLs")
         return out
 
 
