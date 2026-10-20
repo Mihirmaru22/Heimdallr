@@ -11,6 +11,7 @@ import logging
 import time
 import uuid
 from datetime import timedelta
+from itertools import zip_longest
 from typing import Any
 
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
@@ -120,26 +121,35 @@ class CrawlRunner:
         sites: set[str] = set()
         found = 0  # sites from discovery sources (not the user's own URLs), capped at max_results
         by_site: dict[str, dict[str, Any]] = {}
+        per_provider: list[list[Any]] = []
         for provider in providers_for(self.spec):
             try:
-                for r in await provider.discover(self.spec):
-                    site = registered_domain(r.url)
-                    # One entry per website: the first source wins, and later sources only fill in hints
-                    # it lacked (SEC adds the industry to a company Wikidata found first).
-                    if site in by_site and r.method != "seed":
-                        earlier = by_site[site]
-                        earlier["hint"] = {**{k: v for k, v in r.hint.items() if not k.startswith("_")},
-                                           **(earlier["hint"] or {})}
-                        continue
-                    if r.method != "seed" and found >= self.spec.discovery.max_results:
-                        continue
-                    found += r.method != "seed"
-                    sites.add(site)
-                    items.append({"url": r.url, "method": r.method, "hint": dict(r.hint), "referrer": r.referrer})
-                    by_site.setdefault(site, items[-1])
+                per_provider.append(await provider.discover(self.spec))
             except DiscoveryError as exc:
                 errors.append(f"{provider.name}: {exc}")
             notes += getattr(provider, "notes", [])
+        # Take results from the sources in turn (Wikidata, SEC, web search, Wikidata...), so the first
+        # source cannot fill the whole budget on its own and every source contributes companies.
+        ordered = [r for group in zip_longest(*per_provider) for r in group if r is not None]
+        for r in ordered:
+            site = registered_domain(r.url)
+            # One entry per website: the first source wins, and later sources only fill in hints
+            # it lacked (SEC adds the industry to a company Wikidata found first).
+            if site in by_site and r.method != "seed":
+                earlier = by_site[site]
+                earlier["hint"] = {**{k: v for k, v in r.hint.items() if not k.startswith("_")},
+                                   **(earlier["hint"] or {})}
+                continue
+            if r.method != "seed" and found >= self.spec.discovery.max_results:
+                continue
+            found += r.method != "seed"
+            sites.add(site)
+            items.append({"url": r.url, "method": r.method, "hint": dict(r.hint), "referrer": r.referrer})
+            by_site.setdefault(site, items[-1])
+        by_method: dict[str, int] = {}
+        for it in items:
+            by_method[it["method"]] = by_method.get(it["method"], 0) + 1
+        notes.append("sites per source: " + ", ".join(f"{m} {n}" for m, n in by_method.items()))
         with session_scope(self.org_id) as db:
             for e in errors:
                 log_event(db, self.org_id, self.job_id, "warning", f"Discovery problem: {e}")

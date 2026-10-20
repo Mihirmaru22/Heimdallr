@@ -200,3 +200,29 @@ def test_off_topic_search_results_are_dropped_before_crawling(db_clean, crawl_en
     status, reason = urls_by_status(job_id, org_id)[url("acme-security.test")]
     assert status == "skipped" and "does not mention 'pharmaceutical'" in reason
     assert records(job_id, org_id) == []
+
+
+def test_every_source_gets_a_share_of_the_budget(db_clean, crawl_env, monkeypatch):
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+
+    url = crawl_env["url"]
+
+    class Source:
+        def __init__(self, name, hosts):
+            self.name, self.hosts = name, hosts
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url(h), self.name, {}) for h in self.hosts]
+
+    # Wikidata alone could fill the budget of 3; the others must still contribute.
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [
+        Source("wikidata", ["w1.test", "w2.test", "w3.test"]), Source("sec_edgar", ["s1.test", "s2.test"]),
+        Source("searxng", ["x1.test"])])
+    job_id, org_id = make_job([], discovery={"providers": ["wikidata", "sec_edgar", "searxng"], "industry": "x",
+                                             "max_results": 3})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    with session_scope(org_id) as db:
+        methods = sorted(db.execute(select(DiscoveredUrl.method).where(
+            DiscoveredUrl.job_id == job_id, DiscoveredUrl.depth == 0)).scalars().all())
+    assert methods == ["searxng", "sec_edgar", "wikidata"]
