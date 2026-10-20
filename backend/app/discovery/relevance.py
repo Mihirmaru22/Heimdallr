@@ -14,6 +14,7 @@ import re
 import phonenumbers
 
 from app.crawl.urlnorm import registered_domain
+from app.discovery.providers import COUNTRY_QIDS
 from app.extract.deterministic import PageDoc, _address_text, _orgs
 from app.spec.models import ExtractionSpec
 
@@ -33,6 +34,36 @@ COUNTRY_NAMES = {"united states": "US", "usa": "US", "us": "US", "united kingdom
                  "great britain": "GB", "germany": "DE", "deutschland": "DE", "france": "FR", "italy": "IT",
                  "italia": "IT", "spain": "ES", "españa": "ES", "netherlands": "NL", "poland": "PL", "polska": "PL",
                  "canada": "CA", "india": "IN", "australia": "AU", "israel": "IL", "japan": "JP"}
+
+COUNTRY_NAMES.update({name.lower(): iso for iso, (_qid, name) in COUNTRY_QIDS.items()})
+COUNTRY_NAMES.update({"united states of america": "US", "people's republic of china": "CN"})
+REGISTRIES = {"wikidata", "sec_edgar", "gleif"}  # sources that already filter by country themselves
+
+
+def country_iso(value: str | None) -> str | None:
+    """"United States", "us", "USA" -> "US"; None when the name is not one we know."""
+    v = (value or "").strip()
+    if re.fullmatch(r"[A-Za-z]{2}", v):
+        return CCTLD_TO_ISO.get(v.lower(), v.upper())
+    return COUNTRY_NAMES.get(v.lower())
+
+
+def outside_countries_reason(doc: PageDoc, spec: ExtractionSpec, method: str, hint: dict | None) -> str | None:
+    """With "only these countries" on, why a discovered site must be left out (None to keep it).
+
+    A site is dropped when its registry entry or its own homepage puts it in another country. A web-search
+    result whose country cannot be confirmed is dropped too; registries have already matched the country,
+    and start URLs the user typed are always kept.
+    """
+    d = spec.discovery
+    if not d.countries or not d.strict_countries or method == "seed":
+        return None
+    country = country_iso((hint or {}).get("country")) or site_country(doc)
+    if country:
+        return None if country in d.countries else f"based in {country}, outside {', '.join(d.countries)}"
+    if method not in REGISTRIES:
+        return f"could not confirm it is based in {', '.join(d.countries)}"
+    return None
 
 
 def industry_terms(industry: str) -> list[str]:
@@ -66,9 +97,9 @@ def site_country(doc: PageDoc) -> str | None:
         _full, _loc, country = _address_text(org.get("address"))
         if country:
             c = country.strip()
-            iso = c.upper() if re.fullmatch(r"[A-Za-z]{2}", c) else COUNTRY_NAMES.get(c.lower())
+            iso = country_iso(c)
             if iso:
-                return CCTLD_TO_ISO.get(iso.lower(), iso)
+                return iso
     site = registered_domain(doc.url) or ""
     tld = site.rsplit(".", 1)[-1].lower()
     if len(tld) == 2 and tld not in GENERIC_CCTLDS:

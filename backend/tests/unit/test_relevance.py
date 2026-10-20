@@ -1,4 +1,6 @@
-from app.discovery.relevance import off_topic_reason, site_country
+import pytest
+
+from app.discovery.relevance import off_topic_reason, outside_countries_reason, site_country
 from app.extract.deterministic import parse_page
 from app.spec.models import ExtractionSpec
 
@@ -40,3 +42,25 @@ def test_phone_numbers_point_to_a_country_only_when_they_agree():
     assert site_country(_doc("https://acme.com/", body + '<a href="tel:+48124004777">x</a>')) == "PL"
     mixed = body + '<a href="tel:+48124004777">x</a><a href="tel:+18663001261">y</a>'
     assert site_country(_doc("https://acme.com/", mixed)) is None
+
+
+def test_only_these_countries_is_a_hard_limit():
+    spec = _spec(countries=["us"])
+    assert spec.discovery.countries == ["US"] and spec.discovery.strict_countries
+    plain = _doc("https://acme.com/", "<p>hello</p>")
+    # Registry entry in another country: dropped. In the country: kept.
+    assert "IN" in outside_countries_reason(plain, spec, "wikidata", {"country": "India"})
+    assert outside_countries_reason(plain, spec, "wikidata", {"country": "United States of America"}) is None
+    # The homepage says Germany even though the registry gave no country.
+    assert "DE" in outside_countries_reason(_doc("https://acme.de/", "x"), spec, "sec_edgar", {})
+    # Web search: an unconfirmed country is not enough. Registries already matched it; start URLs always stay.
+    assert "could not confirm" in outside_countries_reason(plain, spec, "searxng", {})
+    assert outside_countries_reason(plain, spec, "wikidata", {}) is None
+    assert outside_countries_reason(_doc("https://acme.de/", "x"), spec, "seed", {}) is None
+    loose = _spec(countries=["US"], strict_countries=False)
+    assert outside_countries_reason(_doc("https://acme.de/", "x"), loose, "searxng", {}) is None
+
+
+def test_countries_must_be_two_letter_codes():
+    with pytest.raises(ValueError, match="two-letter"):
+        _spec(countries=["Germany"])

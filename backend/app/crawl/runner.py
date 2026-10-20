@@ -32,7 +32,7 @@ from app.crawl.urlnorm import (
 )
 from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError, providers_for
-from app.discovery.relevance import off_topic_reason
+from app.discovery.relevance import off_topic_reason, outside_countries_reason
 from app.extract.deterministic import extract_page, parse_page, prefer_country_phones
 from app.models import CrawlJob, DiscoveredUrl, DomainPolicy, FetchedPage, UrlStatus
 from app.services.state_machine import log_event
@@ -309,6 +309,12 @@ class CrawlRunner:
             if reason:
                 self.allowed_sites.discard(site)
                 self._finish(row.id, UrlStatus.skipped, f"web search result dropped: {reason}")
+                return
+        if row.depth == 0:
+            reason = outside_countries_reason(doc, self.spec, row.method, row.hint)
+            if reason:  # "only these countries" is on: the site is left out entirely
+                self.allowed_sites.discard(site)
+                self._finish(row.id, UrlStatus.skipped, f"outside the requested countries: {reason}")
                 return
         found = extract_page(doc, self.spec.fields)
         for f in self.spec.fields:

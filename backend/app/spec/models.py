@@ -128,6 +128,19 @@ class DiscoverySettings(BaseModel):
         default_factory=lambda: ["seeds"])
     industry: str | None = Field(default=None, max_length=100)
     countries: list[str] = Field(default_factory=list, max_length=60)  # ISO 3166-1 alpha-2
+    # Only keep companies confirmed to be in `countries` (a hard limit), instead of only preferring them.
+    strict_countries: bool = True
+
+    @field_validator("countries")
+    @classmethod
+    def _iso_codes(cls, v: list[str]) -> list[str]:
+        out = []
+        for c in v:
+            code = c.strip().upper()
+            if not re.fullmatch(r"[A-Z]{2}", code):
+                raise ValueError(f"{c!r} is not a two-letter country code (US, GB, IN...)")
+            out.append(code)
+        return list(dict.fromkeys(out))
     region: Literal["europe", "north_america", "asia", "africa", "south_america", "oceania"] | None = None
     keywords: list[str] = Field(default_factory=list, max_length=10)
     max_results: int = Field(default=50, ge=1, le=1000)

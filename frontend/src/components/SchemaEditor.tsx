@@ -12,6 +12,16 @@ const SEMANTICS = ["none", "company_name", "website_url", "contact_email", "phon
 const toFieldName = (raw: string) =>
   raw.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/_+/g, "_").replace(/^[^a-z]+/, "").slice(0, 63);
 
+const REGIONS = ["", "europe", "north_america", "asia", "africa", "south_america", "oceania"];
+
+// Countries are typed as "US, GB, IN" and saved when the box loses focus, so commas survive typing.
+function CountriesInput({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [text, setText] = useState(value.join(", "));
+  useEffect(() => setText(value.join(", ")), [value]);
+  return <input value={text} placeholder="e.g. US, GB, IN" onChange={(e) => setText(e.target.value)}
+    onBlur={() => onChange(text.split(/[,\s]+/).map((c) => c.trim().toUpperCase()).filter(Boolean))} />;
+}
+
 // Edits the fields table and the common crawl settings; everything else is in the JSON view.
 export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange: (s: Spec) => void }) {
   const [json, setJson] = useState(JSON.stringify(spec, null, 2));
@@ -39,6 +49,8 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
     onChange({ ...spec, deduplication_keys: keys });
   };
   const crawl = (patch: Partial<Spec["crawl"]>) => onChange({ ...spec, crawl: { ...spec.crawl, ...patch } });
+  const discovery = (patch: Partial<Spec["discovery"]>) =>
+    onChange({ ...spec, discovery: { ...spec.discovery, ...patch } });
 
   return (
     <div>
@@ -94,13 +106,21 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
           ))}
           <label>Industry<input value={spec.discovery.industry ?? ""} placeholder="e.g. pharmaceutical"
             onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, industry: e.target.value || null } })} /></label>
+          <label title="Two-letter codes: US, GB, IN, DE...">Countries
+            <CountriesInput value={spec.discovery.countries} onChange={(countries) => discovery({ countries })} /></label>
+          <label>Region<select value={spec.discovery.region ?? ""} onChange={(e) => discovery({ region: e.target.value || null })}>
+            {REGIONS.map((r) => <option key={r} value={r}>{r ? r.replace("_", " ") : "any"}</option>)}</select></label>
+          <label className="check" title="Leave out any company not confirmed to be in these countries">
+            <input type="checkbox" checked={spec.discovery.strict_countries ?? true} disabled={!spec.discovery.countries.length}
+              onChange={(e) => discovery({ strict_countries: e.target.checked })} /> Only these countries</label>
           <label>Max websites<input type="number" min={1} value={spec.discovery.max_results}
             onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, max_results: +e.target.value } })} /></label>
         </div>
         <p className="muted small">Discovery: {spec.discovery.providers.join(", ")}
           {spec.discovery.industry && <> · industry “{spec.discovery.industry}”</>}
           {spec.discovery.region && <> · region {spec.discovery.region}</>}
-          {spec.discovery.countries.length > 0 && <> · {spec.discovery.countries.join(", ")}</>}
+          {spec.discovery.countries.length > 0 && <> · {spec.discovery.countries.join(", ")}
+            {(spec.discovery.strict_countries ?? true) ? " only" : " preferred"}</>}
           {" "}· up to {spec.discovery.max_results} sites</p>
       </div>
 
