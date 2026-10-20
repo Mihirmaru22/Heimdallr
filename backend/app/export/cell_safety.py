@@ -15,7 +15,9 @@ from typing import Any
 DANGEROUS_PREFIXES = ("=", "+", "-", "@", "\t", "\r", "\n", "＝", "＋", "－", "＠")
 EXCEL_MAX_CELL = 32_767
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
-NUMERIC_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
+# Numbers and phone numbers ("+1 866 300 1261") hold only digits and arithmetic, so even evaluated they
+# cannot call a function or reach another cell; an apostrophe would only corrupt them.
+NUMERIC_RE = re.compile(r"^[+-]?\d[\d ().-]*$")
 
 
 def safe_text(value: str) -> str:

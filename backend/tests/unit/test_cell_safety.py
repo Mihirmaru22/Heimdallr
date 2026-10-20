@@ -53,3 +53,9 @@ def test_workbook_contains_no_formulas(tmp_path):
                 assert cell.data_type != "f", f"formula in {ws.title}!{cell.coordinate}: {cell.value!r}"
                 if isinstance(cell.value, str):
                     assert not cell.value.lstrip(" ").startswith(("=", "+", "@", "＝")), cell.value
+
+
+def test_phone_numbers_are_not_prefixed():
+    assert safe_text("+18663001261") == "+18663001261"
+    assert safe_text("+1 (866) 300-1261") == "+1 (866) 300-1261"
+    assert safe_text("+1+cmd|' /C calc'!A0").startswith("'")
