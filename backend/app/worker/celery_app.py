@@ -15,5 +15,6 @@ celery.conf.update(
     beat_schedule={
         "sweep-stuck-jobs": {"task": "app.worker.tasks.sweep_stuck_jobs", "schedule": 120.0},
         "retention-cleanup": {"task": "app.worker.tasks.retention_cleanup", "schedule": 6 * 3600.0},
+        "refresh-sec-index": {"task": "app.worker.tasks.refresh_sec_index", "schedule": 24 * 3600.0},
     },
 )

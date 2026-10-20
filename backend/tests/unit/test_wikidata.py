@@ -184,3 +184,8 @@ async def test_searxng_not_configured_or_json_disabled():
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
     with pytest.raises(DiscoveryError, match="json"):
         await SearxngProvider(client, base_url="http://s").discover(_searx_spec(industry="pharma"))
+
+
+def test_search_query_stays_under_wikidatas_length_limit():
+    q = WikidataProvider.search_query(["Q507443", "Q1068236", "Q5532284", "Q11190"], [], "europe")
+    assert len(q) <= 290 and "P17=Q145" in q and "P452=Q11190" in q

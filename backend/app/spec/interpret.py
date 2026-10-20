@@ -113,6 +113,8 @@ def interpret(request: str, start_urls: list[str] | None = None) -> ExtractionSp
     if not urls and (industry or region or countries):
         # Wikidata gives name + website for well-known firms; SearXNG (when configured) finds the rest.
         providers = ["wikidata", "searxng"]
+        if "US" in countries or region == "north_america":
+            providers.append("sec_edgar")  # SEC lists every US-listed company by industry code
     dedupe = ["website_url"] if "website_url" in used else ([fields[0].name] if fields else [])
     record_scope = "site" if entity in ("company", "store", "school", "university", "hospital") else "page"
     title = request.strip().split("\n")[0][:120] or "Extraction"

@@ -115,6 +115,7 @@ class CrawlRunner:
         self._load_policies()
         items: list[dict[str, Any]] = []
         errors: list[str] = []
+        notes: list[str] = []
         sites: set[str] = set()
         found = 0  # sites from discovery sources (not the user's own URLs), capped at max_results
         for provider in providers_for(self.spec):
@@ -129,9 +130,12 @@ class CrawlRunner:
                     items.append({"url": r.url, "method": r.method, "hint": r.hint, "referrer": r.referrer})
             except DiscoveryError as exc:
                 errors.append(f"{provider.name}: {exc}")
+            notes += getattr(provider, "notes", [])
         with session_scope(self.org_id) as db:
             for e in errors:
                 log_event(db, self.org_id, self.job_id, "warning", f"Discovery problem: {e}")
+            for n in notes:
+                log_event(db, self.org_id, self.job_id, "info", f"Discovery note: {n}")
             log_event(db, self.org_id, self.job_id, "info", f"Discovery found {len(items)} starting URL(s)")
         if not items and errors:
             raise DiscoveryError("; ".join(errors))
@@ -288,7 +292,8 @@ class CrawlRunner:
                     candidates.setdefault(name, []).append({
                         # A curated registry label beats what a page calls itself ("JNJ.com").
                         "value": value, "method": row.method,
-                        "confidence": 0.92 if row.method == "wikidata" and name == "company_name" else 0.7,
+                        "confidence": 0.92 if row.method in ("wikidata", "sec_edgar") and name == "company_name"
+                        else 0.7,
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
         with session_scope(self.org_id) as db:
             db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=row.id, final_url=final,

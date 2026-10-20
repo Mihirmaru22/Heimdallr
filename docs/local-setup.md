@@ -91,6 +91,18 @@ Then restart the API and the Celery worker so they read it. (An `export` in one 
 reach a worker started in another, which is the usual reason the Events tab says "SearXNG is not
 configured".)
 
+Optional, for the SEC EDGAR discovery source (US-listed companies by industry code). It needs a
+local copy of SEC's company list, downloaded once (about 30 minutes at 5 requests a second, no key):
+
+```sh
+cd backend
+uv run alembic upgrade head        # adds the sec_companies table
+uv run python -m app.cli refresh-sec
+```
+
+The `beat` scheduler then tops it up daily (new listings, and companies not checked for 30 days).
+With Docker Compose: `docker compose exec api python -m app.cli refresh-sec`.
+
 Settings are read from environment variables or `backend/.env` (same names as `.env.example`;
 `WEBDATA_DATABASE_URL` defaults to `postgresql+psycopg://webdata:webdata@localhost:5432/webdata`).
 For a single-process demo without a worker, set `WEBDATA_CELERY_EAGER=true`; jobs then run
@@ -147,5 +159,8 @@ All backend settings use the `WEBDATA_` prefix. The important ones:
 - **Events say "SearXNG ... not reachable" or find nothing** – check `docker compose logs searxng`.
   Public engines sometimes throttle or block it for a while; Wikidata and your own start URLs still
   work meanwhile.
+- **Events say "the SEC company list has not been downloaded yet"** – run
+  `python -m app.cli refresh-sec` once. "N matching companies have no known website" is expected:
+  SEC rarely lists websites, so only companies whose Wikidata entry has one are crawled.
 - **Download link says expired** – links last five minutes; reload the job page for a fresh one.
 - **Port already in use** – change the left side of the `ports:` mapping in `docker-compose.yml`.

@@ -69,3 +69,11 @@ def retention_cleanup() -> dict[str, int]:
             result = db.execute(delete(CrawlJob).where(CrawlJob.id.in_(old)))
             removed["jobs"] += result.rowcount or 0
     return removed
+
+
+@celery.task(name="app.worker.tasks.refresh_sec_index", max_retries=0)
+def refresh_sec_index() -> dict[str, int]:
+    """Daily top-up of the SEC EDGAR company list: new listings, and companies not checked for 30 days."""
+    from app.discovery.sec_edgar import refresh_index
+
+    return refresh_index()

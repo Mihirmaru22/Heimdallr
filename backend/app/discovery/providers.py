@@ -165,8 +165,12 @@ class WikidataProvider:
         parts.append("haswbstatement:" + "|".join(f"P452={q}" for q in inds) if inds
                      else "haswbstatement:" + "|".join(f"P31={q}" for q in ORG_CLASSES))
         isos = [c for c in countries if c in COUNTRY_QIDS] or REGION_COUNTRIES.get(region or "", [])
-        if isos:
-            parts.append("haswbstatement:" + "|".join(f"P17={COUNTRY_QIDS[c][0]}" for c in isos))
+        while isos:
+            # Wikidata rejects search queries over 300 characters; the country lists are largest economy first.
+            query = " ".join([*parts, "haswbstatement:" + "|".join(f"P17={COUNTRY_QIDS[c][0]}" for c in isos)])
+            if len(query) <= 290:
+                return query
+            isos = isos[:-1]
         return " ".join(parts)
 
     @staticmethod
@@ -402,6 +406,8 @@ class SearxngProvider:
 
 
 def providers_for(spec: ExtractionSpec) -> list[DiscoveryProvider]:
+    from app.discovery.sec_edgar import SecEdgarProvider
+
     registry: dict[str, DiscoveryProvider] = {"seeds": SeedProvider(), "wikidata": WikidataProvider(),
-                                              "searxng": SearxngProvider()}
+                                              "searxng": SearxngProvider(), "sec_edgar": SecEdgarProvider()}
     return [registry[name] for name in spec.discovery.providers if name in registry]

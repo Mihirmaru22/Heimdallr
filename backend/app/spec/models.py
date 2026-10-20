@@ -123,7 +123,8 @@ class CrawlSettings(BaseModel):
 
 class DiscoverySettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    providers: list[Literal["seeds", "wikidata", "searxng", "gleif"]] = Field(default_factory=lambda: ["seeds"])
+    providers: list[Literal["seeds", "wikidata", "searxng", "sec_edgar", "gleif"]] = Field(
+        default_factory=lambda: ["seeds"])
     industry: str | None = Field(default=None, max_length=100)
     countries: list[str] = Field(default_factory=list, max_length=60)  # ISO 3166-1 alpha-2
     region: Literal["europe", "north_america", "asia", "africa", "south_america", "oceania"] | None = None

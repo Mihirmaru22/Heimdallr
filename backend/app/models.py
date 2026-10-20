@@ -334,6 +334,24 @@ class DomainPolicy(TimestampMixin, Base):
     reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
 
+class SecCompany(Base):
+    """Shared, non-tenant copy of SEC EDGAR's list of listed companies (public data, refreshed by a task)."""
+
+    __tablename__ = "sec_companies"
+    cik: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    ticker: Mapped[str] = mapped_column(String(20), default="", nullable=False)
+    exchange: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    rank: Mapped[int] = mapped_column(Integer, nullable=False, index=True)  # order in SEC's list (largest first)
+    sic: Mapped[str | None] = mapped_column(String(4), index=True)
+    sic_description: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    city: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    state: Mapped[str] = mapped_column(String(60), default="", nullable=False)
+    foreign: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    website: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 TENANT_TABLES = [
     "projects",
     "extraction_schemas",

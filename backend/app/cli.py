@@ -1,4 +1,5 @@
-"""Command-line helpers: `python -m app.cli create-admin EMAIL` (prompts for a password)."""
+"""Command-line helpers: `python -m app.cli create-admin EMAIL` (prompts for a password) and
+`python -m app.cli refresh-sec` (downloads SEC EDGAR's company list for the sec_edgar source)."""
 
 from __future__ import annotations
 
@@ -31,14 +32,30 @@ def create_admin(email: str, password: str | None) -> None:
     print(f"{email} is now a platform admin")
 
 
+def refresh_sec(limit: int | None) -> None:
+    from app.discovery.sec_edgar import refresh_index
+
+    def progress(done: int, total: int) -> None:
+        if done % 250 == 0 or done == total:
+            print(f"  looked up {done}/{total} companies", flush=True)
+
+    print("Downloading SEC EDGAR's company list (about 30 minutes the first time, at 5 requests a second)...")
+    result = refresh_index(limit=limit, progress=progress)
+    print(f"Done: {result['companies']} companies listed, {result['looked_up']} looked up, {result['failed']} failed")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("create-admin", help="create or promote a platform admin")
     p.add_argument("email")
     p.add_argument("--password-stdin", action="store_true", help="read the password from stdin")
+    p = sub.add_parser("refresh-sec", help="download or top up the local copy of SEC EDGAR's company list")
+    p.add_argument("--limit", type=int, default=None, help="look up at most this many companies (largest first)")
     args = parser.parse_args()
-    if args.cmd == "create-admin":
+    if args.cmd == "refresh-sec":
+        refresh_sec(args.limit)
+    elif args.cmd == "create-admin":
         create_admin(args.email.lower(), sys.stdin.readline().strip() if args.password_stdin else None)
 
 
