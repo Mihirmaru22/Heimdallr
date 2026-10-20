@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.crawl import netguard
 from app.crawl.netguard import BlockedDestination
 from app.crawl.urlnorm import normalize_url
@@ -196,13 +197,16 @@ def preview(schema_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Ses
     if len(spec.crawl.start_urls) > PREVIEW_URL_CHECKS:
         warnings.append(f"Only the first {PREVIEW_URL_CHECKS} start URLs were checked here; "
                         "all are checked at run time.")
-    if not spec.crawl.start_urls and "wikidata" not in spec.discovery.providers:
+    if "searxng" in spec.discovery.providers and not get_settings().searxng_url:
+        warnings.append("Web search (SearXNG) is not configured on this server, so it will be skipped.")
+    if not spec.crawl.start_urls and not {"wikidata", "searxng"} & set(spec.discovery.providers):
         warnings.append("There are no start URLs and no discovery source, so the job would find nothing.")
     if "gleif" in spec.discovery.providers:
         warnings.append("GLEIF discovery is not available yet in this version and will be skipped.")
     if "wikidata" in spec.discovery.providers:
         warnings.append("Wikidata returns companies that list an official website; coverage varies by industry.")
-    sites = len(spec.crawl.start_urls) + (spec.discovery.max_results if "wikidata" in spec.discovery.providers else 0)
+    searching = {"wikidata", "searxng"} & set(spec.discovery.providers)
+    sites = len(spec.crawl.start_urls) + (spec.discovery.max_results if searching else 0)
     est_pages = min(spec.crawl.max_pages, max(1, sites) * spec.crawl.max_pages_per_site)
     return PlanPreview(spec=spec.model_dump(mode="json"), urls=checks, discovery_providers=spec.discovery.providers,
                        estimated_max_pages=est_pages, estimated_llm_calls=0, warnings=warnings)

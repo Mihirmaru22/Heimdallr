@@ -3,12 +3,15 @@
 - seeds: URLs and domains the user typed (always available).
 - wikidata: organizations from Wikidata (CC0) with an official website (P856), filtered by
   industry (P452) and country (P17 / P30 continent). Free, no key; please keep queries small.
+- searxng: a self-hosted SearXNG metasearch instance (WEBDATA_SEARXNG_URL). Search results are
+  reduced to company homepages; directories, social networks and news sites are dropped.
 Each result is a URL plus optional hints (name, headquarters...) that become candidate values
 with method "wikidata", so the record shows where they came from.
 """
 
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -16,7 +19,7 @@ from typing import Any, Protocol
 import httpx
 
 from app.config import get_settings
-from app.crawl.urlnorm import normalize_url
+from app.crawl.urlnorm import normalize_url, registered_domain
 from app.spec.models import ExtractionSpec
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
@@ -183,6 +186,101 @@ class WikidataProvider:
         return out
 
 
+REGION_NAMES = {"europe": "Europe", "north_america": "North America", "asia": "Asia", "africa": "Africa",
+                "south_america": "South America", "oceania": "Australia"}
+# Sites that list or talk about companies rather than being one. A result on these is never a homepage.
+NOT_COMPANY_SITES = {
+    "wikipedia.org", "wikidata.org", "wikimedia.org", "linkedin.com", "facebook.com", "instagram.com", "x.com",
+    "twitter.com", "youtube.com", "tiktok.com", "reddit.com", "quora.com", "medium.com", "github.com",
+    "crunchbase.com", "zoominfo.com", "dnb.com", "bloomberg.com", "reuters.com", "forbes.com", "statista.com",
+    "glassdoor.com", "indeed.com", "yelp.com", "tracxn.com", "cbinsights.com", "owler.com", "craft.co",
+    "pitchbook.com", "g2.com", "capterra.com", "gartner.com", "clutch.co", "yellowpages.com", "kompass.com",
+    "europages.co.uk", "europages.com", "amazon.com", "google.com", "bing.com", "duckduckgo.com", "apple.com",
+    "fiercepharma.com", "fiercebiotech.com", "businesswire.com", "prnewswire.com", "globenewswire.com",
+    "marketsandmarkets.com", "grandviewresearch.com", "mordorintelligence.com", "ibisworld.com",
+}
+
+
+class SearxngProvider:
+    """Company homepages from a self-hosted SearXNG instance's JSON API."""
+
+    name = "searxng"
+    MAX_PAGES = 5
+
+    def __init__(self, client: httpx.AsyncClient | None = None, base_url: str | None = None) -> None:
+        self.client = client
+        self.base_url = (base_url if base_url is not None else get_settings().searxng_url).rstrip("/")
+
+    @staticmethod
+    def queries(spec: ExtractionSpec) -> list[str]:
+        from app.spec.interpret import COUNTRIES
+
+        d = spec.discovery
+        noun = "companies" if spec.entity in ("company", "record") else f"{spec.entity}s"
+        names = {iso: name.title() for name, iso in COUNTRIES.items() if len(name) > 3}
+        places = [names.get(c, c) for c in d.countries] or ([REGION_NAMES[d.region]] if d.region else [""])
+        subject = " ".join(x for x in [d.industry or "", *d.keywords[:3]] if x).strip()
+        if not subject:
+            return []
+        return [f"{subject} {noun} {place}".strip() for place in places[:10]]
+
+    @staticmethod
+    def homepage(url: str) -> str | None:
+        norm = normalize_url(url)
+        if not norm:
+            return None
+        site = registered_domain(norm)
+        if not site or site in NOT_COMPANY_SITES or any(site.endswith("." + s) for s in NOT_COMPANY_SITES):
+            return None
+        scheme, rest = norm.split("://", 1)
+        return f"{scheme}://{rest.split('/', 1)[0]}/"
+
+    async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
+        if not self.base_url:
+            raise DiscoveryError("SearXNG is not configured (set WEBDATA_SEARXNG_URL); skipped")
+        queries = self.queries(spec)
+        if not queries:
+            raise DiscoveryError("SearXNG discovery needs an industry or keywords")
+        want = spec.discovery.max_results
+        client = self.client or httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent})
+        out: list[DiscoveryResult] = []
+        sites: set[str] = set()
+        try:
+            for query in queries:
+                for page in range(1, self.MAX_PAGES + 1):
+                    if len(out) >= want:
+                        return out
+                    try:
+                        resp = await client.get(f"{self.base_url}/search", params={
+                            "q": query, "format": "json", "pageno": page, "language": "en", "safesearch": 1})
+                    except httpx.HTTPError as exc:
+                        if out:
+                            return out
+                        raise DiscoveryError(f"SearXNG is not reachable at {self.base_url}: "
+                                             f"{type(exc).__name__}") from None
+                    if resp.status_code == 403:
+                        raise DiscoveryError("SearXNG refused JSON output; enable `json` under search.formats")
+                    if resp.status_code != 200:
+                        break
+                    results = resp.json().get("results", [])
+                    if not results:
+                        break
+                    for r in results:
+                        home = self.homepage(r.get("url", ""))
+                        if home and registered_domain(home) not in sites:
+                            sites.add(registered_domain(home))
+                            out.append(DiscoveryResult(home, "searxng", {"_source": r.get("url", "")},
+                                                       referrer=f"searxng: {query}"))
+                    await asyncio.sleep(1.0 if get_settings().env != "test" else 0)
+        finally:
+            if self.client is None:
+                await client.aclose()
+        if not out:
+            raise DiscoveryError("SearXNG found no company websites for this query")
+        return out[:want]
+
+
 def providers_for(spec: ExtractionSpec) -> list[DiscoveryProvider]:
-    registry: dict[str, DiscoveryProvider] = {"seeds": SeedProvider(), "wikidata": WikidataProvider()}
+    registry: dict[str, DiscoveryProvider] = {"seeds": SeedProvider(), "wikidata": WikidataProvider(),
+                                              "searxng": SearxngProvider()}
     return [registry[name] for name in spec.discovery.providers if name in registry]

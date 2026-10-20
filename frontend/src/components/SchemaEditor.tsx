@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FieldSpec, Spec } from "../api";
 
 const TYPES = ["string", "text", "url", "email", "phone", "number", "integer", "date", "boolean", "list"];
+const DISCOVERY: [string, string][] = [["seeds", "start URLs"], ["wikidata", "Wikidata"], ["searxng", "web search (SearXNG)"]];
 const SEMANTICS = ["none", "company_name", "website_url", "contact_email", "phone", "address", "headquarters",
   "country", "description", "page_title", "social_links", "pricing", "founded_year", "product_categories",
   "source_url"];
@@ -71,6 +72,18 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
             <option value="site">website</option><option value="page">page</option></select></label>
           <label className="check"><input type="checkbox" checked={spec.crawl.use_sitemaps} onChange={(e) => crawl({ use_sitemaps: e.target.checked })} /> Use sitemaps</label>
           <label className="check"><input type="checkbox" checked={spec.crawl.follow_links} onChange={(e) => crawl({ follow_links: e.target.checked })} /> Follow links</label>
+        </div>
+        <div className="row wrap">
+          <span className="small">Find websites with:</span>
+          {DISCOVERY.map(([key, label]) => (
+            <label key={key} className="check"><input type="checkbox" checked={spec.discovery.providers.includes(key)}
+              onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, providers: e.target.checked
+                ? [...spec.discovery.providers, key] : spec.discovery.providers.filter((p) => p !== key) } })} /> {label}</label>
+          ))}
+          <label>Industry<input value={spec.discovery.industry ?? ""} placeholder="e.g. pharmaceutical"
+            onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, industry: e.target.value || null } })} /></label>
+          <label>Max websites<input type="number" min={1} value={spec.discovery.max_results}
+            onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, max_results: +e.target.value } })} /></label>
         </div>
         <p className="muted small">Discovery: {spec.discovery.providers.join(", ")}
           {spec.discovery.industry && <> · industry “{spec.discovery.industry}”</>}

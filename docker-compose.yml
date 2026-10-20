@@ -9,6 +9,7 @@ x-backend: &backend
     WEBDATA_DATABASE_URL: postgresql+psycopg://webdata:${WEBDATA_DB_PASSWORD}@postgres:5432/webdata
     WEBDATA_REDIS_URL: redis://redis:6379/0
     WEBDATA_DATA_DIR: /data
+    WEBDATA_SEARXNG_URL: http://searxng:8080
   volumes:
     - exports:/data
   depends_on:
@@ -40,6 +41,17 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 20
+    restart: unless-stopped
+
+  # Self-hosted metasearch for finding company websites. It relays queries to public engines,
+  # which may throttle heavy use; keep job sizes modest. Not exposed outside the Compose network.
+  searxng:
+    image: searxng/searxng:2026.10.17-1c10abe2d
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+      SEARXNG_BASE_URL: http://searxng:8080/
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
     restart: unless-stopped
 
   api:

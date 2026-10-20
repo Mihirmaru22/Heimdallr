@@ -115,9 +115,17 @@ class CrawlRunner:
         self._load_policies()
         items: list[dict[str, Any]] = []
         errors: list[str] = []
+        sites: set[str] = set()
+        found = 0  # sites from discovery sources (not the user's own URLs), capped at max_results
         for provider in providers_for(self.spec):
             try:
                 for r in await provider.discover(self.spec):
+                    site = registered_domain(r.url)
+                    # One entry per website: the first source wins (Wikidata runs first and carries names).
+                    if r.method != "seed" and (site in sites or found >= self.spec.discovery.max_results):
+                        continue
+                    found += r.method != "seed"
+                    sites.add(site)
                     items.append({"url": r.url, "method": r.method, "hint": r.hint, "referrer": r.referrer})
             except DiscoveryError as exc:
                 errors.append(f"{provider.name}: {exc}")

@@ -1,7 +1,8 @@
 # Running WebData AI locally
 
 Everything runs on your machine. No cloud account, paid API key or AI model is needed for
-Phase 1: discovery uses your start URLs or Wikidata (free, no key), extraction is rule-based,
+Phase 1: discovery uses your start URLs, Wikidata (free, no key) and a local SearXNG search
+container, extraction is rule-based,
 and the Excel file is generated locally.
 
 ## Hardware
@@ -39,6 +40,7 @@ Services (all bound to 127.0.0.1 only):
 | `beat` | re-queues stalled jobs every 2 min, deletes expired exports and old jobs | – |
 | `postgres` | Postgres 16; the app uses a non-superuser role so row-level security applies | 5432 |
 | `redis` | task queue and per-site politeness locks | – |
+| `searxng` | self-hosted metasearch used to find company websites (discovery source "searxng") | – |
 
 ### Trying it offline with the bundled test websites
 
@@ -72,6 +74,16 @@ uv run celery -A app.worker.celery_app beat                    # terminal 3 (opt
 cd ../frontend
 npm ci
 npm run dev                                                    # http://localhost:5173
+```
+
+Optional, for the SearXNG discovery source (needs Docker for this one container):
+
+```sh
+docker run -d --name webdata-searxng -p 127.0.0.1:8888:8080 \
+  -e SEARXNG_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')" \
+  -v "$PWD/deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro" \
+  searxng/searxng:2026.10.17-1c10abe2d
+export WEBDATA_SEARXNG_URL=http://localhost:8888   # for both the API and the worker
 ```
 
 Settings are read from environment variables or `backend/.env` (same names as `.env.example`;
@@ -111,6 +123,7 @@ All backend settings use the `WEBDATA_` prefix. The important ones:
 | `WEBDATA_ALLOW_PRIVATE_TARGETS` | `[]` | `host:port` pairs the crawler may reach even though they are private. Only for local test sites. |
 | `WEBDATA_CRAWL_PROXY` | empty | Send crawler traffic through an HTTP proxy (sandboxes). Destinations are still checked, but the proxy does the final DNS lookup, so do not use it in production. |
 | `WEBDATA_CELERY_EAGER` | `false` | Run tasks inline (tests, demos). |
+| `WEBDATA_SEARXNG_URL` | empty | SearXNG base URL for website discovery. Compose sets `http://searxng:8080`; without Docker, run SearXNG yourself with JSON output enabled (see `deploy/searxng/settings.yml`) or leave empty to skip it. |
 
 ## Troubleshooting
 
@@ -126,5 +139,8 @@ All backend settings use the `WEBDATA_` prefix. The important ones:
   `docker compose logs worker`.
 - **Wikidata discovery fails with a rate-limit message** – Wikidata's public endpoint limits heavy
   use; wait a minute and retry the job, or supply start URLs instead.
+- **Events say "SearXNG ... not reachable" or find nothing** – check `docker compose logs searxng`.
+  Public engines sometimes throttle or block it for a while; Wikidata and your own start URLs still
+  work meanwhile.
 - **Download link says expired** – links last five minutes; reload the job page for a fresh one.
 - **Port already in use** – change the left side of the `ports:` mapping in `docker-compose.yml`.

@@ -99,3 +99,53 @@ async def test_no_rows_is_an_error_not_an_empty_job():
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     with pytest.raises(DiscoveryError, match="no companies"):
         await WikidataProvider(client).discover(_spec(industry="pharmaceutical", countries=["DE"]))
+
+
+# --- SearXNG -------------------------------------------------------------------------------------
+
+from app.discovery.providers import SearxngProvider  # noqa: E402
+
+
+def _searx_spec(**discovery):
+    return ExtractionSpec.model_validate({"entity": "company", "fields": [{"name": "company_name", "type": "string"}],
+                                          "discovery": {"providers": ["searxng"], **discovery}})
+
+
+def test_searxng_queries_name_the_places():
+    spec = _searx_spec(industry="pharmaceutical", countries=["DE", "FR"])
+    assert SearxngProvider.queries(spec) == ["pharmaceutical companies Germany", "pharmaceutical companies France"]
+    assert SearxngProvider.queries(_searx_spec(industry="biotech", region="europe")) == ["biotech companies Europe"]
+
+
+def test_searxng_keeps_homepages_and_drops_directories():
+    assert SearxngProvider.homepage("https://www.bayer.com/en/pharma/products?x=1") == "https://www.bayer.com/"
+    for url in ["https://en.wikipedia.org/wiki/Bayer", "https://www.linkedin.com/company/bayer",
+                "https://www.crunchbase.com/organization/x", "mailto:a@b.com"]:
+        assert SearxngProvider.homepage(url) is None
+
+
+async def test_searxng_discovers_unique_sites_across_pages():
+    pages = {
+        "1": [{"url": "https://www.alpha-pharma.com/about"}, {"url": "https://en.wikipedia.org/wiki/Alpha"},
+              {"url": "https://alpha-pharma.com/contact"}],
+        "2": [{"url": "https://beta-bio.com/"}],
+        "3": [],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["format"] == "json"
+        return httpx.Response(200, json={"results": pages[request.url.params["pageno"]]})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    provider = SearxngProvider(client, base_url="http://searxng:8080")
+    results = await provider.discover(_searx_spec(industry="pharmaceutical", region="europe", max_results=10))
+    assert [r.url for r in results] == ["https://www.alpha-pharma.com/", "https://beta-bio.com/"]
+    assert all(r.method == "searxng" for r in results)
+
+
+async def test_searxng_not_configured_or_json_disabled():
+    with pytest.raises(DiscoveryError, match="not configured"):
+        await SearxngProvider(base_url="").discover(_searx_spec(industry="pharma"))
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
+    with pytest.raises(DiscoveryError, match="json"):
+        await SearxngProvider(client, base_url="http://s").discover(_searx_spec(industry="pharma"))

@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     # Optional outbound proxy for sandboxes that only allow egress through a proxy. DNS is still
     # validated locally, but the proxy makes the final connection, so prefer direct egress.
     crawl_proxy: str | None = None
+    # Self-hosted SearXNG for website discovery, e.g. http://searxng:8080 (empty = not available).
+    searxng_url: str = ""
 
     # Job limits (org overrides can only lower these)
     max_pages_per_job: int = 2000
