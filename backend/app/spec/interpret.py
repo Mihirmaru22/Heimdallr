@@ -64,8 +64,15 @@ US_RE = re.compile(r"\b(?:in|from|across|based in|headquartered in)\s+(?:the\s+)
 URL_RE = re.compile(r"https?://[^\s,;'\")<>]+", re.I)
 DOMAIN_RE = re.compile(r"(?<![@\w.-])((?:[a-z0-9-]+\.)+[a-z]{2,24})(?![\w-])", re.I)
 COUNT_RE = re.compile(r"\b(?:up to|at most|max(?:imum)?|top|find|list)\s+(\d{1,5})\b", re.I)
-INDUSTRY_RE = re.compile(r"\b(?:find|list|collect|get)\s+(?:up to\s+\d+\s+|\d+\s+)?([a-z][a-z \-]{2,40}?)\s+"
+INDUSTRY_RE = re.compile(r"\b(?:find|list|collect|get)\s+(?:up to\s+\d+\s+|\d+\s+)?([a-z][a-z \-]{1,40}?)\s+"
                          r"(?:companies|company|firms|vendors|startups|businesses)", re.I)
+
+
+def is_tech_niche(industry: str | None) -> bool:
+    from app.discovery.sec_edgar import TECH_NICHES
+
+    words = re.findall(r"[a-z]+", (industry or "").lower())
+    return (industry or "").lower().strip() in TECH_NICHES or any(w in TECH_NICHES for w in words)
 
 
 def _has(text: str, phrase: str) -> bool:
@@ -118,7 +125,7 @@ def interpret(request: str, start_urls: list[str] | None = None) -> ExtractionSp
     if not urls and (industry or region or countries):
         # Wikidata gives name + website for well-known firms; SearXNG (when configured) finds the rest.
         providers = ["wikidata", "searxng"]
-        if "US" in countries or region == "north_america":
+        if ("US" in countries or region == "north_america") and not is_tech_niche(industry):
             # SEC lists every US-listed company by industry code; a registry goes before web search.
             providers = ["wikidata", "sec_edgar", "searxng"]
     dedupe = ["website_url"] if "website_url" in used else ([fields[0].name] if fields else [])

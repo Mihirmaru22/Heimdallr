@@ -133,36 +133,28 @@ def test_us_requests_use_sec_edgar_by_default():
     assert "sec_edgar" not in europe.discovery.providers
 
 
-async def test_a_narrower_industry_keeps_only_companies_wikidata_confirms(db_clean):
-    with httpx.Client(transport=httpx.MockTransport(sec_transport)) as client:
-        refresh_index(client, rate=0)
-    with session_scope(bypass=True) as db:  # make Pfizer and Lilly "software" companies for this test
-        for c in db.execute(select(SecCompany).where(SecCompany.cik.in_([78003, 59478]))).scalars():
-            c.sic, c.sic_description = "7372", "Services-Prepackaged Software"
+async def test_tech_niches_skip_sec(db_clean):
+    _build_index()
+    with pytest.raises(DiscoveryError, match="predate"):
+        await SecEdgarProvider(httpx.AsyncClient()).discover(_spec(industry="cybersecurity", countries=["US"]))
+    assert "sec_edgar" not in interpret("find 50 cybersecurity companies in us").discovery.providers
+    assert "sec_edgar" not in interpret("find AI startups in the United States").discovery.providers
 
-    entities = {
-        "Q1": {"labels": {"mul": {"value": "CrowdSafe"}},
-               "descriptions": {"en": {"value": "American cybersecurity company"}},
-               "claims": {"P5531": [{"mainsnak": {"datavalue": {"value": "0000078003"}}}],
-                          "P856": [{"mainsnak": {"datavalue": {"value": "https://crowdsafe.com/"}}}]}},
-        "Q2": {"labels": {"en": {"value": "Office Suite Inc"}}, "descriptions": {"en": {"value": "software company"}},
-               "claims": {"P5531": [{"mainsnak": {"datavalue": {"value": "0000059478"}}}],
-                          "P856": [{"mainsnak": {"datavalue": {"value": "https://officesuite.com/"}}}]}},
-    }
+
+async def test_wikidata_label_without_english_is_used(db_clean):
+    _build_index()
+    entities = {"Q1": {"labels": {"mul": {"value": "Pfizer"}}, "claims": {
+        "P5531": [{"mainsnak": {"datavalue": {"value": "0000078003"}}}],
+        "P856": [{"mainsnak": {"datavalue": {"value": "https://www.pfizer.com/"}}}]}}}
 
     def handler(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("action") == "wbsearchentities":
-            return httpx.Response(200, json={"search": [{"id": "Q3510521", "label": "computer security"}]})
         if params.get("list") == "search":
-            hits = [q for q, e in entities.items()
-                    if f"P5531={e['claims']['P5531'][0]['mainsnak']['datavalue']['value']}" in params["srsearch"]]
-            return httpx.Response(200, json={"query": {"search": [{"title": q} for q in hits]}})
+            hit = "P5531=0000078003" in params["srsearch"]
+            return httpx.Response(200, json={"query": {"search": [{"title": "Q1"}] if hit else []}})
         return httpx.Response(200, json={"entities": {i: entities[i] for i in params["ids"].split("|")
                                                       if i in entities}})
 
     provider = SecEdgarProvider(httpx.AsyncClient(transport=httpx.MockTransport(handler)))
-    results = await provider.discover(_spec(industry="cybersecurity", countries=["US"]))
-    assert [r.url for r in results] == ["https://crowdsafe.com/"]
-    assert results[0].hint["company_name"] == "CrowdSafe"  # the language-neutral label, not a Q-id
-    assert any("broad" in n for n in provider.notes)
+    results = await provider.discover(_spec(industry="pharmaceutical", countries=["US"]))
+    assert results[0].hint["company_name"] == "Pfizer"
