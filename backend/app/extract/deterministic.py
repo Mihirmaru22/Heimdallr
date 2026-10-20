@@ -238,6 +238,14 @@ def _website(doc: PageDoc) -> list[Candidate]:
     return out
 
 
+# Mailboxes that exist but are not a company's general contact; kept, but ranked last.
+NARROW_MAILBOX_RE = re.compile(
+    r"^(hr|careers?|jobs?|recruit\w*|talent|privacy|dataprotection|dpo|gdpr|drugsafety|pharmacovigilance|"
+    r"safety|ethics|compliance|business\.?ethics|legal|investors?|investor[._]?relations|ir|noreply|no-reply|"
+    r"donotreply|webmaster|abuse|security|hr\.\w+)$")
+PLACEHOLDER_EMAIL_RE = re.compile(r"lorem|ipsum|yourdomain|your-?email|domain\.com$|email\.com$|sentry|wixpress", re.I)
+
+
 def _emails(doc: PageDoc) -> list[Candidate]:
     site = registered_domain(doc.url)
     seen: dict[str, Candidate] = {}
@@ -245,7 +253,7 @@ def _emails(doc: PageDoc) -> list[Candidate]:
         addr = (a.attributes.get("href") or "")[7:].split("?")[0].strip()
         if EMAIL_RE.fullmatch(addr):
             same = addr.split("@")[-1].lower().endswith(site)
-            seen.setdefault(addr.lower(), Candidate(addr, "mailto", 0.85 if same else 0.6, f"mailto:{addr}"))
+            seen.setdefault(addr.lower(), Candidate(addr, "mailto", 0.85 if same else 0.4, f"mailto:{addr}"))
     for org in _orgs(doc):
         addr = _first_str(org.get("email"))
         if addr and EMAIL_RE.fullmatch(addr.removeprefix("mailto:")):
@@ -256,12 +264,18 @@ def _emails(doc: PageDoc) -> list[Candidate]:
         if addr.lower().endswith(IMAGE_SUFFIX) or "example." in addr.lower():
             continue
         same = addr.split("@")[-1].lower().endswith(site)
-        seen.setdefault(addr.lower(), Candidate(addr, "regex", 0.7 if same else 0.45, _snippet(doc.text, addr)))
-    # Prefer role mailboxes people expect to contact.
+        seen.setdefault(addr.lower(), Candidate(addr, "regex", 0.7 if same else 0.3, _snippet(doc.text, addr)))
+    out = []
     for c in seen.values():
-        if c.value.split("@")[0].lower() in ("info", "contact", "hello", "sales", "office", "support"):
-            c.confidence = min(0.95, c.confidence + 0.05)
-    return list(seen.values())
+        local = c.value.split("@")[0].lower()
+        if PLACEHOLDER_EMAIL_RE.search(c.value):  # template text, not a real mailbox
+            continue
+        if local in ("info", "contact", "hello", "sales", "office", "support", "enquiries", "inquiries"):
+            c.confidence = min(0.95, c.confidence + 0.05)  # role mailboxes people expect to contact
+        elif NARROW_MAILBOX_RE.match(local):
+            c.confidence = round(c.confidence - 0.25, 2)  # HR, privacy, drug safety...: real, but not "contact"
+        out.append(c)
+    return out
 
 
 def _phones(doc: PageDoc) -> list[Candidate]:

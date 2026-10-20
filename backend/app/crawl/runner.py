@@ -118,16 +118,24 @@ class CrawlRunner:
         notes: list[str] = []
         sites: set[str] = set()
         found = 0  # sites from discovery sources (not the user's own URLs), capped at max_results
+        by_site: dict[str, dict[str, Any]] = {}
         for provider in providers_for(self.spec):
             try:
                 for r in await provider.discover(self.spec):
                     site = registered_domain(r.url)
-                    # One entry per website: the first source wins (Wikidata runs first and carries names).
-                    if r.method != "seed" and (site in sites or found >= self.spec.discovery.max_results):
+                    # One entry per website: the first source wins, and later sources only fill in hints
+                    # it lacked (SEC adds the industry to a company Wikidata found first).
+                    if site in by_site and r.method != "seed":
+                        earlier = by_site[site]
+                        earlier["hint"] = {**{k: v for k, v in r.hint.items() if not k.startswith("_")},
+                                           **(earlier["hint"] or {})}
+                        continue
+                    if r.method != "seed" and found >= self.spec.discovery.max_results:
                         continue
                     found += r.method != "seed"
                     sites.add(site)
-                    items.append({"url": r.url, "method": r.method, "hint": r.hint, "referrer": r.referrer})
+                    items.append({"url": r.url, "method": r.method, "hint": dict(r.hint), "referrer": r.referrer})
+                    by_site.setdefault(site, items[-1])
             except DiscoveryError as exc:
                 errors.append(f"{provider.name}: {exc}")
             notes += getattr(provider, "notes", [])

@@ -62,14 +62,16 @@ async def test_discover_uses_the_search_index_and_dedupes():
         "Q4": _entity("Q4", "No Site AG"),
         "Q5": _entity("Q5", None, "https://beta.com", country="Q142"),
         "Q64": {"id": "Q64", "labels": {"en": {"value": "Berlin"}}},
+        "Q507443": {"id": "Q507443", "labels": {"en": {"value": "pharmaceutical industry"}}},
     }
+    entities["Q1"]["claims"]["P452"] = [{"mainsnak": {"datavalue": {"value": {"id": "Q507443"}}}}]
     calls = []
     client = httpx.AsyncClient(transport=httpx.MockTransport(
         search_handler(entities, hits=["Q1", "Q2", "Q3", "Q4", "Q5"], calls=calls)))
     results = await WikidataProvider(client).discover(_spec(industry="pharmaceutical", region="europe"))
     assert [r.url for r in results] == ["https://www.acme.com/en", "https://beta.com/"]
     assert results[0].hint == {"company_name": "Acme Pharma", "headquarters": "Berlin", "country": "Germany",
-                               "website_url": "https://www.acme.com/en",
+                               "industry": "pharmaceutical industry", "website_url": "https://www.acme.com/en",
                                "_source": "http://www.wikidata.org/entity/Q1"}
     assert "company_name" not in results[1].hint and results[1].hint["country"] == "France"
     search = next(c for c in calls if c.get("list") == "search")

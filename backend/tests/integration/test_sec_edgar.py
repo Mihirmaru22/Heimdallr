@@ -127,7 +127,7 @@ async def test_discovery_explains_why_it_was_skipped(db_clean):
 
 def test_us_requests_use_sec_edgar_by_default():
     spec = interpret("Find 50 pharmaceutical companies in the United States with their website")
-    assert spec.discovery.providers == ["wikidata", "searxng", "sec_edgar"]
-    assert [p.name for p in providers_for(spec)] == ["wikidata", "searxng", "sec_edgar"]
+    assert spec.discovery.providers == ["wikidata", "sec_edgar", "searxng"]
+    assert [p.name for p in providers_for(spec)] == ["wikidata", "sec_edgar", "searxng"]
     europe = interpret("Find 50 pharmaceutical companies in Europe with their website")
     assert "sec_edgar" not in europe.discovery.providers

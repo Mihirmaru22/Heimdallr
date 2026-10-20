@@ -221,7 +221,10 @@ class WikidataProvider:
             if not hits:
                 break
             entities = await self._entities(client, hits, "labels|claims")
-            hq_ids = sorted({q for e in entities.values() for q in self._claim_ids(e, "P159")[:1]})
+            wanted = set(ids)
+            # Labels for each company's headquarters and the industry it matched on.
+            hq_ids = sorted({q for e in entities.values() for q in self._claim_ids(e, "P159")[:1]}
+                            | {q for e in entities.values() for q in self._claim_ids(e, "P452") if q in wanted})
             hq_labels = {k: v.get("labels", {}).get("en", {}).get("value")
                          for k, v in (await self._entities(client, hq_ids, "labels")).items()} if hq_ids else {}
             for qid in hits:
@@ -235,8 +238,10 @@ class WikidataProvider:
                 seen.add(site or url)
                 country = next((country_names[c] for c in self._claim_ids(e, "P17") if c in country_names), None)
                 hq = next((hq_labels.get(q) for q in self._claim_ids(e, "P159")[:1]), None)
+                industry = next((hq_labels.get(q) for q in self._claim_ids(e, "P452") if q in wanted), None)
                 hint = {"company_name": e.get("labels", {}).get("en", {}).get("value"), "headquarters": hq,
-                        "country": country, "website_url": url, "_source": f"http://www.wikidata.org/entity/{qid}"}
+                        "country": country, "industry": industry, "website_url": url,
+                        "_source": f"http://www.wikidata.org/entity/{qid}"}
                 out.append(DiscoveryResult(url, "wikidata", {k: v for k, v in hint.items() if v},
                                            referrer=hint["_source"]))
                 if len(out) >= d.max_results:

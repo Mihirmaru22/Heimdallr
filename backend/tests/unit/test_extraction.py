@@ -93,3 +93,15 @@ def test_domain_style_names_lose_to_better_names():
 
     assert _name_candidate("JNJ.com", "meta", 0.75, "").confidence < 0.4
     assert _name_candidate("Johnson & Johnson", "meta", 0.75, "").confidence == 0.75
+
+
+def test_general_contact_mailbox_beats_hr_offsite_and_placeholder_addresses():
+    html = """<html><body><footer>
+      <a href="mailto:hr.operations@acme.com">Jobs</a> <a href="mailto:drugsafety@distributor.com">Safety</a>
+      <p>Write to info@loremacme.com or info@acme.com</p></footer></body></html>"""
+    fields = [FieldSpec(name="contact_email", type="email", semantic="contact_email")]
+    found = extract_page(parse_page("https://www.acme.com/contact", html), fields)["contact_email"]
+    ranked = [c.value for c in sorted(found, key=lambda c: c.confidence, reverse=True)]
+    assert ranked[0] == "info@acme.com"
+    assert "info@loremacme.com" not in ranked
+    assert ranked.index("hr.operations@acme.com") < ranked.index("drugsafety@distributor.com")
