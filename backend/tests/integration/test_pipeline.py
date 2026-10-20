@@ -133,3 +133,24 @@ def test_page_budget_is_enforced(db_clean, crawl_env):
     pipeline.run_job(job_id, resolver=crawl_env["resolver"])
     with session_scope(org_id) as db:
         assert len(db.execute(select(FetchedPage.id).where(FetchedPage.job_id == job_id)).all()) <= 2
+
+
+def test_discovery_hints_fill_fields_by_extractor(db_clean, crawl_env, monkeypatch):
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+
+    url = crawl_env["url"]
+
+    class FakeRegistry:
+        name = "sec_edgar"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url("acme-security.test"), "sec_edgar",
+                                    {"industry": "Services-Prepackaged Software", "_source": "test"})]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [FakeRegistry()])
+    fields = [*FIELDS, {"name": "company_industry", "type": "string", "semantic": "industry"}]
+    job_id, org_id = make_job([], fields=fields, discovery={"providers": ["sec_edgar"], "industry": "software"})
+    assert pipeline.run_job(job_id, resolver=crawl_env["resolver"]) == "completed"
+    (record,) = records(job_id, org_id)
+    assert record.data["company_industry"] == "Services-Prepackaged Software"

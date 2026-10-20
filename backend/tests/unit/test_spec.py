@@ -42,3 +42,11 @@ def test_limits_are_clamped():
 def test_invalid_specs_rejected(raw):
     with pytest.raises(ValidationError):
         ExtractionSpec.model_validate(raw)
+
+
+def test_industry_is_a_field_people_can_ask_for():
+    from app.spec.interpret import interpret
+
+    spec = interpret("Find pharmaceutical companies in the USA with their website and industry")
+    (industry,) = [f for f in spec.fields if f.name == "industry"]
+    assert industry.semantic == "industry"

@@ -46,6 +46,7 @@ class Semantic(StrEnum):
     pricing = "pricing"
     founded_year = "founded_year"
     product_categories = "product_categories"
+    industry = "industry"
     source_url = "source_url"
     none = "none"
 

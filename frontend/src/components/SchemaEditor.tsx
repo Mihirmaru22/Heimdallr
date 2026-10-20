@@ -5,7 +5,12 @@ const TYPES = ["string", "text", "url", "email", "phone", "number", "integer", "
 const DISCOVERY: [string, string][] = [["seeds", "start URLs"], ["wikidata", "Wikidata"], ["searxng", "web search (SearXNG)"], ["sec_edgar", "SEC EDGAR (US listed)"]];
 const SEMANTICS = ["none", "company_name", "website_url", "contact_email", "phone", "address", "headquarters",
   "country", "description", "page_title", "social_links", "pricing", "founded_year", "product_categories",
-  "source_url"];
+  "industry", "source_url"];
+
+// Field names become Excel columns and JSON keys, so they are kept snake_case as the user types:
+// "Company Industry" -> "company_industry".
+const toFieldName = (raw: string) =>
+  raw.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/_+/g, "_").replace(/^[^a-z]+/, "").slice(0, 63);
 
 // Edits the fields table and the common crawl settings; everything else is in the JSON view.
 export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange: (s: Spec) => void }) {
@@ -16,6 +21,12 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
 
   const setField = (i: number, patch: Partial<FieldSpec>) =>
     onChange({ ...spec, fields: spec.fields.map((f, j) => (j === i ? { ...f, ...patch } : f)) });
+  const rename = (i: number, raw: string) => {
+    const old = spec.fields[i].name;
+    const name = toFieldName(raw);
+    onChange({ ...spec, fields: spec.fields.map((f, j) => (j === i ? { ...f, name } : f)),
+      deduplication_keys: spec.deduplication_keys.map((k) => (k === old ? name : k)) });
+  };
   const move = (i: number, d: -1 | 1) => {
     const fields = [...spec.fields];
     const [f] = fields.splice(i, 1);
@@ -41,7 +52,8 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
                 <button className="icon" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up">↑</button>
                 <button className="icon" disabled={i === spec.fields.length - 1} onClick={() => move(i, 1)} aria-label="Move down">↓</button>
               </td>
-              <td><input value={f.name} onChange={(e) => setField(i, { name: e.target.value })} /></td>
+              <td><input value={f.name} onChange={(e) => rename(i, e.target.value)}
+                title="lowercase letters, digits and _ (applied as you type)" /></td>
               <td><input value={f.label ?? ""} onChange={(e) => setField(i, { label: e.target.value })} /></td>
               <td><select value={f.type} onChange={(e) => setField(i, { type: e.target.value })}>
                 {TYPES.map((t) => <option key={t}>{t}</option>)}</select></td>

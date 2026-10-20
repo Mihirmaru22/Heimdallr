@@ -33,6 +33,7 @@ FIELD_CATALOG: list[tuple[tuple[str, ...], str, FieldType, Semantic]] = [
     (("pricing", "price", "prices", "plans"), "pricing", FieldType.string, Semantic.pricing),
     (("product categories", "products", "product category", "services", "offerings"),
      "product_categories", FieldType.list, Semantic.product_categories),
+    (("industry", "sector"), "industry", FieldType.string, Semantic.industry),
     (("founded", "year founded", "founding year"), "founded_year", FieldType.integer, Semantic.founded_year),
     (("social", "linkedin", "twitter", "social media"), "social_links", FieldType.list, Semantic.social_links),
     (("title", "page title"), "page_title", FieldType.string, Semantic.page_title),

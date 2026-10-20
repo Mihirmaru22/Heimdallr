@@ -460,6 +460,9 @@ def extract_field(doc: PageDoc, spec: FieldSpec) -> list[Candidate]:
         found = _founded(doc)
     elif s == Semantic.product_categories:
         found = _product_categories(doc)
+    elif s == Semantic.industry:
+        # Registries (Wikidata, SEC) supply the industry as a discovery hint; pages rarely state it.
+        found = [Candidate(v, "label", 0.5, ev) for v, ev in _label_values(doc, ["industry", "sector"])]
     elif s == Semantic.source_url:
         found = [Candidate(doc.url, "page_url", 1.0, doc.url)]
     else:

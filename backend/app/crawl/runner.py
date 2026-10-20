@@ -287,12 +287,15 @@ class CrawlRunner:
         found = extract_page(doc, self.spec.fields)
         candidates = {name: [c.__dict__ for c in cands] for name, cands in found.items() if cands}
         if row.hint:  # values supplied by discovery (e.g. Wikidata) with their source
-            for name, value in row.hint.items():
-                if not name.startswith("_") and any(f.name == name for f in self.spec.fields):
+            for key, value in row.hint.items():
+                if key.startswith("_"):
+                    continue
+                # A hint fills the field of that name, or any field using that extractor ("company_industry").
+                for name in [f.name for f in self.spec.fields if key in (f.name, f.semantic.value)]:
                     candidates.setdefault(name, []).append({
                         # A curated registry label beats what a page calls itself ("JNJ.com").
                         "value": value, "method": row.method,
-                        "confidence": 0.92 if row.method in ("wikidata", "sec_edgar") and name == "company_name"
+                        "confidence": 0.92 if row.method in ("wikidata", "sec_edgar") and key == "company_name"
                         else 0.7,
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
         with session_scope(self.org_id) as db:
