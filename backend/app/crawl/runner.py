@@ -286,7 +286,9 @@ class CrawlRunner:
             for name, value in row.hint.items():
                 if not name.startswith("_") and any(f.name == name for f in self.spec.fields):
                     candidates.setdefault(name, []).append({
-                        "value": value, "method": row.method, "confidence": 0.7,
+                        # A curated registry label beats what a page calls itself ("JNJ.com").
+                        "value": value, "method": row.method,
+                        "confidence": 0.92 if row.method == "wikidata" and name == "company_name" else 0.7,
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
         with session_scope(self.org_id) as db:
             db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=row.id, final_url=final,

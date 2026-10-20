@@ -75,3 +75,21 @@ def test_normalize_rejects_bad_values():
     with pytest.raises(InvalidValue):
         normalize_value(FieldSpec(name="n", type="integer"), "twelve")
     assert normalize_value(FieldSpec(name="n", type="number"), "1,234.5") == 1234.5
+
+
+def test_company_names_are_cleaned():
+    from app.extract.deterministic import clean_company_name
+
+    assert clean_company_name("Merck & Co., Inc., Rahway, NJ, USA") == "Merck & Co., Inc."
+    assert clean_company_name("Amicus Therapeutics | Advancing Therapies to Treat Rare Diseases") == \
+        "Amicus Therapeutics"
+    assert clean_company_name("BioCryst®") == "BioCryst"
+    assert clean_company_name("Home | Acme Ltd", keep="last") == "Acme Ltd"
+    assert clean_company_name("Acme, Inc.") == "Acme, Inc."
+
+
+def test_domain_style_names_lose_to_better_names():
+    from app.extract.deterministic import _name_candidate
+
+    assert _name_candidate("JNJ.com", "meta", 0.75, "").confidence < 0.4
+    assert _name_candidate("Johnson & Johnson", "meta", 0.75, "").confidence == 0.75

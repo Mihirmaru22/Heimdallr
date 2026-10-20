@@ -182,27 +182,49 @@ def _label_values(doc: PageDoc, labels: list[str]) -> list[tuple[str, str]]:
 # --- semantic extractors ----------------------------------------------------------------------
 
 
+MARKS_RE = re.compile(r"[®™©℠]")
+# "Merck & Co., Inc., Rahway, NJ, USA": a trailing city, state and country is an address, not the name.
+US_PLACE_RE = re.compile(r",\s*[A-Z][A-Za-z .'-]{1,40},\s*[A-Z]{2}(?:,\s*(?:USA|U\.S\.A\.|US|United States))?$")
+DOMAIN_NAME_RE = re.compile(r"^[\w-]+(\.[\w-]+)*\.[a-z]{2,6}$", re.I)
+
+
+def clean_company_name(name: str, keep: str = "first") -> str:
+    """Drop trademark signs, taglines after a separator and a trailing US address."""
+    name = MARKS_RE.sub("", name).strip()
+    parts = [p.strip() for p in TITLE_SPLIT_RE.split(name) if p.strip()]
+    if len(parts) > 1:
+        name = parts[0] if keep == "first" else parts[-1]
+    return US_PLACE_RE.sub("", name).strip(" ,")
+
+
+def _name_candidate(name: str, method: str, confidence: float, evidence: str, keep: str = "first") -> Candidate:
+    clean = clean_company_name(name, keep)
+    if DOMAIN_NAME_RE.match(clean):  # "JNJ.com" is how the site brands itself, not the company's name
+        confidence = min(confidence, 0.35)
+    return Candidate(clean or name, method, confidence, evidence)
+
+
 def _company_name(doc: PageDoc) -> list[Candidate]:
     out = []
     for org in _orgs(doc):
         name = _first_str(org.get("name")) or _first_str(org.get("legalName"))
         if name:
-            out.append(Candidate(name, "jsonld", 0.9, f"JSON-LD {sorted(_types(org))[0]}.name = {name}"))
+            out.append(_name_candidate(name, "jsonld", 0.9, f"JSON-LD {sorted(_types(org))[0]}.name = {name}"))
     for key in ("og:site_name", "application-name"):
         if doc.meta.get(key):
-            out.append(Candidate(doc.meta[key], "meta", 0.75, f'<meta {key}="{doc.meta[key]}">'))
+            out.append(_name_candidate(doc.meta[key], "meta", 0.75, f'<meta {key}="{doc.meta[key]}">'))
     m = COPYRIGHT_RE.search(doc.text[-3000:])
     if m:
         name = m.group(1).strip(" .,")
         if 2 <= len(name) <= 80 and not name.lower().startswith("all rights"):
-            out.append(Candidate(name, "pattern", 0.55, m.group(0).strip()))
+            out.append(_name_candidate(name, "pattern", 0.55, m.group(0).strip()))
     if doc.title:
         parts = TITLE_SPLIT_RE.split(doc.title)
         if len(parts) > 1:
-            out.append(Candidate(parts[-1].strip(), "title", 0.45, f"<title>{doc.title}</title>"))
+            out.append(_name_candidate(parts[-1], "title", 0.45, f"<title>{doc.title}</title>", keep="last"))
         elif urlsplit(doc.url).path in ("", "/"):
-            out.append(Candidate(doc.title, "title", 0.4, f"<title>{doc.title}</title>"))
-    return out
+            out.append(_name_candidate(doc.title, "title", 0.4, f"<title>{doc.title}</title>"))
+    return [c for c in out if c.value]
 
 
 def _website(doc: PageDoc) -> list[Candidate]:
