@@ -32,10 +32,10 @@ from app.crawl.urlnorm import (
 from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError, providers_for
 from app.discovery.relevance import off_topic_reason
-from app.extract.deterministic import extract_page, parse_page
+from app.extract.deterministic import extract_page, parse_page, prefer_country_phones
 from app.models import CrawlJob, DiscoveredUrl, DomainPolicy, FetchedPage, UrlStatus
 from app.services.state_machine import log_event
-from app.spec.models import ExtractionSpec
+from app.spec.models import ExtractionSpec, Semantic
 
 log = logging.getLogger("webdata.crawl")
 LEASE = timedelta(minutes=5)
@@ -301,6 +301,9 @@ class CrawlRunner:
                 self._finish(row.id, UrlStatus.skipped, f"web search result dropped: {reason}")
                 return
         found = extract_page(doc, self.spec.fields)
+        for f in self.spec.fields:
+            if f.semantic == Semantic.phone and f.name in found:
+                prefer_country_phones(found[f.name], self.spec.discovery.countries)
         candidates = {name: [c.__dict__ for c in cands] for name, cands in found.items() if cands}
         if row.hint:  # values supplied by discovery (e.g. Wikidata) with their source
             for key, value in row.hint.items():

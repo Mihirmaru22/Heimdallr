@@ -217,7 +217,10 @@ class PinnedTransport(httpx.AsyncHTTPTransport):
 def make_client(resolver=resolve, proxy: str | None = None) -> httpx.AsyncClient:
     settings = get_settings()
     timeout = httpx.Timeout(settings.read_timeout, connect=settings.connect_timeout)
-    headers = {"User-Agent": settings.user_agent, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5"}
+    # Ask for the English page: many sites otherwise pick a language and local office from the visitor's
+    # location (a run from India got +91 numbers). This is a normal browser preference, not disguise.
+    headers = {"User-Agent": settings.user_agent, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
+               "Accept-Language": "en-US,en;q=0.8"}
     proxy = proxy if proxy is not None else settings.crawl_proxy
     if proxy:
         # Egress proxy mode (sandboxes): destinations are still checked by the fetcher before

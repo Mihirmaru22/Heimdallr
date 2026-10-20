@@ -13,6 +13,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import extruct
+import phonenumbers
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
 from selectolax.lexbor import LexborNode as Node
 
@@ -247,6 +248,14 @@ NARROW_MAILBOX_RE = re.compile(
     r"^(hr|careers?|jobs?|recruit\w*|talent|privacy|dataprotection|dpo|gdpr|drugsafety|pharmacovigilance|"
     r"safety|ethics|compliance|business\.?ethics|legal|investors?|investor[._]?relations|ir|noreply|no-reply|"
     r"donotreply|webmaster|abuse|security|accessibility|hr\.\w+|\w*(gdpr|dpo|privacy)\w*)$")
+# Words that mark a mailbox as something other than a way to contact the company (copyrightnotices@,
+# grievanceofficer@, pandora-jobs@, reportabuse@, peoplesupport-china@). These are dropped outright.
+NOT_CONTACT_RE = re.compile(
+    r"copyright|trademark|legal|grievance|privacy|gdpr|dpo|dataprotect|abuse|report|complian|ethic|whistle|"
+    r"jobs?\b|jobs?[._-]|careers?|recruit|talent|people|\bhr\b|^hr[._-]|registration|noreply|no-reply|donotreply|"
+    r"unsubscribe|bounce|mailer|postmaster|webmaster|accessib|investor|^ir[._-]?|safety|vigilance|security|"
+    r"vulnerab|partner|affiliate|marketing|sponsor|advertis|billing|invoice|"
+    r"payable|receivable|procurement|vendor|supplier|tax|fraud|counterfeit|recall|warranty")
 PERSONAL_MAILBOX_RE = re.compile(r"^[a-z]+[._][a-z]+$")  # first.last: a person, not the company's contact
 PLACEHOLDER_EMAIL_RE = re.compile(r"lorem|ipsum|yourdomain|your-?email|domain\.com$|email\.com$|sentry|wixpress", re.I)
 
@@ -287,6 +296,10 @@ def _emails(doc: PageDoc) -> list[Candidate]:
             continue
         if local in ("info", "contact", "hello", "sales", "office", "support", "enquiries", "inquiries"):
             c.confidence = min(0.95, c.confidence + 0.05)  # role mailboxes people expect to contact
+        elif NOT_CONTACT_RE.search(local):
+            continue  # legal notices, jobs, abuse reports, partner programmes...: not "contact the company"
+        elif re.search(r"[._-][a-z]{2}$", local):
+            c.confidence = round(c.confidence - 0.25, 2)  # a country office's box (citrix_ru@), not the main one
         elif NARROW_MAILBOX_RE.match(local):
             c.confidence = round(c.confidence - 0.25, 2)  # HR, privacy, drug safety...: real, but not "contact"
         elif PERSONAL_MAILBOX_RE.match(local):
@@ -308,6 +321,24 @@ def _phones(doc: PageDoc) -> list[Candidate]:
     for m in re.finditer(r"\+\d[\d ()./-]{6,20}\d", doc.text):
         out.append(Candidate(m.group(), "regex", 0.55, _snippet(doc.text, m.group())))
     return out
+
+
+def prefer_country_phones(cands: list[Candidate], countries: list[str]) -> list[Candidate]:
+    """Rank numbers from the requested countries first. Sites serve a visitor's local office number
+    (IBM shows +49 to a German visitor), so a number from another country is likely a branch office."""
+    if not countries:
+        return cands
+    for c in cands:
+        raw = c.value.strip()
+        if not raw.startswith("+"):
+            continue  # no country code: usually the site's home number
+        try:
+            region = phonenumbers.region_code_for_number(phonenumbers.parse(raw, None))
+        except phonenumbers.NumberParseException:
+            continue
+        if region and region != "ZZ" and region not in countries:
+            c.confidence = round(c.confidence - 0.35, 2)
+    return cands
 
 
 def _addresses(doc: PageDoc, want: str) -> list[Candidate]:

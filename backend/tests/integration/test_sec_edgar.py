@@ -96,6 +96,9 @@ def test_industry_words_map_to_sic_codes():
     assert sic_codes_for("software", descriptions) == ["7372"]
     assert sic_codes_for("banking", descriptions) == ["6022"]
     assert sic_codes_for("restaurants", descriptions) == []
+    assert sic_codes_for("tech", {**descriptions, "3674": "Semiconductors & Related Devices",
+                                  "7370": "Services-Computer Programming, Data Processing, Etc."}) == \
+        ["3674", "7370", "7372"]
 
 
 async def test_discovery_finds_listed_companies_and_their_websites(db_clean):

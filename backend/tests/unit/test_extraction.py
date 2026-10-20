@@ -105,7 +105,7 @@ def test_general_contact_mailbox_beats_hr_offsite_and_placeholder_addresses():
     assert ranked[0] == "info@acme.com"
     assert "info@loremacme.com" not in ranked
     assert "drugsafety@distributor.com" not in ranked  # another company's mailbox
-    assert ranked[-1] == "hr.operations@acme.com"
+    assert "hr.operations@acme.com" not in ranked  # a jobs mailbox is not the company's contact
 
 
 def test_personal_and_privacy_mailboxes_rank_below_press():
@@ -117,7 +117,33 @@ def test_personal_and_privacy_mailboxes_rank_below_press():
     assert best.value in ("press@acme.com", "info-italy@acme.com")
     scores = {c.value: c.confidence for c in found}
     assert scores["nicole.shevins@acme.com"] < scores["press@acme.com"]
-    assert scores["gdpr_dpo@acme.com"] < scores["press@acme.com"]
+    assert "gdpr_dpo@acme.com" not in scores
+
+
+def test_legal_jobs_and_report_mailboxes_are_dropped():
+    boxes = ["copyrightnotices", "grievanceofficer", "device.registrationservices", "cpg-report", "pandora-jobs",
+             "reportabuse", "privacy", "peoplesupport-china", "pkwaremarketing", "partner-program", "contact"]
+    html = "<html><body>" + " ".join(f'<a href="mailto:{b}@acme.com">x</a>' for b in boxes) + \
+        '<a href="mailto:citrix_ru@acme.com">ru</a></body></html>'
+    fields = [FieldSpec(name="contact_email", type="email", semantic="contact_email")]
+    found = extract_page(parse_page("https://acme.com/", html), fields)["contact_email"]
+    scores = {c.value: c.confidence for c in found}
+    assert set(scores) == {"contact@acme.com", "citrix_ru@acme.com"}
+    assert scores["citrix_ru@acme.com"] < scores["contact@acme.com"]
+
+
+def test_phones_from_other_countries_rank_below_the_requested_country():
+    from app.extract.deterministic import prefer_country_phones
+
+    html = """<html><body><a href="tel:+49 7031 4644">DE</a> <a href="tel:+1 914 499 1900">US</a>
+      <a href="tel:1-800-426-4968">toll free</a></body></html>"""
+    fields = [FieldSpec(name="phone", type="phone", semantic="phone")]
+    found = extract_page(parse_page("https://www.ibm.com/", html), fields)["phone"]
+    prefer_country_phones(found, ["US"])
+    scores = {c.value: c.confidence for c in found}
+    assert scores["+49 7031 4644"] < scores["+1 914 499 1900"] == scores["1-800-426-4968"]
+    unchanged = extract_page(parse_page("https://www.ibm.com/", html), fields)["phone"]
+    assert prefer_country_phones(unchanged, []) == unchanged
 
 
 def test_product_links_skip_calls_to_action_and_icon_text():

@@ -39,7 +39,11 @@ SYNONYMS = {
     "biotechnology": ["biological", "pharmaceutical"], "bank": ["banks"], "banking": ["banks"],
     "software": ["software", "computer programming"], "saas": ["software"],
     "semiconductors": ["semiconductor"], "oil": ["petroleum", "crude"], "gas": ["natural gas"],
-    "insurance": ["insurance"], "medical devices": ["surgical", "medical", "electromedical"],
+    "insurance": ["insurance"],
+    # A broad "tech" request: software, computers, chips and internet services (SIC 7370-7374, 3570s, 3670s).
+    "tech": ["software", "computer", "semiconductor", "electronic computers"],
+    "technology": ["software", "computer", "semiconductor", "electronic computers"],
+    "medical devices": ["surgical", "medical", "electromedical"],
 }
 # Tech niches newer than SEC's industry codes: SEC files CrowdStrike and Microsoft alike under "Prepackaged
 # Software", so for these it cannot say who belongs and is skipped (Wikidata and web search still run).
