@@ -31,6 +31,7 @@ from app.crawl.urlnorm import (
 )
 from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError, providers_for
+from app.discovery.relevance import off_topic_reason
 from app.extract.deterministic import extract_page, parse_page
 from app.models import CrawlJob, DiscoveredUrl, DomainPolicy, FetchedPage, UrlStatus
 from app.services.state_machine import log_event
@@ -292,6 +293,13 @@ class CrawlRunner:
             self._finish(row.id, UrlStatus.skipped, "same content as a page already fetched")
             return
         doc = parse_page(final, result.text)
+        if row.depth == 0 and row.method == "searxng":
+            # A search result is only a link; check its homepage before spending crawl budget on the site.
+            reason = off_topic_reason(doc, self.spec)
+            if reason:
+                self.allowed_sites.discard(site)
+                self._finish(row.id, UrlStatus.skipped, f"web search result dropped: {reason}")
+                return
         found = extract_page(doc, self.spec.fields)
         candidates = {name: [c.__dict__ for c in cands] for name, cands in found.items() if cands}
         if row.hint:  # values supplied by discovery (e.g. Wikidata) with their source

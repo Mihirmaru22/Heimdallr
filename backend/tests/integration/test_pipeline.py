@@ -180,3 +180,23 @@ def test_a_later_source_fills_hints_for_a_site_found_earlier(db_clean, crawl_env
                                                        DiscoveredUrl.depth == 0)).scalars().all()
     assert len(seeds) == 1 and seeds[0].method == "wikidata"
     assert seeds[0].hint == {"company_name": "Acme Security", "industry": "Software", "_source": "wd"}
+
+
+def test_off_topic_search_results_are_dropped_before_crawling(db_clean, crawl_env, monkeypatch):
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+
+    url = crawl_env["url"]
+
+    class Search:
+        name = "searxng"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url("acme-security.test"), "searxng", {})]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Search()])
+    job_id, org_id = make_job([], discovery={"providers": ["searxng"], "industry": "pharmaceutical"})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    status, reason = urls_by_status(job_id, org_id)[url("acme-security.test")]
+    assert status == "skipped" and "does not mention 'pharmaceutical'" in reason
+    assert records(job_id, org_id) == []
