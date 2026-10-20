@@ -83,8 +83,13 @@ docker run -d --name webdata-searxng -p 127.0.0.1:8888:8080 \
   -e SEARXNG_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')" \
   -v "$PWD/deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro" \
   searxng/searxng:2026.10.17-1c10abe2d
-export WEBDATA_SEARXNG_URL=http://localhost:8888   # for both the API and the worker
+echo 'WEBDATA_SEARXNG_URL=http://localhost:8888' >> backend/.env
+curl -s 'http://localhost:8888/search?q=test&format=json' | head -c 200   # should print JSON
 ```
+
+Then restart the API and the Celery worker so they read it. (An `export` in one terminal does not
+reach a worker started in another, which is the usual reason the Events tab says "SearXNG is not
+configured".)
 
 Settings are read from environment variables or `backend/.env` (same names as `.env.example`;
 `WEBDATA_DATABASE_URL` defaults to `postgresql+psycopg://webdata:webdata@localhost:5432/webdata`).

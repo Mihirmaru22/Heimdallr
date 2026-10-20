@@ -2,7 +2,8 @@
 
 - seeds: URLs and domains the user typed (always available).
 - wikidata: organizations from Wikidata (CC0) with an official website (P856), filtered by
-  industry (P452) and country (P17 / P30 continent). Free, no key; please keep queries small.
+  industry (P452) and country (P17). Free, no key. The search index (haswbstatement) answers in about a
+  second; the SPARQL query service is only a fallback because it often times out under load.
 - searxng: a self-hosted SearXNG metasearch instance (WEBDATA_SEARXNG_URL). Search results are
   reduced to company homepages; directories, social networks and news sites are dropped.
 Each result is a URL plus optional hints (name, headquarters...) that become candidate values
@@ -26,6 +27,35 @@ WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
 CONTINENTS = {"europe": "Q46", "north_america": "Q49", "asia": "Q48", "africa": "Q15", "south_america": "Q18",
               "oceania": "Q55643"}
+# Wikidata items for the countries the request parser knows, plus the larger economies of each continent,
+# so a region becomes a list of countries without asking the (often overloaded) query service.
+COUNTRY_QIDS = {
+    "GB": ("Q145", "United Kingdom"), "DE": ("Q183", "Germany"), "FR": ("Q142", "France"), "ES": ("Q29", "Spain"),
+    "IT": ("Q38", "Italy"), "NL": ("Q55", "Netherlands"), "BE": ("Q31", "Belgium"), "SE": ("Q34", "Sweden"),
+    "NO": ("Q20", "Norway"), "DK": ("Q35", "Denmark"), "FI": ("Q33", "Finland"), "PL": ("Q36", "Poland"),
+    "IE": ("Q27", "Ireland"), "CH": ("Q39", "Switzerland"), "AT": ("Q40", "Austria"), "PT": ("Q45", "Portugal"),
+    "EE": ("Q191", "Estonia"), "LU": ("Q32", "Luxembourg"), "CZ": ("Q213", "Czech Republic"),
+    "HU": ("Q28", "Hungary"), "GR": ("Q41", "Greece"), "RO": ("Q218", "Romania"), "IL": ("Q801", "Israel"),
+    "US": ("Q30", "United States"), "CA": ("Q16", "Canada"), "MX": ("Q96", "Mexico"), "IN": ("Q668", "India"),
+    "JP": ("Q17", "Japan"), "CN": ("Q148", "China"), "KR": ("Q884", "South Korea"), "TW": ("Q865", "Taiwan"),
+    "SG": ("Q334", "Singapore"), "HK": ("Q8646", "Hong Kong"), "AE": ("Q878", "United Arab Emirates"),
+    "ID": ("Q252", "Indonesia"), "MY": ("Q833", "Malaysia"), "TH": ("Q869", "Thailand"), "VN": ("Q881", "Vietnam"),
+    "PH": ("Q928", "Philippines"), "BR": ("Q155", "Brazil"), "AR": ("Q414", "Argentina"), "CL": ("Q298", "Chile"),
+    "CO": ("Q739", "Colombia"), "PE": ("Q419", "Peru"), "ZA": ("Q258", "South Africa"), "NG": ("Q1033", "Nigeria"),
+    "EG": ("Q79", "Egypt"), "KE": ("Q114", "Kenya"), "MA": ("Q1028", "Morocco"), "AU": ("Q408", "Australia"),
+    "NZ": ("Q664", "New Zealand"),
+}
+REGION_COUNTRIES = {
+    "europe": ["GB", "DE", "FR", "ES", "IT", "NL", "BE", "SE", "NO", "DK", "FI", "PL", "IE", "CH", "AT", "PT", "EE",
+               "LU", "CZ", "HU", "GR", "RO"],
+    "north_america": ["US", "CA", "MX"],
+    "asia": ["IN", "JP", "CN", "KR", "TW", "SG", "HK", "AE", "IL", "ID", "MY", "TH", "VN", "PH"],
+    "africa": ["ZA", "NG", "EG", "KE", "MA"],
+    "south_america": ["BR", "AR", "CL", "CO", "PE"],
+    "oceania": ["AU", "NZ"],
+}
+# business, enterprise, company, public company, organization: used when no industry narrows the search.
+ORG_CLASSES = ["Q4830453", "Q6881511", "Q783794", "Q891723", "Q43229"]
 ISO2_RE = re.compile(r"^[A-Z]{2}$")
 QID_RE = re.compile(r"^Q\d{1,12}$")
 
@@ -127,38 +157,91 @@ class WikidataProvider:
         resp.raise_for_status()
         return resp.json()["results"]["bindings"]
 
-    async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
+    @staticmethod
+    def search_query(industry_ids: list[str], countries: list[str], region: str | None) -> str:
+        """A CirrusSearch query: items with one of the industries, in one of the countries."""
+        parts = []
+        inds = [q for q in industry_ids if QID_RE.match(q)]
+        parts.append("haswbstatement:" + "|".join(f"P452={q}" for q in inds) if inds
+                     else "haswbstatement:" + "|".join(f"P31={q}" for q in ORG_CLASSES))
+        isos = [c for c in countries if c in COUNTRY_QIDS] or REGION_COUNTRIES.get(region or "", [])
+        if isos:
+            parts.append("haswbstatement:" + "|".join(f"P17={COUNTRY_QIDS[c][0]}" for c in isos))
+        return " ".join(parts)
+
+    @staticmethod
+    def _claim_ids(entity: dict[str, Any], prop: str) -> list[str]:
+        out = []
+        for claim in entity.get("claims", {}).get(prop, []):
+            if claim.get("rank") == "deprecated":
+                continue
+            value = claim.get("mainsnak", {}).get("datavalue", {}).get("value")
+            if isinstance(value, dict) and QID_RE.match(str(value.get("id", ""))):
+                out.append(value["id"])
+            elif isinstance(value, str):
+                out.append(value)
+        return out
+
+    async def _entities(self, client: httpx.AsyncClient, ids: list[str], props: str) -> dict[str, Any]:
+        found: dict[str, Any] = {}
+        for i in range(0, len(ids), 50):
+            resp = await client.get(WIKIDATA_API, params={
+                "action": "wbgetentities", "ids": "|".join(ids[i:i + 50]), "props": props, "languages": "en",
+                "format": "json"})
+            resp.raise_for_status()
+            found.update(resp.json().get("entities", {}))
+        return found
+
+    async def _via_search(
+        self, client: httpx.AsyncClient, ids: list[str], spec: ExtractionSpec
+    ) -> list[DiscoveryResult]:
         d = spec.discovery
-        if not (d.industry or d.countries or d.region):
-            raise DiscoveryError("Wikidata discovery needs an industry, countries or a region")
-        client = self._client()
-        try:
-            try:
-                ids = await self.industry_ids(client, d.industry) if d.industry else []
-            except httpx.HTTPError as exc:
-                raise DiscoveryError(f"Wikidata search failed: {type(exc).__name__}") from None
-            if d.industry and not ids:
-                raise DiscoveryError(f"Wikidata has no industry matching {d.industry!r}")
-            limit = d.max_results * 2
-            try:
-                rows = await self._sparql(client, self.build_query(ids, d.countries, d.region, limit))
-            except (httpx.TimeoutException, httpx.HTTPStatusError) as exc:
-                # The shared query service times out under load (or answers 500/504); a smaller query
-                # usually gets through.
-                if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 500:
-                    raise DiscoveryError(f"Wikidata query rejected (HTTP {exc.response.status_code})") from None
-                try:
-                    rows = await self._sparql(client, self.build_query(ids, d.countries, d.region, limit, lean=True))
-                except httpx.TimeoutException:
-                    raise DiscoveryError("Wikidata did not answer within 60 seconds, twice; the public query "
-                                         "service is busy. Retry the job later or add start URLs.") from None
-            except httpx.HTTPError as exc:
-                raise DiscoveryError(f"Wikidata request failed: {type(exc).__name__}") from None
-        except httpx.HTTPError as exc:
-            raise DiscoveryError(f"Wikidata request failed: {type(exc).__name__}") from None
-        finally:
-            if self.client is None:
-                await client.aclose()
+        query = self.search_query(ids, d.countries, d.region)
+        out: list[DiscoveryResult] = []
+        seen: set[str] = set()
+        country_names = {qid: name for qid, name in COUNTRY_QIDS.values()}
+        for page in range(3):
+            params = {"action": "query", "list": "search", "srsearch": query, "srnamespace": 0, "srlimit": 200,
+                      "sroffset": page * 200, "srprop": "", "srsort": "incoming_links_desc", "format": "json"}
+            resp = await client.get(WIKIDATA_API, params=params)
+            resp.raise_for_status()
+            body = resp.json()
+            if "error" in body:  # most-linked-first ordering is a nicety; retry with plain relevance
+                params.pop("srsort")
+                resp = await client.get(WIKIDATA_API, params=params)
+                resp.raise_for_status()
+                body = resp.json()
+            if "error" in body:
+                raise DiscoveryError(f"Wikidata search rejected the query: {body['error'].get('code', 'error')}")
+            hits = [h["title"] for h in body.get("query", {}).get("search", []) if QID_RE.match(h.get("title", ""))]
+            if not hits:
+                break
+            entities = await self._entities(client, hits, "labels|claims")
+            hq_ids = sorted({q for e in entities.values() for q in self._claim_ids(e, "P159")[:1]})
+            hq_labels = {k: v.get("labels", {}).get("en", {}).get("value")
+                         for k, v in (await self._entities(client, hq_ids, "labels")).items()} if hq_ids else {}
+            for qid in hits:
+                e = entities.get(qid) or {}
+                if any(c.get("rank") != "deprecated" for c in e.get("claims", {}).get("P576", [])):  # dissolved
+                    continue
+                url = next((u for u in (normalize_url(w) for w in self._claim_ids(e, "P856")) if u), None)
+                site = registered_domain(url) if url else None
+                if not url or (site or url) in seen:
+                    continue
+                seen.add(site or url)
+                country = next((country_names[c] for c in self._claim_ids(e, "P17") if c in country_names), None)
+                hq = next((hq_labels.get(q) for q in self._claim_ids(e, "P159")[:1]), None)
+                hint = {"company_name": e.get("labels", {}).get("en", {}).get("value"), "headquarters": hq,
+                        "country": country, "website_url": url, "_source": f"http://www.wikidata.org/entity/{qid}"}
+                out.append(DiscoveryResult(url, "wikidata", {k: v for k, v in hint.items() if v},
+                                           referrer=hint["_source"]))
+                if len(out) >= d.max_results:
+                    return out
+            if len(hits) < 200:
+                break
+        return out
+
+    def _rows_to_results(self, rows: list[dict[str, Any]], max_results: int) -> list[DiscoveryResult]:
         out: list[DiscoveryResult] = []
         seen: set[str] = set()
         for row in rows:
@@ -178,8 +261,46 @@ class WikidataProvider:
             if hint["company_name"] and QID_RE.match(hint["company_name"]):
                 hint.pop("company_name")
             out.append(DiscoveryResult(url, "wikidata", {k: v for k, v in hint.items() if v}, referrer=org))
-            if len(out) >= d.max_results:
+            if len(out) >= max_results:
                 break
+        return out
+
+    async def _via_sparql(
+        self, client: httpx.AsyncClient, ids: list[str], spec: ExtractionSpec
+    ) -> list[DiscoveryResult]:
+        d = spec.discovery
+        try:
+            rows = await self._sparql(client, self.build_query(ids, d.countries, d.region, d.max_results * 2,
+                                                               lean=True))
+        except httpx.TimeoutException:
+            raise DiscoveryError("Wikidata did not answer within 60 seconds; the public query service is busy. "
+                                 "Retry the job later or add start URLs.") from None
+        except httpx.HTTPStatusError as exc:
+            raise DiscoveryError(f"Wikidata query failed (HTTP {exc.response.status_code})") from None
+        return self._rows_to_results(rows, d.max_results)
+
+    async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
+        d = spec.discovery
+        if not (d.industry or d.countries or d.region):
+            raise DiscoveryError("Wikidata discovery needs an industry, countries or a region")
+        client = self._client()
+        try:
+            try:
+                ids = await self.industry_ids(client, d.industry) if d.industry else []
+            except httpx.HTTPError as exc:
+                raise DiscoveryError(f"Wikidata search failed: {type(exc).__name__}") from None
+            if d.industry and not ids:
+                raise DiscoveryError(f"Wikidata has no industry matching {d.industry!r}")
+            try:
+                out = await self._via_search(client, ids, spec)
+            except httpx.HTTPError:
+                # The search index is down or rate limited; the query service is slower but independent.
+                out = await self._via_sparql(client, ids, spec)
+        except httpx.HTTPError as exc:
+            raise DiscoveryError(f"Wikidata request failed: {type(exc).__name__}") from None
+        finally:
+            if self.client is None:
+                await client.aclose()
         if not out:
             raise DiscoveryError("Wikidata returned no companies with a website for this industry and region; "
                                  "try a broader region or add start URLs")

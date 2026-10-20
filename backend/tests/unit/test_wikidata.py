@@ -16,21 +16,80 @@ def test_query_is_built_from_validated_parts_only():
     assert "LIMIT 10" in q and "P576" in q
 
 
-async def test_discover_parses_results_and_dedupes():
+def test_search_query_lists_industries_and_countries():
+    q = WikidataProvider.search_query(["Q507443", "bad id"], ["DE", "FR", "zz"], None)
+    assert q == "haswbstatement:P452=Q507443 haswbstatement:P17=Q183|P17=Q142"
+    europe = WikidataProvider.search_query(["Q507443"], [], "europe")
+    assert "P17=Q145" in europe and "P17=Q30" not in europe
+    assert WikidataProvider.search_query([], ["IN"], None).startswith("haswbstatement:P31=")
+
+
+def _entity(qid, label, site=None, country="Q183", hq=None, dissolved=False):
+    def claim(value, rank="normal"):
+        return {"rank": rank, "mainsnak": {"datavalue": {"value": value}}}
+    claims = {"P17": [claim({"id": country})]}
+    if site:
+        claims["P856"] = [claim(site)]
+    if hq:
+        claims["P159"] = [claim({"id": hq})]
+    if dissolved:
+        claims["P576"] = [claim({"time": "+2001-00-00T00:00:00Z"})]
+    return {"id": qid, "labels": {"en": {"value": label}} if label else {}, "claims": claims}
+
+
+def search_handler(entities, hits=None, calls=None):
     def handler(request: httpx.Request) -> httpx.Response:
-        if "wbsearchentities" in str(request.url):
-            return httpx.Response(200, json={"search": [{"id": "Q3510521"}]})
-        rows = [{"org": {"value": "http://www.wikidata.org/entity/Q1"}, "orgLabel": {"value": "Acme"},
-                 "website": {"value": "https://acme.example"}, "countryLabel": {"value": "Germany"}},
-                {"org": {"value": "http://www.wikidata.org/entity/Q1"}, "orgLabel": {"value": "Acme"},
-                 "website": {"value": "https://acme.example/"}},
-                {"org": {"value": "http://www.wikidata.org/entity/Q2"}, "website": {"value": "ftp://bad"}}]
+        params = request.url.params
+        if calls is not None:
+            calls.append(dict(params))
+        if params.get("action") == "wbsearchentities":
+            return httpx.Response(200, json={"search": [{"id": "Q507443", "label": "pharmaceutical industry"}]})
+        if params.get("list") == "search":
+            titles = hits if hits is not None else list(entities)
+            return httpx.Response(200, json={"query": {"search": [{"title": t} for t in titles]}})
+        if params.get("action") == "wbgetentities":
+            return httpx.Response(200, json={"entities": {i: entities[i] for i in params["ids"].split("|")
+                                                          if i in entities}})
+        raise AssertionError(f"unexpected request {request.url}")
+    return handler
+
+
+async def test_discover_uses_the_search_index_and_dedupes():
+    entities = {
+        "Q1": _entity("Q1", "Acme Pharma", "https://www.acme.com/en", hq="Q64"),
+        "Q2": _entity("Q2", "Acme Pharma GmbH", "https://acme.com/de"),  # same site as Q1
+        "Q3": _entity("Q3", "Gone AG", "https://gone.com", dissolved=True),
+        "Q4": _entity("Q4", "No Site AG"),
+        "Q5": _entity("Q5", None, "https://beta.com", country="Q142"),
+        "Q64": {"id": "Q64", "labels": {"en": {"value": "Berlin"}}},
+    }
+    calls = []
+    client = httpx.AsyncClient(transport=httpx.MockTransport(
+        search_handler(entities, hits=["Q1", "Q2", "Q3", "Q4", "Q5"], calls=calls)))
+    results = await WikidataProvider(client).discover(_spec(industry="pharmaceutical", region="europe"))
+    assert [r.url for r in results] == ["https://www.acme.com/en", "https://beta.com/"]
+    assert results[0].hint == {"company_name": "Acme Pharma", "headquarters": "Berlin", "country": "Germany",
+                               "website_url": "https://www.acme.com/en",
+                               "_source": "http://www.wikidata.org/entity/Q1"}
+    assert "company_name" not in results[1].hint and results[1].hint["country"] == "France"
+    search = next(c for c in calls if c.get("list") == "search")
+    assert "haswbstatement:P452=Q507443" in search["srsearch"] and "P17=Q183" in search["srsearch"]
+
+
+async def test_search_index_failure_falls_back_to_the_query_service():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("action") == "wbsearchentities":
+            return httpx.Response(200, json={"search": [{"id": "Q507443", "label": "pharmaceutical industry"}]})
+        if request.url.params.get("list") == "search":
+            return httpx.Response(503)
+        rows = [{"org": {"value": "http://www.wikidata.org/entity/Q1"}, "orgLabel": {"value": "Q1"},
+                 "website": {"value": "https://pharma.example"}}]
         return httpx.Response(200, json={"results": {"bindings": rows}})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    results = await WikidataProvider(client).discover(_spec(industry="computer security", region="europe"))
-    assert [r.url for r in results] == ["https://acme.example/"]
-    assert results[0].hint["company_name"] == "Acme" and results[0].hint["country"] == "Germany"
+    results = await WikidataProvider(client).discover(_spec(industry="pharmaceutical", region="europe"))
+    assert [r.url for r in results] == ["https://pharma.example/"]
+    assert "company_name" not in results[0].hint  # a bare Q-id is not a name
 
 
 async def test_rate_limit_becomes_discovery_error():
@@ -58,31 +117,12 @@ async def test_industry_search_prefers_the_sector_over_the_product():
         assert await WikidataProvider(client).industry_ids(client, "pharmaceutical") == ["Q507443"]
 
 
-async def test_timeout_retries_with_a_lean_query():
-    queries = []
-
+async def test_search_down_and_query_service_timeout_give_a_clear_error():
     def handler(request: httpx.Request) -> httpx.Response:
-        if "wbsearchentities" in str(request.url):
+        if request.url.params.get("action") == "wbsearchentities":
             return httpx.Response(200, json={"search": [{"id": "Q507443", "label": "pharmaceutical industry"}]})
-        body = request.content.decode()
-        queries.append(body)
-        if len(queries) == 1:
-            raise httpx.ReadTimeout("timed out", request=request)
-        rows = [{"org": {"value": "http://www.wikidata.org/entity/Q1"}, "orgLabel": {"value": "Q1"},
-                 "website": {"value": "https://pharma.example"}}]
-        return httpx.Response(200, json={"results": {"bindings": rows}})
-
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    results = await WikidataProvider(client).discover(_spec(industry="pharmaceutical", region="europe"))
-    assert [r.url for r in results] == ["https://pharma.example/"]
-    assert "P159" in queries[0] and "P159" not in queries[1]
-    assert "company_name" not in results[0].hint  # a bare Q-id is not a name
-
-
-async def test_two_timeouts_give_a_clear_error():
-    def handler(request: httpx.Request) -> httpx.Response:
-        if "wbsearchentities" in str(request.url):
-            return httpx.Response(200, json={"search": [{"id": "Q507443", "label": "pharmaceutical industry"}]})
+        if request.url.params.get("list") == "search":
+            return httpx.Response(503)
         raise httpx.ReadTimeout("timed out", request=request)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -90,13 +130,8 @@ async def test_two_timeouts_give_a_clear_error():
         await WikidataProvider(client).discover(_spec(industry="pharmaceutical"))
 
 
-async def test_no_rows_is_an_error_not_an_empty_job():
-    def handler(request: httpx.Request) -> httpx.Response:
-        if "wbsearchentities" in str(request.url):
-            return httpx.Response(200, json={"search": [{"id": "Q507443", "label": "pharmaceutical industry"}]})
-        return httpx.Response(200, json={"results": {"bindings": []}})
-
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+async def test_no_hits_is_an_error_not_an_empty_job():
+    client = httpx.AsyncClient(transport=httpx.MockTransport(search_handler({}, hits=[])))
     with pytest.raises(DiscoveryError, match="no companies"):
         await WikidataProvider(client).discover(_spec(industry="pharmaceutical", countries=["DE"]))
 
