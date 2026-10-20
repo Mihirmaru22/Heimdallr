@@ -2,7 +2,7 @@
 .PHONY: up down logs admin test lint frontend-build sites
 
 up:            ## start the whole stack on http://localhost:8080
-	docker compose up --build -d
+	GIT_SHA=$$(git rev-parse HEAD) GIT_BRANCH=$$(git rev-parse --abbrev-ref HEAD) docker compose up --build -d
 
 down:
 	docker compose down

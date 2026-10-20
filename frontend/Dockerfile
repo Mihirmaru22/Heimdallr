@@ -3,6 +3,8 @@ WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
+ARG WEBDATA_BUILD_SHA=unknown
+ENV WEBDATA_BUILD_SHA=$WEBDATA_BUILD_SHA
 RUN npm run build
 
 FROM nginx:1.27-alpine

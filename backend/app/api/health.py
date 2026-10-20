@@ -1,11 +1,14 @@
 """Liveness and readiness probes."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.config import get_settings
 from app.db import engine
+from app.deps import current_user
+from app.models import User
+from app.version import report
 
 router = APIRouter(tags=["health"])
 
@@ -33,3 +36,10 @@ def readyz() -> JSONResponse:
         checks["redis"] = f"error: {type(exc).__name__}"
     ok = all(v == "ok" for v in checks.values())
     return JSONResponse({"status": "ok" if ok else "degraded", "checks": checks}, status_code=200 if ok else 503)
+
+
+@router.get("/api/v1/version")
+def version(frontend: str | None = Query(None, max_length=64, pattern=r"^[0-9a-zA-Z._-]*$"),
+            _user: User = Depends(current_user)) -> dict:
+    """Which commit the API, workers and this page run, compared with the code checked out on disk."""
+    return report(frontend)

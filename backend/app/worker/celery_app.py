@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.signals import worker_ready
 
 from app.config import get_settings
 
@@ -18,3 +19,11 @@ celery.conf.update(
         "refresh-sec-index": {"task": "app.worker.tasks.refresh_sec_index", "schedule": 24 * 3600.0},
     },
 )
+
+
+@worker_ready.connect
+def _announce_version(**_kwargs) -> None:
+    # Lets the app warn when this worker runs older code than what is checked out.
+    from app.version import start_worker_heartbeat
+
+    start_worker_heartbeat()

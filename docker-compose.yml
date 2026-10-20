@@ -3,7 +3,11 @@
 name: webdata
 
 x-backend: &backend
-  build: ./backend
+  build:
+    context: ./backend
+    args:  # `make up` fills these in from git so the app can tell which code each service runs
+      WEBDATA_BUILD_SHA: ${GIT_SHA:-unknown}
+      WEBDATA_BUILD_BRANCH: ${GIT_BRANCH:-}
   env_file: .env
   environment:
     WEBDATA_DATABASE_URL: postgresql+psycopg://webdata:${WEBDATA_DB_PASSWORD}@postgres:5432/webdata
@@ -76,7 +80,10 @@ services:
       api: { condition: service_healthy }
 
   web:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        WEBDATA_BUILD_SHA: ${GIT_SHA:-unknown}
     ports: ["127.0.0.1:8080:8080"]
     depends_on:
       api: { condition: service_healthy }

@@ -8,6 +8,7 @@ import ProjectPage from "./pages/Project";
 import JobPage from "./pages/Job";
 import SettingsPage from "./pages/Settings";
 import AdminPage from "./pages/Admin";
+import { VersionBanner, VersionFooter } from "./components/VersionCheck";
 
 export default function App() {
   const { me, loading, orgId } = useSession();
@@ -42,6 +43,7 @@ export default function App() {
         <span className="muted small">{me.user.email}</span>
         <button className="link" onClick={logout}>Sign out</button>
       </header>
+      <VersionBanner />
       <main>
         {!orgId ? <p>You are not a member of any organization.</p> : (
           <Routes>
@@ -54,6 +56,7 @@ export default function App() {
           </Routes>
         )}
       </main>
+      <VersionFooter />
     </div>
   );
 }

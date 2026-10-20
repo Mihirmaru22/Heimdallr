@@ -11,6 +11,9 @@ RUN uv sync --frozen --no-dev \
     && useradd --system --uid 10001 --home /app webdata \
     && mkdir -p /data && chown webdata /data
 USER webdata
-ENV WEBDATA_DATA_DIR=/data
+# The commit this image was built from (no .git inside), shown in the app's version check.
+ARG WEBDATA_BUILD_SHA=unknown
+ARG WEBDATA_BUILD_BRANCH=
+ENV WEBDATA_DATA_DIR=/data WEBDATA_BUILD_SHA=$WEBDATA_BUILD_SHA WEBDATA_BUILD_BRANCH=$WEBDATA_BUILD_BRANCH
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
