@@ -93,3 +93,8 @@ def test_score_weighs_the_relationship_and_the_age_of_the_proof():
     assert score("unreviewed", 0.85, "2026-02-01", TODAY) == ("Mentioned", 0.4)
     for rel in ("vendor", "competitor", "partner_or_reseller", "moved_away", "integrates_with", "other_mention"):
         assert score(rel, 0.85, "2026-02-01", TODAY) == ("", 0.0)
+
+
+def test_a_quote_at_the_very_start_of_the_text_keeps_its_first_letter():
+    text = "Our plants run SAP S/4HANA. Revenue grew."
+    assert find_mentions(text, product_for("SAP")) == ["Our plants run SAP S/4HANA."]

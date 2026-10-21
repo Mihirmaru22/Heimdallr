@@ -30,7 +30,8 @@ def find_mentions(text: str, product: Product, limit: int = 3) -> list[str]:
     out: list[str] = []
     for pattern in product.patterns:
         for m in pattern.finditer(text):
-            start = max(text.rfind(". ", 0, m.start()) + 2, m.start() - MAX_QUOTE // 2, 0)
+            prev = text.rfind(". ", 0, m.start())
+            start = max(prev + 2 if prev != -1 else 0, m.start() - MAX_QUOTE // 2, 0)
             ends = [i for i in (text.find(". ", m.end()), text.find("? ", m.end())) if i != -1]
             end = min([*ends, m.end() + MAX_QUOTE // 2, len(text)])
             quote = text[start:end + 1].strip()
