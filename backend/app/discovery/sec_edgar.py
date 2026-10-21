@@ -24,7 +24,14 @@ from sqlalchemy.dialects.postgresql import insert
 from app.config import get_settings
 from app.crawl.urlnorm import normalize_url, registered_domain
 from app.db import session_scope, utcnow
-from app.discovery.providers import WIKIDATA_API, DiscoveryError, DiscoveryResult, WikidataProvider, wd_label
+from app.discovery.providers import (
+    WIKIDATA_API,
+    DiscoveryError,
+    DiscoveryResult,
+    WikidataProvider,
+    wd_founded,
+    wd_label,
+)
 from app.models import SecCompany
 from app.spec.models import ExtractionSpec
 from app.spec.spelling import to_us
@@ -204,7 +211,7 @@ class SecEdgarProvider:
                 continue
             for e in (await wd._entities(client, qids, "labels|claims")).values():
                 info = {"website": next((u for u in (normalize_url(w) for w in wd._claim_ids(e, "P856")) if u), ""),
-                        "label": wd_label(e) or ""}
+                        "label": wd_label(e) or "", "founded_year": wd_founded(e)}
                 for raw in wd._claim_ids(e, "P5531"):
                     if raw.isdigit() and int(raw) not in found:
                         found[int(raw)] = info
@@ -268,7 +275,8 @@ class SecEdgarProvider:
                     "headquarters": ", ".join(x for x in (c.city, c.state if c.state in US_STATES or c.foreign
                                                           and len(c.state) > 2 else "") if x) or None,
                     "country": "United States" if not c.foreign and c.state in US_STATES else None,
-                    "industry": c.sic_description or None, "website_url": site, "_source": source}
+                    "industry": c.sic_description or None, "website_url": site,
+                    "founded_year": (info or {}).get("founded_year"), "_source": source}
             out.append(DiscoveryResult(site, "sec_edgar", {k: v for k, v in hint.items() if v}, referrer=source))
             if len(out) >= d.max_results:
                 break

@@ -261,7 +261,8 @@ NOT_CONTACT_RE = re.compile(
 ROLE_WORD_RE = re.compile(r"info|contact|hello|sales|office|support|enquir|inquir|media|press|communicat|news|"
                           r"customer|service|patient|general|admin|team|mail|help")
 NEWS_PAGE_RE = re.compile(r"/(press|news|media|stories|blog)[^/]*/.+", re.I)
-PERSONAL_MAILBOX_RE = re.compile(r"^[a-z]+[._-][a-z]+\d*$")  # first.last: a person, not the company's contact
+# first.last or first.m.last: a person, not the company's contact (customer.service has a team word: kept).
+PERSONAL_MAILBOX_RE = re.compile(r"^[a-z]+(?:[._-][a-z]+){1,2}\d*$")
 PLACEHOLDER_EMAIL_RE = re.compile(r"lorem|ipsum|yourdomain|your-?email|domain\.com$|email\.com$|sentry|wixpress", re.I)
 
 
@@ -307,7 +308,7 @@ def _emails(doc: PageDoc) -> list[Candidate]:
             c.confidence = round(c.confidence - 0.25, 2)  # a country office's box (citrix_ru@), not the main one
         elif NARROW_MAILBOX_RE.match(local):
             c.confidence = round(c.confidence - 0.25, 2)  # HR, privacy, drug safety...: real, but not "contact"
-        elif PERSONAL_MAILBOX_RE.match(local):
+        elif PERSONAL_MAILBOX_RE.match(local) and not ROLE_WORD_RE.search(local):
             continue  # first.last@: one person's inbox (a press officer), not the company's contact
         elif not ROLE_WORD_RE.search(local):
             # kmontag@, jruberti@: most likely a person; one quoted in a press release even more so.
@@ -469,9 +470,19 @@ def _founded(doc: PageDoc) -> list[Candidate]:
         m = YEAR_RE.search(value)
         if m:
             out.append(Candidate(m.group(), "label", 0.65, evidence))
-    m = re.search(r"\b(?:founded|established) in (1[89]\d\d|20[0-4]\d)\b", doc.text, re.I)
-    if m:
-        out.append(Candidate(m.group(1), "pattern", 0.65, _snippet(doc.text, m.group(0))))
+    # "Founded in 1916" is the company's only when the sentence is about the company: "we were founded in",
+    # "the company was founded in", "Boeing was founded in". A subsidiary, tenant or partner ("Semmes ... was
+    # founded in 1887", "CDL Systems was founded in 1992" on a product page) is not.
+    brand = (registered_domain(doc.url) or "").split(".")[0]
+    path = urlsplit(doc.url).path.strip("/")
+    for m in re.finditer(r"\b(?:founded|established|incorporated) in (1[89]\d\d|20[0-4]\d)\b", doc.text, re.I):
+        before = doc.text[max(0, m.start() - 60):m.start()].lower()
+        subject = re.split(r"[.!?;]\s", before)[-1]  # the start of this sentence
+        about_us = re.search(r"\b(we|our company|the company|the corporation)\b", subject)
+        named = brand and brand in subject.replace(" ", "").replace("-", "") and path.count("/") <= 1
+        if about_us or named:
+            out.append(Candidate(m.group(1), "pattern", 0.6, _snippet(doc.text, m.group(0))))
+            break
     return out
 
 

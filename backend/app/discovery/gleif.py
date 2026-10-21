@@ -25,6 +25,7 @@ from app.discovery.providers import (
     DiscoveryError,
     DiscoveryResult,
     WikidataProvider,
+    wd_founded,
     wd_label,
 )
 from app.spec.models import ExtractionSpec
@@ -125,7 +126,7 @@ class GleifProvider:
                 continue
             for e in (await wd._entities(client, qids, "labels|claims")).values():
                 info = {"website": next((u for u in (normalize_url(w) for w in wd._claim_ids(e, "P856")) if u), ""),
-                        "label": wd_label(e) or ""}
+                        "label": wd_label(e) or "", "founded_year": wd_founded(e)}
                 for lei in wd._claim_ids(e, "P1278"):
                     found.setdefault(lei.upper(), info)
         return found
@@ -176,7 +177,7 @@ class GleifProvider:
             country = COUNTRY_QIDS.get(e["country"], ("", e["country"]))[1]
             hint = {"company_name": info["label"] or e["name"], "legal_name": e["name"], "lei": lei,
                     "headquarters": e["headquarters"], "address": e["address"], "country": country,
-                    "website_url": info["website"], "_source": source}
+                    "website_url": info["website"], "founded_year": info.get("founded_year"), "_source": source}
             out.append(DiscoveryResult(info["website"], "gleif", {k: v for k, v in hint.items() if v},
                                        referrer=source))
             if len(out) >= d.max_results:

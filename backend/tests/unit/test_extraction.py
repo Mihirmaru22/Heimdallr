@@ -185,3 +185,35 @@ def test_local_numbers_are_read_in_the_requested_country_and_extensions_dropped(
     fields = [FieldSpec(name="phone", type="phone", semantic="phone")]
     found = extract_page(parse_page("https://www.example.in/", html), fields)["phone"]
     assert [c.value for c in prefer_country_phones(found, ["IN"])] == ["+919847433522", "+91 40 67611600"]
+
+
+def test_a_press_officer_with_a_middle_initial_is_not_a_contact_but_customer_service_is():
+    from app.spec.models import Semantic
+
+    html = ('<html><body><a href="mailto:Kimberly.K.Aguillard@hii.com">Kim</a>'
+            '<a href="mailto:customer.service@hii.com">Customer service</a></body></html>')
+    doc = parse_page("https://www.hii.com/newsroom", html)
+    found = extract_page(doc, [FieldSpec(name="email", type="email", semantic=Semantic.contact_email)])
+    assert [c.value for c in found["email"]] == ["customer.service@hii.com"]
+
+
+def test_a_founding_year_is_taken_only_from_a_sentence_about_the_company():
+    from app.spec.models import Semantic
+
+    field = [FieldSpec(name="founded", type="integer", semantic=Semantic.founded_year)]
+
+    def years(url, text):
+        return [c.value for c in extract_page(parse_page(url, f"<html><body><p>{text}</p></body></html>"), field)
+                ["founded"]]
+
+    # A tenant, a subsidiary on a product page, a partner: not the company's founding.
+    assert years("https://www.copt.com/news/lease", "Semmes has deep roots. The firm was founded in 1887 and") \
+        == []
+    assert years("https://www.lockheedmartin.com/en-us/products/cdl-systems/about-us.html",
+                 "Lockheed Martin CDL Systems was founded in 1992 in Salt Lake City.") == []
+    assert years("https://www.teledyne.com/stories/oceans",
+                 "Nekton, an independent research institute, was established in 2015.") == []
+    assert years("https://www.potomac.com/about/", "The e-magazine he founded in 2003 grew.") == []
+    # The company itself.
+    assert years("https://www.acme.com/about", "Acme was founded in 1916 by two engineers.") == ["1916"]
+    assert years("https://www.other.com/", "Since we were founded in 1950, we have built ships.") == ["1950"]

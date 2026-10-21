@@ -90,6 +90,14 @@ class SeedProvider:
         return out
 
 
+def wd_founded(entity: dict[str, Any]) -> str | None:
+    """The year of the item's inception (P571), e.g. "1916"; None when Wikidata has none."""
+    inception = next((c.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("time", "")
+                      for c in entity.get("claims", {}).get("P571", []) if c.get("rank") != "deprecated"), "")
+    m = re.match(r"^\+(\d{4})-", inception or "")
+    return m.group(1) if m else None
+
+
 def wd_label(entity: dict[str, Any]) -> str | None:
     """English label, else the language-neutral ("mul") label Wikidata uses for many company names."""
     labels = entity.get("labels", {})
@@ -247,12 +255,9 @@ class WikidataProvider:
                 country = next((country_names[c] for c in self._claim_ids(e, "P17") if c in country_names), None)
                 hq = next((hq_labels.get(q) for q in self._claim_ids(e, "P159")[:1]), None)
                 industry = next((hq_labels.get(q) for q in self._claim_ids(e, "P452") if q in wanted), None)
-                inception = next((c.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("time", "")
-                                  for c in e.get("claims", {}).get("P571", []) if c.get("rank") != "deprecated"), "")
-                founded = re.match(r"^\+(\d{4})-", inception or "")
                 hint = {"company_name": wd_label(e), "headquarters": hq,
                         "country": country, "industry": industry, "website_url": url,
-                        "founded_year": founded.group(1) if founded else None,
+                        "founded_year": wd_founded(e),
                         "_source": f"http://www.wikidata.org/entity/{qid}"}
                 out.append(DiscoveryResult(url, "wikidata", {k: v for k, v in hint.items() if v},
                                            referrer=hint["_source"]))
