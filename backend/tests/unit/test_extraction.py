@@ -116,7 +116,7 @@ def test_personal_and_privacy_mailboxes_rank_below_press():
     best = max(found, key=lambda c: c.confidence)
     assert best.value in ("press@acme.com", "info-italy@acme.com")
     scores = {c.value: c.confidence for c in found}
-    assert scores["nicole.shevins@acme.com"] < scores["press@acme.com"]
+    assert "nicole.shevins@acme.com" not in scores  # one person's inbox
     assert "gdpr_dpo@acme.com" not in scores
 
 
@@ -132,7 +132,7 @@ def test_legal_jobs_and_report_mailboxes_are_dropped():
     assert scores["citrix_ru@acme.com"] < scores["contact@acme.com"]
 
 
-def test_phones_from_other_countries_rank_below_the_requested_country():
+def test_phones_from_other_countries_are_dropped():
     from app.extract.deterministic import prefer_country_phones
 
     html = """<html><body><a href="tel:+49 7031 4644">DE</a> <a href="tel:+1 914 499 1900">US</a>
@@ -140,8 +140,7 @@ def test_phones_from_other_countries_rank_below_the_requested_country():
     fields = [FieldSpec(name="phone", type="phone", semantic="phone")]
     found = extract_page(parse_page("https://www.ibm.com/", html), fields)["phone"]
     prefer_country_phones(found, ["US"])
-    scores = {c.value: c.confidence for c in found}
-    assert scores["+49 7031 4644"] < scores["+1 914 499 1900"] == scores["1-800-426-4968"]
+    assert [c.value for c in found] == ["+1 914 499 1900", "1-800-426-4968"]
     unchanged = extract_page(parse_page("https://www.ibm.com/", html), fields)["phone"]
     assert prefer_country_phones(unchanged, []) == unchanged
 
@@ -161,3 +160,18 @@ def test_a_localized_organization_url_becomes_the_homepage():
     fields = [FieldSpec(name="website_url", type="url", semantic="website_url")]
     cands = extract_page(parse_page("https://www.acme.com/in/", html), fields)["website_url"]
     assert cands[0].value == "https://www.acme.com/"
+
+
+def test_press_officer_inboxes_and_the_fda_number_are_not_company_contacts():
+    html = """<html><body><a href="mailto:KMontag@its.acme.com">Kim</a> <a href="mailto:stacey.brown2@acme.com">S</a>
+      <a href="mailto:mediarelations@acme.com">Media</a> <a href="mailto:clinicaltrials@acme.com">Trials</a>
+      <a href="mailto:CorporateSecretary@acme.com">Sec</a>
+      <a href="tel:1-800-FDA-1088">Report side effects to the FDA</a>
+      <a href="tel:+1 908 740 4000">Main</a></body></html>"""
+    fields = [FieldSpec(name="contact_email", type="email", semantic="contact_email"),
+              FieldSpec(name="phone", type="phone", semantic="phone")]
+    found = extract_page(parse_page("https://www.acme.com/news/press-releases/new-drug", html), fields)
+    scores = {c.value: c.confidence for c in found["contact_email"]}
+    assert set(scores) == {"KMontag@its.acme.com", "mediarelations@acme.com"}
+    assert scores["KMontag@its.acme.com"] < 0.6 < scores["mediarelations@acme.com"]
+    assert [c.value for c in found["phone"]] == ["+1 908 740 4000"]

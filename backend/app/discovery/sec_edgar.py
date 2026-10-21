@@ -50,6 +50,9 @@ SYNONYMS = {
 TECH_NICHES = {"cybersecurity", "computer security", "information security", "security", "saas", "fintech", "ai",
                "artificial intelligence", "machine learning", "edtech", "healthtech", "adtech", "martech",
                "insurtech", "proptech", "regtech", "cleantech", "blockchain", "crypto", "cloud", "devops"}
+# SEC's two-letter codes for US states and territories; anything else (V8 = Switzerland, I0 = France) is abroad.
+US_STATES = set("AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY "
+                "NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR VI GU AS MP".split())
 STOP_WORDS = {"and", "the", "of", "for", "companies", "company", "industry", "sector", "services", "products"}
 
 
@@ -62,7 +65,8 @@ def _client() -> httpx.Client:
 
 def _parse_submission(cik: int, body: dict[str, Any]) -> dict[str, Any]:
     business = (body.get("addresses") or {}).get("business") or {}
-    foreign = bool(business.get("isForeignLocation"))
+    # SEC leaves isForeignLocation empty for some foreign filers (Novartis: Basel, "V8").
+    foreign = bool(business.get("isForeignLocation")) or (business.get("stateOrCountry") or "") not in US_STATES
     website = normalize_url(body.get("website") or "") or ""
     return {
         "sic": (str(body.get("sic") or "").strip() or None),
@@ -223,7 +227,8 @@ class SecEdgarProvider:
                 raise DiscoveryError(f"no SEC industry code matches {d.industry!r}")
             q = select(SecCompany).where(SecCompany.sic.in_(codes)).order_by(SecCompany.rank)
             if d.countries or d.region:
-                q = q.where(SecCompany.foreign.is_(False))
+                # The state check also catches foreign filers saved before `foreign` was fixed.
+                q = q.where(SecCompany.foreign.is_(False), SecCompany.state.in_(US_STATES))
             companies = db.execute(q.limit(d.max_results * 4)).scalars().all()
             db.expunge_all()
         if not companies:
@@ -255,8 +260,10 @@ class SecEdgarProvider:
             seen.add(domain)
             source = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={c.cik:010d}"
             hint = {"company_name": label or None,
-                    "headquarters": ", ".join(x for x in (c.city, c.state) if x) or None,
-                    "country": None if c.foreign else "United States",
+                    # "Basel, V8": SEC's code for a foreign country means nothing to a reader, so the city alone.
+                    "headquarters": ", ".join(x for x in (c.city, c.state if c.state in US_STATES or c.foreign
+                                                          and len(c.state) > 2 else "") if x) or None,
+                    "country": "United States" if not c.foreign and c.state in US_STATES else None,
                     "industry": c.sic_description or None, "website_url": site, "_source": source}
             out.append(DiscoveryResult(site, "sec_edgar", {k: v for k, v in hint.items() if v}, referrer=source))
             if len(out) >= d.max_results:

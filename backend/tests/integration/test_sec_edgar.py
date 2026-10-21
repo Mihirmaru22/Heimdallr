@@ -16,6 +16,7 @@ TICKERS = {"fields": ["cik", "name", "ticker", "exchange"], "data": [
     [59478, "ELI LILLY & Co", "LLY", "NYSE"],
     [1000001, "TINY PHARMA CORP", "TINY", "OTC"],
     [1000002, "LONDON DRUGS PLC", "LDN", "NYSE"],
+    [1000003, "SWISS PHARMA AG", "SWP", "NYSE"],
 ]}
 
 
@@ -31,6 +32,9 @@ SUBMISSIONS = {
     59478: _sub("2834", "Pharmaceutical Preparations", "INDIANAPOLIS", "IN"),
     1000001: _sub("2834", "Pharmaceutical Preparations", "AUSTIN", "TX"),
     1000002: _sub("2834", "Pharmaceutical Preparations", "LONDON", "X0", foreign=True),
+    1000003: {**_sub("2834", "Pharmaceutical Preparations", "BASEL", "V8"),  # foreign, but SEC does not say so
+              "addresses": {"business": {"city": "BASEL", "stateOrCountry": "V8",
+                                         "stateOrCountryDescription": "Switzerland", "isForeignLocation": None}}},
 }
 
 
@@ -76,12 +80,13 @@ def wikidata_transport(by_cik):
 
 def test_refresh_index_stores_one_row_per_company_with_its_industry(db_clean):
     result = _build_index()
-    assert result == {"companies": 5, "looked_up": 5, "failed": 0}
+    assert result == {"companies": 6, "looked_up": 6, "failed": 0}
     with session_scope(bypass=True) as db:
         rows = {r.cik: r for r in db.execute(select(SecCompany)).scalars()}
     assert rows[78003].ticker == "PFE" and rows[78003].rank == 0
     assert rows[78003].sic == "2834" and rows[78003].city == "New York" and rows[78003].state == "NY"
     assert rows[1000002].foreign and rows[1000002].state == "United Kingdom"
+    assert rows[1000003].foreign and rows[1000003].state == "Switzerland"
     assert rows[320193].website == "https://www.apple.com/"
     # A second run only looks up companies that are due again.
     with httpx.Client(transport=httpx.MockTransport(sec_transport)) as client:

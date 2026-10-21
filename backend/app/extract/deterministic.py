@@ -255,8 +255,13 @@ NOT_CONTACT_RE = re.compile(
     r"jobs?\b|jobs?[._-]|careers?|recruit|talent|people|\bhr\b|^hr[._-]|registration|noreply|no-reply|donotreply|"
     r"unsubscribe|bounce|mailer|postmaster|webmaster|accessib|investor|^ir[._-]?|safety|vigilance|security|"
     r"vulnerab|partner|affiliate|marketing|sponsor|advertis|billing|invoice|"
-    r"payable|receivable|procurement|vendor|supplier|tax|fraud|counterfeit|recall|warranty")
-PERSONAL_MAILBOX_RE = re.compile(r"^[a-z]+[._][a-z]+$")  # first.last: a person, not the company's contact
+    r"payable|receivable|procurement|vendor|supplier|tax|fraud|counterfeit|recall|warranty|clinicaltrial|"
+    r"grants?\b|grants?[._-]|secretar|medinfo|adverse")
+# Words in a mailbox that belong to a team rather than a person (mediarelations@, zoetismedia@).
+ROLE_WORD_RE = re.compile(r"info|contact|hello|sales|office|support|enquir|inquir|media|press|communicat|news|"
+                          r"customer|service|patient|general|admin|team|mail|help")
+NEWS_PAGE_RE = re.compile(r"/(press|news|media|stories|blog)[^/]*/.+", re.I)
+PERSONAL_MAILBOX_RE = re.compile(r"^[a-z]+[._-][a-z]+\d*$")  # first.last: a person, not the company's contact
 PLACEHOLDER_EMAIL_RE = re.compile(r"lorem|ipsum|yourdomain|your-?email|domain\.com$|email\.com$|sentry|wixpress", re.I)
 
 
@@ -303,12 +308,24 @@ def _emails(doc: PageDoc) -> list[Candidate]:
         elif NARROW_MAILBOX_RE.match(local):
             c.confidence = round(c.confidence - 0.25, 2)  # HR, privacy, drug safety...: real, but not "contact"
         elif PERSONAL_MAILBOX_RE.match(local):
-            c.confidence = round(c.confidence - 0.2, 2)
+            continue  # first.last@: one person's inbox (a press officer), not the company's contact
+        elif not ROLE_WORD_RE.search(local):
+            # kmontag@, jruberti@: most likely a person; one quoted in a press release even more so.
+            c.confidence = round(c.confidence - (0.35 if NEWS_PAGE_RE.search(urlsplit(doc.url).path) else 0.2), 2)
         out.append(c)
     return out
 
 
+# Numbers of other organizations that many sites print: FDA MedWatch (1-800-FDA-1088), on every US drug site.
+THIRD_PARTY_NUMBERS = {"8003321088"}
+
+
 def _phones(doc: PageDoc) -> list[Candidate]:
+    return [c for c in _phone_candidates(doc)
+            if re.sub(r"\D", "", c.value.upper().replace("FDA", "332"))[-10:] not in THIRD_PARTY_NUMBERS]
+
+
+def _phone_candidates(doc: PageDoc) -> list[Candidate]:
     out = []
     for a in doc.tree.css('a[href^="tel:"]'):
         num = (a.attributes.get("href") or "")[4:].strip()
@@ -324,20 +341,25 @@ def _phones(doc: PageDoc) -> list[Candidate]:
 
 
 def prefer_country_phones(cands: list[Candidate], countries: list[str]) -> list[Candidate]:
-    """Rank numbers from the requested countries first. Sites serve a visitor's local office number
-    (IBM shows +49 to a German visitor), so a number from another country is likely a branch office."""
+    """Keep only numbers that can belong to the requested countries. Sites list their offices abroad and
+    serve a visitor's local number (IBM shows +49 to a German visitor), and a branch office's number in
+    another country is a wrong answer, so it is dropped rather than kept as a fallback."""
     if not countries:
         return cands
+    keep = []
     for c in cands:
         raw = c.value.strip()
         if not raw.startswith("+"):
-            continue  # no country code: usually the site's home number
+            keep.append(c)  # no country code: usually the site's home number
+            continue
         try:
             region = phonenumbers.region_code_for_number(phonenumbers.parse(raw, None))
         except phonenumbers.NumberParseException:
             continue
         if region and region != "ZZ" and region not in countries:
-            c.confidence = round(c.confidence - 0.35, 2)
+            continue
+        keep.append(c)
+    cands[:] = keep
     return cands
 
 
