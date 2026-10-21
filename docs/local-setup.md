@@ -76,7 +76,20 @@ npm ci
 npm run dev                                                    # http://localhost:5173
 ```
 
-Optional, for the SearXNG discovery source (needs Docker for this one container):
+Optional, for the SearXNG discovery source (web search). Without Docker, run it natively with the
+script below (needs Python 3.10+ and git; same SearXNG version and settings as the Docker image):
+
+```sh
+scripts/searxng-native.sh install    # once; installs into ~/.webdata/searxng, outside the repo
+scripts/searxng-native.sh start      # background, http://127.0.0.1:8888; prints the .env line
+echo 'WEBDATA_SEARXNG_URL=http://127.0.0.1:8888' >> backend/.env
+scripts/searxng-native.sh status     # checks that a JSON search returns results
+```
+
+It does not start by itself after a reboot: run `start` again (and `stop` to end it). Its log is
+`~/.webdata/searxng/searxng.log`.
+
+Or, with Docker for this one container:
 
 ```sh
 docker run -d --name webdata-searxng -p 127.0.0.1:8888:8080 \
