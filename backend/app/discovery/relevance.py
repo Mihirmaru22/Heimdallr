@@ -75,7 +75,7 @@ def industry_terms(industry: str) -> list[str]:
     return [term] + [w[:6] if len(w) > 7 else w for w in words]
 
 
-def off_topic_reason(doc: PageDoc, spec: ExtractionSpec) -> str | None:
+def off_topic_reason(doc: PageDoc, spec: ExtractionSpec, check_country: bool = True) -> str | None:
     """Why this search result's homepage is not a match, or None to keep it."""
     d = spec.discovery
     subject = d.industry or " ".join(d.keywords)
@@ -84,7 +84,7 @@ def off_topic_reason(doc: PageDoc, spec: ExtractionSpec) -> str | None:
                f"{doc.text[:20_000]} ".lower()
         if not any(t in text for t in industry_terms(subject)):
             return f"homepage does not mention {subject!r}"
-    if d.countries:
+    if d.countries and check_country:
         country = site_country(doc)
         if country and country not in d.countries:
             return f"appears to be based in {country}, not {', '.join(d.countries)}"

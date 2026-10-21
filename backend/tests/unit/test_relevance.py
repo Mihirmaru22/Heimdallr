@@ -64,3 +64,11 @@ def test_only_these_countries_is_a_hard_limit():
 def test_countries_must_be_two_letter_codes():
     with pytest.raises(ValueError, match="two-letter"):
         _spec(countries=["Germany"])
+
+
+def test_wikidata_results_are_checked_for_the_industry_but_not_the_country():
+    spec = _spec(industry="pharmaceutical", countries=["IN"])
+    it_firm = _doc("https://www.techserve.in/", "<p>IT services and staffing</p>")
+    assert "does not mention" in off_topic_reason(it_firm, spec, check_country=False)
+    abroad = _doc("https://acme.de/", "<p>Pharmaceutical maker</p>")
+    assert off_topic_reason(abroad, spec, check_country=False) is None

@@ -247,8 +247,12 @@ class WikidataProvider:
                 country = next((country_names[c] for c in self._claim_ids(e, "P17") if c in country_names), None)
                 hq = next((hq_labels.get(q) for q in self._claim_ids(e, "P159")[:1]), None)
                 industry = next((hq_labels.get(q) for q in self._claim_ids(e, "P452") if q in wanted), None)
+                inception = next((c.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("time", "")
+                                  for c in e.get("claims", {}).get("P571", []) if c.get("rank") != "deprecated"), "")
+                founded = re.match(r"^\+(\d{4})-", inception or "")
                 hint = {"company_name": wd_label(e), "headquarters": hq,
                         "country": country, "industry": industry, "website_url": url,
+                        "founded_year": founded.group(1) if founded else None,
                         "_source": f"http://www.wikidata.org/entity/{qid}"}
                 out.append(DiscoveryResult(url, "wikidata", {k: v for k, v in hint.items() if v},
                                            referrer=hint["_source"]))
