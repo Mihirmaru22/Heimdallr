@@ -100,8 +100,23 @@ def progress(job_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Sessi
 def events(job_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Session = Depends(get_db),
            after_id: int = Query(0, ge=0), limit: int = Query(200, ge=1, le=1000)) -> list[EventOut]:
     get_in_org(db, CrawlJob, job_id, ctx.org.id, "job")
-    rows = db.execute(select(CrawlJobEvent).where(CrawlJobEvent.job_id == job_id, CrawlJobEvent.id > after_id)
+    rows = db.execute(select(CrawlJobEvent).where(CrawlJobEvent.job_id == job_id, CrawlJobEvent.id > after_id,
+                                                  CrawlJobEvent.type != "activity")
                       .order_by(CrawlJobEvent.id).limit(limit)).scalars().all()
+    return [EventOut.model_validate(e) for e in rows]
+
+
+@router.get("/jobs/{job_id}/activity", response_model=list[EventOut])
+def activity(job_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Session = Depends(get_db),
+             after_id: int = Query(0, ge=0), limit: int = Query(300, ge=1, le=1000)) -> list[EventOut]:
+    """The live feed: each thing the worker did, oldest first. With after_id=0, the latest `limit` lines;
+    then poll with the last id seen to get only what is new."""
+    get_in_org(db, CrawlJob, job_id, ctx.org.id, "job")
+    q = select(CrawlJobEvent).where(CrawlJobEvent.job_id == job_id, CrawlJobEvent.type == "activity")
+    if after_id:
+        rows = db.execute(q.where(CrawlJobEvent.id > after_id).order_by(CrawlJobEvent.id).limit(limit)).scalars().all()
+    else:
+        rows = list(reversed(db.execute(q.order_by(CrawlJobEvent.id.desc()).limit(limit)).scalars().all()))
     return [EventOut.model_validate(e) for e in rows]
 
 

@@ -5,6 +5,7 @@ import { api, display, type CrawlUrl, type ExportRow, type Job, type JobEvent, t
   type RecordRow, type Schema } from "../api";
 import { Badge, Card, ErrorBox, Pager, when } from "../components/ui";
 import RecordDrawer from "../components/RecordDrawer";
+import ActivityFeed from "../components/ActivityFeed";
 
 const URL_STATUSES = ["", "queued", "fetched", "skipped", "blocked_robots", "blocked_policy", "failed", "dead"];
 
@@ -12,7 +13,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
   const { jobId } = useParams();
   const base = `/orgs/${orgId}`;
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"records" | "urls" | "events">("records");
+  const [tab, setTab] = useState<"activity" | "records" | "urls" | "events">("activity");
 
   const progress = useQuery({
     queryKey: ["progress", jobId], queryFn: () => api.get<Progress>(`${base}/jobs/${jobId}/progress`),
@@ -48,10 +49,11 @@ export default function JobPage({ orgId }: { orgId: string }) {
       </Card>
 
       <div className="tabs">
-        {(["records", "urls", "events"] as const).map((t) =>
+        {(["activity", "records", "urls", "events"] as const).map((t) =>
           <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
             {t === "urls" ? "Pages" : t[0].toUpperCase() + t.slice(1)}</button>)}
       </div>
+      {tab === "activity" && <ActivityFeed base={base} jobId={jobId!} live={!terminal} />}
       {tab === "records" && schema.data && <Records base={base} jobId={jobId!} schema={schema.data} terminal={terminal} />}
       {tab === "urls" && <Urls base={base} jobId={jobId!} />}
       {tab === "events" && <Events base={base} jobId={jobId!} live={!terminal} />}
@@ -109,7 +111,7 @@ function Records({ base, jobId, schema, terminal }: { base: string; jobId: strin
         </table>
       </div>
       {records.data && <Pager total={records.data.total} limit={limit} offset={offset} onChange={setOffset} />}
-      {records.data?.total === 0 && <p className="muted">{terminal ? "No records match." : "Records appear when crawling finishes."}</p>}
+      {records.data?.total === 0 && <p className="muted">{terminal ? "No records match." : "Records appear here as sites are read; they refresh about every 20 seconds."}</p>}
       {open && <RecordDrawer base={base} recordId={open} schema={schema} onClose={() => setOpen(null)} />}
     </Card>
   );

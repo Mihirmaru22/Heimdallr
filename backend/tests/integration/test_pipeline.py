@@ -227,3 +227,51 @@ def test_every_source_gets_a_share_of_the_budget(db_clean, crawl_env, monkeypatc
         methods = sorted(db.execute(select(DiscoveredUrl.method).where(
             DiscoveredUrl.job_id == job_id, DiscoveredUrl.depth == 0)).scalars().all())
     assert methods == ["searxng", "sec_edgar", "wikidata"]
+
+
+def activity(job_id, org_id):
+    from app.models import CrawlJobEvent
+
+    with session_scope(org_id) as db:
+        rows = db.execute(select(CrawlJobEvent).where(CrawlJobEvent.job_id == job_id,
+                                                      CrawlJobEvent.type == "activity")
+                          .order_by(CrawlJobEvent.id)).scalars().all()
+        return [(r.data["kind"], r.message) for r in rows]
+
+
+def test_the_activity_feed_shows_each_real_step(db_clean, crawl_env, monkeypatch):
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+
+    url = crawl_env["url"]
+
+    class Search:
+        name = "searxng"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url("acme-security.test"), "searxng", {"company_name": "Acme"}),
+                    DiscoveryResult(url("globex.test"), "searxng", {})]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Search()])
+    monkeypatch.setattr(runner, "RECORDS_EVERY", 0)  # refresh the records after every batch
+    job_id, org_id = make_job([], discovery={"providers": ["searxng"], "industry": "security"})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    lines = activity(job_id, org_id)
+    kinds = [k for k, _ in lines]
+    assert lines[0] == ("search", "Searching web search for security companies")
+    assert ("search", "Web search returned 2 website(s)") in lines
+    assert any(k == "queued" and "Acme (acme-security.test)" in m for k, m in lines)
+    assert any(k == "read" and m.startswith("Reading http://acme-security.test") for k, m in lines)
+    assert any(k == "kept" and "acme-security.test" in m for k, m in lines)
+    assert any(k == "found" and "+442079460958" in m for k, m in lines)
+    assert any(k == "blocked" and "/private/secret.html" in m for k, m in lines)
+    assert kinds.count("records") == 1  # assembled while the crawl ran, and noted only when the count changed
+
+    # The Events tab keeps its short list; the feed has its own endpoint.
+    from app.api.jobs import events
+    from app.deps import OrgContext
+
+    with session_scope(org_id) as db:
+        ctx = OrgContext.__new__(OrgContext)
+        ctx.org = db.get(Organization, org_id)
+        assert all(e.type != "activity" for e in events(job_id, ctx, db, 0, 1000))

@@ -34,14 +34,18 @@ from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError, providers_for
 from app.discovery.relevance import off_topic_reason, outside_countries_reason
 from app.extract.deterministic import extract_page, parse_page, prefer_country_phones
-from app.models import CrawlJob, DiscoveredUrl, DomainPolicy, FetchedPage, UrlStatus
+from app.models import CrawlJob, CrawlJobEvent, DiscoveredUrl, DomainPolicy, FetchedPage, UrlStatus
 from app.services.state_machine import log_event
 from app.spec.models import ExtractionSpec, Semantic
 
 log = logging.getLogger("webdata.crawl")
-# A registry's name and founding year beat what pages say ("JNJ.com"; "our plant was established in 2007").
-REGISTRY_CONFIDENCE = {"company_name": 0.92, "founded_year": 0.85}
+# A registry's name, official website and founding year beat what pages say ("JNJ.com"; a JSON-LD url on
+# cascade.boeing.com; "our plant was established in 2007").
+REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year": 0.85}
 LEASE = timedelta(minutes=5)
+SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
+                "gleif": "GLEIF", "searxng": "web search"}
+RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
 
 
 class JobCancelled(Exception):
@@ -56,8 +60,11 @@ def _priority(url: str, depth: int, keywords: list[str]) -> int:
 
 class CrawlRunner:
     def __init__(self, job_id: uuid.UUID, org_id: uuid.UUID, spec: ExtractionSpec, *, resolver=None,
-                 redis=None, client=None) -> None:
+                 redis=None, client=None, max_records: int | None = None) -> None:
         self.job_id, self.org_id, self.spec = job_id, org_id, spec
+        self.max_records = max_records
+        self.activity: list[dict[str, Any]] = []
+        self.last_records = (0, 0)
         self.settings = get_settings()
         self.resolver = resolver
         self.client = client or (make_client(resolver=resolver) if resolver else make_client())
@@ -74,6 +81,41 @@ class CrawlRunner:
         self.sitemaps_done: set[str] = set()
         self.host_sem: dict[str, asyncio.Semaphore] = {}
         self.started = time.monotonic()
+
+    # --- activity feed ----------------------------------------------------------------------
+
+    def note(self, kind: str, message: str, url: str | None = None, **data: Any) -> None:
+        """One line of the live activity feed: something the worker really did, as it happened.
+
+        kind: search | queued | read | kept | found | links | dropped | skipped | blocked | failed | records
+        """
+        site = registered_domain(url) if url else data.pop("site", None)
+        self.activity.append({"at": utcnow(), "message": message[:500],
+                              "data": {"kind": kind, "site": site, "url": url, **data}})
+
+    def flush_activity(self) -> None:
+        if not self.activity:
+            return
+        rows, self.activity = self.activity, []
+        with session_scope(self.org_id) as db:
+            db.add_all([CrawlJobEvent(org_id=self.org_id, job_id=self.job_id, type="activity", message=r["message"],
+                                      data=r["data"], created_at=r["at"]) for r in rows])
+
+    async def _flush_every_second(self) -> None:
+        while True:
+            await asyncio.sleep(1)
+            try:
+                self.flush_activity()
+            except Exception:  # noqa: BLE001 - the feed is a view; it must never stop the crawl
+                log.exception("could not save activity")
+
+    def _discovery_line(self, name: str) -> str:
+        d = self.spec.discovery
+        what = " ".join(x for x in (d.industry, "companies" if d.industry else "") if x) or "companies"
+        if d.technology:
+            what += f" using {d.technology}"
+        where = ", ".join(d.countries) or (d.region or "").replace("_", " ")
+        return f"Searching {SOURCE_NAMES.get(name, name)} for {what}" + (f" in {where}" if where else "")
 
     # --- frontier ---------------------------------------------------------------------------
 
@@ -125,10 +167,20 @@ class CrawlRunner:
         by_site: dict[str, dict[str, Any]] = {}
         per_provider: list[list[Any]] = []
         for provider in providers_for(self.spec):
+            label = SOURCE_NAMES.get(provider.name, provider.name)
+            if provider.name != "seeds":
+                self.note("search", self._discovery_line(provider.name), source=provider.name)
+                self.flush_activity()
             try:
-                per_provider.append(await provider.discover(self.spec))
+                results = await provider.discover(self.spec)
+                per_provider.append(results)
+                if provider.name != "seeds":
+                    self.note("search", f"{label[0].upper()}{label[1:]} returned {len(results)} website(s)",
+                              source=provider.name)
             except DiscoveryError as exc:
                 errors.append(f"{provider.name}: {exc}")
+                self.note("failed", f"{label}: {exc}", source=provider.name)
+            self.flush_activity()
             notes += getattr(provider, "notes", [])
         # Take results from the sources in turn (Wikidata, SEC, web search, Wikidata...), so the first
         # source cannot fill the whole budget on its own and every source contributes companies.
@@ -147,6 +199,9 @@ class CrawlRunner:
             found += r.method != "seed"
             sites.add(site)
             items.append({"url": r.url, "method": r.method, "hint": dict(r.hint), "referrer": r.referrer})
+            name = r.hint.get("company_name")
+            self.note("queued", f"Queued {name + ' (' + site + ')' if name else site} "
+                                f"from {SOURCE_NAMES.get(r.method, r.method)}", r.url, source=r.method)
             by_site.setdefault(site, items[-1])
         by_method: dict[str, int] = {}
         for it in items:
@@ -158,6 +213,7 @@ class CrawlRunner:
             for n in notes:
                 log_event(db, self.org_id, self.job_id, "info", f"Discovery note: {n}")
             log_event(db, self.org_id, self.job_id, "info", f"Discovery found {len(items)} starting URL(s)")
+        self.flush_activity()
         if not items and errors:
             raise DiscoveryError("; ".join(errors))
         self.allowed_sites = {registered_domain(i["url"]) for i in items}
@@ -272,7 +328,9 @@ class CrawlRunner:
         decision = await self.robots.check(url)
         if not decision.allowed:
             self._finish(row.id, UrlStatus.blocked_robots, decision.reason)
+            self.note("blocked", f"Not reading {url}: {decision.reason}", url)
             return
+        self.note("read", f"Reading {url}", url, depth=row.depth)
         delay = self.robots.crawl_delay(url)
         if delay:
             self.politeness.host_delay[host_of(url)] = min(delay, 30.0)
@@ -281,6 +339,8 @@ class CrawlRunner:
             try:
                 result = await self.fetcher.fetch(url, attempts=1)
             except FetchError as exc:
+                self.note("failed" if exc.kind not in ("http_404", "http_410", "content_type", "too_large")
+                          else "skipped", f"Could not read {url}: {exc}", url)
                 if exc.kind == "blocked":
                     self._finish(row.id, UrlStatus.blocked_policy, str(exc))
                 elif exc.kind in ("content_type", "too_large"):
@@ -303,6 +363,7 @@ class CrawlRunner:
                 FetchedPage.job_id == self.job_id, FetchedPage.content_hash == result.sha256)).first()
         if duplicate:
             self._finish(row.id, UrlStatus.skipped, "same content as a page already fetched")
+            self.note("skipped", f"Skipped {final}: same content as a page already read", final)
             return
         doc = parse_page(final, result.text)
         if row.depth == 0 and row.method in ("searxng", "wikidata"):
@@ -312,13 +373,17 @@ class CrawlRunner:
             if reason:
                 self.allowed_sites.discard(site)
                 self._finish(row.id, UrlStatus.skipped, f"{row.method} result dropped: {reason}")
+                self.note("dropped", f"Dropped {site}: {reason}", final)
                 return
         if row.depth == 0:
             reason = outside_countries_reason(doc, self.spec, row.method, row.hint)
             if reason:  # "only these countries" is on: the site is left out entirely
                 self.allowed_sites.discard(site)
                 self._finish(row.id, UrlStatus.skipped, f"outside the requested countries: {reason}")
+                self.note("dropped", f"Dropped {site}: {reason}", final)
                 return
+            self.note("kept", f"Kept {site}" + (f" ({row.hint['company_name']})" if row.hint.get("company_name")
+                                                else "") + ": homepage checks passed", final)
         found = extract_page(doc, self.spec.fields)
         for f in self.spec.fields:
             if f.semantic == Semantic.phone and f.name in found:
@@ -343,15 +408,53 @@ class CrawlRunner:
                                text_excerpt=doc.text[:2000], candidates=candidates))
             db.execute(update(DiscoveredUrl).where(DiscoveredUrl.id == row.id).values(
                 status=UrlStatus.fetched, status_reason=None, lease_until=None))
+        self._note_found(final, found, row.depth)
         new: list[dict[str, Any]] = []
         origin = final.split("/", 3)[0] + "//" + final.split("/", 3)[2]
         if row.depth == 0:
-            new += await self._sitemap_urls(origin)
+            from_sitemap = await self._sitemap_urls(origin)
+            if from_sitemap:
+                self.note("links", f"Found {len(from_sitemap)} page(s) of {site} in its sitemap", final)
+            new += from_sitemap
         if self.spec.crawl.follow_links and row.depth < self.spec.crawl.max_depth:
             for link, _text in doc.links[:500]:
                 if registered_domain(link) in self.allowed_sites and looks_like_page(link):
                     new.append({"url": link, "method": "link", "depth": row.depth + 1, "referrer": final})
-        self.add_urls(new)
+        added = self.add_urls(new)
+        if added:
+            self.note("links", f"Queued {added} new page(s) of {site} to read", final)
+
+    def _note_found(self, url: str, found: dict[str, list[Any]], depth: int) -> None:
+        """"Found phone +1 858 812 7300, email info@example.com on example.com/contact"."""
+        # The site's own address and name are on every page; they are news only on the homepage.
+        every_page = {Semantic.website_url, Semantic.page_title, Semantic.description, Semantic.social_links}
+        if depth:
+            every_page |= {Semantic.company_name}
+        labels = {f.name: (f.label or f.name.replace("_", " ")) for f in self.spec.fields
+                  if f.semantic not in every_page}
+        parts = []
+        for name, cands in found.items():
+            if cands and name in labels:
+                best = max(cands, key=lambda c: c.confidence)
+                value = str(best.value)
+                parts.append(f"{labels[name].lower()} {value[:60] + '...' if len(value) > 60 else value}")
+        if parts:
+            short = url.split("://", 1)[-1].removeprefix("www.").rstrip("/")
+            self.note("found", f"Found {', '.join(parts[:4])}" + (f" and {len(parts) - 4} more" if len(parts) > 4
+                                                                  else "") + f" on {short}", url,
+                      fields=sorted(n for n, c in found.items() if c))
+
+    def refresh_records(self) -> None:
+        """Assemble the records from the pages read so far, so they show while the crawl runs."""
+        if self.max_records is None:
+            return
+        from app.services.finalize import finalize_job
+
+        stats = finalize_job(self.job_id, self.org_id, self.spec, self.max_records)
+        if (stats["records"], stats["valid"]) != self.last_records:
+            self.last_records = (stats["records"], stats["valid"])
+            self.note("records", f"{stats['records']} record(s) so far ({stats['valid']} complete)",
+                      records=stats["records"])
 
     # --- the loop ---------------------------------------------------------------------------
 
@@ -360,6 +463,8 @@ class CrawlRunner:
             self._restore_scope()
             self._load_policies()
         self.counts_cache = self.counts()
+        flusher = asyncio.create_task(self._flush_every_second())
+        last_records = time.monotonic()
         try:
             while True:
                 self._check_job()
@@ -375,7 +480,18 @@ class CrawlRunner:
                     break
                 await asyncio.gather(*(self.process(r) for r in batch))
                 self.counts_cache = self.counts()
+                if time.monotonic() - last_records > RECORDS_EVERY:
+                    last_records = time.monotonic()
+                    try:
+                        self.refresh_records()
+                    except Exception:  # noqa: BLE001 - the final pass after the crawl builds them anyway
+                        log.exception("could not refresh records during the crawl")
         finally:
+            flusher.cancel()
+            try:
+                self.flush_activity()
+            except Exception:  # noqa: BLE001
+                log.exception("could not save activity")
             with session_scope(self.org_id) as db:
                 # Anything still queued when the budget ran out is recorded as skipped.
                 if self.counts_cache.get("fetched", 0) >= self.spec.crawl.max_pages:

@@ -104,7 +104,8 @@ def run_job(job_id: uuid.UUID, *, resolver=None, redis=None, client_factory=None
 
     def runner() -> CrawlRunner:
         client = client_factory() if client_factory else None
-        return CrawlRunner(job_id, org_id, spec, resolver=resolver, redis=redis, client=client)
+        return CrawlRunner(job_id, org_id, spec, resolver=resolver, redis=redis, client=client,
+                           max_records=limits["max_records_per_job"])
 
     try:
         if state == S.created:

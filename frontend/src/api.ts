@@ -69,7 +69,9 @@ export interface Job { id: string; project_id: string; schema_id: string; state:
 export interface Progress { id: string; state: string; counters: Record<string, number>; records: number;
   valid_records: number; elapsed_seconds: number | null; error: string | null; terminal: boolean }
 export interface JobEvent { id: number; type: string; from_state: string | null; to_state: string | null;
-  message: string; created_at: string }
+  message: string; created_at: string; data?: Record<string, unknown> }
+export interface Activity extends JobEvent {
+  data: { kind: string; site?: string | null; url?: string | null; [k: string]: unknown } }
 export interface CrawlUrl { id: string; url: string; method: string; depth: number; status: string;
   status_reason: string | null; referrer_url: string | null; attempts: number; discovered_at: string }
 export interface RecordRow { id: string; data: Record<string, unknown>; status: string; quality_score: number;
