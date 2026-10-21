@@ -142,7 +142,7 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
           <label className="check" title="Leave out any company not confirmed to be in these countries">
             <input type="checkbox" checked={spec.discovery.strict_countries ?? true} disabled={!spec.discovery.countries.length}
               onChange={(e) => discovery({ strict_countries: e.target.checked })} /> Only these countries</label>
-          <label title="Only companies with written proof that they use this (SEC filings source)">Uses technology
+          <label title="Only companies with written proof that they use this: their SEC filings or their own web pages">Uses technology
             <input value={spec.discovery.technology ?? ""} placeholder="e.g. Teamcenter"
               onChange={(e) => discovery({ technology: e.target.value || null })} /></label>
           <label title="Other names the product is written as, comma separated">Also written as

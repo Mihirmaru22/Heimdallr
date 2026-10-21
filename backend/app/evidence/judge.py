@@ -131,3 +131,13 @@ def score(relationship: str, base_strength: float, day: str, today: date | None 
     if strength >= 0.7:
         return "Confirmed", round(strength, 2)
     return ("Likely" if strength >= 0.4 else "Mentioned"), round(strength, 2)
+
+
+VERDICT_RANK = {"Confirmed": 0.9, "Likely": 0.7, "Mentioned": 0.5}
+
+
+def proof_confidence(verdict: str, strength: float) -> float:
+    """How a piece of proof competes with others for a row's proof columns: the verdict first, then strength.
+
+    All five proof columns of one piece get the same confidence, so a row shows one piece, not a mix."""
+    return round(VERDICT_RANK.get(verdict, 0.3) + min(max(strength, 0.0), 1.0) * 0.09, 4)

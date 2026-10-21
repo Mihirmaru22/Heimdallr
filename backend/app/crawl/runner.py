@@ -35,6 +35,8 @@ from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError, providers_for
 from app.discovery.relevance import off_topic_reason, outside_countries_reason
 from app.discovery.sitecheck import SiteChecker
+from app.evidence.judge import proof_confidence
+from app.evidence.site import SiteProof
 from app.extract.deterministic import extract_page, parse_page, prefer_country_phones
 from app.models import (
     CrawlJob,
@@ -51,10 +53,9 @@ from app.spec.models import ExtractionSpec, Semantic
 log = logging.getLogger("webdata.crawl")
 # A registry's name, official website and founding year beat what pages say ("JNJ.com"; a JSON-LD url on
 # cascade.boeing.com; "our plant was established in 2007").
-REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year": 0.85,
-                       # proof quoted word for word from the company's own filing, judged and dated
-                       "uses_technology": 0.95, "evidence": 0.95, "evidence_url": 0.95, "evidence_date": 0.95,
-                       "evidence_type": 0.95}
+REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year": 0.85}
+# Proof columns: one piece of proof fills all of them, and the strongest piece wins (see proof_confidence).
+PROOF_KEYS = ("uses_technology", "evidence", "evidence_url", "evidence_date", "evidence_type")
 REGISTRY_METHODS = ("wikidata", "sec_edgar", "gleif", "sec_filings")
 LEASE = timedelta(minutes=5)
 SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
@@ -80,6 +81,9 @@ class CrawlRunner:
         self.activity: list[dict[str, Any]] = []
         self.last_records = (0, 0)
         self.site_checker = SiteChecker()
+        # A technology question: every page read is also checked for proof that the company uses it.
+        self.site_proof = SiteProof(spec) if spec.discovery.technology else None
+        self.site_names: dict[str, str] = {}  # site -> company name its source gave
         self.told_unchecked = False
         self.settings = get_settings()
         self.resolver = resolver
@@ -436,6 +440,10 @@ class CrawlRunner:
             if f.semantic == Semantic.phone and f.name in found:
                 prefer_country_phones(found[f.name], self.spec.discovery.countries)
         candidates = {name: [c.__dict__ for c in cands] for name, cands in found.items() if cands}
+        if row.hint.get("company_name"):
+            self.site_names.setdefault(site, str(row.hint["company_name"]))
+        if self.site_proof is not None and row.hint.get("uses_technology"):
+            self.site_proof.has_proof.add(site)  # its source brought proof (an SEC filing)
         if row.hint:  # values supplied by discovery (e.g. Wikidata) with their source
             for key, value in row.hint.items():
                 if key.startswith("_"):
@@ -443,13 +451,19 @@ class CrawlRunner:
                 # A hint fills the field of that name, or any field using that extractor ("company_industry").
                 if key == "website_url" and isinstance(value, str):
                     value = homepage(value)  # a registry pointing at an inner page names the site's root
+                if key in PROOF_KEYS:
+                    confidence = proof_confidence(row.hint.get("uses_technology", ""), row.hint.get("_strength", 0))
+                elif row.method in REGISTRY_METHODS:
+                    # A curated registry label beats what a page calls itself ("JNJ.com").
+                    confidence = REGISTRY_CONFIDENCE.get(key, 0.7)
+                else:
+                    confidence = 0.7
                 for name in [f.name for f in self.spec.fields if key in (f.name, f.semantic.value)]:
                     candidates.setdefault(name, []).append({
-                        # A curated registry label beats what a page calls itself ("JNJ.com").
-                        "value": value, "method": row.method,
-                        "confidence": REGISTRY_CONFIDENCE.get(key, 0.7)
-                        if row.method in REGISTRY_METHODS else 0.7,
+                        "value": value, "method": row.method, "confidence": confidence,
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
+        if self.site_proof is not None:
+            await self._check_site_proof(doc, site, candidates)
         with session_scope(self.org_id) as db:
             db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=row.id, final_url=final,
                                http_status=result.status, content_type=result.content_type[:128],
@@ -472,6 +486,25 @@ class CrawlRunner:
         added = self.add_urls(new)
         if added:
             self.note("links", f"Queued {added} new page(s) of {site} to read", final)
+
+    async def _check_site_proof(self, doc, site: str, candidates: dict[str, list[dict[str, Any]]]) -> None:
+        piece = await self.site_proof.check(doc, site, self.site_names.get(site, ""))
+        if piece is None:
+            return
+        short = doc.url.split("://", 1)[-1].removeprefix("www.").rstrip("/")
+        if piece["kept"]:
+            self.note("kept", f"Proof on {short}: {piece['relationship'].replace('_', ' ')} {piece['product']} "
+                              f"({piece['verdict']}): \"{piece['quote'][:160]}\"", doc.url, source="site")
+            confidence = proof_confidence(piece["verdict"], piece["strength"])
+            values = {"uses_technology": piece["verdict"], "evidence": piece["quote"], "evidence_url": doc.url,
+                      "evidence_date": piece["evidence_date"] or None, "evidence_type": "Company website"}
+            for name, value in values.items():
+                if value and name in {f.name for f in self.spec.fields}:
+                    candidates.setdefault(name, []).append({"value": value, "method": "site_proof",
+                                                            "confidence": confidence, "evidence": doc.url})
+        else:
+            self.note("dropped", f"Not proof on {short}: {piece['reason']}", doc.url, source="site")
+        self.save_evidence("site", [piece])
 
     def _note_found(self, url: str, found: dict[str, list[Any]], depth: int) -> None:
         """"Found phone +1 858 812 7300, email info@example.com on example.com/contact"."""
@@ -550,5 +583,11 @@ class CrawlRunner:
             if self.client is not None:
                 await self.client.aclose()
             await self.site_checker.aclose()
+            if self.site_proof is not None:
+                try:
+                    self.save_evidence("site", self.site_proof.without_proof(self.site_names))
+                except Exception:  # noqa: BLE001 - the Rejected sheet is a report; it must not fail the job
+                    log.exception("could not save the sites without proof")
+                await self.site_proof.aclose()
         self.counts_cache = self.counts()
         return self.counts_cache

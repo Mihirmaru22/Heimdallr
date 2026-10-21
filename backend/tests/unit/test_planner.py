@@ -33,17 +33,28 @@ async def test_a_technology_question_becomes_a_plan_with_its_filters():
                                              "evidence_type"]
     assert spec.fields[2].label == "Uses Teamcenter"
     d = spec.discovery
-    assert d.countries == ["US"] and d.technology == "Teamcenter" and d.max_results == 40
+    assert d.countries == ["US"] and d.technology == "Teamcenter"
     assert d.technology_aliases == ["Siemens Teamcenter"]
-    assert d.providers == ["sec_filings"]  # only sources that bring proof
-    assert any("SEC filings" in n for n in notes) and not any("No proof source" in n for n in notes)
+    assert d.providers == ["sec_filings"]  # no industry: a list of random US companies is not worth checking
+    assert any("Add an industry" in n for n in notes)
     assert spec.deduplication_keys == ["website_url"] and spec.record_scope == "site"
 
 
-async def test_a_technology_question_outside_the_us_says_nothing_covers_it_yet():
-    router = FakeRouter({"rows": "companies", "technology": "SAP", "countries": ["DE"]})
-    _spec, _by, notes = await plan_spec("german companies using sap", [], router)
-    assert any("No proof source covers DE" in n for n in notes)
+async def test_a_technology_question_outside_the_us_checks_company_websites():
+    router = FakeRouter({"rows": "companies", "technology": "SAP", "countries": ["DE"], "industry": "automotive",
+                         "max_results": 20})
+    spec, _by, notes = await plan_spec("german car makers using sap", [], router)
+    assert "sec_filings" not in spec.discovery.providers and "wikidata" in spec.discovery.providers
+    assert spec.discovery.max_results == 60  # three companies checked per row asked for
+    assert spec.crawl.priority_keywords[0] == "career"
+    assert any("websites of up to 60" in n for n in notes) and not any("SEC" in n for n in notes)
+
+
+async def test_a_bare_technology_question_searches_filings_and_asks_for_a_filter():
+    router = FakeRouter({"rows": "companies", "technology": "Teamcenter"})
+    spec, _by, notes = await plan_spec("who uses teamcenter", [], router)
+    assert spec.discovery.providers == ["sec_filings"] and spec.discovery.max_results == 50
+    assert any("Add an industry" in n for n in notes)
 
 
 async def test_sites_of_one_company_with_a_custom_detail():

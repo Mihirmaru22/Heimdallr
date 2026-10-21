@@ -208,7 +208,7 @@ class SecFilingsProvider:
                     "country": "United States", "website_url": site,
                     "uses_technology": ev["verdict"], "evidence": ev["quote"], "evidence_url": ev["url"],
                     "evidence_date": ev["evidence_date"], "evidence_type": ev["source_type"],
-                    "_source": ev["url"]}
+                    "_source": ev["url"], "_strength": ev["strength"]}
             results.append(DiscoveryResult(site, "sec_filings", {k: v for k, v in hint.items() if v},
                                            referrer=ev["url"]))
         if no_site:

@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from app.evidence.site import PROOF_PAGES
 from app.llm.openrouter import LLMUnavailable, OpenRouter
 from app.spec.interpret import FIELD_CATALOG, interpret, is_tech_niche
 from app.spec.models import ExtractionSpec, FieldSpec, FieldType, Semantic
@@ -25,8 +26,10 @@ PROOF_FIELDS = [
     ("evidence_date", "Proof date", FieldType.date, "when the source was published or filed"),
     ("evidence_type", "Proof source", FieldType.string, "what kind of source it is (SEC filing 10-K...)"),
 ]
-# Countries the evidence sources cover today; others arrive with later sources (company sites, job boards).
+# Countries SEC filings cover; elsewhere proof comes from the companies' own websites.
 PROOF_COUNTRIES = {"US"}
+# A technology question checks more companies than rows asked for, since only those with proof are kept.
+CANDIDATES_PER_ROW = 3
 
 # Details the person can tick, keyed by field name, in the order they appear in the form.
 DETAILS = {name: (ftype, semantic) for _phrases, name, ftype, semantic in FIELD_CATALOG}
@@ -139,35 +142,56 @@ def spec_from_plan(plan: Plan, question: str, start_urls: list[str]) -> Extracti
     d.technology, d.parent_company = plan.technology, plan.parent_company
     d.technology_aliases = plan.technology_aliases if plan.technology else []
     d.max_results = plan.max_results or base.discovery.max_results
+    technology = bool(d.technology and plan.rows == "companies")
     if not base.crawl.start_urls:
         providers: list[Any] = []
-        if d.technology and plan.rows == "companies":
-            # Only sources that bring proof: a company list without proof would be dropped at the end anyway.
-            providers = ["sec_filings"]
-        elif d.industry or d.countries or d.region or d.technology or d.keywords:
+        # For a technology question a list of companies is worth checking only when an industry or keywords
+        # narrow it ("car makers in Germany"); random companies of a country would almost never name it.
+        wants_list = d.industry or d.keywords if technology else d.industry or d.countries or d.region or d.keywords
+        if wants_list:
+            # Each company is then checked on its own website for proof that it uses the technology.
             providers = ["wikidata", "searxng"]
             if ("US" in d.countries or d.region == "north_america") and d.industry and not is_tech_niche(d.industry):
                 providers.insert(1, "sec_edgar")
             if d.industry:
                 providers.insert(-1, "gleif")
+        if technology and covers_us(d):
+            providers.insert(0, "sec_filings")  # companies whose own filings name it
         d.providers = providers or ["seeds"]
+    if technology and len(d.providers) > 1:
+        d.max_results = min(d.max_results * CANDIDATES_PER_ROW, 300)
     crawl = base.crawl.model_copy(update={"max_pages": min(max(d.max_results * 8, 50), 2000)})
+    if technology:
+        # Careers, customer and news pages are where a company names its software; read them first.
+        crawl.priority_keywords = list(dict.fromkeys([*PROOF_PAGES, *crawl.priority_keywords]))
     return ExtractionSpec(
         title=base.title, entity=entity, record_scope="site" if plan.rows == "companies" else "page",
         fields=fields, deduplication_keys=["website_url"] if plan.rows == "companies" else [],
         crawl=crawl, discovery=d)
 
 
+def covers_us(d: Any) -> bool:
+    return (not d.countries and d.region in (None, "north_america")) or "US" in d.countries
+
+
 def technology_notes(spec: ExtractionSpec) -> list[str]:
     d = spec.discovery
-    where = set(d.countries) or ({"US"} if d.region in (None, "north_america") else set())
+    sources = []
+    if "sec_filings" in d.providers:
+        sources.append(f"US-listed companies' own SEC filings (last {d.evidence_years} years)")
+    has_list = any(p != "sec_filings" for p in d.providers)
+    if has_list:
+        sources.append(f"the websites of up to {d.max_results} companies found for your filters "
+                       f"(up to {spec.crawl.max_pages_per_site} pages each, careers, customer and news pages first)")
     notes = [f"Only companies with written proof that they use {d.technology} are kept. Proof comes from "
-             f"companies' own SEC filings (US-listed companies, last {d.evidence_years} years); each row "
-             "shows the quoted sentence, its link and date. Company websites, job ads and vendor case "
-             "studies are later steps, so private and smaller companies are not covered yet."]
-    if not where & PROOF_COUNTRIES:
-        notes.append("No proof source covers " + (", ".join(sorted(where)) if where else "that region")
-                     + " yet; this run would find nothing until those steps land.")
+             + " and ".join(sources) + ". Each row shows the quoted sentence, its link and date; companies "
+             "without proof are listed on the Rejected sheet with the reason."]
+    if not has_list:
+        notes.append("Add an industry (\"car makers\", \"pharma\") to also check companies' own websites; "
+                     "without one, only SEC filings are searched.")
+    if not sources:
+        notes.append("No proof source covers this question yet; add an industry.")
+    notes.append("Job ads and vendor case studies are later steps.")
     return notes
 
 
