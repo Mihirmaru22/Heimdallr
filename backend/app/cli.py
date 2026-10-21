@@ -1,5 +1,6 @@
 """Command-line helpers: `python -m app.cli create-admin EMAIL` (prompts for a password) and
-`python -m app.cli refresh-sec` (downloads SEC EDGAR's company list for the sec_edgar source)."""
+`python -m app.cli refresh-sec` (downloads SEC EDGAR's company list for the sec_edgar source) and
+`python -m app.cli llm-status | llm-test | llm-enable` (the free OpenRouter models)."""
 
 from __future__ import annotations
 
@@ -44,6 +45,35 @@ def refresh_sec(limit: int | None) -> None:
     print(f"Done: {result['companies']} companies listed, {result['looked_up']} looked up, {result['failed']} failed")
 
 
+def llm(cmd: str) -> None:
+    import asyncio
+    import json
+
+    from app.llm.openrouter import LLMUnavailable, OpenRouter, State
+
+    if cmd == "llm-enable":
+        State().enable()
+        print("Model use is switched back on.")
+        return
+
+    async def run() -> None:
+        router = OpenRouter()
+        try:
+            if cmd == "llm-status":
+                print(json.dumps(await router.status(), indent=2))
+            else:
+                reply = await router.chat([{"role": "user", "content": "Reply with the single word: ready"}],
+                                          max_tokens=10)
+                print(f"{reply.model} answered: {reply.text.strip()!r} (free; {router._state().used_today()} "
+                      f"of {router._state().daily_limit()} requests used today)")
+        except LLMUnavailable as exc:
+            sys.exit(f"Not available: {exc}")
+        finally:
+            await router.aclose()
+
+    asyncio.run(run())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -52,8 +82,13 @@ def main() -> None:
     p.add_argument("--password-stdin", action="store_true", help="read the password from stdin")
     p = sub.add_parser("refresh-sec", help="download or top up the local copy of SEC EDGAR's company list")
     p.add_argument("--limit", type=int, default=None, help="look up at most this many companies (largest first)")
+    sub.add_parser("llm-status", help="show the OpenRouter key's free allowance, today's use and the free models")
+    sub.add_parser("llm-test", help="send one tiny request to the best free model")
+    sub.add_parser("llm-enable", help="switch model use back on after the cost guard switched it off")
     args = parser.parse_args()
-    if args.cmd == "refresh-sec":
+    if args.cmd.startswith("llm-"):
+        llm(args.cmd)
+    elif args.cmd == "refresh-sec":
         refresh_sec(args.limit)
     elif args.cmd == "create-admin":
         create_admin(args.email.lower(), sys.stdin.readline().strip() if args.password_stdin else None)

@@ -43,3 +43,15 @@ def version(frontend: str | None = Query(None, max_length=64, pattern=r"^[0-9a-z
             _user: User = Depends(current_user)) -> dict:
     """Which commit the API, workers and this page run, compared with the code checked out on disk."""
     return report(frontend)
+
+
+@router.get("/api/v1/llm/status")
+async def llm_status(_user: User = Depends(current_user)) -> dict:
+    """The free-model allowance: key configured, requests used today, the free models available."""
+    from app.llm.openrouter import OpenRouter
+
+    router_ = OpenRouter()
+    try:
+        return await router_.status()
+    finally:
+        await router_.aclose()

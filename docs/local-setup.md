@@ -108,6 +108,19 @@ searches legal names for the industry word ("pharmaceutical" finds "Sun Pharmace
 Ltd") in the requested countries, and takes websites from Wikidata items that carry the company's LEI.
 GLEIF records no industries or websites itself, so it finds fewer companies for broad words like "tech".
 
+Optional, for the free language models (used by the plain-language features as they arrive). Put
+your OpenRouter key in `backend/.env` as `WEBDATA_OPENROUTER_API_KEY=sk-or-...`, restart the API and
+the worker, then check it:
+
+```sh
+uv run python -m app.cli llm-status   # free allowance (50 or 1,000 a day), today's use, free models
+uv run python -m app.cli llm-test     # one tiny request to the best free model
+```
+
+Only models whose id ends in `:free` and whose prices are all zero are ever called. If a reply ever
+comes from another model or reports a cost, model use switches itself off and stays off until you
+run `uv run python -m app.cli llm-enable`.
+
 Settings are read from environment variables or `backend/.env` (same names as `.env.example`;
 `WEBDATA_DATABASE_URL` defaults to `postgresql+psycopg://webdata:webdata@localhost:5432/webdata`).
 For a single-process demo without a worker, set `WEBDATA_CELERY_EAGER=true`; jobs then run

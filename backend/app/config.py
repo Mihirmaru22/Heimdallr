@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     crawl_proxy: str | None = None
     # Self-hosted SearXNG for website discovery, e.g. http://searxng:8080 (empty = not available).
     searxng_url: str = ""
+
+    # Free language models through OpenRouter (empty key = no model calls). Only ":free" models with zero
+    # prices are ever used; see app/llm/openrouter.py. Optional preferred model ids, best first.
+    openrouter_api_key: SecretStr = SecretStr("")
+    llm_preferred_models: list[str] = Field(default_factory=list)
 
     # Job limits (org overrides can only lower these)
     max_pages_per_job: int = 2000
