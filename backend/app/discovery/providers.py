@@ -93,7 +93,9 @@ class SeedProvider:
 def wd_label(entity: dict[str, Any]) -> str | None:
     """English label, else the language-neutral ("mul") label Wikidata uses for many company names."""
     labels = entity.get("labels", {})
-    return (labels.get("en") or labels.get("mul") or {}).get("value") or None
+    label = (labels.get("en") or labels.get("mul") or {}).get("value") or ""
+    # "Tango Therapeutics (United States)": a disambiguation note, not part of the name.
+    return re.sub(r"\s*\([^()]*\)$", "", label).strip() or None
 
 
 class WikidataProvider:

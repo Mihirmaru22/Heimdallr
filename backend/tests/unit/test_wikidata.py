@@ -200,3 +200,10 @@ def test_label_falls_back_to_the_language_neutral_label():
     assert wd_label({"labels": {"en": {"value": "Roblox Corporation"}, "mul": {"value": "Roblox"}}}) == \
         "Roblox Corporation"
     assert wd_label({"labels": {}}) is None
+
+
+def test_label_drops_a_disambiguation_note():
+    from app.discovery.providers import wd_label
+
+    assert wd_label({"labels": {"en": {"value": "Tango Therapeutics (United States)"}}}) == "Tango Therapeutics"
+    assert wd_label({"labels": {"mul": {"value": "Merck & Co."}}}) == "Merck & Co."
