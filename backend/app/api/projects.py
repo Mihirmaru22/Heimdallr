@@ -18,8 +18,7 @@ from app.deps import OrgContext, org_member
 from app.errors import ApiError
 from app.models import ExtractionSchema, Project, Role
 from app.schemas import GenerateSchemaIn, Page, PlanPreview, ProjectIn, ProjectOut, SchemaOut, SchemaUpdate, UrlCheck
-from app.services.common import audit, org_limits
-from app.spec.interpret import interpret
+from app.services.common import audit, org_limits, record_usage
 from app.spec.models import validate_spec
 
 from ._util import client_ip, get_in_org, paginate
@@ -106,18 +105,29 @@ def list_schemas(project_id: uuid.UUID, ctx: OrgContext = Depends(org_member),
 @router.post("/projects/{project_id}/schemas/generate", response_model=SchemaOut, status_code=201)
 def generate_schema(project_id: uuid.UUID, body: GenerateSchemaIn, ctx: OrgContext = Depends(org_member),
                     db: Session = Depends(get_db)) -> SchemaOut:
-    """Turn a plain-language request into a draft spec. Phase 1 uses rules only (no LLM call)."""
+    """Turn a plain-language question into a draft spec: one free-model call, or the rules when none answers."""
+    import asyncio
+
+    from app.spec.planner import plan_spec
+
     get_in_org(db, Project, project_id, ctx.org.id, "project")
+    # Sync endpoints run in a worker thread with no event loop, so the async planner gets its own.
+    draft, interpreter, notes = asyncio.run(plan_spec(body.request, body.start_urls))
     try:
-        spec = validate_spec(interpret(body.request, body.start_urls).model_dump(mode="json"), org_limits(ctx.org))
+        spec = validate_spec(draft.model_dump(mode="json"), org_limits(ctx.org))
     except (ValidationError, ValueError) as exc:
         raise _spec_error(exc) from None
     s = ExtractionSchema(org_id=ctx.org.id, project_id=project_id, version=_next_version(db, project_id),
                          nl_request=body.request, spec=spec.model_dump(mode="json"), status="draft",
-                         interpreter="rules")
+                         interpreter=interpreter[:64])
     db.add(s)
+    if interpreter.startswith("model:"):
+        record_usage(db, ctx.org.id, "llm_request", 1, user_id=ctx.user.id,
+                     detail={"model": interpreter[6:], "purpose": "plan"})
     db.commit()
-    return SchemaOut.model_validate(s)
+    out = SchemaOut.model_validate(s)
+    out.notes = notes
+    return out
 
 
 @router.post("/projects/{project_id}/schemas", response_model=SchemaOut, status_code=201)
@@ -211,6 +221,16 @@ def preview(schema_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Ses
         warnings.append("There are no start URLs and no discovery source, so the job would find nothing.")
     if "gleif" in spec.discovery.providers and not spec.discovery.industry:
         warnings.append("GLEIF searches company names for the industry, so it is skipped without one.")
+    if spec.discovery.technology:
+        warnings.append(f"Results are not yet filtered to companies that use {spec.discovery.technology!r}; "
+                        "that filter is the next step of the plan.")
+    if spec.discovery.parent_company:
+        warnings.append(f"Finding the sites of {spec.discovery.parent_company!r} is not built yet; add its "
+                        "website as a start URL meanwhile.")
+    if any(f.semantic.value == "none" and not (f.rules.css or f.rules.meta or f.rules.jsonld or f.rules.regex)
+           for f in spec.fields):
+        warnings.append("Custom details are only filled where a page labels them (\"Plant head: ...\") until "
+                        "model reading arrives in a later step.")
     if "wikidata" in spec.discovery.providers:
         warnings.append("Wikidata returns companies that list an official website; coverage varies by industry.")
     searching = {"wikidata", "searxng", "sec_edgar", "gleif"} & set(spec.discovery.providers)

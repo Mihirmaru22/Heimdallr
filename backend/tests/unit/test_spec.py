@@ -58,3 +58,9 @@ def test_in_us_means_the_united_states_but_contact_us_does_not():
     assert interpret("find 50 cybersecurity companies in us").discovery.countries == ["US"]
     assert interpret("find cybersecurity companies in the U.S.").discovery.countries == ["US"]
     assert interpret("find cybersecurity companies and their contact us page").discovery.countries == []
+
+
+def test_contact_info_means_email_and_phone():
+    spec = interpret("companies in the USA that use Teamcenter, with contact info and address")
+    names = [f.name for f in spec.fields]
+    assert {"contact_email", "phone", "address"} <= set(names)

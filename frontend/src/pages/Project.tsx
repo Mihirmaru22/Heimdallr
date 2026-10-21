@@ -5,8 +5,11 @@ import { api, type Job, type Page, type Preview, type Project, type Schema, type
 import { Badge, Card, ErrorBox, when } from "../components/ui";
 import SchemaEditor from "../components/SchemaEditor";
 
-const EXAMPLE = "Find up to 30 cybersecurity companies in Europe and collect company name, website, contact email, " +
-  "headquarters, product categories and pricing information.";
+const EXAMPLES = [
+  "pharmaceutical companies in India with their contact email, phone and headquarters",
+  "companies in the USA that use Teamcenter, with contact info and address",
+  "list the manufacturing plants of Ford with plant head and contact information",
+];
 
 export default function ProjectPage({ orgId }: { orgId: string }) {
   const { projectId } = useParams();
@@ -61,15 +64,18 @@ export default function ProjectPage({ orgId }: { orgId: string }) {
     <div>
       <p><Link to="/">Projects</Link> / <strong>{project.data?.name}</strong></p>
       <Card title="1. Describe what you need">
-        <textarea rows={3} placeholder={EXAMPLE} value={request} onChange={(e) => setRequest(e.target.value)} />
+        <textarea rows={3} placeholder={`Ask in your own words, e.g. "${EXAMPLES[0]}"`} value={request}
+          onChange={(e) => setRequest(e.target.value)} />
         <label>Starting websites (optional, space or line separated)
           <textarea rows={2} value={urls} onChange={(e) => setUrls(e.target.value)} placeholder="https://example.com" /></label>
         <div className="row">
           <button className="primary" disabled={request.trim().length < 3 || generate.isPending} onClick={() => generate.mutate()}>
-            {generate.isPending ? "Working…" : "Generate extraction schema"}</button>
-          <button className="link" onClick={() => setRequest(EXAMPLE)}>Use example</button>
+            {generate.isPending ? "Reading your question…" : "Plan the research"}</button>
+          {EXAMPLES.map((ex, i) => <button key={ex} className="link" onClick={() => setRequest(ex)}>Example {i + 1}</button>)}
         </div>
-        <p className="muted small">Phase 1 reads your request with rules (no AI model calls). Review the fields below before running.</p>
+        <p className="muted small">A free AI model reads your question into a plan (or simple rules, when no free model is
+          available). Nothing runs until you check the plan below and press Run.</p>
+        {generate.data?.notes?.map((n) => <p key={n} className="warn small">{n}</p>)}
         <ErrorBox error={generate.error} />
       </Card>
 
@@ -79,7 +85,8 @@ export default function ProjectPage({ orgId }: { orgId: string }) {
                 <select value={selected.id} onChange={(e) => pick(schemas.data!.find((s) => s.id === e.target.value)!)}>
                   {schemas.data.map((s) => <option key={s.id} value={s.id}>v{s.version} ({s.status})</option>)}
                 </select>)}>
-          {selected.nl_request && <p className="muted">“{selected.nl_request}”</p>}
+          {selected.nl_request && <p className="muted">“{selected.nl_request}” · read by {selected.interpreter.startsWith("model:")
+            ? `free model ${selected.interpreter.slice(6)}` : selected.interpreter === "rules" ? "rules" : "you"}</p>}
           <SchemaEditor spec={draft} onChange={(s) => { setDraft(s); setPreview(null); }} />
           <ErrorBox error={save.error || check.error || run.error} />
           <div className="row">

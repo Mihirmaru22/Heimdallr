@@ -144,6 +144,10 @@ class DiscoverySettings(BaseModel):
     region: Literal["europe", "north_america", "asia", "africa", "south_america", "oceania"] | None = None
     keywords: list[str] = Field(default_factory=list, max_length=10)
     max_results: int = Field(default=50, ge=1, le=1000)
+    # Filters read from a plain-language question that discovery does not apply yet (later steps of the plan):
+    # a technology the company uses ("Teamcenter") and the company whose sites are wanted ("Ford").
+    technology: str | None = Field(default=None, max_length=100)
+    parent_company: str | None = Field(default=None, max_length=100)
 
 
 class ExtractionSpec(BaseModel):

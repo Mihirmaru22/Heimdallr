@@ -18,14 +18,15 @@ from app.spec.models import (
     Semantic,
 )
 
+CONTACT = ("contact info", "contact details", "contact information")  # = an email and a phone number
 # phrase -> (field name, type, semantic)
 FIELD_CATALOG: list[tuple[tuple[str, ...], str, FieldType, Semantic]] = [
     (("company name", "organization name", "organisation name", "business name", "name of the company"),
      "company_name", FieldType.string, Semantic.company_name),
     (("website", "official site", "homepage", "web site", "website url"), "website_url", FieldType.url,
      Semantic.website_url),
-    (("contact email", "email", "e-mail"), "contact_email", FieldType.email, Semantic.contact_email),
-    (("phone", "telephone", "phone number"), "phone", FieldType.phone, Semantic.phone),
+    (("contact email", "email", "e-mail", *CONTACT), "contact_email", FieldType.email, Semantic.contact_email),
+    (("phone", "telephone", "phone number", *CONTACT), "phone", FieldType.phone, Semantic.phone),
     (("headquarters", "hq", "head office", "headquartered"), "headquarters", FieldType.string, Semantic.headquarters),
     (("address", "postal address", "location"), "address", FieldType.string, Semantic.address),
     (("country",), "country", FieldType.string, Semantic.country),

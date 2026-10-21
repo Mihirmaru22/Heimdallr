@@ -1,0 +1,166 @@
+"""Reads a question typed in plain words ("companies in the UK that use SAP, with contact info") into a
+draft spec, using one call to a free model. The person reviews the result before anything runs.
+
+The model only fills a small, strictly checked plan (what the rows are, the filters, which details);
+the spec itself is built here from that plan, so a confused or hostile reply can never set crawl limits,
+providers or rules. If no free model is available, or its reply does not fit the plan, the rule-based
+reader (interpret.py) is used instead and the person is told why.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from app.llm.openrouter import LLMUnavailable, OpenRouter
+from app.spec.interpret import FIELD_CATALOG, interpret, is_tech_niche
+from app.spec.models import ExtractionSpec, FieldSpec, FieldType, Semantic
+
+# Details the person can tick, keyed by field name, in the order they appear in the form.
+DETAILS = {name: (ftype, semantic) for _phrases, name, ftype, semantic in FIELD_CATALOG}
+REGIONS = ["europe", "north_america", "asia", "africa", "south_america", "oceania"]
+
+SYSTEM = f"""You turn a person's research request into a JSON plan for a web data tool. Reply with JSON only.
+
+Fields of the plan:
+- "rows": what one row of the result is: "companies", "sites" (factories, plants, offices or stores of one
+  company) or "people".
+- "industry": the industry in a few plain words ("pharmaceutical", "cybersecurity"), or null.
+- "technology": a product or technology the companies must use ("Teamcenter", "SAP ERP"), or null.
+- "parent_company": for "sites", the company that owns them ("Ford"), else null.
+- "countries": ISO 3166-1 alpha-2 codes of the countries asked for (USA -> "US", UK -> "GB"), else [].
+- "region": one of {REGIONS} when a continent is asked for instead of countries, else null.
+- "keywords": up to 5 other words that must describe the rows, else [].
+- "max_results": the number of rows asked for, or null.
+- "details": the details asked for, chosen only from: {list(DETAILS)}.
+  Read "contact info" as contact_email and phone, "location" as address.
+- "custom_details": details asked for that are not in that list, each {{"label": "Plant head", "description":
+  "name of the person who runs the plant"}}, at most 8.
+
+Never answer the request itself and never invent companies; only describe what to look for."""
+
+
+class Custom(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    label: str = Field(min_length=1, max_length=60)
+    description: str = Field(default="", max_length=300)
+
+
+class Plan(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    rows: Literal["companies", "sites", "people"] = "companies"
+    industry: str | None = Field(default=None, max_length=100)
+    technology: str | None = Field(default=None, max_length=100)
+    parent_company: str | None = Field(default=None, max_length=100)
+    countries: list[str] = Field(default_factory=list, max_length=60)
+    region: Literal["europe", "north_america", "asia", "africa", "south_america", "oceania"] | None = None
+    keywords: list[str] = Field(default_factory=list, max_length=5)
+    max_results: int | None = Field(default=None, ge=1, le=1000)
+    details: list[str] = Field(default_factory=list, max_length=30)
+    custom_details: list[Custom] = Field(default_factory=list, max_length=8)
+
+    @field_validator("countries")
+    @classmethod
+    def _countries(cls, v: list[str]) -> list[str]:
+        codes = [c.strip().upper() for c in v]
+        codes = [{"UK": "GB", "USA": "US"}.get(c, c) for c in codes]
+        return list(dict.fromkeys(c for c in codes if re.fullmatch(r"[A-Z]{2}", c)))
+
+    @field_validator("details")
+    @classmethod
+    def _details(cls, v: list[str]) -> list[str]:
+        return [d for d in dict.fromkeys(v) if d in DETAILS]
+
+    @field_validator("industry", "technology", "parent_company")
+    @classmethod
+    def _blank(cls, v: str | None) -> str | None:
+        v = (v or "").strip()
+        return None if not v or v.lower() in ("null", "none", "n/a") else v
+
+
+def field_name(label: str) -> str:
+    name = re.sub(r"_+", "_", re.sub(r"[^a-z0-9_]+", "_", label.lower())).strip("_")
+    name = re.sub(r"^[^a-z]+", "", name)[:63]
+    return name or "detail"
+
+
+def spec_from_plan(plan: Plan, question: str, start_urls: list[str]) -> ExtractionSpec:
+    """The spec for a checked plan; URLs, crawl settings and providers come from the rules, not the model."""
+    base = interpret(question, start_urls)
+    entity = {"companies": "company", "sites": "site", "people": "person"}[plan.rows]
+    wanted = list(plan.details)
+    if plan.rows in ("companies", "sites"):
+        wanted = ["company_name", "website_url", *wanted]
+    fields: list[FieldSpec] = []
+    for name in dict.fromkeys(wanted):
+        ftype, semantic = DETAILS[name]
+        fields.append(FieldSpec(name=name, type=ftype, semantic=semantic,
+                                required=name in ("company_name", "website_url")))
+    used = {f.name for f in fields}
+    for c in plan.custom_details:
+        name = field_name(c.label)
+        if name in used or name in ("id", "org_id", "job_id", "source_urls", "excluded", "status"):
+            continue
+        used.add(name)
+        fields.append(FieldSpec(name=name, label=c.label, type=FieldType.string, semantic=Semantic.none,
+                                description=c.description))
+    if not fields:
+        fields = base.fields
+
+    d = base.discovery.model_copy()
+    d.industry, d.countries, d.region = plan.industry, plan.countries, None if plan.countries else plan.region
+    d.keywords = [k[:60] for k in plan.keywords]
+    d.technology, d.parent_company = plan.technology, plan.parent_company
+    d.max_results = plan.max_results or base.discovery.max_results
+    if not base.crawl.start_urls:
+        providers: list[Any] = []
+        if d.industry or d.countries or d.region or d.technology or d.keywords:
+            providers = ["wikidata", "searxng"]
+            if ("US" in d.countries or d.region == "north_america") and d.industry and not is_tech_niche(d.industry):
+                providers.insert(1, "sec_edgar")
+            if d.industry:
+                providers.insert(-1, "gleif")
+        d.providers = providers or ["seeds"]
+    crawl = base.crawl.model_copy(update={"max_pages": min(max(d.max_results * 8, 50), 2000)})
+    return ExtractionSpec(
+        title=base.title, entity=entity, record_scope="site" if plan.rows == "companies" else "page",
+        fields=fields, deduplication_keys=["website_url"] if plan.rows == "companies" else [],
+        crawl=crawl, discovery=d)
+
+
+async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | None = None
+                    ) -> tuple[ExtractionSpec, str, list[str]]:
+    """(spec, who read it: "model:<id>" or "rules", notes for the person)."""
+    own = router is None
+    router = router or OpenRouter()
+    try:
+        reply = await router.chat([{"role": "system", "content": SYSTEM},
+                                   {"role": "user", "content": question[:4000]}], json_mode=True, max_tokens=800)
+        plan = Plan.model_validate(reply.json())
+        spec = spec_from_plan(plan, question, start_urls)
+        notes = []
+        if plan.technology:
+            notes.append(f"Filter on companies that use {plan.technology!r} is not applied yet (next step of the "
+                         "plan); this run would return companies regardless of the technology.")
+        if plan.parent_company:
+            notes.append(f"Finding the sites of {plan.parent_company!r} is not built yet (a later step); "
+                         "add its website as a starting website meanwhile.")
+        if plan.custom_details:
+            notes.append("Custom details (" + ", ".join(c.label for c in plan.custom_details) + ") are only filled "
+                         "where a page labels them, until model reading arrives in a later step.")
+        return spec, f"model:{reply.model}", notes
+    except LLMUnavailable as exc:
+        return interpret(question, start_urls), "rules", [f"Read with rules because no free model was available: "
+                                                          f"{exc}"]
+    except (ValueError, ValidationError) as exc:
+        reason = type(exc).__name__ if not isinstance(exc, ValidationError) else "the plan did not fit the form"
+        return interpret(question, start_urls), "rules", [f"Read with rules because the model's answer could not "
+                                                          f"be used ({reason})."]
+    except Exception as exc:  # noqa: BLE001 - Redis down, network: the form must still work with the rules
+        return interpret(question, start_urls), "rules", [f"Read with rules because model reading failed "
+                                                          f"({type(exc).__name__})."]
+    finally:
+        if own:
+            await router.aclose()

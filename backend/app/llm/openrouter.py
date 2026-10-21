@@ -248,12 +248,12 @@ class OpenRouter:
         return out
 
     async def _check_allowance(self) -> None:
+        if not self.api_key:
+            raise LLMUnavailable("no OpenRouter key is configured (WEBDATA_OPENROUTER_API_KEY)")
         state = self._state()
         reason = state.disabled()
         if reason:
             raise LLMUnavailable(f"model use is switched off: {reason}")
-        if not self.api_key:
-            raise LLMUnavailable("no OpenRouter key is configured (WEBDATA_OPENROUTER_API_KEY)")
         if state.daily_limit() is None:
             await self.key_info()
         if state.exhausted() or state.used_today() >= (state.daily_limit() or FREE_DAILY):

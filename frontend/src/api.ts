@@ -55,11 +55,11 @@ export interface Spec {
   crawl: { start_urls: string[]; allowed_domains: string[]; max_pages: number; max_depth: number;
            max_pages_per_site: number; use_sitemaps: boolean; follow_links: boolean; priority_keywords: string[] };
   discovery: { providers: string[]; industry: string | null; countries: string[]; strict_countries?: boolean; region: string | null;
-               keywords: string[]; max_results: number };
+               keywords: string[]; max_results: number; technology?: string | null; parent_company?: string | null };
   export: Record<string, unknown>;
 }
 export interface Schema { id: string; project_id: string; version: number; nl_request: string; spec: Spec;
-  status: string; interpreter: string; created_at: string }
+  status: string; interpreter: string; created_at: string; notes?: string[] }
 export interface UrlCheck { url: string; normalized: string | null; allowed: boolean; reason: string }
 export interface Preview { spec: Spec; urls: UrlCheck[]; discovery_providers: string[]; estimated_max_pages: number;
   estimated_llm_calls: number; warnings: string[] }

@@ -114,6 +114,7 @@ class SchemaOut(ORM):
     status: str
     interpreter: str
     created_at: datetime
+    notes: list[str] = []  # how the question was read, and what is not applied yet (only on generate)
 
 
 class SchemaUpdate(BaseModel):

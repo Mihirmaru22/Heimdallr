@@ -12,6 +12,17 @@ const SEMANTICS = ["none", "company_name", "website_url", "contact_email", "phon
 const toFieldName = (raw: string) =>
   raw.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/_+/g, "_").replace(/^[^a-z]+/, "").slice(0, 63);
 
+// Details people tick instead of editing the table: [field name, label, type, extractor].
+const DETAILS: [string, string, string, string][] = [
+  ["company_name", "Company name", "string", "company_name"], ["website_url", "Website", "url", "website_url"],
+  ["contact_email", "Email", "email", "contact_email"], ["phone", "Phone", "phone", "phone"],
+  ["address", "Address", "string", "address"], ["headquarters", "Headquarters", "string", "headquarters"],
+  ["country", "Country", "string", "country"], ["industry", "Industry", "string", "industry"],
+  ["description", "Description", "text", "description"], ["founded_year", "Founding year", "integer", "founded_year"],
+  ["social_links", "Social links", "list", "social_links"], ["product_categories", "Products", "list", "product_categories"],
+  ["pricing", "Pricing", "string", "pricing"], ["source_url", "Source page", "url", "source_url"],
+];
+
 const REGIONS = ["", "europe", "north_america", "asia", "africa", "south_america", "oceania"];
 
 // Countries are typed as "US, GB, IN" and saved when the box loses focus, so commas survive typing.
@@ -48,12 +59,30 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
       ? spec.deduplication_keys.filter((k) => k !== name) : [...spec.deduplication_keys, name];
     onChange({ ...spec, deduplication_keys: keys });
   };
+  const toggleDetail = ([name, , type, semantic]: [string, string, string, string]) => {
+    const has = spec.fields.some((f) => f.semantic === semantic);
+    if (has) {
+      const gone = spec.fields.filter((f) => f.semantic === semantic).map((f) => f.name);
+      if (gone.length === spec.fields.length) return; // keep at least one field
+      onChange({ ...spec, fields: spec.fields.filter((f) => f.semantic !== semantic),
+        deduplication_keys: spec.deduplication_keys.filter((k) => !gone.includes(k)) });
+    } else {
+      onChange({ ...spec, fields: [...spec.fields, { name, type, semantic }] });
+    }
+  };
   const crawl = (patch: Partial<Spec["crawl"]>) => onChange({ ...spec, crawl: { ...spec.crawl, ...patch } });
   const discovery = (patch: Partial<Spec["discovery"]>) =>
     onChange({ ...spec, discovery: { ...spec.discovery, ...patch } });
 
   return (
     <div>
+      <div className="row wrap details">
+        <span className="small">Details to collect:</span>
+        {DETAILS.map((d) => (
+          <label key={d[0]} className="check"><input type="checkbox" checked={spec.fields.some((f) => f.semantic === d[3])}
+            onChange={() => toggleDetail(d)} /> {d[1]}</label>
+        ))}
+      </div>
       <table className="fields">
         <thead><tr><th /><th>Name</th><th>Column label</th><th>Type</th><th>Extractor</th>
           <th title="Record is invalid without it">Required</th><th title="Used to merge duplicates">Dedupe</th><th /></tr></thead>
@@ -113,11 +142,19 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
           <label className="check" title="Leave out any company not confirmed to be in these countries">
             <input type="checkbox" checked={spec.discovery.strict_countries ?? true} disabled={!spec.discovery.countries.length}
               onChange={(e) => discovery({ strict_countries: e.target.checked })} /> Only these countries</label>
+          <label title="Only companies that use this (filter arrives in the next step)">Uses technology
+            <input value={spec.discovery.technology ?? ""} placeholder="e.g. Teamcenter"
+              onChange={(e) => discovery({ technology: e.target.value || null })} /></label>
+          <label title="For sites (plants, offices) of one company">Sites of company
+            <input value={spec.discovery.parent_company ?? ""} placeholder="e.g. Ford"
+              onChange={(e) => discovery({ parent_company: e.target.value || null })} /></label>
           <label>Max websites<input type="number" min={1} value={spec.discovery.max_results}
             onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, max_results: +e.target.value } })} /></label>
         </div>
         <p className="muted small">Discovery: {spec.discovery.providers.join(", ")}
           {spec.discovery.industry && <> · industry “{spec.discovery.industry}”</>}
+          {spec.discovery.technology && <> · uses “{spec.discovery.technology}”</>}
+          {spec.discovery.parent_company && <> · sites of “{spec.discovery.parent_company}”</>}
           {spec.discovery.region && <> · region {spec.discovery.region}</>}
           {spec.discovery.countries.length > 0 && <> · {spec.discovery.countries.join(", ")}
             {(spec.discovery.strict_countries ?? true) ? " only" : " preferred"}</>}
