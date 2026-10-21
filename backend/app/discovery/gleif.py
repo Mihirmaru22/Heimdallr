@@ -28,6 +28,7 @@ from app.discovery.providers import (
     wd_label,
 )
 from app.spec.models import ExtractionSpec
+from app.spec.spelling import spellings, to_us
 
 API = "https://api.gleif.org/api/v1/lei-records"
 PAGE_SIZE = 200  # GLEIF's maximum
@@ -42,6 +43,7 @@ NAME_WORDS = {
     "technology": ["technologies", "technology", "software"], "banking": ["bank"], "bank": ["bank"],
     "insurance": ["insurance", "assurance"], "logistics": ["logistics"], "automotive": ["automotive", "motors"],
     "cybersecurity": ["cybersecurity", "cyber"], "semiconductors": ["semiconductor", "semiconductors"],
+    "defense": ["defense", "defence", "aerospace"],
 }
 SKIP_CATEGORIES = {"FUND", "BRANCH", "SOLE_PROPRIETOR"}
 FUND_NAME_RE = re.compile(r"\b(fund|funds|fonds|sicav|trust|etf|portfolio|pension|spv|securiti[sz]ation)\b", re.I)
@@ -49,10 +51,10 @@ WIKIDATA_BATCH = 10  # LEIs per Wikidata search; search queries are limited to a
 
 
 def name_words(industry: str) -> list[str]:
-    term = industry.lower().strip()
+    term = to_us(industry.lower().strip())
     if term in NAME_WORDS:
         return NAME_WORDS[term]
-    words = [w for w in re.findall(r"[a-z]+", term) if len(w) >= 3]
+    words = [v for w in re.findall(r"[a-z]+", term) if len(w) >= 3 for v in spellings(w)]
     return list(dict.fromkeys(words + [w + "s" for w in words if not w.endswith("s")]))[:4]
 
 

@@ -27,6 +27,7 @@ from app.db import session_scope, utcnow
 from app.discovery.providers import WIKIDATA_API, DiscoveryError, DiscoveryResult, WikidataProvider, wd_label
 from app.models import SecCompany
 from app.spec.models import ExtractionSpec
+from app.spec.spelling import to_us
 
 log = logging.getLogger("webdata.sec")
 
@@ -44,6 +45,9 @@ SYNONYMS = {
     "tech": ["software", "computer", "semiconductor", "electronic computers"],
     "technology": ["software", "computer", "semiconductor", "electronic computers"],
     "medical devices": ["surgical", "medical", "electromedical"],
+    # Defense has no SIC code of its own: weapons, missiles, military electronics, aircraft and warships.
+    "defense": ["ordnance", "guided missiles", "search, detection", "aircraft", "ship & boat"],
+    "aerospace": ["aircraft", "guided missiles", "search, detection"],
 }
 # Tech niches newer than SEC's industry codes: SEC files CrowdStrike and Microsoft alike under "Prepackaged
 # Software", so for these it cannot say who belongs and is skipped (Wikidata and web search still run).
@@ -156,7 +160,7 @@ def _words(text: str) -> list[str]:
 
 def sic_codes_for(industry: str, descriptions: dict[str, str]) -> list[str]:
     """SIC codes whose description mentions the industry ("pharmaceutical" -> 2834 Pharmaceutical Preparations)."""
-    term = industry.lower().strip()
+    term = to_us(industry.lower().strip())
     stems = list(SYNONYMS.get(term, []))
     for w in _words(term):
         stems += SYNONYMS.get(w, [w[:7] if len(w) > 7 else w])

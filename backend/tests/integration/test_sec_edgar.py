@@ -104,6 +104,12 @@ def test_industry_words_map_to_sic_codes():
     assert sic_codes_for("tech", {**descriptions, "3674": "Semiconductors & Related Devices",
                                   "7370": "Services-Computer Programming, Data Processing, Etc."}) == \
         ["3674", "7370", "7372"]
+    defense = {"3480": "Ordnance & Accessories, (No Vehicles/Guided Missiles)", "3721": "Aircraft",
+               "3760": "Guided Missiles & Space Vehicles & Parts", "3731": "Ship & Boat Building & Repairing",
+               "3812": "Search, Detection, Navigation, Guidance, Aeronautical Sys", "4412": "Deep Sea Freight"}
+    # The British spelling finds the same codes as the American one.
+    assert sic_codes_for("defence", defense) == sic_codes_for("defense", defense) == \
+        ["3480", "3721", "3731", "3760", "3812"]
 
 
 async def test_discovery_finds_listed_companies_and_their_websites(db_clean):

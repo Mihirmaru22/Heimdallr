@@ -79,3 +79,5 @@ def test_name_words():
     assert name_words("pharmaceutical") == ["pharmaceutical", "pharmaceuticals", "pharma"]
     assert name_words("logistics") == ["logistics"]
     assert name_words("chemical") == ["chemical", "chemicals"]
+    assert name_words("defence") == ["defense", "defence", "aerospace"]
+    assert name_words("aluminium") == ["aluminum", "aluminium", "aluminums", "aluminiums"]

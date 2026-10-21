@@ -17,6 +17,7 @@ from app.crawl.urlnorm import registered_domain
 from app.discovery.providers import COUNTRY_QIDS
 from app.extract.deterministic import PageDoc, _address_text, _orgs
 from app.spec.models import ExtractionSpec
+from app.spec.spelling import spellings, to_us
 
 # Other ways sites write an industry ("cyber security", "financial technology").
 INDUSTRY_WORDS = {
@@ -25,6 +26,7 @@ INDUSTRY_WORDS = {
     "ai": ["artificial intelligence", " ai ", "machine learning", "ai-powered", "genai"],
     "saas": ["saas", "software", "platform"], "biotech": ["biotech", "biolog", "therapeut"],
     "pharma": ["pharma"], "healthtech": ["health"],
+    "defense": ["defense", "military", "armed forces"], "aerospace": ["aerospace", "aircraft", "aviation"],
 }
 STOP = {"and", "the", "for", "companies", "company", "industry", "sector", "firms", "startups", "services"}
 # Country-code domains that are used worldwide as generic names and say nothing about location.
@@ -68,11 +70,15 @@ def outside_countries_reason(doc: PageDoc, spec: ExtractionSpec, method: str, hi
 
 def industry_terms(industry: str) -> list[str]:
     term = industry.lower().strip()
-    if term in INDUSTRY_WORDS:
-        return [term, *INDUSTRY_WORDS[term]]
-    words = [w for w in re.findall(r"[a-z]+", term) if len(w) >= 3 and w not in STOP]
-    # "pharmaceutical" also matches "pharma", "manufacturing" also "manufacturer".
-    return [term] + [w[:6] if len(w) > 7 else w for w in words]
+    us = to_us(term)
+    if us in INDUSTRY_WORDS:
+        terms = [term, us, *INDUSTRY_WORDS[us]]
+    else:
+        words = [w for w in re.findall(r"[a-z]+", term) if len(w) >= 3 and w not in STOP]
+        # "pharmaceutical" also matches "pharma", "manufacturing" also "manufacturer".
+        terms = [term] + [w[:6] if len(w) > 7 else w for w in words]
+    # A UK "defence" company and a US "defense" company are both a match, whichever way it was typed.
+    return list(dict.fromkeys(v for t in terms for v in spellings(t)))
 
 
 def off_topic_reason(doc: PageDoc, spec: ExtractionSpec, check_country: bool = True) -> str | None:

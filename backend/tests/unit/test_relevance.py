@@ -72,3 +72,12 @@ def test_wikidata_results_are_checked_for_the_industry_but_not_the_country():
     assert "does not mention" in off_topic_reason(it_firm, spec, check_country=False)
     abroad = _doc("https://acme.de/", "<p>Pharmaceutical maker</p>")
     assert off_topic_reason(abroad, spec, check_country=False) is None
+
+
+def test_british_and_american_spellings_both_match():
+    from app.discovery.relevance import industry_terms
+
+    for typed in ("defence", "defense", "Defence"):
+        terms = industry_terms(typed)
+        assert "defense" in terms and "defence" in terms
+    assert "aluminum" in industry_terms("aluminium") and "aluminium" in industry_terms("aluminum")
