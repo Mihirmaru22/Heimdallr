@@ -73,3 +73,18 @@ def same_site(url: str, allowed_domains: set[str]) -> bool:
 
 def looks_like_page(url: str) -> bool:
     return not urlsplit(url).path.lower().endswith(SKIP_EXTENSIONS)
+
+
+def homepage(url: str) -> str:
+    """A company's website as people write it: "https://oushadhi.org/category.php?slug=x" -> "https://oushadhi.org/".
+
+    A one-segment language or country path is kept ("https://neulandlabs.com/en"); anything deeper, a file
+    or a query string means the registry pointed at an inner page, so the site's root is used.
+    """
+    p = urlsplit(url)
+    if not p.scheme or not p.netloc:
+        return url
+    path = p.path.strip("/")
+    if p.query or "/" in path or "." in path or len(path) > 5:
+        path = ""
+    return urlunsplit((p.scheme, p.netloc, f"/{path}" if path else "/", "", ""))

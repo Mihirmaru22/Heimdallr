@@ -24,6 +24,7 @@ from app.crawl.netguard import BlockedDestination, check_url, make_client
 from app.crawl.politeness import LocalPoliteness, RedisPoliteness
 from app.crawl.robots import RobotsCache
 from app.crawl.urlnorm import (
+    homepage,
     host_of,
     looks_like_page,
     normalize_url,
@@ -33,6 +34,7 @@ from app.crawl.urlnorm import (
 from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError, providers_for
 from app.discovery.relevance import off_topic_reason, outside_countries_reason
+from app.discovery.sitecheck import SiteChecker
 from app.extract.deterministic import extract_page, parse_page, prefer_country_phones
 from app.models import CrawlJob, CrawlJobEvent, DiscoveredUrl, DomainPolicy, FetchedPage, UrlStatus
 from app.services.state_machine import log_event
@@ -65,6 +67,8 @@ class CrawlRunner:
         self.max_records = max_records
         self.activity: list[dict[str, Any]] = []
         self.last_records = (0, 0)
+        self.site_checker = SiteChecker()
+        self.told_unchecked = False
         self.settings = get_settings()
         self.resolver = resolver
         self.client = client or (make_client(resolver=resolver) if resolver else make_client())
@@ -370,6 +374,15 @@ class CrawlRunner:
             # A search result is only a link, and anyone can tag their own Wikidata item with an industry;
             # check the homepage before spending crawl budget on the site.
             reason = off_topic_reason(doc, self.spec, check_country=row.method == "searxng")
+            if not reason and row.method == "searxng":
+                # Mentioning the industry is not being in it: lists, associations, shops and IT firms do too.
+                reason, by = await self.site_checker.check(doc, self.spec)
+                if not reason and by.startswith("model:"):
+                    self.note("search", f"Checked {site} with free model {by[6:]}: a company in the industry", final)
+                elif by.startswith("unchecked") and not self.told_unchecked:
+                    self.told_unchecked = True
+                    self.note("skipped", f"Web search results are not checked by a model ({by[11:]}); "
+                                         "only rules are applied", final)
             if reason:
                 self.allowed_sites.discard(site)
                 self._finish(row.id, UrlStatus.skipped, f"{row.method} result dropped: {reason}")
@@ -394,6 +407,8 @@ class CrawlRunner:
                 if key.startswith("_"):
                     continue
                 # A hint fills the field of that name, or any field using that extractor ("company_industry").
+                if key == "website_url" and isinstance(value, str):
+                    value = homepage(value)  # a registry pointing at an inner page names the site's root
                 for name in [f.name for f in self.spec.fields if key in (f.name, f.semantic.value)]:
                     candidates.setdefault(name, []).append({
                         # A curated registry label beats what a page calls itself ("JNJ.com").
@@ -500,5 +515,6 @@ class CrawlRunner:
                     ).values(status=UrlStatus.skipped, status_reason="job page budget reached"))
             if self.client is not None:
                 await self.client.aclose()
+            await self.site_checker.aclose()
         self.counts_cache = self.counts()
         return self.counts_cache
