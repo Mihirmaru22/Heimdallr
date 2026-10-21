@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -35,6 +36,10 @@ PER_MINUTE = 20
 CATALOG_TTL = 6 * 3600
 MODEL_COOLDOWN = 600  # seconds a failing model is skipped
 MAX_MODELS_PER_CALL = 3
+# Free models built for one narrow job (moderation, code, embeddings) are no use for reading web pages.
+SPECIALIZED_RE = re.compile(r"safety|guard|moderat|code|coder|embed|rerank|tts|audio|ocr", re.I)
+# Room for a reasoning model's thinking before its answer; with too little, the answer comes back empty.
+MIN_TOKENS = 1024
 
 
 class LLMUnavailable(Exception):
@@ -69,7 +74,7 @@ def is_free(model: dict[str, Any]) -> bool:
 
 def rank_models(models: list[dict[str, Any]], preferred: list[str]) -> list[str]:
     """Free model ids, best first: the admin's preference order, then ones that can return JSON, then context size."""
-    free = [m for m in models if is_free(m)]
+    free = [m for m in models if is_free(m) and (m["id"] in preferred or not SPECIALIZED_RE.search(m["id"]))]
 
     def key(m: dict[str, Any]) -> tuple:
         mid = m["id"]
@@ -280,11 +285,14 @@ class OpenRouter:
             raise LLMUnavailable("no free model is available right now")
         http = await self._http()
         tried: list[str] = []
-        last = "no model answered"
+        problems: list[str] = []
         for model in candidates[:MAX_MODELS_PER_CALL]:
             tried.append(model)
-            payload: dict[str, Any] = {"model": model, "messages": messages, "max_tokens": max_tokens,
-                                       "temperature": temperature, "usage": {"include": True}}
+            # Reasoning models spend tokens thinking first, so the limit has a floor, and their thinking is
+            # left out of the reply (`exclude`) since only the answer is used.
+            payload: dict[str, Any] = {"model": model, "messages": messages,
+                                       "max_tokens": max(max_tokens, MIN_TOKENS), "temperature": temperature,
+                                       "reasoning": {"effort": "low", "exclude": True}, "usage": {"include": True}}
             if json_mode:
                 payload["response_format"] = {"type": "json_object"}
             try:
@@ -292,7 +300,7 @@ class OpenRouter:
             except httpx.HTTPError as exc:
                 state.count_failure(model, "network")
                 state.cool_down(model, 120)
-                last = f"{model}: {type(exc).__name__}"
+                problems.append(f"{model}: {type(exc).__name__}")
                 continue
             state.count_request(model, resp.status_code == 200)
             try:
@@ -307,7 +315,7 @@ class OpenRouter:
                     raise LLMUnavailable("today's free model allowance is used up; it resets at midnight UTC")
                 state.count_failure(model, "rate_limited")
                 state.cool_down(model, 120)  # the model's upstream is busy; try another free one
-                last = f"{model}: rate limited"
+                problems.append(f"{model}: rate limited")
                 continue
             if resp.status_code == 402:
                 # Free models can refuse a key whose balance went negative; never top up from here.
@@ -315,19 +323,21 @@ class OpenRouter:
             if resp.status_code != 200 or error:
                 state.count_failure(model, f"http_{resp.status_code}")
                 state.cool_down(model)
-                last = f"{model}: HTTP {resp.status_code}"
+                problems.append(f"{model}: HTTP {resp.status_code} {str((error or {}).get('message', ''))[:120]}")
                 continue
             self._check_reply(model, body)
             choices = body.get("choices") or []
             text = ((choices[0] if choices else {}).get("message") or {}).get("content") or ""
             if not text.strip():
                 state.count_failure(model, "empty")
-                last = f"{model}: empty reply"
+                state.cool_down(model, 120)
+                finish = (choices[0] if choices else {}).get("finish_reason")
+                problems.append(f"{model}: empty reply (finish_reason={finish})")
                 continue
             usage = body.get("usage") or {}
             return Reply(text, model, int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0),
                          tried)
-        raise LLMUnavailable(f"no free model answered ({last})")
+        raise LLMUnavailable("no free model answered: " + "; ".join(problems))
 
     async def aclose(self) -> None:
         if self.client is not None:

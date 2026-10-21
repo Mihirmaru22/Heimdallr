@@ -63,9 +63,10 @@ def llm(cmd: str) -> None:
                 print(json.dumps(await router.status(), indent=2))
             else:
                 reply = await router.chat([{"role": "user", "content": "Reply with the single word: ready"}],
-                                          max_tokens=10)
-                print(f"{reply.model} answered: {reply.text.strip()!r} (free; {router._state().used_today()} "
-                      f"of {router._state().daily_limit()} requests used today)")
+                                          max_tokens=50)
+                tried = f" after trying {', '.join(reply.attempts[:-1])}" if len(reply.attempts) > 1 else ""
+                print(f"{reply.model} answered: {reply.text.strip()!r}{tried} (free; "
+                      f"{router._state().used_today()} of {router._state().daily_limit()} requests used today)")
         except LLMUnavailable as exc:
             sys.exit(f"Not available: {exc}")
         finally:

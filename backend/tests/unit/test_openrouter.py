@@ -141,3 +141,29 @@ def test_reply_json_tolerates_a_code_fence():
     from app.llm.openrouter import Reply
 
     assert Reply('```json\n{"a": 1}\n```', "m").json() == {"a": 1}
+
+
+def test_specialized_free_models_are_not_used_unless_preferred():
+    from app.llm.openrouter import rank_models
+
+    safety = {**FREE_SMALL, "id": "nvidia/nemotron-3.5-content-safety:free"}
+    coder = {**FREE_SMALL, "id": "cohere/north-mini-code:free"}
+    assert rank_models([safety, coder, FREE], []) == ["good/model-70b:free"]
+    assert rank_models([coder, FREE], ["cohere/north-mini-code:free"])[0] == "cohere/north-mini-code:free"
+
+
+async def test_an_empty_answer_moves_on_and_every_failure_is_reported():
+    sent = []
+
+    def handler(request):
+        body = httpx.Response(200, content=request.content).json()
+        sent.append(body)
+        return httpx.Response(200, json={"model": body["model"], "usage": {"cost": 0},
+                                         "choices": [{"message": {"content": ""}, "finish_reason": "length"}]})
+    router, _ = gateway(handler)
+    with pytest.raises(LLMUnavailable) as exc:
+        await router.chat([{"role": "user", "content": "hi"}], max_tokens=10)
+    assert "good/model-70b:free: empty reply (finish_reason=length)" in str(exc.value)
+    assert "small/model-8b:free: empty reply" in str(exc.value)
+    # A reasoning model gets room to think before it answers, and its thinking is not sent back.
+    assert sent[0]["max_tokens"] >= 1024 and sent[0]["reasoning"] == {"effort": "low", "exclude": True}
