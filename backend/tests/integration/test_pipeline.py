@@ -173,7 +173,8 @@ def test_a_later_source_fills_hints_for_a_site_found_earlier(db_clean, crawl_env
         Source("wikidata", {"company_name": "Acme Security", "_source": "wd"}),
         Source("sec_edgar", {"company_name": "ACME SECURITY INC", "industry": "Software", "_source": "sec"})])
     fields = [*FIELDS, {"name": "company_industry", "type": "string", "semantic": "industry"}]
-    job_id, org_id = make_job([], fields=fields, discovery={"providers": ["wikidata", "sec_edgar"], "industry": "security"})
+    job_id, org_id = make_job([], fields=fields,
+                              discovery={"providers": ["wikidata", "sec_edgar"], "industry": "security"})
     assert pipeline.run_job(job_id, resolver=crawl_env["resolver"]) == "completed"
     with session_scope(org_id) as db:
         seeds = db.execute(select(DiscoveredUrl).where(DiscoveredUrl.job_id == job_id,
