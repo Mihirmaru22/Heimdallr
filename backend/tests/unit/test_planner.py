@@ -23,16 +23,27 @@ class FakeRouter:
 
 async def test_a_technology_question_becomes_a_plan_with_its_filters():
     router = FakeRouter({"rows": "companies", "technology": "Teamcenter", "countries": ["USA"],
+                         "technology_aliases": ["Siemens Teamcenter", " ", "Siemens Teamcenter"],
                          "details": ["contact_email", "phone", "address", "not_a_detail"], "max_results": 40})
     spec, by, notes = await plan_spec("give me the list of the companies in usa who uses teamcenter "
                                       "with contact info and address", [], router)
     assert by == "model:minimax/minimax-m3.1-flash:free"
-    assert [f.name for f in spec.fields] == ["company_name", "website_url", "contact_email", "phone", "address"]
+    assert [f.name for f in spec.fields] == ["company_name", "website_url", "uses_technology", "contact_email",
+                                             "phone", "address", "evidence", "evidence_url", "evidence_date",
+                                             "evidence_type"]
+    assert spec.fields[2].label == "Uses Teamcenter"
     d = spec.discovery
     assert d.countries == ["US"] and d.technology == "Teamcenter" and d.max_results == 40
-    assert "searxng" in d.providers and "sec_edgar" not in d.providers  # no industry for SEC to look up
-    assert any("not applied yet" in n for n in notes)
+    assert d.technology_aliases == ["Siemens Teamcenter"]
+    assert d.providers == ["sec_filings"]  # only sources that bring proof
+    assert any("SEC filings" in n for n in notes) and not any("No proof source" in n for n in notes)
     assert spec.deduplication_keys == ["website_url"] and spec.record_scope == "site"
+
+
+async def test_a_technology_question_outside_the_us_says_nothing_covers_it_yet():
+    router = FakeRouter({"rows": "companies", "technology": "SAP", "countries": ["DE"]})
+    _spec, _by, notes = await plan_spec("german companies using sap", [], router)
+    assert any("No proof source covers DE" in n for n in notes)
 
 
 async def test_sites_of_one_company_with_a_custom_detail():

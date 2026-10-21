@@ -36,17 +36,29 @@ from app.discovery.providers import DiscoveryError, providers_for
 from app.discovery.relevance import off_topic_reason, outside_countries_reason
 from app.discovery.sitecheck import SiteChecker
 from app.extract.deterministic import extract_page, parse_page, prefer_country_phones
-from app.models import CrawlJob, CrawlJobEvent, DiscoveredUrl, DomainPolicy, FetchedPage, UrlStatus
+from app.models import (
+    CrawlJob,
+    CrawlJobEvent,
+    DiscoveredUrl,
+    DomainPolicy,
+    Evidence,
+    FetchedPage,
+    UrlStatus,
+)
 from app.services.state_machine import log_event
 from app.spec.models import ExtractionSpec, Semantic
 
 log = logging.getLogger("webdata.crawl")
 # A registry's name, official website and founding year beat what pages say ("JNJ.com"; a JSON-LD url on
 # cascade.boeing.com; "our plant was established in 2007").
-REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year": 0.85}
+REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year": 0.85,
+                       # proof quoted word for word from the company's own filing, judged and dated
+                       "uses_technology": 0.95, "evidence": 0.95, "evidence_url": 0.95, "evidence_date": 0.95,
+                       "evidence_type": 0.95}
+REGISTRY_METHODS = ("wikidata", "sec_edgar", "gleif", "sec_filings")
 LEASE = timedelta(minutes=5)
 SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
-                "gleif": "GLEIF", "searxng": "web search"}
+                "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings"}
 RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
 
 
@@ -170,22 +182,29 @@ class CrawlRunner:
         found = 0  # sites from discovery sources (not the user's own URLs), capped at max_results
         by_site: dict[str, dict[str, Any]] = {}
         per_provider: list[list[Any]] = []
-        for provider in providers_for(self.spec):
-            label = SOURCE_NAMES.get(provider.name, provider.name)
-            if provider.name != "seeds":
-                self.note("search", self._discovery_line(provider.name), source=provider.name)
-                self.flush_activity()
-            try:
-                results = await provider.discover(self.spec)
-                per_provider.append(results)
+        flusher = asyncio.create_task(self._flush_every_second())  # sources that read documents report live
+        try:
+            for provider in providers_for(self.spec):
+                label = SOURCE_NAMES.get(provider.name, provider.name)
                 if provider.name != "seeds":
-                    self.note("search", f"{label[0].upper()}{label[1:]} returned {len(results)} website(s)",
-                              source=provider.name)
-            except DiscoveryError as exc:
-                errors.append(f"{provider.name}: {exc}")
-                self.note("failed", f"{label}: {exc}", source=provider.name)
-            self.flush_activity()
-            notes += getattr(provider, "notes", [])
+                    self.note("search", self._discovery_line(provider.name), source=provider.name)
+                    self.flush_activity()
+                if hasattr(provider, "on_note"):
+                    provider.on_note = self.note
+                try:
+                    results = await provider.discover(self.spec)
+                    per_provider.append(results)
+                    if provider.name != "seeds":
+                        self.note("search", f"{label[0].upper()}{label[1:]} returned {len(results)} website(s)",
+                                  source=provider.name)
+                except DiscoveryError as exc:
+                    errors.append(f"{provider.name}: {exc}")
+                    self.note("failed", f"{label}: {exc}", source=provider.name)
+                self.save_evidence(provider.name, getattr(provider, "evidence", []))
+                self.flush_activity()
+                notes += getattr(provider, "notes", [])
+        finally:
+            flusher.cancel()
         # Take results from the sources in turn (Wikidata, SEC, web search, Wikidata...), so the first
         # source cannot fill the whole budget on its own and every source contributes companies.
         ordered = [r for group in zip_longest(*per_provider) for r in group if r is not None]
@@ -223,6 +242,21 @@ class CrawlRunner:
         self.allowed_sites = {registered_domain(i["url"]) for i in items}
         self.allowed_sites |= {registered_domain(d) for d in self.spec.crawl.allowed_domains}
         return self.add_urls(items)
+
+    def save_evidence(self, source: str, evidence: list[dict[str, Any]]) -> None:
+        """Every piece of proof a source looked at, kept or rejected, for the Evidence and Rejected sheets."""
+        if not evidence:
+            return
+        cols = {c.name: getattr(c.type, "length", None) for c in Evidence.__table__.columns
+                if c.name not in ("id", "org_id", "job_id", "created_at")}
+
+        def clip(k: str, v: Any) -> Any:
+            return v[:cols[k]] if isinstance(v, str) and cols[k] else v
+
+        with session_scope(self.org_id) as db:
+            db.add_all([Evidence(org_id=self.org_id, job_id=self.job_id,
+                                 **{k: clip(k, v) for k, v in e.items() if k in cols}) for e in evidence])
+        evidence.clear()
 
     def _restore_scope(self) -> None:
         """On resume, the crawl scope is the set of sites the seeds belonged to."""
@@ -414,7 +448,7 @@ class CrawlRunner:
                         # A curated registry label beats what a page calls itself ("JNJ.com").
                         "value": value, "method": row.method,
                         "confidence": REGISTRY_CONFIDENCE.get(key, 0.7)
-                        if row.method in ("wikidata", "sec_edgar", "gleif") else 0.7,
+                        if row.method in REGISTRY_METHODS else 0.7,
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
         with session_scope(self.org_id) as db:
             db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=row.id, final_url=final,

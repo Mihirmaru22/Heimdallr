@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { FieldSpec, Spec } from "../api";
 
 const TYPES = ["string", "text", "url", "email", "phone", "number", "integer", "date", "boolean", "list"];
-const DISCOVERY: [string, string][] = [["seeds", "start URLs"], ["wikidata", "Wikidata"], ["searxng", "web search (SearXNG)"], ["sec_edgar", "SEC EDGAR (US listed)"], ["gleif", "GLEIF (global register)"]];
+const DISCOVERY: [string, string][] = [["seeds", "start URLs"], ["wikidata", "Wikidata"], ["searxng", "web search (SearXNG)"], ["sec_edgar", "SEC EDGAR (US listed)"], ["gleif", "GLEIF (global register)"], ["sec_filings", "SEC filings: proof of technology use"]];
 const SEMANTICS = ["none", "company_name", "website_url", "contact_email", "phone", "address", "headquarters",
   "country", "description", "page_title", "social_links", "pricing", "founded_year", "product_categories",
   "industry", "source_url"];
@@ -142,9 +142,13 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
           <label className="check" title="Leave out any company not confirmed to be in these countries">
             <input type="checkbox" checked={spec.discovery.strict_countries ?? true} disabled={!spec.discovery.countries.length}
               onChange={(e) => discovery({ strict_countries: e.target.checked })} /> Only these countries</label>
-          <label title="Only companies that use this (filter arrives in the next step)">Uses technology
+          <label title="Only companies with written proof that they use this (SEC filings source)">Uses technology
             <input value={spec.discovery.technology ?? ""} placeholder="e.g. Teamcenter"
               onChange={(e) => discovery({ technology: e.target.value || null })} /></label>
+          <label title="Other names the product is written as, comma separated">Also written as
+            <input defaultValue={(spec.discovery.technology_aliases ?? []).join(", ")} placeholder="e.g. Siemens Teamcenter"
+              disabled={!spec.discovery.technology}
+              onBlur={(e) => discovery({ technology_aliases: e.target.value.split(",").map((a) => a.trim()).filter(Boolean).slice(0, 8) })} /></label>
           <label title="For sites (plants, offices) of one company">Sites of company
             <input value={spec.discovery.parent_company ?? ""} placeholder="e.g. Ford"
               onChange={(e) => discovery({ parent_company: e.target.value || null })} /></label>

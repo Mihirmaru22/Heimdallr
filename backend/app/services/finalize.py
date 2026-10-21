@@ -14,6 +14,10 @@ from app.extract.records import PageCandidates, assemble_record, dedupe_key
 from app.models import ExtractedRecord, FetchedPage, FieldValue
 from app.spec.models import ExtractionSpec
 
+# A technology question keeps only companies whose proof says they use it; a mere mention stays visible in the
+# table, marked excluded, so the person can include it by hand.
+USES = {"Confirmed", "Likely"}
+
 
 def _page_candidates(page: FetchedPage) -> PageCandidates:
     cands = {
@@ -57,6 +61,8 @@ def finalize_job(job_id: uuid.UUID, org_id: uuid.UUID, spec: ExtractionSpec, max
                 db.add(record)
             record.data = assembled.data
             record.status = assembled.status
+            if spec.discovery.technology and "uses_technology" in {f.name for f in spec.fields}:
+                record.excluded = assembled.data.get("uses_technology") not in USES
             record.quality_score = assembled.quality
             record.source_urls = assembled.source_urls or [p.final_url for p in group_pages[:5]]
             record.updated_at = utcnow()

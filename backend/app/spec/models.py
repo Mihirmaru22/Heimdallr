@@ -124,7 +124,7 @@ class CrawlSettings(BaseModel):
 
 class DiscoverySettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    providers: list[Literal["seeds", "wikidata", "searxng", "sec_edgar", "gleif"]] = Field(
+    providers: list[Literal["seeds", "wikidata", "searxng", "sec_edgar", "gleif", "sec_filings"]] = Field(
         default_factory=lambda: ["seeds"])
     industry: str | None = Field(default=None, max_length=100)
     countries: list[str] = Field(default_factory=list, max_length=60)  # ISO 3166-1 alpha-2
@@ -144,10 +144,13 @@ class DiscoverySettings(BaseModel):
     region: Literal["europe", "north_america", "asia", "africa", "south_america", "oceania"] | None = None
     keywords: list[str] = Field(default_factory=list, max_length=10)
     max_results: int = Field(default=50, ge=1, le=1000)
-    # Filters read from a plain-language question that discovery does not apply yet (later steps of the plan):
-    # a technology the company uses ("Teamcenter") and the company whose sites are wanted ("Ford").
+    # A technology the companies must use ("Teamcenter"), with other names it goes by ("TcPLM"); found with
+    # proof by the evidence sources (sec_filings). The company whose sites are wanted ("Ford") is a later step.
     technology: str | None = Field(default=None, max_length=100)
+    technology_aliases: list[str] = Field(default_factory=list, max_length=8)
     parent_company: str | None = Field(default=None, max_length=100)
+    # How far back proof may date, in years.
+    evidence_years: int = Field(default=3, ge=1, le=20)
 
 
 class ExtractionSpec(BaseModel):

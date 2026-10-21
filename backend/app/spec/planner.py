@@ -18,6 +18,16 @@ from app.llm.openrouter import LLMUnavailable, OpenRouter
 from app.spec.interpret import FIELD_CATALOG, interpret, is_tech_niche
 from app.spec.models import ExtractionSpec, FieldSpec, FieldType, Semantic
 
+# Columns of a technology question: the verdict and the proof behind it, one row per company.
+PROOF_FIELDS = [
+    ("evidence", "Proof (quoted)", FieldType.text, "the sentence of the source that shows the company uses it"),
+    ("evidence_url", "Proof link", FieldType.url, "where the quoted sentence is"),
+    ("evidence_date", "Proof date", FieldType.date, "when the source was published or filed"),
+    ("evidence_type", "Proof source", FieldType.string, "what kind of source it is (SEC filing 10-K...)"),
+]
+# Countries the evidence sources cover today; others arrive with later sources (company sites, job boards).
+PROOF_COUNTRIES = {"US"}
+
 # Details the person can tick, keyed by field name, in the order they appear in the form.
 DETAILS = {name: (ftype, semantic) for _phrases, name, ftype, semantic in FIELD_CATALOG}
 REGIONS = ["europe", "north_america", "asia", "africa", "south_america", "oceania"]
@@ -29,6 +39,8 @@ Fields of the plan:
   company) or "people".
 - "industry": the industry in a few plain words ("pharmaceutical", "cybersecurity"), or null.
 - "technology": a product or technology the companies must use ("Teamcenter", "SAP ERP"), or null.
+- "technology_aliases": other names that same product is written as in reports ("Teamcenter PLM",
+  "Siemens Teamcenter"), at most 5, else []. Never the vendor's name alone.
 - "parent_company": for "sites", the company that owns them ("Ford"), else null.
 - "countries": ISO 3166-1 alpha-2 codes of the countries asked for (USA -> "US", UK -> "GB"), else [].
 - "region": one of {REGIONS} when a continent is asked for instead of countries, else null.
@@ -53,6 +65,7 @@ class Plan(BaseModel):
     rows: Literal["companies", "sites", "people"] = "companies"
     industry: str | None = Field(default=None, max_length=100)
     technology: str | None = Field(default=None, max_length=100)
+    technology_aliases: list[str] = Field(default_factory=list, max_length=8)
     parent_company: str | None = Field(default=None, max_length=100)
     countries: list[str] = Field(default_factory=list, max_length=60)
     region: Literal["europe", "north_america", "asia", "africa", "south_america", "oceania"] | None = None
@@ -72,6 +85,11 @@ class Plan(BaseModel):
     @classmethod
     def _details(cls, v: list[str]) -> list[str]:
         return [d for d in dict.fromkeys(v) if d in DETAILS]
+
+    @field_validator("technology_aliases")
+    @classmethod
+    def _aliases(cls, v: list[str]) -> list[str]:
+        return list(dict.fromkeys(a.strip()[:60] for a in v if a and a.strip()))[:5]
 
     @field_validator("industry", "technology", "parent_company")
     @classmethod
@@ -108,15 +126,25 @@ def spec_from_plan(plan: Plan, question: str, start_urls: list[str]) -> Extracti
                                 description=c.description))
     if not fields:
         fields = base.fields
+    if plan.technology and plan.rows == "companies":
+        fields.insert(2, FieldSpec(name="uses_technology", label=f"Uses {plan.technology}"[:80],
+                                   type=FieldType.string, required=True,
+                                   description="Confirmed, Likely or Mentioned, from the proof columns"))
+        fields += [FieldSpec(name=n, label=label, type=t, description=desc) for n, label, t, desc in PROOF_FIELDS
+                   if n not in used]
 
     d = base.discovery.model_copy()
     d.industry, d.countries, d.region = plan.industry, plan.countries, None if plan.countries else plan.region
     d.keywords = [k[:60] for k in plan.keywords]
     d.technology, d.parent_company = plan.technology, plan.parent_company
+    d.technology_aliases = plan.technology_aliases if plan.technology else []
     d.max_results = plan.max_results or base.discovery.max_results
     if not base.crawl.start_urls:
         providers: list[Any] = []
-        if d.industry or d.countries or d.region or d.technology or d.keywords:
+        if d.technology and plan.rows == "companies":
+            # Only sources that bring proof: a company list without proof would be dropped at the end anyway.
+            providers = ["sec_filings"]
+        elif d.industry or d.countries or d.region or d.technology or d.keywords:
             providers = ["wikidata", "searxng"]
             if ("US" in d.countries or d.region == "north_america") and d.industry and not is_tech_niche(d.industry):
                 providers.insert(1, "sec_edgar")
@@ -130,6 +158,19 @@ def spec_from_plan(plan: Plan, question: str, start_urls: list[str]) -> Extracti
         crawl=crawl, discovery=d)
 
 
+def technology_notes(spec: ExtractionSpec) -> list[str]:
+    d = spec.discovery
+    where = set(d.countries) or ({"US"} if d.region in (None, "north_america") else set())
+    notes = [f"Only companies with written proof that they use {d.technology} are kept. Proof comes from "
+             f"companies' own SEC filings (US-listed companies, last {d.evidence_years} years); each row "
+             "shows the quoted sentence, its link and date. Company websites, job ads and vendor case "
+             "studies are later steps, so private and smaller companies are not covered yet."]
+    if not where & PROOF_COUNTRIES:
+        notes.append("No proof source covers " + (", ".join(sorted(where)) if where else "that region")
+                     + " yet; this run would find nothing until those steps land.")
+    return notes
+
+
 async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | None = None
                     ) -> tuple[ExtractionSpec, str, list[str]]:
     """(spec, who read it: "model:<id>" or "rules", notes for the person)."""
@@ -141,9 +182,8 @@ async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | N
         plan = Plan.model_validate(reply.json())
         spec = spec_from_plan(plan, question, start_urls)
         notes = []
-        if plan.technology:
-            notes.append(f"Filter on companies that use {plan.technology!r} is not applied yet (next step of the "
-                         "plan); this run would return companies regardless of the technology.")
+        if plan.technology and plan.rows == "companies":
+            notes += technology_notes(spec)
         if plan.parent_company:
             notes.append(f"Finding the sites of {plan.parent_company!r} is not built yet (a later step); "
                          "add its website as a starting website meanwhile.")

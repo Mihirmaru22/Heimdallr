@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import session_scope, utcnow
 from app.export.xlsx import ExportOptions, ExportRecord, build_workbook
-from app.models import CrawlJob, Export, ExtractedRecord, ExtractionSchema, FieldValue, Project
+from app.models import CrawlJob, Evidence, Export, ExtractedRecord, ExtractionSchema, FieldValue, Project
 from app.services.common import org_limits, record_usage
 from app.spec.models import ExtractionSpec
 
@@ -54,6 +54,12 @@ def _records(db, export: Export, spec: ExtractionSpec, max_rows: int) -> list[Ex
     return [ExportRecord(str(r.id), r.data, r.status, r.quality_score, r.source_urls, fvs[r.id]) for r in rows]
 
 
+def _evidence(db, job_id: uuid.UUID) -> list[dict]:
+    rows = db.execute(select(Evidence).where(Evidence.job_id == job_id)
+                      .order_by(Evidence.kept.desc(), Evidence.strength.desc(), Evidence.company)).scalars().all()
+    return [{c.name: getattr(e, c.name) for c in Evidence.__table__.columns} for e in rows]
+
+
 def build(export_id: uuid.UUID) -> str:
     with session_scope(bypass=True) as db:
         export = db.get(Export, export_id)
@@ -74,6 +80,7 @@ def build(export_id: uuid.UUID) -> str:
             spec = ExtractionSpec.model_validate(schema.spec)
             max_rows = org_limits(org)["max_export_rows"]
             records = _records(db, export, spec, max_rows)
+            evidence = _evidence(db, export.job_id)
             summary = {
                 "Project": project.name,
                 "Request": schema.nl_request or spec.title,
@@ -96,6 +103,10 @@ def build(export_id: uuid.UUID) -> str:
                 "Deduplication keys": ", ".join(spec.deduplication_keys) or "(per site)",
                 "Max pages / depth": f"{spec.crawl.max_pages} / {spec.crawl.max_depth}",
                 "Extraction": "deterministic (no LLM)",
+                **({"Proof": f"{sum(e['kept'] for e in evidence)} kept (Evidence sheet), "
+                             f"{sum(not e['kept'] for e in evidence)} rejected with the reason (Rejected sheet). "
+                             "Quotes are copied word for word from the linked document."}
+                   if evidence else {}),
                 "Note": "robots.txt was respected; that alone does not make reuse of this data lawful.",
             }
             options = ExportOptions(
@@ -106,7 +117,7 @@ def build(export_id: uuid.UUID) -> str:
                 data_sheet_name=export.options.get("data_sheet_name") or "Data",
             )
         path = export_path(org_id, export_id)
-        result = build_workbook(path, spec, records, summary, options)
+        result = build_workbook(path, spec, records, summary, options, evidence)
         with session_scope(org_id) as db:
             export = db.get(Export, export_id)
             export.status = "ready"

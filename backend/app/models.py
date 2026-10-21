@@ -9,6 +9,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -332,6 +333,33 @@ class DomainPolicy(TimestampMixin, Base):
     domain: Mapped[str] = mapped_column(String(255), nullable=False)
     rule: Mapped[str] = mapped_column(String(16), default="deny", nullable=False)
     reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+
+class Evidence(Base):
+    """One piece of proof that a company uses a technology, or a page that was looked at and rejected.
+
+    The quote is always a verbatim sentence from a page or filing that was fetched; nothing here is written by a
+    model except the relationship, which is a choice from a fixed list.
+    """
+
+    __tablename__ = "evidence"
+    id: Mapped[uuid.UUID] = mapped_column(UUIDPK, primary_key=True, default=new_id)
+    org_id: Mapped[uuid.UUID] = org_fk()
+    job_id: Mapped[uuid.UUID] = mapped_column(UUIDPK, ForeignKey("crawl_jobs.id", ondelete="CASCADE"), index=True)
+    company: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    website: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    product: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    quote: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    url: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    evidence_date: Mapped[str] = mapped_column(String(10), default="", nullable=False)  # YYYY-MM-DD
+    source_type: Mapped[str] = mapped_column(String(60), default="", nullable=False)  # "SEC filing (10-K)"
+    relationship: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    judged_by: Mapped[str] = mapped_column(String(120), default="", nullable=False)  # rules | model:<id> | unreviewed
+    strength: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    verdict: Mapped[str] = mapped_column(String(20), default="", nullable=False)  # Confirmed | Likely | Mentioned
+    kept: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, default="", nullable=False)  # why it was rejected
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class SecCompany(Base):

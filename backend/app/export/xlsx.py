@@ -1,4 +1,4 @@
-"""Excel workbook generation: Data, Sources, Run Summary and Field Issues sheets.
+"""Excel workbook generation: Data, Sources, Evidence, Rejected, Run Summary and Field Issues sheets.
 
 Uses XlsxWriter in constant-memory mode so large exports stream row by row. Every untrusted
 string goes through cell_safety and is written with write_string, never as a formula.
@@ -42,6 +42,16 @@ class ExportOptions:
     data_sheet_name: str = "Data"
 
 
+# The proof behind a technology question: kept proof on "Evidence", everything turned down on "Rejected".
+EVIDENCE_COLS = [("Company", "company", 30), ("Website", "website", 30), ("Product", "product", 18),
+                 ("Verdict", "verdict", 11), ("Relationship", "relationship", 14), ("Quote", "quote", 90),
+                 ("Source", "source_type", 22), ("Date", "evidence_date", 11), ("Link", "url", 60),
+                 ("Judged by", "judged_by", 26), ("Strength", "strength", 9), ("Note", "reason", 50)]
+REJECTED_COLS = [("Company", "company", 30), ("Product", "product", 18), ("Why rejected", "reason", 60),
+                 ("Relationship", "relationship", 14), ("Quote", "quote", 90), ("Source", "source_type", 22),
+                 ("Date", "evidence_date", 11), ("Link", "url", 60), ("Judged by", "judged_by", 26)]
+
+
 @dataclass
 class ExportResult:
     path: Path
@@ -65,7 +75,8 @@ def _write(ws, row: int, col: int, value: Any, fmt=None, url_fmt=None, links: li
 
 
 def build_workbook(path: Path, spec: ExtractionSpec, records: Iterable[ExportRecord],
-                   summary: dict[str, Any], options: ExportOptions | None = None) -> ExportResult:
+                   summary: dict[str, Any], options: ExportOptions | None = None,
+                   evidence: list[dict[str, Any]] | None = None) -> ExportResult:
     options = options or ExportOptions()
     path.parent.mkdir(parents=True, exist_ok=True)
     wb = xlsxwriter.Workbook(str(path), {
@@ -129,6 +140,22 @@ def build_workbook(path: Path, spec: ExtractionSpec, records: Iterable[ExportRec
             for c, v in enumerate(values):
                 _write(ws, r, c, v, wrap, link if c == 4 else None, links)
         ws.autofilter(0, 0, max(len(sources_rows), 1), len(cols) - 1)
+
+    if evidence:
+        for title, cols, rows in (("Evidence", EVIDENCE_COLS, [e for e in evidence if e.get("kept")]),
+                                  ("Rejected", REJECTED_COLS, [e for e in evidence if not e.get("kept")])):
+            ws = wb.add_worksheet(safe_sheet_name(title, used))
+            for c, (h, _key, w) in enumerate(cols):
+                ws.set_column(c, c, w)
+                ws.write_string(0, c, h, head)
+            ws.freeze_panes(1, 0)
+            for r, e in enumerate(rows[: MAX_ROWS - 1], start=1):
+                for c, (_h, key, _w) in enumerate(cols):
+                    value = e.get(key)
+                    if key == "relationship" and isinstance(value, str):
+                        value = value.replace("_", " ")
+                    _write(ws, r, c, value, wrap, link if key in ("url", "website") else None, links)
+            ws.autofilter(0, 0, max(len(rows), 1), len(cols) - 1)
 
     ws = wb.add_worksheet(safe_sheet_name("Run Summary", used))
     ws.set_column(0, 0, 32)

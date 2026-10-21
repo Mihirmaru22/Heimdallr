@@ -55,7 +55,8 @@ export interface Spec {
   crawl: { start_urls: string[]; allowed_domains: string[]; max_pages: number; max_depth: number;
            max_pages_per_site: number; use_sitemaps: boolean; follow_links: boolean; priority_keywords: string[] };
   discovery: { providers: string[]; industry: string | null; countries: string[]; strict_countries?: boolean; region: string | null;
-               keywords: string[]; max_results: number; technology?: string | null; parent_company?: string | null };
+               keywords: string[]; max_results: number; technology?: string | null;
+               technology_aliases?: string[]; evidence_years?: number; parent_company?: string | null };
   export: Record<string, unknown>;
 }
 export interface Schema { id: string; project_id: string; version: number; nl_request: string; spec: Spec;
