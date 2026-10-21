@@ -182,8 +182,9 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
     has_list = any(p != "sec_filings" for p in d.providers)
     if has_list:
         sources.append(f"the websites of up to {d.max_results} companies found for your filters "
-                       f"(up to {spec.crawl.max_pages_per_site} pages each, careers, customer and news pages first) and "
-                       "the job ads on the Greenhouse, Lever, Ashby, SmartRecruiters or Workable boards they link to")
+                       f"(up to {spec.crawl.max_pages_per_site} pages each, careers, customer and news pages "
+                       "first) and the job ads on the Greenhouse, Lever, Ashby, SmartRecruiters or Workable boards "
+                       "they link to")
     notes = [f"Only companies with written proof that they use {d.technology} are kept. Proof comes from "
              + " and ".join(sources) + ". Each row shows the quoted sentence, its link and date; companies "
              "without proof are listed on the Rejected sheet with the reason."]
