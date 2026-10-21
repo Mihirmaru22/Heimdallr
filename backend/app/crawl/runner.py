@@ -7,6 +7,7 @@ stopped. No database transaction is held open while a page is being fetched.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 import uuid
@@ -464,6 +465,7 @@ class CrawlRunner:
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
         if self.site_proof is not None:
             await self._check_site_proof(doc, site, candidates)
+            await self._check_job_boards(result.text, site, final, candidates)
         with session_scope(self.org_id) as db:
             db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=row.id, final_url=final,
                                http_status=result.status, content_type=result.content_type[:128],
@@ -489,22 +491,47 @@ class CrawlRunner:
 
     async def _check_site_proof(self, doc, site: str, candidates: dict[str, list[dict[str, Any]]]) -> None:
         piece = await self.site_proof.check(doc, site, self.site_names.get(site, ""))
-        if piece is None:
-            return
-        short = doc.url.split("://", 1)[-1].removeprefix("www.").rstrip("/")
+        if piece is not None:
+            short = doc.url.split("://", 1)[-1].removeprefix("www.").rstrip("/")
+            self._use_proof(piece, f"on {short}", doc.url, candidates)
+
+    async def _check_job_boards(self, page_html: str, site: str, page_url: str,
+                                candidates: dict[str, list[dict[str, Any]]]) -> None:
+        """Job boards the page links to: their open jobs are read once per company."""
+        def say(kind: str, message: str) -> None:
+            self.note(kind, message, page_url, source="jobs")
+
+        pieces = await self.site_proof.check_jobs(page_html, site, self.site_names.get(site, ""), self._fetch_json,
+                                                  say)
+        for piece in pieces:
+            self._use_proof(piece, f"in a job ad of {piece['company']}", page_url, candidates)
+
+    def _use_proof(self, piece: dict[str, Any], where: str, page_url: str,
+                   candidates: dict[str, list[dict[str, Any]]]) -> None:
+        """Report a piece of proof, save it, and let a kept one fill the row's proof columns."""
         if piece["kept"]:
-            self.note("kept", f"Proof on {short}: {piece['relationship'].replace('_', ' ')} {piece['product']} "
-                              f"({piece['verdict']}): \"{piece['quote'][:160]}\"", doc.url, source="site")
+            self.note("kept", f"Proof {where}: {piece['relationship'].replace('_', ' ')} {piece['product']} "
+                              f"({piece['verdict']}): \"{piece['quote'][:160]}\"", piece["url"], source="proof")
             confidence = proof_confidence(piece["verdict"], piece["strength"])
-            values = {"uses_technology": piece["verdict"], "evidence": piece["quote"], "evidence_url": doc.url,
-                      "evidence_date": piece["evidence_date"] or None, "evidence_type": "Company website"}
+            values = {"uses_technology": piece["verdict"], "evidence": piece["quote"], "evidence_url": piece["url"],
+                      "evidence_date": piece["evidence_date"] or None, "evidence_type": piece["source_type"]}
             for name, value in values.items():
                 if value and name in {f.name for f in self.spec.fields}:
-                    candidates.setdefault(name, []).append({"value": value, "method": "site_proof",
-                                                            "confidence": confidence, "evidence": doc.url})
+                    candidates.setdefault(name, []).append({"value": value, "method": "proof",
+                                                            "confidence": confidence, "evidence": piece["url"]})
         else:
-            self.note("dropped", f"Not proof on {short}: {piece['reason']}", doc.url, source="site")
-        self.save_evidence("site", [piece])
+            self.note("dropped", f"Not proof {where}: {piece['reason']}", piece["url"] or page_url, source="proof")
+        self.save_evidence("proof", [piece])
+
+    async def _fetch_json(self, url: str) -> Any:
+        """A public JSON API (a job board), through the same robots rules, politeness and address checks."""
+        decision = await self.robots.check(url)
+        if not decision.allowed:
+            raise FetchError("robots", decision.reason, retryable=False)
+        fetcher = Fetcher(self.client, self.politeness, self.resolver,
+                          allowed_types=("application/json", "text/json", "text/plain", ""))
+        result = await fetcher.fetch(url, attempts=2)
+        return json.loads(result.text)
 
     def _note_found(self, url: str, found: dict[str, list[Any]], depth: int) -> None:
         """"Found phone +1 858 812 7300, email info@example.com on example.com/contact"."""

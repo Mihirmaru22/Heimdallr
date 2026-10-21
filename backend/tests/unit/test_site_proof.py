@@ -58,7 +58,7 @@ async def test_the_makers_own_site_is_a_vendor_and_judging_stops_after_a_few_pag
     assert router.calls == MAX_JUDGED_PER_SITE
     await proof.check(page("We make brakes."), "plain.com", "Plain Co")
     why = {r["company"]: r["reason"] for r in proof.without_proof({"plain.com": "Plain Co"})}
-    assert why["Plain Co"] == "none of the 1 page(s) read names Teamcenter"
+    assert why["Plain Co"] == "none of the 1 page(s) read names Teamcenter; no job board linked from the site"
     assert why["acme.com"].startswith(f"{MAX_JUDGED_PER_SITE} of {MAX_JUDGED_PER_SITE + 2} page(s) read name")
 
 
