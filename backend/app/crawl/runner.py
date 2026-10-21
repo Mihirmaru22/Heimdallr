@@ -39,6 +39,8 @@ from app.services.state_machine import log_event
 from app.spec.models import ExtractionSpec, Semantic
 
 log = logging.getLogger("webdata.crawl")
+# A registry's name and founding year beat what pages say ("JNJ.com"; "our plant was established in 2007").
+REGISTRY_CONFIDENCE = {"company_name": 0.92, "founded_year": 0.85}
 LEASE = timedelta(minutes=5)
 
 
@@ -303,12 +305,13 @@ class CrawlRunner:
             self._finish(row.id, UrlStatus.skipped, "same content as a page already fetched")
             return
         doc = parse_page(final, result.text)
-        if row.depth == 0 and row.method == "searxng":
-            # A search result is only a link; check its homepage before spending crawl budget on the site.
-            reason = off_topic_reason(doc, self.spec)
+        if row.depth == 0 and row.method in ("searxng", "wikidata"):
+            # A search result is only a link, and anyone can tag their own Wikidata item with an industry;
+            # check the homepage before spending crawl budget on the site.
+            reason = off_topic_reason(doc, self.spec, check_country=row.method == "searxng")
             if reason:
                 self.allowed_sites.discard(site)
-                self._finish(row.id, UrlStatus.skipped, f"web search result dropped: {reason}")
+                self._finish(row.id, UrlStatus.skipped, f"{row.method} result dropped: {reason}")
                 return
         if row.depth == 0:
             reason = outside_countries_reason(doc, self.spec, row.method, row.hint)
@@ -330,8 +333,8 @@ class CrawlRunner:
                     candidates.setdefault(name, []).append({
                         # A curated registry label beats what a page calls itself ("JNJ.com").
                         "value": value, "method": row.method,
-                        "confidence": 0.92 if row.method in ("wikidata", "sec_edgar", "gleif") and key == "company_name"
-                        else 0.7,
+                        "confidence": REGISTRY_CONFIDENCE.get(key, 0.7)
+                        if row.method in ("wikidata", "sec_edgar", "gleif") else 0.7,
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
         with session_scope(self.org_id) as db:
             db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=row.id, final_url=final,

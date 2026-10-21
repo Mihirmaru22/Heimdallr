@@ -328,16 +328,29 @@ def _phones(doc: PageDoc) -> list[Candidate]:
 def _phone_candidates(doc: PageDoc) -> list[Candidate]:
     out = []
     for a in doc.tree.css('a[href^="tel:"]'):
-        num = (a.attributes.get("href") or "")[4:].strip()
+        # "+91 40 67611600 / 700": a second extension after a slash is not part of the number.
+        num = (a.attributes.get("href") or "")[4:].split("/")[0].strip()
         if sum(ch.isdigit() for ch in num) >= 7:
             out.append(Candidate(num, "tel_link", 0.85, f"tel:{num}"))
     for org in _orgs(doc):
-        tel = _first_str(org.get("telephone"))
+        tel = (_first_str(org.get("telephone")) or "").split("/")[0].strip()
         if tel:
             out.append(Candidate(tel, "jsonld", 0.9, f"JSON-LD telephone = {tel}"))
     for m in re.finditer(r"\+\d[\d ()./-]{6,20}\d", doc.text):
         out.append(Candidate(m.group(), "regex", 0.55, _snippet(doc.text, m.group())))
     return out
+
+
+def _local_number(raw: str, countries: list[str]) -> str | None:
+    """+E164 form of a number written without its country code, if it is valid in one requested country."""
+    for region in countries:
+        try:
+            num = phonenumbers.parse(raw, region)
+        except phonenumbers.NumberParseException:
+            continue
+        if phonenumbers.is_valid_number(num):
+            return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)
+    return None
 
 
 def prefer_country_phones(cands: list[Candidate], countries: list[str]) -> list[Candidate]:
@@ -350,7 +363,12 @@ def prefer_country_phones(cands: list[Candidate], countries: list[str]) -> list[
     for c in cands:
         raw = c.value.strip()
         if not raw.startswith("+"):
-            keep.append(c)  # no country code: usually the site's home number
+            # No country code: a local number ("9847433522"), read in the requested country instead of
+            # being taken for a US number when the export formats it.
+            local = _local_number(raw, countries)
+            if local:
+                c.value = local
+            keep.append(c)
             continue
         try:
             region = phonenumbers.region_code_for_number(phonenumbers.parse(raw, None))
