@@ -49,6 +49,9 @@ def sec_and_wikidata(port, seen):
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(str(request.url))
         if request.url.host == "efts.sec.gov":
+            q = request.url.params["q"]
+            if q.count('"') > 2 and " OR " not in q:  # like EDGAR: names separated by a space must all appear
+                return httpx.Response(200, json={"hits": {"total": {"value": 0}, "hits": []}})
             start = int(request.url.params.get("from", 0))
             page = HITS[start:start + 4]
             return httpx.Response(200, json={"hits": {"total": {"value": len(HITS)}, "hits": page}})
@@ -112,7 +115,9 @@ async def test_only_users_become_results_and_every_rejection_says_why(db_clean):
     await client.aclose()
 
     search = [u for u in seen if "efts.sec.gov" in u]
-    assert len(search) == 2 and "%22SAP+S%2F4HANA%22" in search[0]  # paged, quoted names, never "SAP" alone
+    assert len(search) == 2  # paged
+    q = httpx.URL(search[0]).params["q"]
+    assert q.startswith('"SAP S/4HANA" OR "S/4HANA" OR ') and '"SAP"' not in q  # any quoted name, never "SAP" alone
     (avient, globex) = sorted(results, key=lambda r: r.url)
     assert avient.url == "http://acme-security.test:8080/" and avient.method == "sec_filings"
     assert avient.hint["company_name"] == "Avient" and avient.hint["uses_technology"] == "Confirmed"

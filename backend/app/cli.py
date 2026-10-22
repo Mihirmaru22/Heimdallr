@@ -96,19 +96,19 @@ def job_report(job_id: str) -> None:
             print(f"  {item:32} {value}")
 
 
-def sec_check(product_name: str) -> None:
+def sec_check(product_name: str, aliases: list[str]) -> None:
     """One SEC full-text search exactly as the sec_filings source sends it, with SEC's raw answer."""
     from datetime import date, timedelta
 
     import httpx
 
     from app.config import get_settings
-    from app.discovery.sec_filings import SEARCH
+    from app.discovery.sec_filings import SEARCH, SecFilingsProvider
     from app.evidence.products import product_for
 
-    product = product_for(product_name)
+    product = product_for(product_name, aliases)
     today = date.today()
-    params = {"q": " ".join(f'"{n}"' for n in product.names), "dateRange": "custom",
+    params = {"q": SecFilingsProvider.query(product), "dateRange": "custom",
               "startdt": (today - timedelta(days=365 * 3)).isoformat(), "enddt": today.isoformat()}
     ua = get_settings().user_agent
     print(f"User-Agent: {ua}\nQuery: {params['q']}")
@@ -143,11 +143,12 @@ def main() -> None:
     p.add_argument("job_id")
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
+    p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
     args = parser.parse_args()
     if args.cmd == "job-report":
         return job_report(args.job_id)
     if args.cmd == "sec-check":
-        return sec_check(args.product)
+        return sec_check(args.product, args.aliases)
     if args.cmd.startswith("llm-"):
         llm(args.cmd)
     elif args.cmd == "refresh-sec":

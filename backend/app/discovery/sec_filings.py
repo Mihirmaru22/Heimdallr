@@ -78,11 +78,16 @@ class SecFilingsProvider:
         resp.raise_for_status()
         return resp
 
+    @staticmethod
+    def query(product: Product) -> str:
+        """Quoted names, any of them. EDGAR full-text search requires every term separated by a space, so the
+        names are joined with OR: '"SAP S/4HANA" "SAP S4HANA"' finds 0 filings, with OR it finds 164."""
+        return " OR ".join(f'"{n}"' for n in product.names)
+
     async def search(self, client: httpx.AsyncClient, product: Product, years: int) -> list[dict[str, Any]]:
         today = date.today()
-        q = " ".join(f'"{n}"' for n in product.names)  # quoted names, any of them
-        params = {"q": q, "dateRange": "custom", "startdt": (today - timedelta(days=365 * years)).isoformat(),
-                  "enddt": today.isoformat()}
+        params = {"q": self.query(product), "dateRange": "custom",
+                  "startdt": (today - timedelta(days=365 * years)).isoformat(), "enddt": today.isoformat()}
         hits: list[dict[str, Any]] = []
         for _ in range(MAX_PAGES):
             body = (await self._get(client, SEARCH, **params, **({"from": len(hits)} if hits else {}))).json()
