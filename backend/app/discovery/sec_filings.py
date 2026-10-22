@@ -53,9 +53,38 @@ def document_url(cik: str, hit_id: str) -> str:
     return f"{ARCHIVES}/{int(cik)}/{adsh.replace('-', '')}/{filename}"
 
 
+# Forms only foreign private issuers file. Their business address on EDGAR is often a US agent's
+# ("Grifols SA ... New York, NY"), so the form, not the address, says the company is not a US company.
+FOREIGN_FORMS = {"20-F", "40-F", "6-K", "F-1", "F-3", "F-4"}
+DOMAIN_RE = re.compile(r"(?<![@\w.-])(?:https?://)?((?:[a-z0-9-]+\.)+(?:com|net|org|io|co|us|biz|info|ai|tech))"
+                       r"(?![\w-])", re.I)
+NAME_NOISE = {"inc", "corp", "corporation", "co", "company", "companies", "holding", "holdings", "group", "ltd",
+              "plc", "sa", "nv", "ag", "se", "llc", "lp", "the", "and", "of", "international", "intl", "de", "del"}
+
+
 def form_rank(form: str) -> int:
     base = form.split("/")[0]
     return FORM_ORDER.index(base) if base in FORM_ORDER else len(FORM_ORDER)
+
+
+def website_in(text: str, company: str) -> str:
+    """The company's own website as its filing names it ("visit www.celanese.com", "investors.coty.com"):
+    the most often named domain whose name carries a word of the company's name. "" when none does, so a
+    vendor's or a newswire's domain in the same document is never taken for the company's."""
+    words = [w for w in re.findall(r"[a-z0-9]+", company.lower()) if w not in NAME_NOISE]
+    compact = "".join(words)
+    counts: dict[str, int] = {}
+    for m in DOMAIN_RE.finditer(text):
+        domain = registered_domain(m.group(1).lower())
+        label = domain.split(".")[0]
+        if not label or domain.endswith("sec.gov"):
+            continue
+        if len(label) >= 3 and (label in compact or any(len(w) >= 3 and w in label for w in words)):
+            counts[domain] = counts.get(domain, 0) + 1
+    if not counts:
+        return ""
+    best = max(counts, key=lambda d: (counts[d], -len(d)))
+    return f"https://{best}/"
 
 
 class SecFilingsProvider:
@@ -180,7 +209,7 @@ class SecFilingsProvider:
                 base = dict(company=name, product=product.name, url=url, evidence_date=day, source_type=source_type,
                             website="", quote="", relationship="", judged_by="", strength=0.0, verdict="")
                 states = set(src.get("biz_states") or [])
-                if d.countries and not states & US_STATES:
+                if d.countries and (not states & US_STATES or src.get("form", "").split("/")[0] in FOREIGN_FORMS):
                     self._record(**base, kept=False, reason="business address outside the US")
                     continue
                 if wanted_sics is not None and not set(src.get("sics") or []) & wanted_sics:
@@ -206,7 +235,8 @@ class SecFilingsProvider:
                                                            + (f": {j.reason}" if j.reason else ""))
                     continue
                 users[cik] = self._record(**row, kept=True, reason=j.reason,
-                                          headquarters=(src.get("biz_locations") or [""])[0])
+                                          headquarters=(src.get("biz_locations") or [""])[0],
+                                          named_website=website_in(text, name))
             await self._attach_websites(client, users)
         finally:
             await self.judge.aclose()
@@ -248,14 +278,17 @@ class SecFilingsProvider:
                 if c.website:
                     known[c.cik] = (c.website, "")
         try:
-            wiki = await SecEdgarProvider().from_wikidata(client, [c for c in ciks if c not in known])
+            wiki = await SecEdgarProvider().from_wikidata(client, [c for c in ciks if c not in known and not
+                                                                   users[f"{c:010d}"].get("named_website")])
         except httpx.HTTPError as exc:
             wiki = {}
             self.notes.append(f"sec_filings: Wikidata website lookup failed ({type(exc).__name__})")
         for cik, ev in users.items():
             site, label = known.get(int(cik), ("", ""))
             info = wiki.get(int(cik)) or {}
-            site = site or info.get("website", "")
+            # The website the filing itself names comes first: it is the company's own and current, where
+            # SEC's company data can be years old (Spectrum Brands' still points at a parked hrggroup.com).
+            site = ev.get("named_website") or site or info.get("website", "")
             ev["website"] = homepage(normalize_url(site) or "") if site else ""
             if info.get("label"):
                 ev["company"] = info["label"]

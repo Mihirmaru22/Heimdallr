@@ -8,7 +8,7 @@ from openpyxl import load_workbook
 from sqlalchemy import select
 
 from app.db import session_scope
-from app.discovery.sec_filings import SecFilingsProvider, company_name, document_url
+from app.discovery.sec_filings import SecFilingsProvider, company_name, document_url, website_in
 from app.evidence.judge import Judge
 from app.llm.openrouter import Reply
 from app.models import Evidence
@@ -34,6 +34,7 @@ HITS = [
     hit(1300000, "MAPLE MILLS LTD", "0001300000-25-000001", "mml-20f.htm", "20-F", RECENT, states=("A6",)),
     hit(1400000, "QUIET CO", "0001400000-25-000001", "qc-10k.htm", "10-K", RECENT, states=("TX",)),
     hit(1500000, "GLOBEX INC", "0001500000-25-000001", "gbx-10k.htm", "10-K", RECENT, states=("CA",)),
+    hit(1438569, "Grifols SA", "0001438569-26-000001", "grf-20f.htm", "20-F", RECENT, states=("NY",)),
 ]
 DOCS = {
     "avnt-10k.htm": "<html><body><p>Avient makes specialty polymers. In 2025 we completed the migration of our "
@@ -100,6 +101,28 @@ def spec(**discovery):
         "discovery": {"providers": ["sec_filings"], "technology": "SAP", "countries": ["US"], **discovery}})
 
 
+def test_the_website_a_filing_names_for_its_own_company():
+    release = ("Celanese is moving to SAP S/4HANA. Source: Business Wire (www.businesswire.com). See sap.com. "
+               "About Celanese: visit www.celanese.com or investors.celanese.com. Media: media@celanese.com")
+    assert website_in(release, "Celanese Corp") == "https://celanese.com/"
+    assert website_in("Our Internet address is www.agcocorp.com.", "AGCO CORP /DE") == "https://agcocorp.com/"
+    assert website_in("Visit https://www.hbfuller.com today.", "H.B. Fuller Co") == "https://hbfuller.com/"
+    assert website_in("See www.spectrumbrands.com.", "Spectrum Brands Holdings, Inc.") == "https://spectrumbrands.com/"
+    assert website_in("Our partner www.sap.com and www.sec.gov.", "Coty Inc.") == ""  # never another company's
+
+
+async def test_the_filing_s_own_website_beats_older_data_and_spares_the_wikidata_lookup(db_clean):
+    from app.models import SecCompany
+
+    with session_scope(bypass=True) as db:  # SEC's company data still names the old parent's parked domain
+        db.add(SecCompany(cik=109177, name="Spectrum Brands Holdings, Inc.", rank=1, website="https://hrggroup.com/"))
+    asked = []
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: asked.append(r) or httpx.Response(500)))
+    users = {"0000109177": {"company": "Spectrum Brands", "named_website": "https://spectrumbrands.com/"}}
+    await SecFilingsProvider(client, Judge(Router()), gap=0)._attach_websites(client, users)
+    assert users["0000109177"]["website"] == "https://spectrumbrands.com/" and not asked
+
+
 def test_display_names_and_document_links():
     assert company_name("AVIENT CORP (AVNT) (CIK 0001122976)") == "AVIENT CORP"
     assert document_url("0001122976", "0001122976-25-000010:avnt-10k.htm") == \
@@ -130,6 +153,7 @@ async def test_only_users_become_results_and_every_rejection_says_why(db_clean):
     assert why["Rimini Street, Inc."].startswith("competitor")
     assert why["HACKETT GROUP, INC."].startswith("partner or reseller")
     assert why["MAPLE MILLS LTD"] == "business address outside the US"
+    assert why["Grifols SA"] == "business address outside the US"  # a 20-F filer, whatever its agent's address
     assert why["QUIET CO"] == "the product's name was not found in the document text"
     assert len(router.calls) == 1  # rules settled Avient (plain own use), the competitor and the reseller
     assert not any("avnt-10q" in u for u in seen)  # one document per company: its 10-K
@@ -197,14 +221,14 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
     assert by_site[f"http://globex.test:{port}/"].excluded  # only a mention: shown, but left out of exports
 
     lines = activity(job_id, org_id)
-    assert any(k == "search" and "SEC full-text search: 7 filing(s) from 6 companies" in m for k, m in lines)
+    assert any(k == "search" and "SEC full-text search: 8 filing(s) from 7 companies" in m for k, m in lines)
     assert any(k == "read" and m.startswith("Reading AVIENT CORP's 10-K") for k, m in lines)
     assert any(k == "kept" and m.startswith("Proof: AVIENT CORP's 10-K") and "(Confirmed)" in m for k, m in lines)
     assert any(k == "dropped" and m.startswith("Rejected Rimini Street, Inc.'s 10-K: competitor") for k, m in lines)
 
     with session_scope(org_id) as db:
         saved = db.execute(select(Evidence).where(Evidence.job_id == job_id)).scalars().all()
-        assert len(saved) == 6 and sum(e.kept for e in saved) == 2
+        assert len(saved) == 7 and sum(e.kept for e in saved) == 2
         proof = exports._evidence(db, job_id)
         diagnostics = run_diagnostics(db, job_id)
     path = build_workbook(tmp_path / "x.xlsx", ExtractionSpec.model_validate(s), [], {"Job": "t"},
@@ -213,7 +237,7 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
     assert wb.sheetnames == ["Data", "Sources", "Evidence", "Rejected", "Run Summary", "Diagnostics"]
     diag = [r for r in wb["Diagnostics"].iter_rows(min_row=2, values_only=True)]
     assert ("Plan", "providers", "sec_filings") in diag and ("Plan", "industry", "(none)") in diag
-    assert any(sec == "Source: sec_filings" and v.startswith("SEC full-text search: 7 filing(s)")
+    assert any(sec == "Source: sec_filings" and v.startswith("SEC full-text search: 8 filing(s)")
                for sec, _i, v in diag)
     ev = list(wb["Evidence"].iter_rows(values_only=True))
     assert ev[0][:4] == ("Company", "Website", "Product", "Verdict")
@@ -224,5 +248,5 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
     from app.cli import job_report
     job_report(str(job_id))
     out = capsys.readouterr().out
-    assert "providers                        sec_filings\n" in out and "SEC full-text search: 7 filing(s)" in out
+    assert "providers                        sec_filings\n" in out and "SEC full-text search: 8 filing(s)" in out
     assert "SEC filing (10-K) kept" in out and "== Pages per site" in out
