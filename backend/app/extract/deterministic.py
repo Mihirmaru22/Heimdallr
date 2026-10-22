@@ -17,7 +17,7 @@ import phonenumbers
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
 from selectolax.lexbor import LexborNode as Node
 
-from app.crawl.urlnorm import normalize_url, registered_domain
+from app.crawl.urlnorm import has_public_suffix, normalize_url, registered_domain
 from app.spec.models import FieldSpec, Semantic
 
 EMAIL_RE = re.compile(r"(?<![\w.+-])[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,24}(?![\w-])")
@@ -233,6 +233,8 @@ def _website(doc: PageDoc) -> list[Candidate]:
     for org in _orgs(doc):
         u = _first_str(org.get("url"))
         norm = normalize_url(u, base=doc.url) if u else None
+        if norm and not has_public_suffix(norm) and urlsplit(norm).hostname != urlsplit(doc.url).hostname:
+            norm = None  # "https://www.bridewell/": a typo in the site's own markup, not a website
         if norm:
             if registered_domain(norm) == registered_domain(doc.url):  # "/in/" or "/en-us" -> the homepage
                 p = urlsplit(norm)

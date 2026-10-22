@@ -258,3 +258,12 @@ def test_a_founding_year_is_taken_only_from_a_sentence_about_the_company():
     # The company itself.
     assert years("https://www.acme.com/about", "Acme was founded in 1916 by two engineers.") == ["1916"]
     assert years("https://www.other.com/", "Since we were founded in 1950, we have built ships.") == ["1950"]
+
+
+def test_a_website_with_its_ending_missing_in_the_markup_is_not_taken():
+    from app.extract.deterministic import _website
+
+    ld = '{"@type": "Organization", "name": "Bridewell", "url": "https://www.bridewell/"}'
+    doc = parse_page("https://www.bridewell.com/", f'<html><head><script type="application/ld+json">{ld}'
+                                                    "</script></head><body><p>Hi</p></body></html>")
+    assert [c.value for c in _website(doc)] == ["https://www.bridewell.com/"]

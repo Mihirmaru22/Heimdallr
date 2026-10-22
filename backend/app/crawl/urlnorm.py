@@ -67,6 +67,12 @@ def registered_domain(url_or_host: str) -> str:
     return ext.top_domain_under_public_suffix or (host or "")
 
 
+def has_public_suffix(url_or_host: str) -> bool:
+    """False for hosts no one can register, such as "www.example" with its ending missing."""
+    host = urlsplit(url_or_host).hostname if "://" in url_or_host else url_or_host
+    return bool(_extract(host or "").suffix)
+
+
 def same_site(url: str, allowed_domains: set[str]) -> bool:
     return registered_domain(url) in allowed_domains
 
