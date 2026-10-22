@@ -89,7 +89,32 @@ def found(value: str) -> tuple[int, int]:
     return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
 
 
-def start_runs(db, keys: dict[str, dict[str, Any]]) -> list[tuple[str, CrawlJob | None, CrawlJob]]:
+def with_current_sources(db, schema: ExtractionSchema) -> ExtractionSchema:
+    """The same plan with the sources today's planner rules pick for its filters, so a new source is measured
+    without the planner's model reading the question again (which can change the fields and filters too)."""
+    from app.spec.models import ExtractionSpec
+    from app.spec.planner import choose_providers
+
+    spec = ExtractionSpec.model_validate(schema.spec)
+    if spec.crawl.start_urls:
+        return schema
+    d = spec.discovery
+    providers = choose_providers(d, bool(d.technology and spec.record_scope == "site"))
+    if providers == d.providers:
+        return schema
+    d.providers = providers
+    version = (db.execute(select(func.max(ExtractionSchema.version)).where(
+        ExtractionSchema.project_id == schema.project_id)).scalar() or 0) + 1
+    new = ExtractionSchema(org_id=schema.org_id, project_id=schema.project_id, version=version,
+                           nl_request=schema.nl_request, spec=spec.model_dump(mode="json"), status="confirmed",
+                           interpreter=f"benchmark: sources of v{schema.version} refreshed")
+    db.add(new)
+    db.flush()
+    return new
+
+
+def start_runs(db, keys: dict[str, dict[str, Any]], refresh_sources: bool = False
+               ) -> list[tuple[str, CrawlJob | None, CrawlJob]]:
     """A new run of each question with its latest run's plan: (key name, previous run, new run)."""
     from app.services.pipeline import settings_snapshot
 
@@ -99,8 +124,11 @@ def start_runs(db, keys: dict[str, dict[str, Any]]) -> list[tuple[str, CrawlJob 
         if previous is None:
             continue  # never asked yet: run it once from the app so it has a plan
         snap = settings_snapshot()
-        crawl = (db.get(ExtractionSchema, previous.schema_id).spec or {}).get("crawl") or {}
-        job = CrawlJob(org_id=previous.org_id, project_id=previous.project_id, schema_id=previous.schema_id,
+        schema = db.get(ExtractionSchema, previous.schema_id)
+        if refresh_sources:
+            schema = with_current_sources(db, schema)
+        crawl = (schema.spec or {}).get("crawl") or {}
+        job = CrawlJob(org_id=previous.org_id, project_id=previous.project_id, schema_id=schema.id,
                        created_by=previous.created_by, state=S.created, counters={},
                        settings={**snap, "max_pages": crawl.get("max_pages"), "max_depth": crawl.get("max_depth"),
                                  "eval_of": str(previous.id)})

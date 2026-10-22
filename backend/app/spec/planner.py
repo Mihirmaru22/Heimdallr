@@ -144,21 +144,7 @@ def spec_from_plan(plan: Plan, question: str, start_urls: list[str]) -> Extracti
     d.max_results = plan.max_results or base.discovery.max_results
     technology = bool(d.technology and plan.rows == "companies")
     if not base.crawl.start_urls:
-        providers: list[Any] = []
-        # For a technology question a list of companies is worth checking only when an industry narrows it
-        # ("car makers in Germany"). Keywords alone do not: the model often fills them with words from the
-        # question ("SAP", "contact info"), and Wikidata then lists any organization of the country.
-        wants_list = d.industry if technology else d.industry or d.countries or d.region or d.keywords
-        if wants_list:
-            # Each company is then checked on its own website for proof that it uses the technology.
-            providers = ["wikidata", "searxng"]
-            if ("US" in d.countries or d.region == "north_america") and d.industry and not is_tech_niche(d.industry):
-                providers.insert(1, "sec_edgar")
-            if d.industry:
-                providers.insert(-1, "gleif")
-        if technology and covers_us(d):
-            providers.insert(0, "sec_filings")  # companies whose own filings name it
-        d.providers = providers or ["seeds"]
+        d.providers = choose_providers(d, technology)
     if technology and len(d.providers) > 1:
         d.max_results = min(d.max_results * CANDIDATES_PER_ROW, 300)
     crawl = base.crawl.model_copy(update={"max_pages": min(max(d.max_results * 8, 50), 2000)})
@@ -171,6 +157,25 @@ def spec_from_plan(plan: Plan, question: str, start_urls: list[str]) -> Extracti
         crawl=crawl, discovery=d)
 
 
+def choose_providers(d: Any, technology: bool) -> list[str]:
+    """The sources a plan with no start URLs searches, from its filters alone."""
+    providers: list[str] = []
+    # For a technology question a list of companies is worth checking only when an industry narrows it
+    # ("car makers in Germany"). Keywords alone do not: the model often fills them with words from the
+    # question ("SAP", "contact info"), and Wikidata then lists any organization of the country.
+    wants_list = d.industry if technology else d.industry or d.countries or d.region or d.keywords
+    if wants_list:
+        # Each company is then checked on its own website for proof that it uses the technology.
+        providers = ["wikidata", "searxng"]
+        if ("US" in d.countries or d.region == "north_america") and d.industry and not is_tech_niche(d.industry):
+            providers.insert(1, "sec_edgar")
+        if d.industry:
+            providers.insert(-1, "gleif")
+    if technology and covers_us(d):
+        providers.insert(0, "sec_filings")  # companies whose own filings name it
+    return providers or ["seeds"]
+
+
 def covers_us(d: Any) -> bool:
     return (not d.countries and d.region in (None, "north_america")) or "US" in d.countries
 
@@ -180,7 +185,12 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
     sources = []
     if "sec_filings" in d.providers:
         sources.append(f"US-listed companies' own SEC filings (last {d.evidence_years} years)")
-    has_list = any(p != "sec_filings" for p in d.providers)
+    # Sites to check for proof: the person's own start URLs, or a list source. "seeds" alone with no start URLs
+    # is nothing to search, and the notes must not promise otherwise.
+    has_list = bool(spec.crawl.start_urls) or any(p not in ("sec_filings", "seeds") for p in d.providers)
+    if not sources and not has_list:
+        return [f"Nothing can be searched for companies using {d.technology} here yet: add an industry "
+                "(\"car makers\", \"pharma\") or the websites to check."]
     if has_list:
         sources.append(f"the websites of up to {d.max_results} companies found for your filters "
                        f"(up to {spec.crawl.max_pages_per_site} pages each, careers, customer and news pages "
@@ -192,8 +202,6 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
     if not has_list:
         notes.append("Add an industry (\"car makers\", \"pharma\") to also check companies' own websites; "
                      "without one, only SEC filings are searched.")
-    if not sources:
-        notes.append("No proof source covers this question yet; add an industry.")
     notes.append("Vendor case studies and news are later steps.")
     return notes
 

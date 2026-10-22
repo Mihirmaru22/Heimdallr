@@ -151,7 +151,7 @@ def eval_history() -> None:
           f"{sum(f for f, _ in last)}/{sum(t for _, t in last)}")
 
 
-def eval_run(wait_seconds: int, repeat: int) -> None:
+def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False) -> None:
     """Run every test question again with its latest plan, wait, and score each new run next to the last one."""
     import time
 
@@ -162,7 +162,8 @@ def eval_run(wait_seconds: int, repeat: int) -> None:
     keys = load_keys()
     with session_scope(bypass=True) as db:
         # Each question more than once shows how much one question's score moves between identical runs.
-        started = [(name, prev.id, job.id) for _ in range(repeat) for name, prev, job in start_runs(db, keys)]
+        started = [(name, prev.id, job.id) for _ in range(repeat)
+                   for name, prev, job in start_runs(db, keys, refresh_sources)]
     for name, _prev, job in started:
         tasks.run_job.delay(str(job))
         print(f"started {name}: {str(job)[:8]}")
@@ -239,6 +240,8 @@ def main() -> None:
     p = sub.add_parser("eval-run", help="run every test question again with its latest plan and score it")
     p.add_argument("--wait", type=int, default=3600, help="seconds to wait for the runs (default 3600)")
     p.add_argument("--repeat", type=int, default=1, help="runs of each question, to see run-to-run noise")
+    p.add_argument("--refresh-sources", action="store_true",
+                   help="same plan, but with the sources today's planner rules pick (to measure a new source)")
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
     p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
@@ -252,7 +255,7 @@ def main() -> None:
     if args.cmd == "eval-history":
         return eval_history()
     if args.cmd == "eval-run":
-        return eval_run(args.wait, args.repeat)
+        return eval_run(args.wait, args.repeat, args.refresh_sources)
     if args.cmd.startswith("llm-"):
         llm(args.cmd)
     elif args.cmd == "refresh-sec":

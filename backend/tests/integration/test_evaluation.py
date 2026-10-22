@@ -42,3 +42,15 @@ def test_code_starts_are_read_from_the_start_markers(tmp_path):
     log = tmp_path / "api.log"
     log.write_text("x\n===== start.sh run 2026-10-22 16:56:06 +0530 claude/site-done 5a9be5f - Site check =====\n")
     assert evaluation.code_starts(log) == [(datetime(2026, 10, 22, 11, 26, 6, tzinfo=UTC), "5a9be5f")]
+
+
+def test_a_benchmark_run_can_take_the_sources_todays_rules_pick_and_keep_the_rest_of_the_plan(db_clean):
+    job_id, _org = make_job([], discovery={"providers": ["seeds"], "technology": "SAP", "countries": ["US"]})
+    with session_scope(bypass=True) as db:
+        old = db.get(ExtractionSchema, db.get(CrawlJob, job_id).schema_id)
+        new = evaluation.with_current_sources(db, old)
+        assert new.id != old.id and new.version == old.version + 1
+        assert new.spec["discovery"]["providers"] == ["sec_filings"]
+        assert {k: v for k, v in new.spec.items() if k != "discovery"} == \
+            {k: v for k, v in old.spec.items() if k != "discovery"}
+        assert evaluation.with_current_sources(db, new).id == new.id  # nothing to change: the same plan
