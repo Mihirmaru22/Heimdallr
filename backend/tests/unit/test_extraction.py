@@ -132,6 +132,17 @@ def test_legal_jobs_and_report_mailboxes_are_dropped():
     assert scores["citrix_ru@acme.com"] < scores["contact@acme.com"]
 
 
+def test_a_job_site_s_mailboxes_are_not_the_company_contact():
+    fields = [FieldSpec(name="contact_email", type="email", semantic="contact_email")]
+    html = '<html><body><a href="mailto:mydelekhr@delekus.com">HR</a></body></html>'
+    assert extract_page(parse_page("https://jobs.delekus.com/", html), fields)["contact_email"] == []
+    assert extract_page(parse_page("https://www.delekus.com/careers/", html), fields)["contact_email"] == []
+    assert extract_page(parse_page("https://www.delekus.com/contact", html), fields)["contact_email"] == []  # hr
+    html = '<html><body><a href="mailto:info@delekus.com">Info</a></body></html>'
+    assert [c.value for c in extract_page(parse_page("https://www.delekus.com/contact", html),
+                                          fields)["contact_email"]] == ["info@delekus.com"]
+
+
 def test_phones_from_other_countries_are_dropped():
     from app.extract.deterministic import prefer_country_phones
 

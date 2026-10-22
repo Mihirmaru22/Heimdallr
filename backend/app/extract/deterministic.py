@@ -252,7 +252,7 @@ NARROW_MAILBOX_RE = re.compile(
 # grievanceofficer@, pandora-jobs@, reportabuse@, peoplesupport-china@). These are dropped outright.
 NOT_CONTACT_RE = re.compile(
     r"copyright|trademark|legal|grievance|privacy|gdpr|dpo|dataprotect|abuse|report|complian|ethic|whistle|"
-    r"jobs?\b|jobs?[._-]|careers?|recruit|talent|people|\bhr\b|^hr[._-]|registration|noreply|no-reply|donotreply|"
+    r"jobs?\b|jobs?[._-]|careers?|recruit|talent|people|\bhr\b|^hr[._-]|hr$|registration|noreply|no-reply|donotreply|"
     r"unsubscribe|bounce|mailer|postmaster|webmaster|accessib|investor|^ir[._-]?|safety|vigilance|security|"
     r"vulnerab|partner|affiliate|marketing|sponsor|advertis|billing|invoice|"
     r"payable|receivable|procurement|vendor|supplier|tax|fraud|counterfeit|recall|warranty|clinicaltrial|"
@@ -260,6 +260,8 @@ NOT_CONTACT_RE = re.compile(
 # Words in a mailbox that belong to a team rather than a person (mediarelations@, zoetismedia@).
 ROLE_WORD_RE = re.compile(r"info|contact|hello|sales|office|support|enquir|inquir|media|press|communicat|news|"
                           r"customer|service|patient|general|admin|team|mail|help")
+JOBS_PAGE_RE = re.compile(r"^(jobs|careers?|recruiting|talent)\.|/(jobs|careers?|recruiting|join-us|vacancies)(/|$)",
+                          re.I)
 NEWS_PAGE_RE = re.compile(r"/(press|news|media|stories|blog)[^/]*/.+", re.I)
 # first.last or first.m.last: a person, not the company's contact (customer.service has a team word: kept).
 PERSONAL_MAILBOX_RE = re.compile(r"^[a-z]+(?:[._-][a-z]+){1,2}\d*$")
@@ -291,6 +293,9 @@ def _emails(doc: PageDoc) -> list[Candidate]:
             continue
         same = addr.split("@")[-1].lower().endswith(site)
         seen.setdefault(addr.lower(), Candidate(addr, "regex", 0.7 if same else 0.3, _snippet(doc.text, addr)))
+    # A careers or job site's addresses are recruiting mailboxes (mydelekhr@ on jobs.delekus.com).
+    if JOBS_PAGE_RE.search(urlsplit(doc.url).netloc + urlsplit(doc.url).path):
+        return []
     out = []
     for c in seen.values():
         local, domain = c.value.lower().split("@", 1)

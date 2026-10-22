@@ -134,3 +134,15 @@ def test_plain_first_person_use_is_settled_by_rules_and_anything_hedged_is_not()
     for hedged in ("We may implement SAP S/4HANA in 2027.", "Our customers run SAP S/4HANA.",
                    "We plan to migrate to SAP S/4HANA.", "SAP S/4HANA is used by many companies."):
         assert rule_relationship("Avient", sap, hedged) is None, hedged
+
+
+def test_long_sentences_and_tables_are_cut_at_whole_words_around_the_mention():
+    sap = product_for("SAP")
+    table = "Gross margin 21.0 % 10.9 % 14.3 % ________ 1 Costs attributable to a multi-year SAP S/4HANA rollout."
+    assert find_mentions(table, sap) == ["1 Costs attributable to a multi-year SAP S/4HANA rollout."]
+    long = "Intro words. " + "padding " * 60 + "we moved to SAP S/4HANA and " + "more " * 60 + "end. Next."
+    (quote,) = find_mentions(long, sap)
+    assert "SAP S/4HANA" in quote and len(quote) <= 420 and verify_quote(quote, long)
+    assert quote.startswith("padding ") and quote.endswith("more")  # whole words at both ends
+    bullets = "• FY24 cash flow fell. • Our plants now run SAP S/4HANA."
+    assert find_mentions(bullets, sap) == ["Our plants now run SAP S/4HANA."]

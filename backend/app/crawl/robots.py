@@ -38,13 +38,14 @@ class RobotsCache:
         robots_fetcher = Fetcher(self.fetcher.client, self.fetcher.politeness, self.fetcher.resolver,
                                  allowed_types=TEXT_PLAIN)
         try:
-            result = await robots_fetcher.fetch(origin + "/robots.txt", attempts=2)
+            # Three tries with backoff: a site that times out once (Celanese did) is not lost for the whole run.
+            result = await robots_fetcher.fetch(origin + "/robots.txt", attempts=3)
         except FetchError as exc:
             if exc.kind.startswith("http_4") and exc.kind != "http_429":
                 return "allow_all"
             if exc.kind == "content_type":
                 return "allow_all"
-            return "disallow_all"
+            return f"disallow_all:{exc.kind}"
         return Protego.parse(result.body[:500_000].decode("utf-8", errors="replace"))
 
     async def check(self, url: str) -> RobotsDecision:
@@ -57,8 +58,9 @@ class RobotsCache:
         rules = self._rules[origin]
         if rules == "allow_all":
             return RobotsDecision(True, "no robots.txt")
-        if rules == "disallow_all":
-            return RobotsDecision(False, "robots.txt unreachable; treated as disallow")
+        if isinstance(rules, str) and rules.startswith("disallow_all"):
+            why = rules.partition(":")[2].replace("_", " ") or "error"
+            return RobotsDecision(False, f"robots.txt unreachable ({why}); treated as disallow")
         assert isinstance(rules, Protego)
         ok = rules.can_fetch(url, self._token())
         return RobotsDecision(ok, "allowed by robots.txt" if ok else "disallowed by robots.txt")

@@ -73,7 +73,7 @@ def test_full_crawl_respects_robots_and_extracts(db_clean, crawl_env):
     statuses = urls_by_status(job_id, org_id)
     assert statuses[url("acme-security.test", "/private/secret.html")][0] == "blocked_robots"
     assert statuses[url("blocked.test")][0] == "blocked_robots"
-    assert statuses[url("flaky.test")] == ("blocked_robots", "robots.txt unreachable; treated as disallow")
+    assert statuses[url("flaky.test")] == ("blocked_robots", "robots.txt unreachable (http 503); treated as disallow")
     assert ("acme-security.test", "/private/secret.html") not in crawl_env["requests"]
     assert ("blocked.test", "/") not in crawl_env["requests"]
     # A broken link is skipped, not counted as a failed page.
