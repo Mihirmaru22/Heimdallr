@@ -132,6 +132,7 @@ def score_job(db, job_id: uuid.UUID, key: dict[str, Any] | None = None) -> dict[
     # --- answer key ------------------------------------------------------------------------------------
     if key:
         out.update(_against_key(included, key))
+        out.update(_where_lost(db, job_id, recs, ev, key, out))
     return out
 
 
@@ -173,6 +174,45 @@ def _against_key(included: list[ExtractedRecord], key: dict[str, Any]) -> dict[s
                      for e, r in with_site)
     out["key: website correct"] = _pct(right_site, len(with_site))
     return out
+
+
+def _same(entry: dict[str, Any], name: str, url: str) -> bool:
+    if entry.get("website") and url and registered_domain(entry["website"]) == registered_domain(url):
+        return True
+    want, have = name_key(entry.get("company", "")), name_key(name)
+    return bool(want and have and (want in have or have in want))
+
+
+def _where_lost(db, job_id: uuid.UUID, recs: list[ExtractedRecord], ev: list[Evidence], key: dict[str, Any],
+                out: dict[str, str]) -> dict[str, str]:
+    """For every must-have company that is missing, the stage that lost it, so losses can be counted by stage
+    across questions: never found by a source, found but its site not read (and why), read but excluded, or
+    its proof rejected."""
+    missing = [e for e in key.get("must_include") or [] if e["company"] in out.get("key: missing", "").split(", ")]
+    seeds = db.execute(select(DiscoveredUrl.url, DiscoveredUrl.method, DiscoveredUrl.status,
+                              DiscoveredUrl.status_reason, DiscoveredUrl.hint).where(
+        DiscoveredUrl.job_id == job_id, DiscoveredUrl.depth == 0)).all()
+    stages: dict[str, str] = {}
+    for e in missing:
+        rec = next((r for r in recs if _same(e, str(r.data.get("company_name") or ""),
+                                             str(r.data.get("website_url") or ""))), None)
+        proof = [x for x in ev if _same(e, x.company, x.website)]
+        seed = next((u for u in seeds if _same(e, str((u.hint or {}).get("company_name") or ""), u.url)), None)
+        if rec is not None:
+            stage = "read, but left out (no confirmed proof)" if rec.excluded else "found under another name"
+        elif proof and not any(x.kept for x in proof):
+            stage = f"proof rejected: {_loss(proof[0].reason, proof[0].relationship)}"
+        elif proof and not any(x.website for x in proof if x.kept):
+            stage = "proof kept, no website known"
+        elif seed is not None:
+            stage = f"found by {seed.method}, site not read: {(seed.status_reason or seed.status)[:70]}"
+        else:
+            stage = "not found by any source"
+        stages[e["company"]] = stage
+    rows = {f"key: lost at: {stage}": [] for stage in stages.values()}
+    for company, stage in stages.items():
+        rows[f"key: lost at: {stage}"].append(company)
+    return {k: f"{len(v)} ({', '.join(v)})" for k, v in rows.items()}
 
 
 def load_key(path: str | None) -> dict[str, Any] | None:

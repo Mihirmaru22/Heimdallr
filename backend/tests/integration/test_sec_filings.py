@@ -249,16 +249,19 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
 
     from app.services.scorecard import score_job
     key = {"must_include": [{"company": "Avient", "website": f"http://acme-security.test:{port}/"},
-                            {"company": "Lancaster Colony"}],
+                            {"company": "Lancaster Colony"}, {"company": "Hackett Group"}],
            "must_exclude": [{"company": "Rimini Street"}, {"company": "Globex"}]}
     with session_scope(org_id) as db:
         card = score_job(db, job_id, key)
     assert card["proof: companies kept"] == "2" and card["proof lost: competitor"] == "1"
     assert card["proof lost: outside the requested country"] == "2"
     assert card["records included"] == "1" and card["quote names the product"] == "1/1 (100%)"
-    assert card["key: must-have companies found"] == "1/2 (50%)" and card["key: missing"] == "Lancaster Colony"
+    assert card["key: must-have companies found"] == "1/3 (33%)"
+    assert card["key: missing"] == "Lancaster Colony, Hackett Group"
+    assert card["key: lost at: proof rejected: partner or reseller"] == "1 (Hackett Group)"
     assert card["key: rows that must not be there"] == "0"  # Globex is shown but excluded
     assert card["key: website correct"] == "1/1 (100%)"
+    assert card["key: lost at: not found by any source"] == "1 (Lancaster Colony)"
 
     from app.cli import job_report
     job_report(str(job_id))

@@ -105,8 +105,9 @@ def score(job_ids: list[str], key_path: str | None) -> None:
     key = load_key(key_path)
     with session_scope(bypass=True) as db:
         cards = [score_job(db, uuid.UUID(j), key) for j in job_ids]
-    long = {"key: missing"}  # lists too long for a column: printed under the table
-    names = [n for n in dict.fromkeys(k for c in cards for k in c) if n not in long]
+    names = list(dict.fromkeys(k for c in cards for k in c))
+    long = {n for n in names if n == "key: missing" or n.startswith("key: lost at")}  # printed under the table
+    names = [n for n in names if n not in long]
     width = max(len(n) for n in names)
     print(" " * width + "  " + "  ".join(j[:8].ljust(22) for j in job_ids))
     for n in names:
