@@ -6,6 +6,7 @@ proof is kept as "unreviewed" and counts as a weak mention, never as confirmed u
 
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -33,6 +34,12 @@ COMPETE_RE = re.compile(r"\bcompet(e|es|ed|ing|itor|itors|ition)\b", re.I)
 PARTNER_RE = re.compile(r"\b(reseller|resell|implementation partner|we implement|implementation services|"
                         r"consulting services|certified partner|partner of|partnership with|third[- ]party support)\b",
                         re.I)
+# "We completed our migration to SAP S/4HANA", "our engineers use Teamcenter": the company saying in its own
+# words that it runs the product. Anything hedged or about other people's systems is left to the model.
+OWN_USE_RE = re.compile(r"\b(we|our)\b[^.;]{0,80}?\b(implemented|completed|migrated|deployed|went live|"
+                        r"standardi[sz]ed on|use|uses|run|runs|rely on|relies on|rolled out)\b", re.I)
+HEDGE_RE = re.compile(r"\b(may|might|could|plan|plans|planned|intend|expect|consider|evaluat\w*|if|customers?|"
+                      r"clients?|partners?|competitors?|vendors?)\b", re.I)
 
 SYSTEM = f"""You read sentences from one company's own document (a filing, its website, a job ad) and decide the
 company's relationship to a software product. Reply with JSON only:
@@ -71,13 +78,46 @@ def rule_relationship(company: str, product: Product, quote: str) -> tuple[str, 
         return "competitor", "the sentence is about competition"
     if PARTNER_RE.search(quote):
         return "partner_or_reseller", "the sentence describes selling or implementing it for others"
+    for sentence in re.split(r"(?<=[.!?])\s+", quote):
+        if product.mentioned_in(sentence) and OWN_USE_RE.search(sentence) and not HEDGE_RE.search(sentence):
+            return "uses", "the company says in its own words that it runs it"
     return None
 
 
+# Busy free models ("no free model answered": every one rate limited for a moment) clear within a minute or
+# two; only a missing key, a used-up daily allowance or a switched-off gateway stop the judge for the run.
+TRANSIENT = ("no free model",)
+RETRY_WAIT = 30.0  # seconds
+RETRIES = 2
+MAX_BUSY_IN_A_ROW = 5  # pieces left unreviewed in a row before the judge gives up for the run
+
+
 class Judge:
-    def __init__(self, router: OpenRouter | None = None) -> None:
+    def __init__(self, router: OpenRouter | None = None, wait: float = RETRY_WAIT) -> None:
         self.router = router
+        self.wait = wait
         self.unavailable: str | None = None
+        self.busy_in_a_row = 0
+
+    async def _ask(self, messages: list[dict[str, str]]):
+        """One reply, waiting out a moment when every free model is busy. Raises LLMUnavailable."""
+        for attempt in range(RETRIES + 1):
+            try:
+                self.router = self.router or OpenRouter()
+                reply = await self.router.chat(messages, json_mode=True, max_tokens=300)
+                self.busy_in_a_row = 0
+                return reply
+            except LLMUnavailable as exc:
+                if not str(exc).startswith(TRANSIENT):
+                    self.unavailable = str(exc)  # permanent for this run
+                    raise
+                if attempt == RETRIES:
+                    self.busy_in_a_row += 1
+                    if self.busy_in_a_row >= MAX_BUSY_IN_A_ROW:
+                        self.unavailable = f"free models stayed busy: {exc}"
+                    raise
+                await asyncio.sleep(self.wait)
+        raise AssertionError("unreachable")
 
     async def judge(self, company: str, product: Product, quotes: list[str], source: str) -> Judgement:
         rule = rule_relationship(company, product, " ".join(quotes))
@@ -87,14 +127,12 @@ class Judge:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {self.unavailable}")
         numbered = "\n".join(f"{i}. {q}" for i, q in enumerate(quotes, start=1))
         try:
-            self.router = self.router or OpenRouter()
-            reply = await self.router.chat([
+            reply = await self._ask([
                 {"role": "system", "content": SYSTEM},
                 {"role": "user", "content": f"Company: {company}\nProduct: {product.name}\nDocument: {source}\n\n"
-                                            f"Sentences:\n{numbered}"}], json_mode=True, max_tokens=300)
+                                            f"Sentences:\n{numbered}"}])
             answer = Answer.model_validate(reply.json())
         except LLMUnavailable as exc:
-            self.unavailable = str(exc)
             return Judgement("unreviewed", quotes[0], f"unreviewed: {exc}")
         except (ValueError, ValidationError):
             return Judgement("unreviewed", quotes[0], "unreviewed: the model's answer could not be read")
