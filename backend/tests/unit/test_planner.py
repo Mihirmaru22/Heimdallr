@@ -57,6 +57,15 @@ async def test_a_bare_technology_question_searches_filings_and_asks_for_a_filter
     assert any("Add an industry" in n for n in notes)
 
 
+async def test_keywords_alone_never_bring_a_list_of_random_companies_to_a_technology_question():
+    router = FakeRouter({"rows": "companies", "technology": "SAP S/4HANA", "countries": ["US"],
+                         "keywords": ["SAP", "contact info"]})
+    spec, _by, notes = await plan_spec("US companies that use SAP S/4HANA, with website and contact info", [],
+                                       router)
+    assert spec.discovery.providers == ["sec_filings"]
+    assert any("Add an industry" in n for n in notes)
+
+
 async def test_sites_of_one_company_with_a_custom_detail():
     router = FakeRouter({"rows": "sites", "parent_company": "Ford", "details": ["address", "phone"],
                          "custom_details": [{"label": "Plant head", "description": "who runs the plant"}]})

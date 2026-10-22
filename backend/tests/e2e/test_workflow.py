@@ -47,6 +47,15 @@ def test_request_to_excel(make_user, crawl_env):
     ok = alice.patch(alice.org(f"/records/{detail['id']}"), json={"data": {"contact_email": "ceo@acme-security.test"}})
     assert ok.status_code == 200 and ok.json()["user_edited"]
 
+    # A source that failed is named on the Run Summary sheet, so an empty result explains itself.
+    import uuid
+
+    from app.db import session_scope
+    from app.services.state_machine import log_event
+    with session_scope(uuid.UUID(alice.org_id)) as db:
+        log_event(db, uuid.UUID(alice.org_id), uuid.UUID(job["id"]), "warning",
+                  "Discovery problem: sec_filings: SEC full-text search failed (HTTPStatusError 403)")
+
     # Exclude Globex, export the rest.
     alice.post(alice.org(f"/jobs/{job['id']}/records/exclude"),
                json={"record_ids": [by_name["Globex Cyber Defense"]["id"]]})
@@ -63,6 +72,8 @@ def test_request_to_excel(make_user, crawl_env):
     labels = {f["name"]: f["label"] for f in schema["spec"]["fields"]}
     assert [r[labels["company_name"]] for r in rows] == ["Acme Security Ltd"]
     assert rows[0][labels["contact_email"]] == "ceo@acme-security.test"
+    summary = dict(wb["Run Summary"].iter_rows(min_row=2, values_only=True))
+    assert summary["Source problem 1"] == "sec_filings: SEC full-text search failed (HTTPStatusError 403)"
     for ws in wb.worksheets:
         assert not any(c.data_type == "f" for row in ws.iter_rows() for c in row)
 

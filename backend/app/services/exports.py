@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import session_scope, utcnow
 from app.export.xlsx import ExportOptions, ExportRecord, build_workbook
-from app.models import CrawlJob, Evidence, Export, ExtractedRecord, ExtractionSchema, FieldValue, Project
+from app.models import CrawlJob, CrawlJobEvent, Evidence, Export, ExtractedRecord, ExtractionSchema, FieldValue, Project
 from app.services.common import org_limits, record_usage
 from app.spec.models import ExtractionSpec
 
@@ -81,6 +81,10 @@ def build(export_id: uuid.UUID) -> str:
             max_rows = org_limits(org)["max_export_rows"]
             records = _records(db, export, spec, max_rows)
             evidence = _evidence(db, export.job_id)
+            problems = db.execute(select(CrawlJobEvent.message).where(
+                CrawlJobEvent.job_id == export.job_id, CrawlJobEvent.type == "warning",
+                CrawlJobEvent.message.startswith("Discovery problem: "),
+            ).order_by(CrawlJobEvent.created_at)).scalars().all()
             summary = {
                 "Project": project.name,
                 "Request": schema.nl_request or spec.title,
@@ -107,6 +111,7 @@ def build(export_id: uuid.UUID) -> str:
                              f"{sum(not e['kept'] for e in evidence)} rejected with the reason (Rejected sheet). "
                              "Quotes are copied word for word from the linked document."}
                    if evidence else {}),
+                **{f"Source problem {i}": m.removeprefix("Discovery problem: ") for i, m in enumerate(problems, 1)},
                 "Note": "robots.txt was respected; that alone does not make reuse of this data lawful.",
             }
             options = ExportOptions(

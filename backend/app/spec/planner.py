@@ -145,9 +145,10 @@ def spec_from_plan(plan: Plan, question: str, start_urls: list[str]) -> Extracti
     technology = bool(d.technology and plan.rows == "companies")
     if not base.crawl.start_urls:
         providers: list[Any] = []
-        # For a technology question a list of companies is worth checking only when an industry or keywords
-        # narrow it ("car makers in Germany"); random companies of a country would almost never name it.
-        wants_list = d.industry or d.keywords if technology else d.industry or d.countries or d.region or d.keywords
+        # For a technology question a list of companies is worth checking only when an industry narrows it
+        # ("car makers in Germany"). Keywords alone do not: the model often fills them with words from the
+        # question ("SAP", "contact info"), and Wikidata then lists any organization of the country.
+        wants_list = d.industry if technology else d.industry or d.countries or d.region or d.keywords
         if wants_list:
             # Each company is then checked on its own website for proof that it uses the technology.
             providers = ["wikidata", "searxng"]
