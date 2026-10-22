@@ -162,7 +162,6 @@ def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False, allo
     import time
 
     from app.llm.openrouter import FREE_DAILY, State
-
     from app.services.evaluation import COLUMNS, load_keys, start_runs, unfinished
     from app.services.scorecard import score_job
     from app.worker import tasks
