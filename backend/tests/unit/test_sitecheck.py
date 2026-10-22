@@ -75,3 +75,8 @@ async def test_the_models_answer_decides_not_the_kind_of_business():
     # Sites about many organisations stay out even when they are about the industry.
     group = Router({"kind": "association", "in_industry": True, "reason": "trade body of drug makers"})
     assert "association" in (await SiteChecker(group).check(page("Pharma Group"), SPEC))[0]
+
+
+async def test_a_government_body_is_not_a_company_in_the_industry():
+    agency = Router({"kind": "government_or_public_body", "in_industry": None, "reason": "national regulator"})
+    assert "government or public body" in (await SiteChecker(agency).check(page("Regulator"), SPEC))[0]
