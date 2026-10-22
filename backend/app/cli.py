@@ -151,15 +151,31 @@ def eval_history() -> None:
           f"{sum(f for f, _ in last)}/{sum(t for _, t in last)}")
 
 
-def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False) -> None:
-    """Run every test question again with its latest plan, wait, and score each new run next to the last one."""
+CALLS_PER_RUN = 40  # free model requests one benchmark run can take (measured: 404 for 12 runs on 8759531)
+
+
+def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False, allow_short: bool = False) -> None:
+    """Run every test question again with its latest plan, wait, and score each new run next to the last one.
+
+    Runs that hit the end of the day's free model allowance are judged by rules only, which measures "no model"
+    rather than the code, so the benchmark does not start when the allowance left looks too small."""
     import time
+
+    from app.llm.openrouter import FREE_DAILY, State
 
     from app.services.evaluation import COLUMNS, load_keys, start_runs, unfinished
     from app.services.scorecard import score_job
     from app.worker import tasks
 
     keys = load_keys()
+    state = State()
+    limit = state.daily_limit() or FREE_DAILY
+    used_before = state.used_today()
+    need = CALLS_PER_RUN * repeat * len(keys)
+    if limit - used_before < need and not allow_short:
+        sys.exit(f"Not started: {limit - used_before} of {limit} free model requests are left today and these "
+                 f"{repeat * len(keys)} runs can take about {need}. Run it after the daily reset (00:00 UTC), or "
+                 "pass --allow-short to run anyway (scores then partly measure rules-only judging).")
     with session_scope(bypass=True) as db:
         # Each question more than once shows how much one question's score moves between identical runs.
         started = [(name, prev.id, job.id) for _ in range(repeat)
@@ -186,6 +202,10 @@ def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False) -> N
                 if c.startswith("key: lost at"):
                     print(f"{name} {str(job)[:8]} {c}: {b[c]}")
     _table(rows)
+    used = state.used_today() - used_before  # negative when the day changed during the runs
+    print(f"free model requests: {used if used >= 0 else 'n/a (the daily count reset during the runs)'} used by "
+          f"{len(started)} runs; {limit - state.used_today()} of {limit} left today"
+          + ("; the allowance ran out, so later runs were judged by rules only" if state.exhausted() else ""))
 
 
 def sec_check(product_name: str, aliases: list[str]) -> None:
@@ -242,6 +262,8 @@ def main() -> None:
     p.add_argument("--repeat", type=int, default=1, help="runs of each question, to see run-to-run noise")
     p.add_argument("--refresh-sources", action="store_true",
                    help="same plan, but with the sources today's planner rules pick (to measure a new source)")
+    p.add_argument("--allow-short", action="store_true",
+                   help="start even when today's free model allowance looks too small for the runs")
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
     p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
@@ -255,7 +277,7 @@ def main() -> None:
     if args.cmd == "eval-history":
         return eval_history()
     if args.cmd == "eval-run":
-        return eval_run(args.wait, args.repeat, args.refresh_sources)
+        return eval_run(args.wait, args.repeat, args.refresh_sources, args.allow_short)
     if args.cmd.startswith("llm-"):
         llm(args.cmd)
     elif args.cmd == "refresh-sec":
