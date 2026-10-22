@@ -125,7 +125,7 @@ class CrawlSettings(BaseModel):
 class DiscoverySettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
     providers: list[Literal["seeds", "wikidata", "searxng", "sec_edgar", "gleif", "sec_filings",
-                                "case_studies"]] = Field(
+                                "case_studies", "news"]] = Field(
         default_factory=lambda: ["seeds"])
     industry: str | None = Field(default=None, max_length=100)
     countries: list[str] = Field(default_factory=list, max_length=60)  # ISO 3166-1 alpha-2

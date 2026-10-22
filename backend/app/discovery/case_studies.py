@@ -57,6 +57,7 @@ def page_date(doc: PageDoc) -> str:
 
 class CaseStudiesProvider:
     name = "case_studies"
+    what = "case studies and customer stories"  # what the pages are, in notes and the live feed
 
     def __init__(self, client: httpx.AsyncClient | None = None, judge: Judge | None = None,
                  searxng_url: str | None = None) -> None:
@@ -67,6 +68,7 @@ class CaseStudiesProvider:
         self.evidence: list[dict[str, Any]] = []
         self.on_note: Callable[..., None] | None = None
         self.fetch_page: FetchPage | None = None  # set by the crawler: robots.txt respected, network rules checked
+        self.dates: dict[str, str] = {}  # url -> date the search source gives, when the page itself gives none
 
     def _say(self, kind: str, message: str, url: str | None = None) -> None:
         if self.on_note is not None:
@@ -114,19 +116,20 @@ class CaseStudiesProvider:
     async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
         d = spec.discovery
         if not d.technology:
-            raise DiscoveryError("case studies are searched for a technology")
+            raise DiscoveryError(f"{self.what} are searched for a technology")
         if not self.searxng_url:
-            raise DiscoveryError("case studies are found by web search; SearXNG is not configured, skipped")
+            raise DiscoveryError(f"{self.what} need web search (to find each customer's website); SearXNG is "
+                                 "not configured, skipped")
         if self.fetch_page is None:
-            raise DiscoveryError("case studies are read by the crawler; skipped outside a crawl")
+            raise DiscoveryError(f"{self.what} are read by the crawler; skipped outside a crawl")
         product = product_for(d.technology, d.technology_aliases)
         client = self.client or httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent})
         users: dict[str, dict[str, Any]] = {}
         try:
             urls = await self.search(client, product)
-            self._say("search", f"Web search: {len(urls)} page(s) for {product.name} case studies and customer "
-                                f"stories; reading up to {MAX_PAGES}")
-            self.notes.append(f"case_studies: {len(urls)} candidate page(s), {min(len(urls), MAX_PAGES)} read")
+            self._say("search", f"{len(urls)} page(s) found among {product.name} {self.what}; reading up to "
+                                f"{MAX_PAGES}")
+            self.notes.append(f"{self.name}: {len(urls)} candidate page(s), {min(len(urls), MAX_PAGES)} read")
             for url in urls[:MAX_PAGES]:
                 base = dict(company=registered_domain(url), product=product.name, url=url, evidence_date="",
                             source_type="Web page", website="", quote="", relationship="", judged_by="",
@@ -143,11 +146,11 @@ class CaseStudiesProvider:
                     self._record(**base, kept=False, reason="the product's name is not on the page")
                     continue
                 found, why = await read_page(self.judge, product, doc.title, sentences, text, url)
-                day = page_date(doc)
+                day = page_date(doc) or self.dates.get(url, "")
                 if not found:
                     self._record(**{**base, "evidence_date": day, "quote": sentences[0]}, kept=False, reason=why)
                     if self.judge.unavailable:  # nothing more can be read this run
-                        self.notes.append(f"case_studies: stopped reading pages ({self.judge.unavailable})")
+                        self.notes.append(f"{self.name}: stopped reading pages ({self.judge.unavailable})")
                         break
                     continue
                 for f in found:
@@ -185,10 +188,10 @@ class CaseStudiesProvider:
                 await client.aclose()
         missing = len(users) - len(results)
         if missing > 0:
-            self.notes.append(f"case_studies: {missing} customer(s) with proof have no confirmed website; they "
+            self.notes.append(f"{self.name}: {missing} customer(s) with proof have no confirmed website; they "
                               "are on the Evidence sheet only")
         if not results:
-            raise DiscoveryError(f"no case study or customer story showed an organisation using {product.name}")
+            raise DiscoveryError(f"none of the {self.what} showed an organisation using {product.name}")
         return results
 
     async def _text(self, url: str) -> str | None:

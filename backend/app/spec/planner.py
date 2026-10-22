@@ -172,13 +172,13 @@ def choose_providers(d: Any, technology: bool) -> list[str]:
         if d.industry:
             providers.insert(-1, "gleif")
     if technology:
-        providers.insert(0, "case_studies")  # organisations a vendor, partner or news page shows using it
+        providers[:0] = ["case_studies", "news"]  # organisations a vendor, partner or news page shows using it
     if technology and covers_us(d):
         providers.insert(0, "sec_filings")  # companies whose own filings name it
     return providers or ["seeds"]
 
 
-PROOF_SOURCES = {"sec_filings", "case_studies"}  # sources that bring their own proof, not a list to check
+PROOF_SOURCES = {"sec_filings", "case_studies", "news"}  # sources that bring their own proof, not a list to check
 
 
 def covers_us(d: Any) -> bool:
@@ -193,7 +193,9 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
     # Sites to check for proof: the person's own start URLs, or a list source. "seeds" alone with no start URLs
     # is nothing to search, and the notes must not promise otherwise.
     if "case_studies" in d.providers:
-        sources.append("vendor and partner case studies, customer stories and news pages found by web search")
+        sources.append("vendor and partner case studies and customer stories found by web search")
+    if "news" in d.providers:
+        sources.append(f"news articles (GDELT, last {d.evidence_years} years)")
     has_list = bool(spec.crawl.start_urls) or any(p not in PROOF_SOURCES | {"seeds"} for p in d.providers)
     if not sources and not has_list:
         return [f"Nothing can be searched for companies using {d.technology} here yet: add an industry "

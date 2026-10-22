@@ -69,7 +69,7 @@ REGISTRY_METHODS = ("wikidata", "sec_edgar", "gleif", "sec_filings")
 LEASE = timedelta(minutes=5)
 SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
                 "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings",
-                "case_studies": "case studies and customer stories"}
+                "case_studies": "case studies and customer stories", "news": "news articles (GDELT)"}
 RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
 
 
@@ -528,7 +528,7 @@ class CrawlRunner:
             self.note("skipped", f"Skipped {final}: same content as a page already read", final)
             return
         doc = parse_page(final, result.text)
-        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies"):
+        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies", "news"):
             reason = await self._homepage_reason(row, doc, site, final)
             if reason:
                 self.allowed_sites.discard(site)
