@@ -101,12 +101,13 @@ class Judge:
         self.unavailable: str | None = None
         self.busy_in_a_row = 0
 
-    async def _ask(self, messages: list[dict[str, str]]):
+    async def _ask(self, messages: list[dict[str, str]], avoid: str | None = None):
         """One reply, waiting out a moment when every free model is busy. Raises LLMUnavailable."""
         for attempt in range(RETRIES + 1):
             try:
                 self.router = self.router or OpenRouter()
-                reply = await self.router.chat(messages, json_mode=True, max_tokens=300)
+                kw = {"avoid": avoid} if avoid else {}
+                reply = await self.router.chat(messages, json_mode=True, max_tokens=300, **kw)
                 self.busy_in_a_row = 0
                 return reply
             except LLMUnavailable as exc:
@@ -134,11 +135,11 @@ class Judge:
         if self.unavailable:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {self.unavailable}")
         numbered = "\n".join(f"{i}. {q}" for i, q in enumerate(quotes, start=1))
+        messages = [{"role": "system", "content": SYSTEM},
+                    {"role": "user", "content": f"Company: {company}\nProduct: {product.name}\nDocument: {source}\n\n"
+                                                f"Sentences:\n{numbered}"}]
         try:
-            reply = await self._ask([
-                {"role": "system", "content": SYSTEM},
-                {"role": "user", "content": f"Company: {company}\nProduct: {product.name}\nDocument: {source}\n\n"
-                                            f"Sentences:\n{numbered}"}])
+            reply = await self._ask(messages)
             answer = Answer.model_validate(reply.json())
         except LLMUnavailable as exc:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {exc}")
@@ -147,7 +148,21 @@ class Judge:
         except Exception as exc:  # noqa: BLE001 - a failed check keeps the proof as unreviewed
             return Judgement("unreviewed", quotes[0], f"unreviewed: {type(exc).__name__}")
         quote = quotes[min(answer.quote, len(quotes)) - 1]
+        if answer.relationship in USE:
+            # The same quote has been read as "uses" in one run and as a customer's system in another. Use counts
+            # only when a second reading, by another free model where one is available, agrees.
+            second = await self._second_reading(messages, reply.model)
+            if second is None or second not in USE:
+                why = "a second reading could not be made" if second is None else f"a second reading says {second}"
+                return Judgement("unreviewed", quote, f"model:{reply.model}", f"{answer.reason}; {why}")
         return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
+
+    async def _second_reading(self, messages: list[dict[str, str]], first_model: str) -> str | None:
+        try:
+            reply = await self._ask(messages, avoid=first_model)
+            return Answer.model_validate(reply.json()).relationship
+        except Exception:  # noqa: BLE001 - no second reading: the use stays unconfirmed, never confirmed
+            return None
 
     async def aclose(self) -> None:
         if self.router is not None:

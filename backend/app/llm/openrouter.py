@@ -276,11 +276,14 @@ class OpenRouter:
             raise PaidModelError(problem)
 
     async def chat(self, messages: list[dict[str, str]], *, json_mode: bool = False, max_tokens: int = 1200,
-                   temperature: float = 0.0) -> Reply:
-        """One completion from the best available free model, trying the next free model if one fails."""
+                   temperature: float = 0.0, avoid: str | None = None) -> Reply:
+        """One completion from the best available free model, trying the next free model if one fails.
+        `avoid` puts that model last, for a second opinion from a different one."""
         await self._check_allowance()
         state = self._state()
         candidates = [m for m in await self.free_models() if not state.cooling(m)]
+        if avoid in candidates and len(candidates) > 1:
+            candidates = [m for m in candidates if m != avoid] + [avoid]
         if not candidates:
             raise LLMUnavailable("no free model is available right now")
         http = await self._http()

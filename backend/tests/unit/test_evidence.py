@@ -63,15 +63,26 @@ def test_rules_settle_vendors_competitors_and_resellers():
 
 
 async def test_the_model_only_picks_a_relationship_and_one_of_our_quotes():
-    router = Router({"relationship": "rolling_out", "quote": 2, "reason": "it is implementing it"})
+    router = Router({"relationship": "rolling_out", "quote": 2, "reason": "it is implementing it"},
+                    {"relationship": "uses", "quote": 2, "reason": "second reading agrees it is in use"})
     judge = Judge(router)
     quotes = ["SAP S/4HANA is a risk.", "We are implementing SAP S/4HANA across our plants."]
     j = await judge.judge("Avient", product_for("SAP"), quotes, "10-K filed 2025-02-20")
     assert (j.relationship, j.quote, j.judged_by) == ("rolling_out", quotes[1], "model:minimax/minimax-m3.1-flash:free")
     # Text the model writes is never used as the quote.
-    router.answers.append({"relationship": "uses", "quote": 9, "reason": "x", "quote_text": "made up"})
+    router.answers += [{"relationship": "uses", "quote": 9, "reason": "x", "quote_text": "made up"},
+                       {"relationship": "uses", "quote": 1, "reason": "x"}]
     j = await judge.judge("Avient", product_for("SAP"), quotes, "10-K")
     assert j.quote == quotes[1]  # out of range: the last one given
+
+
+async def test_use_counts_only_when_a_second_reading_by_another_model_agrees():
+    quotes = ["SAP S/4HANA is a risk.", "A manufacturer switched to our product during its S/4HANA migration."]
+    router = Router({"relationship": "rolling_out", "quote": 2, "reason": "migrating"},
+                    {"relationship": "other_mention", "quote": 2, "reason": "a customer's migration"})
+    j = await Judge(router).judge("Vertex", product_for("SAP"), quotes, "10-K")
+    assert j.relationship == "unreviewed" and "second reading says other_mention" in j.reason
+    assert router.calls == 2
 
 
 async def test_without_a_model_proof_stays_unreviewed_and_the_model_is_not_asked_again():

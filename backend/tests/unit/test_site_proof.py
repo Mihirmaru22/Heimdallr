@@ -45,7 +45,7 @@ async def test_a_page_naming_the_product_is_judged_and_a_proven_site_is_not_judg
     assert piece["kept"] and piece["verdict"] == "Confirmed" and piece["source_type"] == "Company website"
     assert piece["quote"] == "Teamcenter holds the product data of every Initech truck."
     assert await proof.check(page("Teamcenter again."), "initech.com", "Initech") is None
-    assert router.calls == 1
+    assert router.calls == 2  # the use verdict and its second reading
     assert await proof.check(page("Nothing about it."), "other.com", "Other") is None
 
 
