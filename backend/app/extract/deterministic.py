@@ -253,7 +253,7 @@ NARROW_MAILBOX_RE = re.compile(
 NOT_CONTACT_RE = re.compile(
     r"copyright|trademark|legal|grievance|privacy|gdpr|dpo|dataprotect|abuse|report|complian|ethic|whistle|"
     r"jobs?\b|jobs?[._-]|careers?|recruit|talent|people|\bhr\b|^hr[._-]|hr$|registration|noreply|no-reply|donotreply|"
-    r"unsubscribe|bounce|mailer|postmaster|webmaster|accessib|investor|^ir[._-]?|safety|vigilance|security|"
+    r"unsubscribe|bounce|mailer|postmaster|webmaster|accessib|safety|vigilance|security|"
     r"vulnerab|partner|affiliate|marketing|sponsor|advertis|billing|invoice|"
     r"payable|receivable|procurement|vendor|supplier|tax|fraud|counterfeit|recall|warranty|clinicaltrial|"
     r"grants?\b|grants?[._-]|secretar|medinfo|adverse")

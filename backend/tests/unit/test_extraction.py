@@ -153,6 +153,26 @@ def test_another_country_s_office_mailbox_is_dropped_when_countries_were_asked_f
     assert len(prefer_country_emails(list(found), [])) == 2
 
 
+def test_an_investor_relations_mailbox_is_kept_below_the_main_one():
+    fields = [FieldSpec(name="contact_email", type="email", semantic="contact_email")]
+    html = '<p>Investor.Relations@DelekUS.com</p>'
+    found = extract_page(parse_page("https://ir.delekus.com/resources/investor-contacts/", html), fields)
+    assert [c.value for c in found["contact_email"]] == ["Investor.Relations@DelekUS.com"]
+    html += '<a href="mailto:info@delekus.com">x</a>'
+    scores = {c.value: c.confidence for c in extract_page(parse_page("https://www.delekus.com/", html),
+                                                          fields)["contact_email"]}
+    assert scores["info@delekus.com"] > scores["Investor.Relations@DelekUS.com"]
+
+
+def test_contact_pages_are_read_before_careers_and_news():
+    from app.crawl.runner import _page_rank, _priority
+
+    kws = ["career", "news", "contact", "about"]
+    urls = ["https://x.com/news/2015/a", "https://x.com/careers/", "https://x.com/contact-us", "https://x.com/z"]
+    assert sorted(urls, key=lambda u: _page_rank(u, kws))[0] == "https://x.com/contact-us"
+    assert _priority("https://x.com/contact-us", 1, kws) < _priority("https://x.com/careers/", 1, kws)
+
+
 def test_phones_from_other_countries_are_dropped():
     from app.extract.deterministic import prefer_country_phones
 

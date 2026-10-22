@@ -40,7 +40,7 @@ from app.evidence.judge import proof_confidence
 from app.evidence.site import SiteProof
 from app.extract.deterministic import extract_page, parse_page, prefer_country_emails, prefer_country_phones
 from app.extract.normalize import InvalidValue, normalize_value
-from app.extract.records import _has_extractor
+from app.extract.records import CONTACT_HINTS, _has_extractor
 from app.models import (
     CrawlJob,
     CrawlJobEvent,
@@ -70,10 +70,18 @@ class JobCancelled(Exception):
     pass
 
 
-def _priority(url: str, depth: int, keywords: list[str]) -> int:
+def _page_rank(url: str, keywords: list[str]) -> int:
+    """0: a contact or about page, 1: a page matching another priority keyword (careers, news...), 2: other.
+    Contact pages come first because they hold the email and phone; with careers and news ranked the same,
+    Northrop's and NewMarket's 15-page budget went to job and 2015 news pages and no contact was read."""
     path = url.lower()
-    boost = 30 if any(k in path for k in keywords) else 0
-    return depth * 50 + 50 - boost
+    if any(k in path for k in CONTACT_HINTS):
+        return 0
+    return 1 if any(k in path for k in keywords) else 2
+
+
+def _priority(url: str, depth: int, keywords: list[str]) -> int:
+    return depth * 50 + 50 - (40, 30, 0)[_page_rank(url, keywords)]
 
 
 class CrawlRunner:
@@ -389,8 +397,8 @@ class CrawlRunner:
                     continue
             found += pages
         kws = self.spec.crawl.priority_keywords
-        preferred = [u for u in found if any(k in u.lower() for k in kws)]
-        chosen = list(dict.fromkeys(preferred + found))[: self.spec.crawl.max_pages_per_site * 2]
+        chosen = sorted(dict.fromkeys(found), key=lambda u: _page_rank(u, kws))
+        chosen = chosen[: self.spec.crawl.max_pages_per_site * 2]
         out = []
         for u in chosen:
             nu = normalize_url(u)
@@ -543,7 +551,7 @@ class CrawlRunner:
         # instead of thousands of links that would be skipped anyway.
         room = self.spec.crawl.max_pages_per_site * 2 - self.site_queued.get(site, 0)
         kws = self.spec.crawl.priority_keywords
-        new.sort(key=lambda it: not any(k in it["url"].lower() for k in kws))
+        new.sort(key=lambda it: _page_rank(it["url"], kws))
         new = new[:max(room, 0)]
         added = self.add_urls(new)
         self.site_queued[site] = self.site_queued.get(site, 0) + added
