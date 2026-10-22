@@ -85,6 +85,7 @@ class CrawlRunner:
         # A technology question: every page read is also checked for proof that the company uses it.
         self.site_proof = SiteProof(spec) if spec.discovery.technology else None
         self.site_names: dict[str, str] = {}  # site -> company name its source gave
+        self.site_queued: dict[str, int] = {}  # site -> pages queued from its links and sitemap
         self.told_unchecked = False
         self.settings = get_settings()
         self.resolver = resolver
@@ -271,23 +272,59 @@ class CrawlRunner:
         self.allowed_sites = {registered_domain(u) for u in seeds}
         self.allowed_sites |= {registered_domain(d) for d in self.spec.crawl.allowed_domains}
 
-    def claim(self, n: int) -> list[DiscoveredUrl]:
+    def claim_fair(self) -> DiscoveredUrl | None:
+        """The most urgent queued page from a site that is not already being read by its share of workers."""
         now = utcnow()
         with session_scope(self.org_id) as db:
-            # Leases left behind by a crashed worker are released first.
             db.execute(update(DiscoveredUrl).where(
                 DiscoveredUrl.job_id == self.job_id, DiscoveredUrl.status == UrlStatus.in_progress,
                 DiscoveredUrl.lease_until < now).values(status=UrlStatus.queued))
             rows = db.execute(
                 select(DiscoveredUrl).where(DiscoveredUrl.job_id == self.job_id,
                                             DiscoveredUrl.status == UrlStatus.queued)
-                .order_by(DiscoveredUrl.priority, DiscoveredUrl.discovered_at).limit(n)
+                .order_by(DiscoveredUrl.priority, DiscoveredUrl.discovered_at).limit(200)
                 .with_for_update(skip_locked=True)).scalars().all()
+            limit = self.settings.per_domain_concurrency
             for r in rows:
-                r.status = UrlStatus.in_progress
-                r.lease_until = now + LEASE
-                r.attempts += 1
-            return list(rows)
+                if self.busy_hosts.get(r.host, 0) < limit:
+                    r.status = UrlStatus.in_progress
+                    r.lease_until = now + LEASE
+                    r.attempts += 1
+                    db.flush()
+                    db.expunge(r)
+                    return r
+            return None
+
+    async def _worker(self) -> None:
+        while not self.stopping:
+            if self.counts_cache["fetched"] + self.active >= self.spec.crawl.max_pages:
+                if self.active == 0:
+                    return
+                await asyncio.sleep(0.2)
+                continue
+            self.active += 1
+            row = None
+            try:
+                row = self.claim_fair()
+                if row is None:
+                    self.active -= 1
+                    if self.active == 0 and not self.claim_possible():
+                        return  # nothing queued and nothing being read that could add more
+                    await asyncio.sleep(0.2)
+                    continue
+                self.busy_hosts[row.host] = self.busy_hosts.get(row.host, 0) + 1
+                await self.process(row)
+                self.counts_cache = self.counts()
+            finally:
+                if row is not None:
+                    self.active -= 1
+                    self.busy_hosts[row.host] -= 1
+
+    def claim_possible(self) -> bool:
+        with session_scope(self.org_id) as db:
+            return db.execute(select(DiscoveredUrl.id).where(
+                DiscoveredUrl.job_id == self.job_id,
+                DiscoveredUrl.status.in_([UrlStatus.queued, UrlStatus.in_progress])).limit(1)).first() is not None
 
     def counts(self) -> dict[str, int]:
         with session_scope(self.org_id) as db:
@@ -485,7 +522,14 @@ class CrawlRunner:
             for link, _text in doc.links[:500]:
                 if registered_domain(link) in self.allowed_sites and looks_like_page(link):
                     new.append({"url": link, "method": "link", "depth": row.depth + 1, "referrer": final})
+        # Only a site's page budget can be read, so queue about twice that, the most useful pages first,
+        # instead of thousands of links that would be skipped anyway.
+        room = self.spec.crawl.max_pages_per_site * 2 - self.site_queued.get(site, 0)
+        kws = self.spec.crawl.priority_keywords
+        new.sort(key=lambda it: not any(k in it["url"].lower() for k in kws))
+        new = new[:max(room, 0)]
         added = self.add_urls(new)
+        self.site_queued[site] = self.site_queued.get(site, 0) + added
         if added:
             self.note("links", f"Queued {added} new page(s) of {site} to read", final)
 
@@ -574,21 +618,24 @@ class CrawlRunner:
         self.counts_cache = self.counts()
         flusher = asyncio.create_task(self._flush_every_second())
         last_records = time.monotonic()
+        # A pool of workers, each taking the next page as soon as it is done, from a site no other worker is
+        # reading: one slow site (a timeout, a model call, a robots delay) no longer holds up all the others.
+        self.stopping = False
+        self.busy_hosts: dict[str, int] = {}
+        self.active = 0
+        workers = [asyncio.create_task(self._worker()) for _ in range(self.settings.global_concurrency)]
         try:
-            while True:
+            while not all(w.done() for w in workers):
+                await asyncio.wait(workers, timeout=1, return_when=asyncio.FIRST_EXCEPTION)
+                for w in workers:
+                    if w.done() and not w.cancelled() and w.exception() is not None:
+                        raise w.exception()
+                self.counts_cache = self.counts()
                 self._check_job()
-                if time.monotonic() - self.started > self.settings.max_job_seconds:
+                if time.monotonic() - self.started > self.settings.max_job_seconds and not self.stopping:
+                    self.stopping = True
                     with session_scope(self.org_id) as db:
                         log_event(db, self.org_id, self.job_id, "warning", "Job reached its time limit")
-                    break
-                if self.counts_cache["fetched"] >= self.spec.crawl.max_pages:
-                    break
-                budget = self.spec.crawl.max_pages - self.counts_cache["fetched"]
-                batch = self.claim(min(self.settings.global_concurrency, budget))
-                if not batch:
-                    break
-                await asyncio.gather(*(self.process(r) for r in batch))
-                self.counts_cache = self.counts()
                 if time.monotonic() - last_records > RECORDS_EVERY:
                     last_records = time.monotonic()
                     try:
@@ -596,6 +643,11 @@ class CrawlRunner:
                     except Exception:  # noqa: BLE001 - the final pass after the crawl builds them anyway
                         log.exception("could not refresh records during the crawl")
         finally:
+            self.stopping = True
+            for w in workers:
+                w.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
+            self.counts_cache = self.counts()
             flusher.cancel()
             try:
                 self.flush_activity()

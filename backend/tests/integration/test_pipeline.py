@@ -275,3 +275,28 @@ def test_the_activity_feed_shows_each_real_step(db_clean, crawl_env, monkeypatch
         ctx = OrgContext.__new__(OrgContext)
         ctx.org = db.get(Organization, org_id)
         assert all(e.type != "activity" for e in events(job_id, ctx, db, 0, 1000))
+
+
+def test_a_busy_site_does_not_get_every_worker(db_clean, crawl_env):
+    from app.crawl.runner import CrawlRunner
+    from app.models import UrlStatus
+
+    url = crawl_env["url"]
+    job_id, org_id = make_job([])
+    with session_scope(org_id) as db:
+        spec = ExtractionSpec.model_validate(db.get(ExtractionSchema, db.get(CrawlJob, job_id).schema_id).spec)
+    r = CrawlRunner(job_id, org_id, spec, resolver=crawl_env["resolver"])
+    r.add_urls([{"url": url("acme-security.test", f"/p{i}"), "method": "seed"} for i in range(5)]
+               + [{"url": url("globex.test", "/"), "method": "seed", "depth": 1}])  # lower priority
+    r.busy_hosts = {"acme-security.test": r.settings.per_domain_concurrency}
+    row = r.claim_fair()
+    assert row.host == "globex.test" and row.status == UrlStatus.in_progress
+    assert r.claim_fair() is None  # acme is at its share and globex has nothing more
+
+
+def test_a_site_queues_only_about_twice_its_page_budget(db_clean, crawl_env):
+    job_id, org_id = make_job([crawl_env["url"]("acme-security.test")],
+                              crawl={"start_urls": [crawl_env["url"]("acme-security.test")], "max_pages": 30,
+                                     "max_depth": 2, "max_pages_per_site": 1})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    assert len(urls_by_status(job_id, org_id)) <= 1 + 2  # the start page, then at most 2 x 1 more
