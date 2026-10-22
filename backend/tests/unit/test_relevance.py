@@ -88,3 +88,13 @@ def test_a_page_with_no_text_is_unreadable_not_off_topic():
 
     assert unreadable(_doc("https://cipla.example/", "<div id='app'></div>"))
     assert not unreadable(_doc("https://acme.com/", "<p>" + "We make generic medicines. " * 10 + "</p>"))
+
+
+def test_a_multinational_is_placed_where_most_of_its_numbers_are():
+    def tels(*nums):
+        return "".join(f'<a href="tel:{n}">call</a>' for n in nums)
+
+    ncc = _doc("https://www.example.com/", tels("+443316300690", "+44 (0) 161 209 5200", "+441612095200",
+                                                "+18008133523", "+61295524451"))
+    assert site_country(ncc) == "GB"  # two UK numbers, one US, one AU
+    assert site_country(_doc("https://www.example.com/", tels("+442076644522", "+18008133523"))) is None  # a tie

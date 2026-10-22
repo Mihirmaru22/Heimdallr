@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import extruct
 import phonenumbers
@@ -337,7 +337,7 @@ def _phone_candidates(doc: PageDoc) -> list[Candidate]:
     out = []
     for a in doc.tree.css('a[href^="tel:"]'):
         # "+91 40 67611600 / 700": a second extension after a slash is not part of the number.
-        num = (a.attributes.get("href") or "")[4:].split("/")[0].strip()
+        num = unquote((a.attributes.get("href") or "")[4:]).split("/")[0].strip()  # "tel:%20+44..."
         if sum(ch.isdigit() for ch in num) >= 7:
             out.append(Candidate(num, "tel_link", 0.85, f"tel:{num}"))
     for org in _orgs(doc):
@@ -346,7 +346,26 @@ def _phone_candidates(doc: PageDoc) -> list[Candidate]:
             out.append(Candidate(tel, "jsonld", 0.9, f"JSON-LD telephone = {tel}"))
     for m in re.finditer(r"\+\d[\d ()./-]{6,20}\d", doc.text):
         out.append(Candidate(m.group(), "regex", 0.55, _snippet(doc.text, m.group())))
-    return out
+    # One number written several ways ("+44 (0) 161 209 5200", "+441612095200") is one candidate.
+    seen: set[str] = set()
+    unique = []
+    for c in out:
+        c.value = _e164(c.value) or c.value
+        if c.value not in seen:
+            seen.add(c.value)
+            unique.append(c)
+    return unique
+
+
+def _e164(raw: str) -> str | None:
+    if not raw.startswith("+"):
+        return None  # read later in the requested country (prefer_country_phones)
+    try:
+        num = phonenumbers.parse(raw, None)
+    except phonenumbers.NumberParseException:
+        return None
+    return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164) if phonenumbers.is_valid_number(
+        num) else None
 
 
 def _local_number(raw: str, countries: list[str]) -> str | None:

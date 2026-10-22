@@ -181,7 +181,7 @@ def test_phones_from_other_countries_are_dropped():
     fields = [FieldSpec(name="phone", type="phone", semantic="phone")]
     found = extract_page(parse_page("https://www.ibm.com/", html), fields)["phone"]
     prefer_country_phones(found, ["US"])
-    assert [c.value for c in found] == ["+1 914 499 1900", "+18004264968"]
+    assert [c.value for c in found] == ["+19144991900", "+18004264968"]
     unchanged = extract_page(parse_page("https://www.ibm.com/", html), fields)["phone"]
     assert prefer_country_phones(unchanged, []) == unchanged
 
@@ -215,7 +215,7 @@ def test_press_officer_inboxes_and_the_fda_number_are_not_company_contacts():
     scores = {c.value: c.confidence for c in found["contact_email"]}
     assert set(scores) == {"KMontag@its.acme.com", "mediarelations@acme.com"}
     assert scores["KMontag@its.acme.com"] < 0.6 < scores["mediarelations@acme.com"]
-    assert [c.value for c in found["phone"]] == ["+1 908 740 4000"]
+    assert [c.value for c in found["phone"]] == ["+19087404000"]
 
 
 def test_local_numbers_are_read_in_the_requested_country_and_extensions_dropped():
@@ -225,7 +225,7 @@ def test_local_numbers_are_read_in_the_requested_country_and_extensions_dropped(
       </body></html>"""
     fields = [FieldSpec(name="phone", type="phone", semantic="phone")]
     found = extract_page(parse_page("https://www.example.in/", html), fields)["phone"]
-    assert [c.value for c in prefer_country_phones(found, ["IN"])] == ["+919847433522", "+91 40 67611600"]
+    assert [c.value for c in prefer_country_phones(found, ["IN"])] == ["+919847433522", "+914067611600"]
 
 
 def test_a_press_officer_with_a_middle_initial_is_not_a_contact_but_customer_service_is():
@@ -267,3 +267,11 @@ def test_a_website_with_its_ending_missing_in_the_markup_is_not_taken():
     doc = parse_page("https://www.bridewell.com/", f'<html><head><script type="application/ld+json">{ld}'
                                                     "</script></head><body><p>Hi</p></body></html>")
     assert [c.value for c in _website(doc)] == ["https://www.bridewell.com/"]
+
+
+def test_phone_links_are_decoded_and_one_number_written_two_ways_is_one_candidate():
+    from app.extract.deterministic import _phones
+
+    doc = parse_page("https://x.co.uk/", '<html><body><a href="tel:%20+447464800215">Call</a>'
+                                         '<p>Call +44 (0) 161 209 5200 or +441612095200.</p></body></html>')
+    assert [c.value for c in _phones(doc)] == ["+447464800215", "+441612095200"]

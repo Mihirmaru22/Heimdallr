@@ -95,8 +95,10 @@ def score_job(db, job_id: uuid.UUID, key: dict[str, Any] | None = None) -> dict[
     n = len(included)
     emails = [str(r.data.get("contact_email") or "") for r in included]
     phones = [r.data.get("phone") for r in included]
-    out["included: email"] = _pct(sum(bool(e) for e in emails), n)
-    out["included: phone"] = _pct(sum(bool(p) for p in phones), n)
+    asked = {f.get("semantic") or f.get("name") for f in spec.get("fields", [])}
+    na = "n/a (not asked for)"
+    out["included: email"] = _pct(sum(bool(e) for e in emails), n) if "contact_email" in asked else na
+    out["included: phone"] = _pct(sum(bool(p) for p in phones), n) if "phone" in asked else na
     out["included: email or phone"] = _pct(sum(bool(e) or bool(p) for e, p in zip(emails, phones, strict=True)), n)
     out["included: neither"] = _pct(sum(not e and not p for e, p in zip(emails, phones, strict=True)), n)
     kinds = Counter(email_kind(e) for e in emails if e)

@@ -10,6 +10,8 @@ a country-code domain, or homepage phone numbers that all share one country). An
 from __future__ import annotations
 
 import re
+from collections import Counter
+from urllib.parse import unquote
 
 import phonenumbers
 
@@ -121,15 +123,20 @@ def site_country(doc: PageDoc) -> str | None:
     tld = site.rsplit(".", 1)[-1].lower()
     if len(tld) == 2 and tld not in GENERIC_CCTLDS:
         return CCTLD_TO_ISO.get(tld, tld.upper())
-    # International phone numbers on the homepage, when they all point to one country.
-    regions = set()
+    # International phone numbers on the homepage: a multinational lists its regional offices, so the country
+    # with the most distinct numbers wins when no other country has as many.
+    numbers: dict[str, str] = {}
     for a in doc.tree.css('a[href^="tel:"]')[:10]:
-        raw = (a.attributes.get("href") or "")[4:].strip()
+        raw = unquote(a.attributes.get("href") or "")[4:].strip()
         if raw.startswith("+"):
             try:
-                region = phonenumbers.region_code_for_number(phonenumbers.parse(raw, None))
+                num = phonenumbers.parse(raw, None)
             except phonenumbers.NumberParseException:
                 continue
+            region = phonenumbers.region_code_for_number(num)
             if region and region != "ZZ":
-                regions.add(region)
-    return regions.pop() if len(regions) == 1 else None
+                numbers[phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)] = region
+    ranked = Counter(numbers.values()).most_common(2)
+    if ranked and (len(ranked) == 1 or ranked[0][1] > ranked[1][1]):
+        return ranked[0][0]
+    return None
