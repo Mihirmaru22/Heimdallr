@@ -81,3 +81,10 @@ def test_british_and_american_spellings_both_match():
         terms = industry_terms(typed)
         assert "defense" in terms and "defence" in terms
     assert "aluminum" in industry_terms("aluminium") and "aluminium" in industry_terms("aluminum")
+
+
+def test_a_page_with_no_text_is_unreadable_not_off_topic():
+    from app.discovery.relevance import unreadable
+
+    assert unreadable(_doc("https://cipla.example/", "<div id='app'></div>"))
+    assert not unreadable(_doc("https://acme.com/", "<p>" + "We make generic medicines. " * 10 + "</p>"))

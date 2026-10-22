@@ -317,3 +317,56 @@ def test_a_site_is_left_once_every_detail_is_found(db_clean, crawl_env):
         in activity(job_id, org_id)
     (acme,) = records(job_id, org_id)
     assert acme.data["phone"] == "+442079460958" and acme.status == "valid"
+
+
+def test_a_company_whose_listed_homepage_moved_is_read_on_its_new_domain(db_clean, crawl_env):
+    url = crawl_env["url"]
+    fields = [f for f in FIELDS if f["name"] != "never_found"]
+    job_id, org_id = make_job([url("acme-old.test")], fields=fields)
+    assert pipeline.run_job(job_id, resolver=crawl_env["resolver"]) == "completed"
+    (acme,) = records(job_id, org_id)
+    assert acme.data["phone"] == "+442079460958"
+    assert any(m.startswith("acme-old.test moved to acme-security.test") for _k, m in activity(job_id, org_id))
+
+
+def _wikidata(url, hint, monkeypatch):
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+
+    class Source:
+        name = "wikidata"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url, "wikidata", hint)]
+
+    async def unchecked(self, doc, spec):
+        return None, "unchecked: no model in tests"
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Source()])
+    monkeypatch.setattr(runner.SiteChecker, "check", unchecked)
+
+
+def test_a_registry_industry_is_not_undone_by_a_missing_word_on_the_homepage(db_clean, crawl_env, monkeypatch):
+    # Wikidata matched the company on its industry; its homepage never uses that word (it says "medicines").
+    url = crawl_env["url"]
+    _wikidata(url("acme-security.test"), {"company_name": "Acme", "industry": "pharmaceutical industry"},
+              monkeypatch)
+    job_id, org_id = make_job([], discovery={"providers": ["wikidata"], "industry": "pharmaceutical"})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    assert urls_by_status(job_id, org_id)[url("acme-security.test")][0] == "fetched"
+
+    # Without the registry's industry, the homepage's own words still decide.
+    _wikidata(url("acme-security.test"), {"company_name": "Acme"}, monkeypatch)
+    job_id, org_id = make_job([], discovery={"providers": ["wikidata"], "industry": "pharmaceutical"})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    status, reason = urls_by_status(job_id, org_id)[url("acme-security.test")]
+    assert status == "skipped" and "does not mention" in reason
+
+
+def test_a_homepage_with_no_text_is_not_judged_on_its_content(db_clean, crawl_env, monkeypatch):
+    url = crawl_env["url"]
+    _wikidata(url("loader.test"), {"company_name": "Loader"}, monkeypatch)
+    job_id, org_id = make_job([], discovery={"providers": ["wikidata"], "industry": "pharmaceutical"})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    assert urls_by_status(job_id, org_id)[url("loader.test")][0] == "fetched"
+    assert any("could not be read" in m for _k, m in activity(job_id, org_id))

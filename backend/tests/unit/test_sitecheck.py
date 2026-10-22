@@ -64,3 +64,14 @@ def test_a_registry_link_to_an_inner_page_becomes_the_homepage():
     assert homepage("https://www.neulandlabs.com/en") == "https://www.neulandlabs.com/en"
     assert homepage("https://www.acme.com/products/drugs/") == "https://www.acme.com/"
     assert homepage("https://www.acme.com/") == "https://www.acme.com/"
+
+
+async def test_the_models_answer_decides_not_the_kind_of_business():
+    # A firm whose service is the industry itself is in it.
+    provider = Router({"kind": "service_provider", "in_industry": True, "reason": "provides security testing"})
+    assert (await SiteChecker(provider).check(page("NCC"), SPEC))[0] is None
+    unsure = Router({"kind": "other", "in_industry": None, "reason": "homepage too vague"})
+    assert (await SiteChecker(unsure).check(page("Vague"), SPEC))[0] is None
+    # Sites about many organisations stay out even when they are about the industry.
+    group = Router({"kind": "association", "in_industry": True, "reason": "trade body of drug makers"})
+    assert "association" in (await SiteChecker(group).check(page("Pharma Group"), SPEC))[0]

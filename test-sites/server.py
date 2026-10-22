@@ -7,6 +7,8 @@ are needed. A few routes are special so the safety rules can be tested:
   globex.test/go-internal   302 -> http://169.254.169.254/latest/meta-data/  (cloud metadata)
   globex.test/go-loopback   302 -> http://127.0.0.1:22/                      (loopback port)
   flaky.test/robots.txt     503                                               (robots unavailable)
+  acme-old.test/            302 -> http://acme-security.test:PORT/           (a company's old domain)
+  loader.test/              a page with no text, like a loader or challenge page
 
 Any other Host (e.g. plain http://127.0.0.1:8765/) gets the acme-security.test site, for manual demos.
 
@@ -25,6 +27,7 @@ SITES = Path(__file__).parent / "sites"
 REDIRECTS = {
     ("globex.test", "/go-internal"): "http://169.254.169.254/latest/meta-data/",
     ("globex.test", "/go-loopback"): "http://127.0.0.1:22/",
+    ("acme-old.test", "/"): "http://acme-security.test:{port}/",
 }
 DEFAULT_SITE = "acme-security.test"
 STATUS = {("flaky.test", "/robots.txt"): 503}
@@ -44,7 +47,7 @@ class Handler(BaseHTTPRequestHandler):
         port = self.server.server_address[1]
         if (host, path) in REDIRECTS:
             self.send_response(302)
-            self.send_header("Location", REDIRECTS[(host, path)])
+            self.send_header("Location", REDIRECTS[(host, path)].format(port=port))
             self.end_headers()
             return
         if (host, path) in STATUS:

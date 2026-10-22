@@ -89,7 +89,7 @@ def crawl_env(sites, monkeypatch):
 
     port = sites["port"]
     hosts = ["acme-security.test", "acme-mirror.test", "globex.test", "blocked.test", "flaky.test", "initech.test",
-             "hooli.test"]
+             "hooli.test", "acme-old.test", "loader.test"]
     monkeypatch.setattr(get_settings(), "allow_private_targets", [f"{h}:{port}" for h in hosts])
     sites["server"].Handler.requests_seen.clear()
     return {"port": port, "resolver": test_resolver, "requests": sites["server"].Handler.requests_seen,

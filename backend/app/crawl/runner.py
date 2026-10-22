@@ -34,7 +34,7 @@ from app.crawl.urlnorm import (
 )
 from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError, providers_for
-from app.discovery.relevance import off_topic_reason, outside_countries_reason
+from app.discovery.relevance import off_topic_reason, outside_countries_reason, unreadable
 from app.discovery.sitecheck import SiteChecker
 from app.evidence.judge import proof_confidence
 from app.evidence.site import SiteProof
@@ -412,6 +412,34 @@ class CrawlRunner:
                 DiscoveredUrl.job_id == self.job_id, DiscoveredUrl.status == UrlStatus.fetched,
                 func.lower(DiscoveredUrl.host).like(f"%{site}"))).scalar_one()
 
+    async def _homepage_reason(self, row, doc, site: str, final: str) -> str | None:
+        """Why a discovered site is left out before crawling it, or None to keep it.
+
+        A search result is only a link, and anyone can tag their own Wikidata item with an industry, so each
+        piece of evidence counts: the registry's own industry, the homepage's words and the model's reading.
+        A page with no readable text says nothing either way and is never judged on its content.
+        """
+        if unreadable(doc):
+            if row.method == "searxng":  # nothing else vouches for a bare search result
+                return "homepage could not be read (no text: a loader or challenge page), so it was not verified"
+            self.note("search", f"{site}: homepage could not be read (no text); kept on {row.method}'s facts, "
+                              "not verified from the site", final)
+            return None
+        registry_industry = row.method == "wikidata" and bool(row.hint.get("industry"))
+        if not registry_industry:  # the registry already matched the industry; a missing word does not undo it
+            reason = off_topic_reason(doc, self.spec, check_country=row.method == "searxng")
+            if reason:
+                return reason
+        # Mentioning the industry is not being in it: lists, associations, shops and IT firms do too.
+        reason, by = await self.site_checker.check(doc, self.spec)
+        if not reason and by.startswith("model:"):
+            self.note("search", f"Checked {site} with free model {by[6:]}: in the industry", final)
+        elif by.startswith("unchecked") and not self.told_unchecked:
+            self.told_unchecked = True
+            self.note("skipped", f"Discovered sites are not checked by a model ({by[11:]}); "
+                                 "only rules are applied", final)
+        return reason
+
     async def process(self, row: DiscoveredUrl) -> None:
         url = row.url
         site = registered_domain(url)
@@ -454,9 +482,16 @@ class CrawlRunner:
                                  f"{exc.kind}: {exc}")
                 return
         final = normalize_url(result.final_url) or url
-        if registered_domain(final) not in self.allowed_sites:
-            self._finish(row.id, UrlStatus.skipped, f"redirected outside the crawl scope to {host_of(final)}")
-            return
+        moved_to = registered_domain(final)
+        if moved_to not in self.allowed_sites:
+            if row.depth != 0:
+                self._finish(row.id, UrlStatus.skipped, f"redirected outside the crawl scope to {host_of(final)}")
+                return
+            # A company's listed homepage that moved to its current domain (volkswagen.de ->
+            # volkswagen-group.com, bosch.de -> bosch.com) is the same company: crawl it there.
+            self.allowed_sites.add(moved_to)
+            self.note("queued", f"{site} moved to {moved_to}; reading it there", final)
+            site = moved_to
         with session_scope(self.org_id) as db:
             duplicate = db.execute(select(FetchedPage.id).where(
                 FetchedPage.job_id == self.job_id, FetchedPage.content_hash == result.sha256)).first()
@@ -466,18 +501,7 @@ class CrawlRunner:
             return
         doc = parse_page(final, result.text)
         if row.depth == 0 and row.method in ("searxng", "wikidata"):
-            # A search result is only a link, and anyone can tag their own Wikidata item with an industry;
-            # check the homepage before spending crawl budget on the site.
-            reason = off_topic_reason(doc, self.spec, check_country=row.method == "searxng")
-            if not reason and row.method == "searxng":
-                # Mentioning the industry is not being in it: lists, associations, shops and IT firms do too.
-                reason, by = await self.site_checker.check(doc, self.spec)
-                if not reason and by.startswith("model:"):
-                    self.note("search", f"Checked {site} with free model {by[6:]}: a company in the industry", final)
-                elif by.startswith("unchecked") and not self.told_unchecked:
-                    self.told_unchecked = True
-                    self.note("skipped", f"Web search results are not checked by a model ({by[11:]}); "
-                                         "only rules are applied", final)
+            reason = await self._homepage_reason(row, doc, site, final)
             if reason:
                 self.allowed_sites.discard(site)
                 self._finish(row.id, UrlStatus.skipped, f"{row.method} result dropped: {reason}")

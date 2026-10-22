@@ -26,13 +26,17 @@ LISTING_RE = re.compile(
     r"association|federation|chamber of|suppliers? (in|from|of)|manufacturers? (in|list|of)|"
     r"companies (in|list|of)|find (suppliers|manufacturers|companies)|job portal|magazine)\b", re.I)
 
+# Kinds that are about many organisations rather than one doing the work, whatever the industry.
+NOT_ONE_BUSINESS = {"directory_or_list", "association", "marketplace", "news_or_blog"}
 KINDS = ("company", "directory_or_list", "association", "marketplace", "distributor_or_retailer",
          "service_provider", "news_or_blog", "other")
 
 SYSTEM = f"""You classify one website from its homepage text. Reply with JSON only:
 {{"kind": one of {list(KINDS)},
- "in_industry": true if the site's owner itself works in the industry named below (makes, develops or sells
-   its own products or services of that industry), false if it only serves, lists, supplies or writes about it,
+ "in_industry": true if the site's owner itself does the industry named below as its business (makes, develops,
+   sells or provides that industry's own products or services; a firm whose service is the industry itself
+   counts), false if it only serves companies of that industry, lists, supplies or writes about them, null if
+   the homepage does not say enough to tell,
  "reason": at most 15 words}}
 "company" means one business presenting itself. A franchise or listing portal is "directory_or_list"; a
 consultancy, IT firm or raw-material supplier for the industry is "service_provider".
@@ -43,7 +47,7 @@ class Verdict(BaseModel):
     model_config = ConfigDict(extra="ignore")
     kind: Literal["company", "directory_or_list", "association", "marketplace", "distributor_or_retailer",
                   "service_provider", "news_or_blog", "other"]
-    in_industry: bool
+    in_industry: bool | None = None
     reason: str = Field(default="", max_length=300)
 
 
@@ -85,7 +89,9 @@ class SiteChecker:
         except Exception as exc:  # noqa: BLE001 - a broken check must not drop sites or stop the crawl
             return None, f"unchecked: {type(exc).__name__}"
         by = f"model:{reply.model}"
-        if verdict.kind != "company" or not verdict.in_industry:
+        # The model's answer to "does it do the industry" decides, not the kind's name: a firm selling the
+        # industry's services is in it. Unsure is kept.
+        if verdict.kind in NOT_ONE_BUSINESS or verdict.in_industry is False:
             what = verdict.kind.replace("_", " ")
             return f"not a {subject} company ({what}: {verdict.reason or 'no reason given'})", by
         return None, by

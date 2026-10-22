@@ -81,6 +81,17 @@ def industry_terms(industry: str) -> list[str]:
     return list(dict.fromkeys(v for t in terms for v in spellings(t)))
 
 
+# Below this many words of visible text, with no description either, a homepage is a loader, a cookie wall
+# or a bot-challenge stub: nothing was read, so nothing about the site can be judged from it.
+MIN_READABLE_WORDS = 5
+
+
+def unreadable(doc: PageDoc) -> bool:
+    """True when the fetched homepage has too little text to judge (an empty shell, not the site itself)."""
+    described = doc.meta.get("description") or doc.meta.get("og:description")
+    return len(doc.text.split()) < MIN_READABLE_WORDS and not described
+
+
 def off_topic_reason(doc: PageDoc, spec: ExtractionSpec, check_country: bool = True) -> str | None:
     """Why this search result's homepage is not a match, or None to keep it."""
     d = spec.discovery
