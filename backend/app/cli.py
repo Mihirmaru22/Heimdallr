@@ -77,35 +77,23 @@ def llm(cmd: str) -> None:
 
 
 def job_report(job_id: str) -> None:
-    """The plan a job ran with and everything its sources reported, in order: for debugging a run."""
-    import json
+    """The plan a job ran with and everything its sources and pages reported: the export's Diagnostics sheet."""
     import uuid
 
-    from app.models import CrawlJob, CrawlJobEvent, Evidence, ExtractionSchema
+    from app.models import CrawlJob
+    from app.services.diagnostics import run_diagnostics
 
     with session_scope(bypass=True) as db:
         job = db.get(CrawlJob, uuid.UUID(job_id))
         if job is None:
             sys.exit(f"No job {job_id}")
-        schema = db.get(ExtractionSchema, job.schema_id)
-        print(f"Question: {schema.nl_request}")
-        print(f"State: {job.state}  error: {job.error}")
-        print("Plan (discovery):", json.dumps(schema.spec.get("discovery"), indent=2, default=str))
-        print("Fields:", ", ".join(f["name"] for f in schema.spec.get("fields", [])))
-        print("Counters:", json.dumps(job.counters))
-        events = db.execute(select(CrawlJobEvent).where(CrawlJobEvent.job_id == job.id)
-                            .order_by(CrawlJobEvent.created_at)).scalars().all()
-        print("\nWarnings and notes:")
-        for e in events:
-            if e.type in ("warning", "info", "error") or e.type == "transition":
-                print(f"  [{e.type}] {e.message}")
-        print("\nSource lines from the live feed (not page reads):")
-        for e in events:
-            d = e.data or {}
-            if e.type == "activity" and d.get("kind") in ("search", "queued", "kept", "dropped", "failed"):
-                print(f"  {d.get('kind'):8} {e.message}")
-        ev = db.execute(select(Evidence).where(Evidence.job_id == job.id)).scalars().all()
-        print(f"\nEvidence rows: {len(ev)} ({sum(x.kept for x in ev)} kept)")
+        print(f"State: {job.state}  error: {job.error or '-'}")
+        section = None
+        for sec, item, value in run_diagnostics(db, job.id):
+            if sec != section:
+                print(f"\n== {sec}")
+                section = sec
+            print(f"  {item:32} {value}")
 
 
 def sec_check(product_name: str) -> None:

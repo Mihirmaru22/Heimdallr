@@ -74,6 +74,10 @@ def test_request_to_excel(make_user, crawl_env):
     assert rows[0][labels["contact_email"]] == "ceo@acme-security.test"
     summary = dict(wb["Run Summary"].iter_rows(min_row=2, values_only=True))
     assert summary["Source problem 1"] == "sec_filings: SEC full-text search failed (HTTPStatusError 403)"
+    diag = list(wb["Diagnostics"].iter_rows(min_row=2, values_only=True))
+    assert diag[0] == ("Plan", "Question", request) and ("Plan", "providers", "seeds") in diag
+    assert any(sec == "Pages" and item == "status fetched" for sec, item, _v in diag)
+    assert any(sec == "Pages per site" and item.startswith("acme-security.test") for sec, item, _v in diag)
     for ws in wb.worksheets:
         assert not any(c.data_type == "f" for row in ws.iter_rows() for c in row)
 

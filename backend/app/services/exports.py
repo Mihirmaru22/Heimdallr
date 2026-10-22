@@ -14,6 +14,7 @@ from app.db import session_scope, utcnow
 from app.export.xlsx import ExportOptions, ExportRecord, build_workbook
 from app.models import CrawlJob, CrawlJobEvent, Evidence, Export, ExtractedRecord, ExtractionSchema, FieldValue, Project
 from app.services.common import org_limits, record_usage
+from app.services.diagnostics import run_diagnostics
 from app.spec.models import ExtractionSpec
 
 log = logging.getLogger("webdata.exports")
@@ -81,6 +82,7 @@ def build(export_id: uuid.UUID) -> str:
             max_rows = org_limits(org)["max_export_rows"]
             records = _records(db, export, spec, max_rows)
             evidence = _evidence(db, export.job_id)
+            diagnostics = run_diagnostics(db, export.job_id)
             problems = db.execute(select(CrawlJobEvent.message).where(
                 CrawlJobEvent.job_id == export.job_id, CrawlJobEvent.type == "warning",
                 CrawlJobEvent.message.startswith("Discovery problem: "),
@@ -122,7 +124,7 @@ def build(export_id: uuid.UUID) -> str:
                 data_sheet_name=export.options.get("data_sheet_name") or "Data",
             )
         path = export_path(org_id, export_id)
-        result = build_workbook(path, spec, records, summary, options, evidence)
+        result = build_workbook(path, spec, records, summary, options, evidence, diagnostics)
         with session_scope(org_id) as db:
             export = db.get(Export, export_id)
             export.status = "ready"

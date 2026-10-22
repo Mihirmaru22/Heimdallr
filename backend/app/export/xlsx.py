@@ -1,4 +1,4 @@
-"""Excel workbook generation: Data, Sources, Evidence, Rejected, Run Summary and Field Issues sheets.
+"""Excel workbook generation: Data, Sources, Evidence, Rejected, Run Summary, Diagnostics and Field Issues sheets.
 
 Uses XlsxWriter in constant-memory mode so large exports stream row by row. Every untrusted
 string goes through cell_safety and is written with write_string, never as a formula.
@@ -76,7 +76,8 @@ def _write(ws, row: int, col: int, value: Any, fmt=None, url_fmt=None, links: li
 
 def build_workbook(path: Path, spec: ExtractionSpec, records: Iterable[ExportRecord],
                    summary: dict[str, Any], options: ExportOptions | None = None,
-                   evidence: list[dict[str, Any]] | None = None) -> ExportResult:
+                   evidence: list[dict[str, Any]] | None = None,
+                   diagnostics: list[tuple[str, str, str]] | None = None) -> ExportResult:
     options = options or ExportOptions()
     path.parent.mkdir(parents=True, exist_ok=True)
     wb = xlsxwriter.Workbook(str(path), {
@@ -167,6 +168,18 @@ def build_workbook(path: Path, spec: ExtractionSpec, records: Iterable[ExportRec
         if isinstance(v, datetime):
             v = v.isoformat(timespec="seconds")
         _write(ws, r, 1, v)
+
+    if diagnostics:
+        # What the run planned and what each source and page really did, so a run can be measured afterwards.
+        ws = wb.add_worksheet(safe_sheet_name("Diagnostics", used))
+        for c, (h, w) in enumerate([("Section", 22), ("Item", 40), ("Value", 110)]):
+            ws.set_column(c, c, w)
+            ws.write_string(0, c, h, head)
+        ws.freeze_panes(1, 0)
+        for r, values in enumerate(diagnostics[: MAX_ROWS - 1], start=1):
+            for c, v in enumerate(values):
+                _write(ws, r, c, v, wrap)
+        ws.autofilter(0, 0, max(len(diagnostics), 1), 2)
 
     if options.include_issues and issue_rows:
         ws = wb.add_worksheet(safe_sheet_name("Field Issues", used))

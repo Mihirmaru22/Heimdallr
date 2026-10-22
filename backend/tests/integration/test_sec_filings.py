@@ -12,6 +12,7 @@ from app.discovery.sec_filings import SecFilingsProvider, company_name, document
 from app.evidence.judge import Judge
 from app.llm.openrouter import Reply
 from app.models import Evidence
+from app.services.diagnostics import run_diagnostics
 from app.spec.models import ExtractionSpec
 
 RECENT = (date.today() - timedelta(days=200)).isoformat()
@@ -169,10 +170,15 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
         saved = db.execute(select(Evidence).where(Evidence.job_id == job_id)).scalars().all()
         assert len(saved) == 6 and sum(e.kept for e in saved) == 2
         proof = exports._evidence(db, job_id)
+        diagnostics = run_diagnostics(db, job_id)
     path = build_workbook(tmp_path / "x.xlsx", ExtractionSpec.model_validate(s), [], {"Job": "t"},
-                          evidence=proof).path
+                          evidence=proof, diagnostics=diagnostics).path
     wb = load_workbook(path)
-    assert wb.sheetnames == ["Data", "Sources", "Evidence", "Rejected", "Run Summary"]
+    assert wb.sheetnames == ["Data", "Sources", "Evidence", "Rejected", "Run Summary", "Diagnostics"]
+    diag = [r for r in wb["Diagnostics"].iter_rows(min_row=2, values_only=True)]
+    assert ("Plan", "providers", "sec_filings") in diag and ("Plan", "industry", "(none)") in diag
+    assert any(sec == "Source: sec_filings" and v.startswith("SEC full-text search: 7 filing(s)")
+               for sec, _i, v in diag)
     ev = list(wb["Evidence"].iter_rows(values_only=True))
     assert ev[0][:4] == ("Company", "Website", "Product", "Verdict")
     assert ev[1][0] == "Avient" and ev[1][3] == "Confirmed"
@@ -182,5 +188,5 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
     from app.cli import job_report
     job_report(str(job_id))
     out = capsys.readouterr().out
-    assert '"providers": [\n    "sec_filings"\n  ]' in out and "SEC full-text search: 7 filing(s)" in out
-    assert "Evidence rows: 6 (2 kept)" in out
+    assert "providers                        sec_filings\n" in out and "SEC full-text search: 7 filing(s)" in out
+    assert "SEC filing (10-K) kept" in out and "== Pages per site" in out
