@@ -61,7 +61,7 @@ def test_companies_are_kept_only_with_proof_on_their_own_pages(db_clean, crawl_e
     assert any(k == "kept" and m.startswith("Proof on initech.test") and "(Confirmed)" in m for k, m in lines)
     with session_scope(org_id) as db:
         rows = {e.company: e for e in db.execute(select(Evidence).where(Evidence.job_id == job_id)).scalars()}
-    assert rows["Initech Trucks"].kept and rows["Initech Trucks"].judged_by.startswith("model:")
+    assert rows["Initech Trucks"].kept and rows["Initech Trucks"].judged_by == "rules"  # plain own use
     assert not rows["Acme"].kept and rows["Acme"].reason.startswith("none of the") \
         and rows["Acme"].reason.endswith("names Teamcenter")
 
