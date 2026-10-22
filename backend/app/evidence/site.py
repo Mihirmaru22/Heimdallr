@@ -52,6 +52,7 @@ class SiteProof:
         self.judged: dict[str, int] = {}  # site -> pages sent to the judge
         self.proven: set[str] = set()  # sites with confirmed proof on their own pages
         self.has_proof: set[str] = set()  # sites with any kept proof, here or from their source
+        self.hint_confirmed: set[str] = set()  # sites whose source brought confirmed proof
         self.pages_read: dict[str, int] = {}
         self.boards_read: set[str] = set()  # sites whose job boards were read
         self.board_notes: dict[str, str] = {}  # site -> what its job boards showed

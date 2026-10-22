@@ -39,6 +39,7 @@ from app.discovery.sitecheck import SiteChecker
 from app.evidence.judge import proof_confidence
 from app.evidence.site import SiteProof
 from app.extract.deterministic import extract_page, parse_page, prefer_country_phones
+from app.extract.records import _has_extractor
 from app.models import (
     CrawlJob,
     CrawlJobEvent,
@@ -86,6 +87,11 @@ class CrawlRunner:
         self.site_proof = SiteProof(spec) if spec.discovery.technology else None
         self.site_names: dict[str, str] = {}  # site -> company name its source gave
         self.site_queued: dict[str, int] = {}  # site -> pages queued from its links and sitemap
+        # Details a page can give (fields with an extractor or a source); a site whose details are all found
+        # is not read further. Fields only a model could fill (phase 2) never hold a site back.
+        self.wanted_fields = {f.name for f in spec.fields if _has_extractor(f) or f.name in PROOF_KEYS}
+        self.site_found: dict[str, set[str]] = {}
+        self.done_sites: set[str] = set()
         self.told_unchecked = False
         self.settings = get_settings()
         self.resolver = resolver
@@ -402,6 +408,9 @@ class CrawlRunner:
         if site not in self.allowed_sites:
             self._finish(row.id, UrlStatus.skipped, "outside the crawl scope")
             return
+        if site in self.done_sites:
+            self._finish(row.id, UrlStatus.skipped, "every detail was already found on this site")
+            return
         if self._site_page_count(site) >= self.spec.crawl.max_pages_per_site:
             self._finish(row.id, UrlStatus.skipped, "page budget for this site reached")
             return
@@ -482,6 +491,8 @@ class CrawlRunner:
             self.site_names.setdefault(site, str(row.hint["company_name"]))
         if self.site_proof is not None and row.hint.get("uses_technology"):
             self.site_proof.has_proof.add(site)  # its source brought proof (an SEC filing)
+            if row.hint["uses_technology"] == "Confirmed":
+                self.site_proof.hint_confirmed.add(site)
         if row.hint:  # values supplied by discovery (e.g. Wikidata) with their source
             for key, value in row.hint.items():
                 if key.startswith("_"):
@@ -511,6 +522,8 @@ class CrawlRunner:
             db.execute(update(DiscoveredUrl).where(DiscoveredUrl.id == row.id).values(
                 status=UrlStatus.fetched, status_reason=None, lease_until=None))
         self._note_found(final, found, row.depth)
+        if self._site_complete(site, candidates):
+            return  # every detail is in hand: the rest of the site's pages are left for other sites' turn
         new: list[dict[str, Any]] = []
         origin = final.split("/", 3)[0] + "//" + final.split("/", 3)[2]
         if row.depth == 0:
@@ -576,6 +589,30 @@ class CrawlRunner:
                           allowed_types=("application/json", "text/json", "text/plain", ""))
         result = await fetcher.fetch(url, attempts=2)
         return json.loads(result.text)
+
+    def _site_complete(self, site: str, candidates: dict[str, list[dict[str, Any]]]) -> bool:
+        """True once every detail that can be found has been found for this site; its queued pages are skipped."""
+        if self.spec.record_scope != "site" or not self.wanted_fields:
+            return False
+        have = self.site_found.setdefault(site, set())
+        have.update(name for name, cands in candidates.items() if cands)
+        missing = self.wanted_fields - have
+        if self.site_proof is not None:
+            # A technology question also needs confirmed proof; a weaker piece may still be bettered.
+            missing |= set() if site in self.site_proof.proven or site in self.site_proof.hint_confirmed \
+                else {"uses_technology"}
+        if missing:
+            return False
+        self.done_sites.add(site)
+        with session_scope(self.org_id) as db:
+            skipped = db.execute(update(DiscoveredUrl).where(
+                DiscoveredUrl.job_id == self.job_id, DiscoveredUrl.status == UrlStatus.queued,
+                func.lower(DiscoveredUrl.host).like(f"%{site}")).values(
+                status=UrlStatus.skipped, status_reason="every detail was already found on this site")).rowcount
+        pages = self._site_page_count(site)
+        self.note("kept", f"Every detail found for {site} after {pages} page(s); moving on"
+                          + (f" ({skipped} queued page(s) left unread)" if skipped else ""), site=site)
+        return True
 
     def _note_found(self, url: str, found: dict[str, list[Any]], depth: int) -> None:
         """"Found phone +1 858 812 7300, email info@example.com on example.com/contact"."""

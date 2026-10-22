@@ -25,6 +25,8 @@ FIELDS = [
     {"name": "contact_email", "type": "email", "semantic": "contact_email"},
     {"name": "phone", "type": "phone", "semantic": "phone"},
     {"name": "description", "type": "text", "semantic": "description"},
+    # A detail no test page has, so these crawls read every page instead of stopping once all are found.
+    {"name": "never_found", "type": "string", "rules": {"css": ["#no-such-element"]}},
 ]
 
 
@@ -300,3 +302,18 @@ def test_a_site_queues_only_about_twice_its_page_budget(db_clean, crawl_env):
                                      "max_depth": 2, "max_pages_per_site": 1})
     pipeline.run_job(job_id, resolver=crawl_env["resolver"])
     assert len(urls_by_status(job_id, org_id)) <= 1 + 2  # the start page, then at most 2 x 1 more
+
+
+def test_a_site_is_left_once_every_detail_is_found(db_clean, crawl_env):
+    url = crawl_env["url"]
+    fields = [f for f in FIELDS if f["name"] != "never_found"]
+    job_id, org_id = make_job([url("acme-security.test")], fields=fields)
+    assert pipeline.run_job(job_id, resolver=crawl_env["resolver"]) == "completed"
+    statuses = urls_by_status(job_id, org_id)
+    fetched = [u for u, (st, _r) in statuses.items() if st == "fetched"]
+    # The homepage had every detail, so none of the site's other pages were even queued.
+    assert fetched == [url("acme-security.test")] and len(statuses) == 1
+    assert ("kept", "Every detail found for acme-security.test after 1 page(s); moving on") \
+        in activity(job_id, org_id)
+    (acme,) = records(job_id, org_id)
+    assert acme.data["phone"] == "+442079460958" and acme.status == "valid"
