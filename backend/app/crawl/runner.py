@@ -577,6 +577,7 @@ class CrawlRunner:
                         "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
         if self.site_proof is not None:
             await self._check_site_proof(doc, site, candidates)
+            await self._check_code(doc, result.headers, site, candidates)
             await self._check_job_boards(result.text, site, final, candidates)
         with session_scope(self.org_id) as db:
             db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=row.id, final_url=final,
@@ -615,6 +616,16 @@ class CrawlRunner:
         if piece is not None:
             short = doc.url.split("://", 1)[-1].removeprefix("www.").rstrip("/")
             self._use_proof(piece, f"on {short}", doc.url, candidates)
+
+    async def _check_code(self, doc, headers: list[tuple[str, str]], site: str,
+                          candidates: dict[str, list[dict[str, Any]]]) -> None:
+        """The product's fingerprint in the page's scripts, markup, meta tags, headers or cookie names."""
+        first = self.site_proof.rules is None
+        piece = await self.site_proof.check_code(doc, headers, site, self.site_names.get(site, ""))
+        if first and self.site_proof.fingerprints.note:
+            self.note("skipped", f"Website code: {self.site_proof.fingerprints.note}", source="proof")
+        if piece is not None:
+            self._use_proof(piece, f"in {site}'s website code", doc.url, candidates)
 
     async def _check_job_boards(self, page_html: str, site: str, page_url: str,
                                 candidates: dict[str, list[dict[str, Any]]]) -> None:

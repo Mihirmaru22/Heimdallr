@@ -34,6 +34,8 @@ class FetchResult:
     body: bytes
     redirects: list[str] = field(default_factory=list)
     elapsed: float = 0.0
+    # Response headers, lower-cased names, kept in memory only (they can carry cookies): never logged or stored.
+    headers: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def text(self) -> str:
@@ -112,7 +114,8 @@ class Fetcher:
                                              retryable=False)
                         chunks.append(chunk)
                     return FetchResult(url, current, resp.status_code, ctype, b"".join(chunks), redirects,
-                                       time.monotonic() - start)
+                                       time.monotonic() - start,
+                                       [(k.lower(), v) for k, v in resp.headers.multi_items()])
             except httpx.TimeoutException:
                 raise FetchError("timeout", "timed out", retryable=True) from None
             except httpx.TransportError as exc:

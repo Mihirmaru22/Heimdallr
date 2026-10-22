@@ -7,8 +7,11 @@ for filings.
 from __future__ import annotations
 
 import re
+from datetime import date
+from types import SimpleNamespace
 from typing import Any
 
+from app.evidence.fingerprints import Fingerprints, Rule, detect
 from app.evidence.jobs import FetchJson, find_boards, read_board
 from app.evidence.judge import KEEP, Judge, score
 from app.evidence.products import Product, product_for
@@ -17,6 +20,8 @@ from app.extract.deterministic import PageDoc
 from app.spec.models import ExtractionSpec
 
 SITE_STRENGTH = 0.8  # the company's own page: first-party, but often undated
+FINGERPRINT_STRENGTH = 0.85  # the product's own code on the company's live site: seen today
+MAX_FINGERPRINTED = 3  # pages per site whose code is checked; a product's scripts are usually on every page
 JOB_STRENGTH = 0.75  # the company's own job ad: first-party and dated, but may describe a wish
 MAX_JUDGED_JOBS = 2  # job ads naming the product sent to the judge per company
 MAX_BOARDS = 2
@@ -45,7 +50,8 @@ def page_date(doc: PageDoc) -> str:
 
 
 class SiteProof:
-    def __init__(self, spec: ExtractionSpec, judge: Judge | None = None) -> None:
+    def __init__(self, spec: ExtractionSpec, judge: Judge | None = None,
+                 fingerprints: Fingerprints | None = None) -> None:
         d = spec.discovery
         self.product: Product = product_for(d.technology or "", d.technology_aliases)
         self.judge = judge or Judge()
@@ -56,6 +62,9 @@ class SiteProof:
         self.pages_read: dict[str, int] = {}
         self.boards_read: set[str] = set()  # sites whose job boards were read
         self.board_notes: dict[str, str] = {}  # site -> what its job boards showed
+        self.fingerprints = fingerprints or Fingerprints()
+        self.rules: list[Rule] | None = None  # loaded on the first page
+        self.fingerprinted: dict[str, int] = {}  # site -> pages whose code was checked
 
     async def check(self, doc: PageDoc, site: str, company: str) -> dict[str, Any] | None:
         """One piece of proof (kept or rejected) for a page that names the product, else None."""
@@ -72,6 +81,24 @@ class SiteProof:
         who = company or site
         j = await self.judge.judge(who, self.product, quotes, f"{site}'s own website, page {doc.url}")
         return self._piece(who, site, j, doc.url, day, "Company website", SITE_STRENGTH)
+
+    async def check_code(self, doc: PageDoc, headers: list[tuple[str, str]], site: str, company: str
+                         ) -> dict[str, Any] | None:
+        """Kept proof when the page's code carries the product's fingerprint, else None. No model call."""
+        if self.rules is None:
+            self.rules = await self.fingerprints.rules_for(self.product)
+        if not self.rules or site in self.proven or self.fingerprinted.get(site, 0) >= MAX_FINGERPRINTED:
+            return None
+        self.fingerprinted[site] = self.fingerprinted.get(site, 0) + 1
+        for rule in self.rules:
+            seen = detect(rule, doc, headers)
+            if seen:
+                who = company or site
+                j = SimpleNamespace(relationship="uses", quote=seen, judged_by=f"fingerprint:{rule.name}",
+                                    reason=f"webappanalyzer's {rule.name} fingerprint matches the site's code")
+                return self._piece(who, site, j, doc.url, date.today().isoformat(), "Website code",
+                                   FINGERPRINT_STRENGTH)
+        return None
 
     def _piece(self, who: str, site: str, j: Any, url: str, day: str, source_type: str, strength: float
                ) -> dict[str, Any]:

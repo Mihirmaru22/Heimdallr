@@ -24,6 +24,12 @@ import pytest  # noqa: E402
 # The local test websites use the reserved .test TLD; real crawls keep rejecting it in emails.
 email_validator.SPECIAL_USE_DOMAIN_NAMES = [d for d in email_validator.SPECIAL_USE_DOMAIN_NAMES if d != "test"]
 
+@pytest.fixture(autouse=True)
+def _no_rule_downloads(monkeypatch):
+    """Tests never reach GitHub: fingerprint rules come only from files a test writes itself."""
+    monkeypatch.setattr("app.evidence.fingerprints.RULES_URL", "http://127.0.0.1:9/{file}.json")
+
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "test-sites"))
 
