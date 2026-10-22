@@ -78,10 +78,11 @@ async def test_without_a_model_proof_stays_unreviewed_and_the_model_is_not_asked
     router = Router(error=LLMUnavailable("free requests used up for today"))
     judge = Judge(router)
     for _ in range(2):
-        j = await judge.judge("Avient", product_for("SAP"), ["We run SAP S/4HANA."], "10-K")
+        j = await judge.judge("Avient", product_for("SAP"), ["SAP S/4HANA handles order to cash."], "10-K")
         assert j.relationship == "unreviewed" and "used up" in j.judged_by
     assert router.calls == 1
-    j = await Judge(Router("not json")).judge("Avient", product_for("SAP"), ["We run SAP S/4HANA."], "10-K")
+    j = await Judge(Router("not json")).judge("Avient", product_for("SAP"), ["SAP S/4HANA handles order to cash."],
+                                              "10-K")
     assert j.relationship == "unreviewed"
 
 
@@ -98,3 +99,38 @@ def test_score_weighs_the_relationship_and_the_age_of_the_proof():
 def test_a_quote_at_the_very_start_of_the_text_keeps_its_first_letter():
     text = "Our plants run SAP S/4HANA. Revenue grew."
     assert find_mentions(text, product_for("SAP")) == ["Our plants run SAP S/4HANA."]
+
+
+async def test_busy_free_models_are_waited_out_and_never_stop_the_judge_for_good():
+    class Busy:
+        def __init__(self, busy_calls):
+            self.busy_calls, self.calls = busy_calls, 0
+
+        async def chat(self, messages, **_kw):
+            self.calls += 1
+            if self.calls <= self.busy_calls:
+                raise LLMUnavailable("no free model answered: a: rate limited; b: rate limited")
+            return Reply(json.dumps({"relationship": "uses", "quote": 1}), "minimax/minimax-m3.1-flash:free")
+
+        async def aclose(self):
+            pass
+
+    judge = Judge(Busy(2), wait=0)
+    j = await judge.judge("Avient", product_for("SAP"), ["SAP S/4HANA handles order to cash."], "10-K")
+    assert j.relationship == "uses" and judge.unavailable is None  # two busy moments, then an answer
+
+    judge = Judge(Busy(3), wait=0)
+    j = await judge.judge("Avient", product_for("SAP"), ["SAP S/4HANA handles order to cash."], "10-K")
+    assert j.relationship == "unreviewed" and judge.unavailable is None  # this piece only
+    j = await judge.judge("Lancaster", product_for("SAP"), ["SAP S/4HANA handles order to cash."], "10-K")
+    assert j.relationship == "uses"  # the next company is judged again
+
+
+def test_plain_first_person_use_is_settled_by_rules_and_anything_hedged_is_not():
+    sap = product_for("SAP")
+    assert rule_relationship("Avient", sap, "In 2025 we completed the migration of our plants to SAP S/4HANA.")[0] \
+        == "uses"
+    assert rule_relationship("Avient", sap, "Our finance teams use SAP S/4HANA daily.")[0] == "uses"
+    for hedged in ("We may implement SAP S/4HANA in 2027.", "Our customers run SAP S/4HANA.",
+                   "We plan to migrate to SAP S/4HANA.", "SAP S/4HANA is used by many companies."):
+        assert rule_relationship("Avient", sap, hedged) is None, hedged
