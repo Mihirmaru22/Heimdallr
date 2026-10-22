@@ -40,9 +40,10 @@ def test_page_dates_come_from_the_page_itself():
 async def test_a_page_naming_the_product_is_judged_and_a_proven_site_is_not_judged_again():
     router = Router()
     proof = SiteProof(SPEC, Judge(router))
-    piece = await proof.check(page("Our engineers standardized on Teamcenter in 2024."), "initech.com", "Initech")
+    piece = await proof.check(page("Teamcenter holds the product data of every Initech truck."), "initech.com",
+                              "Initech")
     assert piece["kept"] and piece["verdict"] == "Confirmed" and piece["source_type"] == "Company website"
-    assert piece["quote"] == "Our engineers standardized on Teamcenter in 2024."
+    assert piece["quote"] == "Teamcenter holds the product data of every Initech truck."
     assert await proof.check(page("Teamcenter again."), "initech.com", "Initech") is None
     assert router.calls == 1
     assert await proof.check(page("Nothing about it."), "other.com", "Other") is None
