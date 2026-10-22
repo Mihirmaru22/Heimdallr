@@ -96,6 +96,22 @@ def job_report(job_id: str) -> None:
             print(f"  {item:32} {value}")
 
 
+def score(job_ids: list[str], key_path: str | None) -> None:
+    """Several runs side by side on the same scorecard."""
+    import uuid
+
+    from app.services.scorecard import load_key, score_job
+
+    key = load_key(key_path)
+    with session_scope(bypass=True) as db:
+        cards = [score_job(db, uuid.UUID(j), key) for j in job_ids]
+    names = list(dict.fromkeys(k for c in cards for k in c))
+    width = max(len(n) for n in names)
+    print(" " * width + "  " + "  ".join(j[:8].ljust(18) for j in job_ids))
+    for n in names:
+        print(n.ljust(width) + "  " + "  ".join(str(c.get(n, "")).ljust(18) for c in cards))
+
+
 def sec_check(product_name: str, aliases: list[str]) -> None:
     """One SEC full-text search exactly as the sec_filings source sends it, with SEC's raw answer."""
     from datetime import date, timedelta
@@ -141,12 +157,17 @@ def main() -> None:
     sub.add_parser("llm-enable", help="switch model use back on after the cost guard switched it off")
     p = sub.add_parser("job-report", help="print a job's plan, warnings and what each source reported")
     p.add_argument("job_id")
+    p = sub.add_parser("score", help="print the scorecard of one or more jobs side by side")
+    p.add_argument("job_ids", nargs="+")
+    p.add_argument("--key", help="answer key JSON: must_include / must_exclude companies")
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
     p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
     args = parser.parse_args()
     if args.cmd == "job-report":
         return job_report(args.job_id)
+    if args.cmd == "score":
+        return score(args.job_ids, args.key)
     if args.cmd == "sec-check":
         return sec_check(args.product, args.aliases)
     if args.cmd.startswith("llm-"):

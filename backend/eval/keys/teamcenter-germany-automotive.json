@@ -1,0 +1,34 @@
+{
+ "question": "automotive companies in Germany that use Siemens Teamcenter, with website and email",
+ "notes": "DRAFT, please check. Sources: VW/Audi Teamcenter (develop3d.com/develop3d-blog/vw-commit-to-teamcenter), Bosch (digitalengineering247.com/article/bosch-deploys-siemens-plm-solutions), MANN+HUMMEL (resources.sw.siemens.com/en-US/case-study-mann-hummel).",
+ "must_include": [
+  {
+   "company": "Volkswagen",
+   "website": "https://www.volkswagen-group.com/"
+  },
+  {
+   "company": "Audi",
+   "website": "https://www.audi.com/"
+  },
+  {
+   "company": "Bosch",
+   "website": "https://www.bosch.com/"
+  },
+  {
+   "company": "MANN+HUMMEL",
+   "website": "https://www.mann-hummel.com/"
+  }
+ ],
+ "must_exclude": [
+  {
+   "company": "Siemens",
+   "website": "https://www.siemens.com/"
+  },
+  {
+   "company": "Dassault Systemes"
+  },
+  {
+   "company": "PTC"
+  }
+ ]
+}

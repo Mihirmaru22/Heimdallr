@@ -247,6 +247,19 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
     rejected = {r[0]: r[2] for r in wb["Rejected"].iter_rows(min_row=2, values_only=True)}
     assert rejected["MAPLE MILLS LTD"] == "business address outside the US"
 
+    from app.services.scorecard import score_job
+    key = {"must_include": [{"company": "Avient", "website": f"http://acme-security.test:{port}/"},
+                            {"company": "Lancaster Colony"}],
+           "must_exclude": [{"company": "Rimini Street"}, {"company": "Globex"}]}
+    with session_scope(org_id) as db:
+        card = score_job(db, job_id, key)
+    assert card["proof: companies kept"] == "2" and card["proof lost: competitor"] == "1"
+    assert card["proof lost: outside the requested country"] == "2"
+    assert card["records included"] == "1" and card["quote names the product"] == "1/1 (100%)"
+    assert card["key: must-have companies found"] == "1/2 (50%)" and card["key: missing"] == "Lancaster Colony"
+    assert card["key: rows that must not be there"] == "0"  # Globex is shown but excluded
+    assert card["key: website correct"] == "1/1 (100%)"
+
     from app.cli import job_report
     job_report(str(job_id))
     out = capsys.readouterr().out

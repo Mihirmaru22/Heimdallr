@@ -1,0 +1,36 @@
+{
+ "question": "cybersecurity companies in the UK with website and email",
+ "notes": "DRAFT, please check. UK-headquartered security vendors; government bodies and trade groups must not appear.",
+ "must_include": [
+  {
+   "company": "Darktrace",
+   "website": "https://www.darktrace.com/"
+  },
+  {
+   "company": "Sophos",
+   "website": "https://www.sophos.com/"
+  },
+  {
+   "company": "NCC Group",
+   "website": "https://www.nccgroup.com/"
+  },
+  {
+   "company": "Egress",
+   "website": "https://www.egress.com/"
+  },
+  {
+   "company": "Immersive Labs",
+   "website": "https://www.immersivelabs.com/"
+  }
+ ],
+ "must_exclude": [
+  {
+   "company": "National Cyber Security Centre",
+   "website": "https://www.ncsc.gov.uk/"
+  },
+  {
+   "company": "techUK",
+   "website": "https://www.techuk.org/"
+  }
+ ]
+}
