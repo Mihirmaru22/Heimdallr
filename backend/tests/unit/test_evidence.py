@@ -151,3 +151,24 @@ def test_long_sentences_and_tables_are_cut_at_whole_words_around_the_mention():
 def test_a_sentence_repeated_in_the_document_is_quoted_once():
     text = "Costs of our SAP S/4HANA rollout. Revenue grew. Costs of our SAP S/4HANA rollout."
     assert find_mentions(text, product_for("SAP")) == ["Costs of our SAP S/4HANA rollout."]
+
+
+async def test_a_person_s_biography_is_not_proof_the_company_uses_it():
+    router = Router({"relationship": "uses", "quote": 1})
+    bio = "In operations, he later oversaw the business and IT transformation to SAP S/4HANA."
+    j = await Judge(router).judge("Belden", product_for("SAP"), [bio], "DEF 14A")
+    assert (j.relationship, j.judged_by) == ("other_mention", "rules") and router.calls == 0
+    own = "Our plants run SAP S/4HANA."
+    j = await Judge(router).judge("Belden", product_for("SAP"), [bio, own], "10-K")
+    assert j.relationship == "uses" and j.quote == own  # the biography is set aside, the company's own words judged
+
+
+def test_a_site_is_not_done_on_values_the_record_would_reject():
+    from app.crawl.runner import CrawlRunner
+    from app.spec.models import FieldSpec
+
+    runner = CrawlRunner.__new__(CrawlRunner)
+    runner.fields_by_name = {"phone": FieldSpec(name="phone", type="phone", semantic="phone"),
+                             "contact_email": FieldSpec(name="contact_email", type="email", semantic="contact_email")}
+    assert runner._usable("phone", "+1 314 342 4351") and runner._usable("contact_email", "info@advansix.com")
+    assert not runner._usable("phone", "12") and not runner._usable("contact_email", "not an email")

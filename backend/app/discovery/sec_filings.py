@@ -74,17 +74,23 @@ def website_in(text: str, company: str) -> str:
     words = [w for w in re.findall(r"[a-z0-9]+", company.lower()) if w not in NAME_NOISE]
     compact = "".join(words)
     counts: dict[str, int] = {}
+    hosts: dict[str, set[str]] = {}
     for m in DOMAIN_RE.finditer(text):
-        domain = registered_domain(m.group(1).lower())
+        host = m.group(1).lower()
+        domain = registered_domain(host)
         label = domain.split(".")[0]
         if not label or domain.endswith("sec.gov"):
             continue
         if len(label) >= 3 and (label in compact or any(len(w) >= 3 and w in label for w in words)):
             counts[domain] = counts.get(domain, 0) + 1
+            hosts.setdefault(domain, set()).add(host)
     if not counts:
         return ""
     best = max(counts, key=lambda d: (counts[d], -len(d)))
-    return f"https://{best}/"
+    # The host as written: some sites answer only on www (celanese.com fails TLS, www.celanese.com works).
+    # An investor or careers host is not the homepage, so www. is used when only those are named.
+    host = best if best in hosts[best] else f"www.{best}"
+    return f"https://{host}/"
 
 
 class SecFilingsProvider:

@@ -143,6 +143,16 @@ def test_a_job_site_s_mailboxes_are_not_the_company_contact():
                                           fields)["contact_email"]] == ["info@delekus.com"]
 
 
+def test_another_country_s_office_mailbox_is_dropped_when_countries_were_asked_for():
+    from app.extract.deterministic import prefer_country_emails
+
+    fields = [FieldSpec(name="contact_email", type="email", semantic="contact_email")]
+    html = '<a href="mailto:Media_Au@peabodyenergy.com">AU</a> <a href="mailto:media_us@peabodyenergy.com">US</a>'
+    found = extract_page(parse_page("https://www.peabodyenergy.com/contact", html), fields)["contact_email"]
+    assert [c.value for c in prefer_country_emails(list(found), ["US"])] == ["media_us@peabodyenergy.com"]
+    assert len(prefer_country_emails(list(found), [])) == 2
+
+
 def test_phones_from_other_countries_are_dropped():
     from app.extract.deterministic import prefer_country_phones
 

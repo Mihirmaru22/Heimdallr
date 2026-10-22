@@ -359,6 +359,25 @@ def _local_number(raw: str, countries: list[str]) -> str | None:
     return None
 
 
+def prefer_country_emails(cands: list[Candidate], countries: list[str]) -> list[Candidate]:
+    """Drop another country's office mailbox (Media_Au@ in a US run) when countries were asked for; with no
+    countries it stays, only ranked below the main mailbox."""
+    if not countries:
+        return cands
+    import phonenumbers
+
+    wanted = {c.upper() for c in countries}
+    keep = []
+    for c in cands:
+        m = re.search(r"[._-]([a-z]{2})$", c.value.split("@")[0].lower())
+        code = m.group(1).upper() if m else ""
+        if code in phonenumbers.SUPPORTED_REGIONS and code not in wanted:
+            continue
+        keep.append(c)
+    cands[:] = keep
+    return cands
+
+
 def prefer_country_phones(cands: list[Candidate], countries: list[str]) -> list[Candidate]:
     """Keep only numbers that can belong to the requested countries. Sites list their offices abroad and
     serve a visitor's local number (IBM shows +49 to a German visitor), and a branch office's number in

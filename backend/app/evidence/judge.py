@@ -38,6 +38,7 @@ PARTNER_RE = re.compile(r"\b(reseller|resell|implementation partner|we implement
 # words that it runs the product. Anything hedged or about other people's systems is left to the model.
 OWN_USE_RE = re.compile(r"\b(we|our)\b[^.;]{0,80}?\b(implemented|completed|migrated|deployed|went live|"
                         r"standardi[sz]ed on|use|uses|run|runs|rely on|relies on|rolled out)\b", re.I)
+BIOGRAPHY_RE = re.compile(r"\b(he|she|his|him|her)\b", re.I)
 HEDGE_RE = re.compile(r"\b(may|might|could|plan|plans|planned|intend|expect|consider|evaluat\w*|if|customers?|"
                       r"clients?|partners?|competitors?|vendors?)\b", re.I)
 
@@ -121,6 +122,12 @@ class Judge:
         raise AssertionError("unreachable")
 
     async def judge(self, company: str, product: Product, quotes: list[str], source: str) -> Judgement:
+        # A director's biography ("he later oversaw the transformation to SAP S/4HANA") describes a person's
+        # career, often at another employer, not this company's systems. The model kept Belden on one.
+        own = [q for q in quotes if not BIOGRAPHY_RE.search(q)]
+        if not own:
+            return Judgement("other_mention", quotes[0], "rules", "a person's biography, not the company's systems")
+        quotes = own
         rule = rule_relationship(company, product, " ".join(quotes))
         if rule:
             return Judgement(rule[0], quotes[0], "rules", rule[1])

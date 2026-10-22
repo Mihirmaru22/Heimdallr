@@ -38,7 +38,8 @@ from app.discovery.relevance import off_topic_reason, outside_countries_reason
 from app.discovery.sitecheck import SiteChecker
 from app.evidence.judge import proof_confidence
 from app.evidence.site import SiteProof
-from app.extract.deterministic import extract_page, parse_page, prefer_country_phones
+from app.extract.deterministic import extract_page, parse_page, prefer_country_emails, prefer_country_phones
+from app.extract.normalize import InvalidValue, normalize_value
 from app.extract.records import _has_extractor
 from app.models import (
     CrawlJob,
@@ -90,6 +91,7 @@ class CrawlRunner:
         # Details a page can give (fields with an extractor or a source); a site whose details are all found
         # is not read further. Fields only a model could fill (phase 2) never hold a site back.
         self.wanted_fields = {f.name for f in spec.fields if _has_extractor(f) or f.name in PROOF_KEYS}
+        self.fields_by_name = {f.name: f for f in spec.fields}
         self.site_found: dict[str, set[str]] = {}
         self.done_sites: set[str] = set()
         self.told_unchecked = False
@@ -486,6 +488,8 @@ class CrawlRunner:
         for f in self.spec.fields:
             if f.semantic == Semantic.phone and f.name in found:
                 prefer_country_phones(found[f.name], self.spec.discovery.countries)
+            if f.semantic == Semantic.contact_email and f.name in found:
+                prefer_country_emails(found[f.name], self.spec.discovery.countries)
         candidates = {name: [c.__dict__ for c in cands] for name, cands in found.items() if cands}
         if row.hint.get("company_name"):
             self.site_names.setdefault(site, str(row.hint["company_name"]))
@@ -590,12 +594,24 @@ class CrawlRunner:
         result = await fetcher.fetch(url, attempts=2)
         return json.loads(result.text)
 
+    def _usable(self, name: str, value: Any) -> bool:
+        spec = self.fields_by_name.get(name)
+        if spec is None:
+            return bool(value)
+        try:
+            return normalize_value(spec, value) not in (None, "", [])
+        except InvalidValue:
+            return False
+
     def _site_complete(self, site: str, candidates: dict[str, list[dict[str, Any]]]) -> bool:
         """True once every detail that can be found has been found for this site; its queued pages are skipped."""
         if self.spec.record_scope != "site" or not self.wanted_fields:
             return False
         have = self.site_found.setdefault(site, set())
-        have.update(name for name, cands in candidates.items() if cands)
+        # Only values the record would keep count: a phone or email that fails validation is not "found"
+        # (Delek's site was left as done with no email or phone at all).
+        have.update(name for name, cands in candidates.items()
+                    if any(self._usable(name, c.get("value")) for c in cands))
         missing = self.wanted_fields - have
         if self.site_proof is not None:
             # A technology question also needs confirmed proof; a weaker piece may still be bettered.

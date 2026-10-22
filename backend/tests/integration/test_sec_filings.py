@@ -104,11 +104,13 @@ def spec(**discovery):
 def test_the_website_a_filing_names_for_its_own_company():
     release = ("Celanese is moving to SAP S/4HANA. Source: Business Wire (www.businesswire.com). See sap.com. "
                "About Celanese: visit www.celanese.com or investors.celanese.com. Media: media@celanese.com")
-    assert website_in(release, "Celanese Corp") == "https://celanese.com/"
-    assert website_in("Our Internet address is www.agcocorp.com.", "AGCO CORP /DE") == "https://agcocorp.com/"
-    assert website_in("Visit https://www.hbfuller.com today.", "H.B. Fuller Co") == "https://hbfuller.com/"
-    assert website_in("See www.spectrumbrands.com.", "Spectrum Brands Holdings, Inc.") == "https://spectrumbrands.com/"
+    assert website_in(release, "Celanese Corp") == "https://www.celanese.com/"
+    assert website_in("Our Internet address is www.agcocorp.com.", "AGCO CORP /DE") == "https://www.agcocorp.com/"
+    assert website_in("Visit https://www.hbfuller.com today.", "H.B. Fuller Co") == "https://www.hbfuller.com/"
+    assert website_in("See www.spectrumbrands.com.", "Spectrum Brands Holdings, Inc.") == "https://www.spectrumbrands.com/"
     assert website_in("Our partner www.sap.com and www.sec.gov.", "Coty Inc.") == ""  # never another company's
+    assert website_in("See investors.coty.com.", "Coty Inc.") == "https://www.coty.com/"  # not the IR host
+    assert website_in("Visit gov2x.com.", "V2X, Inc.") == "https://gov2x.com/"  # the host as written
 
 
 async def test_the_filing_s_own_website_beats_older_data_and_spares_the_wikidata_lookup(db_clean):
@@ -118,9 +120,9 @@ async def test_the_filing_s_own_website_beats_older_data_and_spares_the_wikidata
         db.add(SecCompany(cik=109177, name="Spectrum Brands Holdings, Inc.", rank=1, website="https://hrggroup.com/"))
     asked = []
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: asked.append(r) or httpx.Response(500)))
-    users = {"0000109177": {"company": "Spectrum Brands", "named_website": "https://spectrumbrands.com/"}}
+    users = {"0000109177": {"company": "Spectrum Brands", "named_website": "https://www.spectrumbrands.com/"}}
     await SecFilingsProvider(client, Judge(Router()), gap=0)._attach_websites(client, users)
-    assert users["0000109177"]["website"] == "https://spectrumbrands.com/" and not asked
+    assert users["0000109177"]["website"] == "https://www.spectrumbrands.com/" and not asked
 
 
 def test_display_names_and_document_links():
