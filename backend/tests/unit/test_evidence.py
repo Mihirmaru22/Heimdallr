@@ -146,3 +146,8 @@ def test_long_sentences_and_tables_are_cut_at_whole_words_around_the_mention():
     assert quote.startswith("padding ") and quote.endswith("more")  # whole words at both ends
     bullets = "• FY24 cash flow fell. • Our plants now run SAP S/4HANA."
     assert find_mentions(bullets, sap) == ["Our plants now run SAP S/4HANA."]
+
+
+def test_a_sentence_repeated_in_the_document_is_quoted_once():
+    text = "Costs of our SAP S/4HANA rollout. Revenue grew. Costs of our SAP S/4HANA rollout."
+    assert find_mentions(text, product_for("SAP")) == ["Costs of our SAP S/4HANA rollout."]

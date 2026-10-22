@@ -46,7 +46,7 @@ def find_mentions(text: str, product: Product, limit: int = 3) -> list[str]:
                 end = cut if cut != -1 else m.end()
             quote = text[start:end].strip(" _•-–|")
             # One quote per sentence: "SAP S/4HANA" and "S/4HANA" inside it are the same mention.
-            if quote and not any(start < e and s < end for s, e in spans):
+            if quote and quote not in out and not any(start < e and s < end for s, e in spans):
                 spans.append((start, end))
                 out.append(quote)
             if len(out) >= limit * 3:
