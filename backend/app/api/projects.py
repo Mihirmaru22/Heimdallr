@@ -217,13 +217,10 @@ def preview(schema_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Ses
         elif not index_ready():
             warnings.append("The SEC company list has not been downloaded on this server yet "
                             "(run `python -m app.cli refresh-sec`), so SEC EDGAR will be skipped.")
-    if not spec.crawl.start_urls and not {"wikidata", "searxng", "sec_edgar", "gleif"} & set(spec.discovery.providers):
+    if not spec.crawl.start_urls and not set(spec.discovery.providers) - {"seeds"}:
         warnings.append("There are no start URLs and no discovery source, so the job would find nothing.")
     if "gleif" in spec.discovery.providers and not spec.discovery.industry:
         warnings.append("GLEIF searches company names for the industry, so it is skipped without one.")
-    if spec.discovery.technology:
-        warnings.append(f"Results are not yet filtered to companies that use {spec.discovery.technology!r}; "
-                        "that filter is the next step of the plan.")
     if spec.discovery.parent_company:
         warnings.append(f"Finding the sites of {spec.discovery.parent_company!r} is not built yet; add its "
                         "website as a start URL meanwhile.")
@@ -233,8 +230,19 @@ def preview(schema_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Ses
                         "model reading arrives in a later step.")
     if "wikidata" in spec.discovery.providers:
         warnings.append("Wikidata returns companies that list an official website; coverage varies by industry.")
-    searching = {"wikidata", "searxng", "sec_edgar", "gleif"} & set(spec.discovery.providers)
+    searching = set(spec.discovery.providers) - {"seeds"}
     sites = len(spec.crawl.start_urls) + (spec.discovery.max_results if searching else 0)
     est_pages = min(spec.crawl.max_pages, max(1, sites) * spec.crawl.max_pages_per_site)
     return PlanPreview(spec=spec.model_dump(mode="json"), urls=checks, discovery_providers=spec.discovery.providers,
-                       estimated_max_pages=est_pages, estimated_llm_calls=0, warnings=warnings)
+                       estimated_max_pages=est_pages, estimated_llm_calls=estimated_llm_calls(spec, sites),
+                       warnings=warnings)
+
+
+def estimated_llm_calls(spec, sites: int) -> int:
+    """At most this many free-model requests: one per web-search homepage check, and for a technology question
+    about two per company judged (proof check, plus a second reading of a use verdict)."""
+    d = spec.discovery
+    calls = d.max_results if "searxng" in d.providers else 0
+    if d.technology:
+        calls += 2 * max(sites, d.max_results)
+    return calls

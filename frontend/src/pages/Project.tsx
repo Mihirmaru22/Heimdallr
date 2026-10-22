@@ -98,7 +98,7 @@ export default function ProjectPage({ orgId }: { orgId: string }) {
           {preview && (
             <div className="preview">
               <p>Up to <strong>{preview.estimated_max_pages}</strong> pages · discovery: {preview.discovery_providers.join(", ")} ·
-                AI calls: <strong>{preview.estimated_llm_calls}</strong></p>
+                AI calls (at most, free models): <strong>{preview.estimated_llm_calls}</strong></p>
               {preview.warnings.map((w) => <p key={w} className="warn small">{w}</p>)}
               {preview.urls.length > 0 && (
                 <table><thead><tr><th>Start URL</th><th>Allowed</th><th>Reason</th></tr></thead><tbody>

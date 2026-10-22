@@ -34,7 +34,7 @@ export default function SettingsPage({ orgId }: { orgId: string }) {
             <tr><td>Pages fetched this month</td><td>{u.pages} / {u.limits.max_pages_per_org_month}</td></tr>
             <tr><td>Active jobs</td><td>{u.active_jobs} / {u.limits.max_active_jobs_per_org}</td></tr>
             <tr><td>Rows exported this month</td><td>{u.export_rows}</td></tr>
-            <tr><td>AI model requests this month</td><td>{u.llm_requests} (Phase 1 makes none)</td></tr>
+            <tr><td>AI model requests this month</td><td>{u.llm_requests} (free models only)</td></tr>
             {Object.entries(u.limits).filter(([k]) => !["max_pages_per_org_month", "max_active_jobs_per_org"].includes(k))
               .map(([k, v]) => <tr key={k}><td>{LIMIT_LABELS[k] ?? k}</td><td>{v}</td></tr>)}
           </tbody></table>)}

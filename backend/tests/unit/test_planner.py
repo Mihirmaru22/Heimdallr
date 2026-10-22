@@ -101,3 +101,14 @@ async def test_start_urls_still_come_from_the_question():
     spec, _by, _notes = await plan_spec("emails from acme.com and https://beta.io/about", [], router)
     assert spec.crawl.start_urls == ["https://beta.io/about", "https://acme.com/"]
     assert spec.discovery.providers == ["seeds"]
+
+
+def test_a_question_with_nothing_to_search_says_so_instead_of_promising_a_list():
+    from app.spec.models import ExtractionSpec
+    from app.spec.planner import technology_notes
+
+    spec = ExtractionSpec.model_validate({"fields": [{"name": "company_name", "type": "string"}],
+                                          "discovery": {"providers": ["seeds"], "technology": "SAP",
+                                                        "countries": ["DE"]}})
+    (note,) = technology_notes(spec)
+    assert note.startswith("Nothing can be searched")

@@ -14,6 +14,9 @@ os.environ.setdefault("WEBDATA_DATA_DIR", tempfile.mkdtemp(prefix="webdata-test-
 os.environ.setdefault("WEBDATA_PER_DOMAIN_DELAY_SECONDS", "0")
 os.environ.setdefault("WEBDATA_SECRET_KEY", "test-secret-key-not-for-production")
 os.environ.setdefault("WEBDATA_COOKIE_SECURE", "false")
+# A developer's backend/.env must not reach the tests: no live model calls, no real web search.
+os.environ["WEBDATA_OPENROUTER_API_KEY"] = ""
+os.environ["WEBDATA_SEARXNG_URL"] = ""
 
 import email_validator  # noqa: E402
 import pytest  # noqa: E402

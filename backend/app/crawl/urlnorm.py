@@ -1,6 +1,7 @@
 """URL normalization so the same page is crawled once."""
 
 import hashlib
+import re
 from urllib.parse import parse_qsl, quote, unquote, urlencode, urljoin, urlsplit, urlunsplit
 
 import tldextract
@@ -63,6 +64,8 @@ def host_of(url: str) -> str:
 
 def registered_domain(url_or_host: str) -> str:
     host = urlsplit(url_or_host).hostname if "://" in url_or_host else url_or_host
+    if not host or not re.fullmatch(r"[A-Za-z0-9.-]+", host):
+        return ""  # "javascript:alert(1)", "//x/y" or a mailto: is not a host
     ext = _extract(host or "")
     return ext.top_domain_under_public_suffix or (host or "")
 
