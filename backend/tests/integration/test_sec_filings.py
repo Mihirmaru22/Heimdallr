@@ -125,7 +125,7 @@ async def test_only_users_become_results_and_every_rejection_says_why(db_clean):
     assert why["HACKETT GROUP, INC."].startswith("partner or reseller")
     assert why["MAPLE MILLS LTD"] == "business address outside the US"
     assert why["QUIET CO"] == "the product's name was not found in the document text"
-    assert len(router.calls) == 2  # the rules settled the competitor and the reseller without the model
+    assert len(router.calls) == 1  # rules settled Avient (plain own use), the competitor and the reseller
     assert not any("avnt-10q" in u for u in seen)  # one document per company: its 10-K
 
 
