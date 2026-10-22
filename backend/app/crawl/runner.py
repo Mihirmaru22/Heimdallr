@@ -38,7 +38,13 @@ from app.discovery.relevance import off_topic_reason, outside_countries_reason, 
 from app.discovery.sitecheck import SiteChecker
 from app.evidence.judge import proof_confidence
 from app.evidence.site import SiteProof
-from app.extract.deterministic import extract_page, parse_page, prefer_country_emails, prefer_country_phones
+from app.extract.deterministic import (
+    PageDoc,
+    extract_page,
+    parse_page,
+    prefer_country_emails,
+    prefer_country_phones,
+)
 from app.extract.normalize import InvalidValue, normalize_value
 from app.extract.records import CONTACT_HINTS, _has_extractor
 from app.models import (
@@ -62,7 +68,8 @@ PROOF_KEYS = ("uses_technology", "evidence", "evidence_url", "evidence_date", "e
 REGISTRY_METHODS = ("wikidata", "sec_edgar", "gleif", "sec_filings")
 LEASE = timedelta(minutes=5)
 SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
-                "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings"}
+                "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings",
+                "case_studies": "case studies and customer stories"}
 RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
 
 
@@ -215,6 +222,8 @@ class CrawlRunner:
                     provider.on_note = self.note
                 if hasattr(provider, "fetch_text"):
                     provider.fetch_text = self.fetch_text
+                if hasattr(provider, "fetch_page"):
+                    provider.fetch_page = self.fetch_page
                 try:
                     results = await provider.discover(self.spec)
                     per_provider.append(results)
@@ -267,9 +276,9 @@ class CrawlRunner:
         self.allowed_sites |= {registered_domain(d) for d in self.spec.crawl.allowed_domains}
         return self.add_urls(items)
 
-    async def fetch_text(self, url: str) -> str | None:
-        """A page's visible text for a discovery source, fetched like any crawled page: robots.txt respected,
-        network rules checked. None when it cannot be read or has no text."""
+    async def fetch_page(self, url: str) -> PageDoc | None:
+        """A page for a discovery source, fetched like any crawled page: robots.txt respected, network rules
+        checked. None when it cannot be read or has no text."""
         decision = await self.robots.check(url)
         if not decision.allowed:
             return None
@@ -278,7 +287,11 @@ class CrawlRunner:
         except FetchError:
             return None
         doc = parse_page(normalize_url(result.final_url) or url, result.text)
-        return None if unreadable(doc) else f"{doc.title} {doc.text}"
+        return None if unreadable(doc) else doc
+
+    async def fetch_text(self, url: str) -> str | None:
+        doc = await self.fetch_page(url)
+        return f"{doc.title} {doc.text}" if doc else None
 
     def save_evidence(self, source: str, evidence: list[dict[str, Any]]) -> None:
         """Every piece of proof a source looked at, kept or rejected, for the Evidence and Rejected sheets."""
@@ -515,7 +528,7 @@ class CrawlRunner:
             self.note("skipped", f"Skipped {final}: same content as a page already read", final)
             return
         doc = parse_page(final, result.text)
-        if row.depth == 0 and row.method in ("searxng", "wikidata"):
+        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies"):
             reason = await self._homepage_reason(row, doc, site, final)
             if reason:
                 self.allowed_sites.discard(site)

@@ -50,7 +50,7 @@ def test_a_benchmark_run_can_take_the_sources_todays_rules_pick_and_keep_the_res
         old = db.get(ExtractionSchema, db.get(CrawlJob, job_id).schema_id)
         new = evaluation.with_current_sources(db, old)
         assert new.id != old.id and new.version == old.version + 1
-        assert new.spec["discovery"]["providers"] == ["sec_filings"]
+        assert new.spec["discovery"]["providers"] == ["sec_filings", "case_studies"]
         assert {k: v for k, v in new.spec.items() if k != "discovery"} == \
             {k: v for k, v in old.spec.items() if k != "discovery"}
         assert evaluation.with_current_sources(db, new).id == new.id  # nothing to change: the same plan

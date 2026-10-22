@@ -145,7 +145,7 @@ def spec_from_plan(plan: Plan, question: str, start_urls: list[str]) -> Extracti
     technology = bool(d.technology and plan.rows == "companies")
     if not base.crawl.start_urls:
         d.providers = choose_providers(d, technology)
-    if technology and len(d.providers) > 1:
+    if technology and any(p not in PROOF_SOURCES for p in d.providers):  # companies to check, not only proof
         d.max_results = min(d.max_results * CANDIDATES_PER_ROW, 300)
     crawl = base.crawl.model_copy(update={"max_pages": min(max(d.max_results * 8, 50), 2000)})
     if technology:
@@ -171,9 +171,14 @@ def choose_providers(d: Any, technology: bool) -> list[str]:
             providers.insert(1, "sec_edgar")
         if d.industry:
             providers.insert(-1, "gleif")
+    if technology:
+        providers.insert(0, "case_studies")  # organisations a vendor, partner or news page shows using it
     if technology and covers_us(d):
         providers.insert(0, "sec_filings")  # companies whose own filings name it
     return providers or ["seeds"]
+
+
+PROOF_SOURCES = {"sec_filings", "case_studies"}  # sources that bring their own proof, not a list to check
 
 
 def covers_us(d: Any) -> bool:
@@ -187,7 +192,9 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
         sources.append(f"US-listed companies' own SEC filings (last {d.evidence_years} years)")
     # Sites to check for proof: the person's own start URLs, or a list source. "seeds" alone with no start URLs
     # is nothing to search, and the notes must not promise otherwise.
-    has_list = bool(spec.crawl.start_urls) or any(p not in ("sec_filings", "seeds") for p in d.providers)
+    if "case_studies" in d.providers:
+        sources.append("vendor and partner case studies, customer stories and news pages found by web search")
+    has_list = bool(spec.crawl.start_urls) or any(p not in PROOF_SOURCES | {"seeds"} for p in d.providers)
     if not sources and not has_list:
         return [f"Nothing can be searched for companies using {d.technology} here yet: add an industry "
                 "(\"car makers\", \"pharma\") or the websites to check."]
@@ -201,8 +208,7 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
              "without proof are listed on the Rejected sheet with the reason."]
     if not has_list:
         notes.append("Add an industry (\"car makers\", \"pharma\") to also check companies' own websites; "
-                     "without one, only SEC filings are searched.")
-    notes.append("Vendor case studies and news are later steps.")
+                     "without one, only filings and case studies are searched.")
     return notes
 
 

@@ -35,7 +35,8 @@ async def test_a_technology_question_becomes_a_plan_with_its_filters():
     d = spec.discovery
     assert d.countries == ["US"] and d.technology == "Teamcenter"
     assert d.technology_aliases == ["Siemens Teamcenter"]
-    assert d.providers == ["sec_filings"]  # no industry: a list of random US companies is not worth checking
+    # No industry: a list of random US companies is not worth checking.
+    assert d.providers == ["sec_filings", "case_studies"]
     assert any("Add an industry" in n for n in notes)
     assert spec.deduplication_keys == ["website_url"] and spec.record_scope == "site"
 
@@ -53,7 +54,7 @@ async def test_a_technology_question_outside_the_us_checks_company_websites():
 async def test_a_bare_technology_question_searches_filings_and_asks_for_a_filter():
     router = FakeRouter({"rows": "companies", "technology": "Teamcenter"})
     spec, _by, notes = await plan_spec("who uses teamcenter", [], router)
-    assert spec.discovery.providers == ["sec_filings"] and spec.discovery.max_results == 50
+    assert spec.discovery.providers == ["sec_filings", "case_studies"] and spec.discovery.max_results == 50
     assert any("Add an industry" in n for n in notes)
 
 
@@ -62,7 +63,7 @@ async def test_keywords_alone_never_bring_a_list_of_random_companies_to_a_techno
                          "keywords": ["SAP", "contact info"]})
     spec, _by, notes = await plan_spec("US companies that use SAP S/4HANA, with website and contact info", [],
                                        router)
-    assert spec.discovery.providers == ["sec_filings"]
+    assert spec.discovery.providers == ["sec_filings", "case_studies"]
     assert any("Add an industry" in n for n in notes)
 
 
