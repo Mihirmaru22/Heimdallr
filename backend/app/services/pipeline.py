@@ -7,8 +7,10 @@ the persisted state and continues from there.
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import uuid
+from pathlib import Path
 
 from sqlalchemy import func, select
 
@@ -171,8 +173,22 @@ def run_job(job_id: uuid.UUID, *, resolver=None, redis=None, client_factory=None
     return state.value
 
 
+@functools.lru_cache(maxsize=1)
+def code_version() -> str | None:
+    """The commit this process runs, so every job records the code it was measured on."""
+    import subprocess
+
+    try:
+        out = subprocess.run(["git", "rev-parse", "--short=7", "HEAD"],  # noqa: S607 - fixed arguments
+                             cwd=Path(__file__).resolve().parent, capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return (out.stdout.strip() or None) if out.returncode == 0 else None
+
+
 def settings_snapshot() -> dict:
     s = get_settings()
-    return {"respect_robots": s.respect_robots, "per_domain_delay_seconds": s.per_domain_delay_seconds,
+    return {"code_version": code_version(),
+            "respect_robots": s.respect_robots, "per_domain_delay_seconds": s.per_domain_delay_seconds,
             "per_domain_concurrency": s.per_domain_concurrency, "user_agent": s.user_agent,
             "max_page_bytes": s.max_page_bytes}

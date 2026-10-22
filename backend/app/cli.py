@@ -118,6 +118,75 @@ def score(job_ids: list[str], key_path: str | None) -> None:
                 print(f"{n} ({j[:8]}): {c[n]}")
 
 
+def _table(rows: list[dict[str, str]]) -> None:
+    cols = list(rows[0])
+    width = {c: max(len(c), *(len(str(r[c])) for r in rows)) for c in cols}
+    print("  ".join(c.ljust(width[c]) for c in cols))
+    for r in rows:
+        print("  ".join(str(r[c]).ljust(width[c]) for c in cols))
+
+
+def eval_history() -> None:
+    """Every finished run of every test question, scored against its key, with the code it ran on."""
+    from app.services.evaluation import found, history, load_keys
+
+    with session_scope(bypass=True) as db:
+        rows = history(db, load_keys())
+    if not rows:
+        sys.exit("No finished runs of the test questions")
+    rows = [{k.replace("key: ", "").replace("included: ", ""): v for k, v in r.items()} for r in rows]
+    _table(rows)
+    print("\nFirst run -> latest run, per question:")
+    for q in dict.fromkeys(r["question"] for r in rows):
+        runs = [r for r in rows if r["question"] == q]
+        a, b = runs[0], runs[-1]
+        print(f"  {q:34} must-haves {a['must-have companies found']:>12} -> {b['must-have companies found']:<12}"
+              f" wrong rows {a['rows that must not be there']} -> {b['rows that must not be there']}"
+              f"  ({len(runs)} runs)")
+    first = [found(next(r for r in rows if r["question"] == q)["must-have companies found"])
+             for q in dict.fromkeys(r["question"] for r in rows)]
+    last = [found([r for r in rows if r["question"] == q][-1]["must-have companies found"])
+            for q in dict.fromkeys(r["question"] for r in rows)]
+    print(f"  {'all questions':34} must-haves {sum(f for f, _ in first)}/{sum(t for _, t in first)} -> "
+          f"{sum(f for f, _ in last)}/{sum(t for _, t in last)}")
+
+
+def eval_run(wait_seconds: int, repeat: int) -> None:
+    """Run every test question again with its latest plan, wait, and score each new run next to the last one."""
+    import time
+
+    from app.services.evaluation import COLUMNS, load_keys, start_runs, unfinished
+    from app.services.scorecard import score_job
+    from app.worker import tasks
+
+    keys = load_keys()
+    with session_scope(bypass=True) as db:
+        # Each question more than once shows how much one question's score moves between identical runs.
+        started = [(name, prev.id, job.id) for _ in range(repeat) for name, prev, job in start_runs(db, keys)]
+    for name, _prev, job in started:
+        tasks.run_job.delay(str(job))
+        print(f"started {name}: {str(job)[:8]}")
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        with session_scope(bypass=True) as db:
+            left = unfinished(db, [j for _n, _p, j in started])
+        if not left:
+            break
+        if time.monotonic() > deadline:
+            sys.exit(f"{left} runs still going after {wait_seconds}s; score them later with eval-history")
+        time.sleep(20)
+    rows = []
+    with session_scope(bypass=True) as db:
+        for name, prev, job in started:
+            a, b = score_job(db, prev, keys[name]), score_job(db, job, keys[name])
+            rows.append({"question": name, "runs": f"{str(prev)[:8]} -> {str(job)[:8]}",
+                         **{c.replace("key: ", ""): f"{a.get(c, '')} -> {b.get(c, '')}" for c in COLUMNS}})
+            for c in b:
+                if c.startswith("key: lost at"):
+                    print(f"{name} {str(job)[:8]} {c}: {b[c]}")
+    _table(rows)
+
+
 def sec_check(product_name: str, aliases: list[str]) -> None:
     """One SEC full-text search exactly as the sec_filings source sends it, with SEC's raw answer."""
     from datetime import date, timedelta
@@ -166,6 +235,10 @@ def main() -> None:
     p = sub.add_parser("score", help="print the scorecard of one or more jobs side by side")
     p.add_argument("job_ids", nargs="+")
     p.add_argument("--key", help="answer key JSON: must_include / must_exclude companies")
+    sub.add_parser("eval-history", help="score every finished run of the test questions in eval/keys")
+    p = sub.add_parser("eval-run", help="run every test question again with its latest plan and score it")
+    p.add_argument("--wait", type=int, default=3600, help="seconds to wait for the runs (default 3600)")
+    p.add_argument("--repeat", type=int, default=1, help="runs of each question, to see run-to-run noise")
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
     p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
@@ -176,6 +249,10 @@ def main() -> None:
         return score(args.job_ids, args.key)
     if args.cmd == "sec-check":
         return sec_check(args.product, args.aliases)
+    if args.cmd == "eval-history":
+        return eval_history()
+    if args.cmd == "eval-run":
+        return eval_run(args.wait, args.repeat)
     if args.cmd.startswith("llm-"):
         llm(args.cmd)
     elif args.cmd == "refresh-sec":
