@@ -268,3 +268,24 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
     out = capsys.readouterr().out
     assert "providers                        sec_filings\n" in out and "SEC full-text search: 8 filing(s)" in out
     assert "SEC filing (10-K) kept" in out and "== Pages per site" in out
+
+
+async def test_a_company_with_proof_and_no_known_website_is_looked_up_by_name(db_clean, monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "searxng_url", "http://searx")
+
+    def answer(request):
+        if request.url.host == "searx":
+            return httpx.Response(200, json={"results": [{"url": "https://www.accuray.com/"}] * 5})
+        return httpx.Response(200, json={"query": {"search": []}})  # Wikidata has no item for the CIK
+
+    async def fetch_text(url):
+        return "Accuray radiation therapy" if url == "https://www.accuray.com/" else None
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(answer))
+    provider = SecFilingsProvider(client, Judge(Router()), gap=0)
+    provider.fetch_text = fetch_text
+    users = {"0001138723": {"company": "ACCURAY INC"}}
+    await provider._attach_websites(client, users)
+    assert users["0001138723"]["website"] == "https://www.accuray.com/"

@@ -26,6 +26,7 @@ from app.crawl.urlnorm import homepage, normalize_url, registered_domain
 from app.db import session_scope
 from app.discovery.providers import DiscoveryError, DiscoveryResult
 from app.discovery.sec_edgar import US_STATES, SecEdgarProvider, index_ready, sic_codes_for
+from app.discovery.websites import FetchText, WebsiteFinder
 from app.evidence.judge import KEEP, USE, Judge, score
 from app.evidence.products import Product, product_for
 from app.evidence.quotes import document_text, find_mentions, verify_quote
@@ -105,6 +106,7 @@ class SecFilingsProvider:
         self.notes: list[str] = []
         self.evidence: list[dict[str, Any]] = []  # every piece looked at, kept or rejected
         self.on_note: Callable[..., None] | None = None  # the job's live activity feed, when there is one
+        self.fetch_text: FetchText | None = None  # the crawler's own page fetch (robots.txt respected), when run
 
     def _say(self, kind: str, message: str, url: str | None = None) -> None:
         if self.on_note is not None:
@@ -298,6 +300,16 @@ class SecFilingsProvider:
             ev["website"] = homepage(normalize_url(site) or "") if site else ""
             if info.get("label"):
                 ev["company"] = info["label"]
+        # Neither the filing, SEC's company data nor Wikidata gave one: look the name up, accepting a domain
+        # only when the search agrees on it and its homepage names the company.
+        missing = [ev for ev in users.values() if not ev["website"]]
+        if missing and self.fetch_text is not None and get_settings().searxng_url:
+            finder = WebsiteFinder(client, get_settings().searxng_url, self.fetch_text)
+            for ev in missing:
+                site, how = await finder.find(ev["company"])
+                ev["website"] = site
+                self._say("search" if site else "skipped", f"Website of {ev['company']}: "
+                          + (f"{site} ({how})" if site else f"none taken ({how})"), site or None)
 
 
 def strongest(evidence: list[dict[str, Any]]) -> dict[str, Any] | None:

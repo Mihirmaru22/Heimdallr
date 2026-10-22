@@ -213,6 +213,8 @@ class CrawlRunner:
                     self.flush_activity()
                 if hasattr(provider, "on_note"):
                     provider.on_note = self.note
+                if hasattr(provider, "fetch_text"):
+                    provider.fetch_text = self.fetch_text
                 try:
                     results = await provider.discover(self.spec)
                     per_provider.append(results)
@@ -264,6 +266,19 @@ class CrawlRunner:
         self.allowed_sites = {registered_domain(i["url"]) for i in items}
         self.allowed_sites |= {registered_domain(d) for d in self.spec.crawl.allowed_domains}
         return self.add_urls(items)
+
+    async def fetch_text(self, url: str) -> str | None:
+        """A page's visible text for a discovery source, fetched like any crawled page: robots.txt respected,
+        network rules checked. None when it cannot be read or has no text."""
+        decision = await self.robots.check(url)
+        if not decision.allowed:
+            return None
+        try:
+            result = await self.fetcher.fetch(url)
+        except FetchError:
+            return None
+        doc = parse_page(normalize_url(result.final_url) or url, result.text)
+        return None if unreadable(doc) else f"{doc.title} {doc.text}"
 
     def save_evidence(self, source: str, evidence: list[dict[str, Any]]) -> None:
         """Every piece of proof a source looked at, kept or rejected, for the Evidence and Rejected sheets."""
