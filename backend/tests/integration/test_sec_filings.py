@@ -138,7 +138,8 @@ async def test_outside_the_us_it_says_so(db_clean):
         await SecFilingsProvider(httpx.AsyncClient(), Judge(Router()), gap=0).discover(spec(countries=["DE"]))
 
 
-def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, crawl_env, monkeypatch, tmp_path):
+def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, crawl_env, monkeypatch, tmp_path,
+                                                                    capsys):
     from app.crawl import runner
     from app.export.xlsx import build_workbook
     from app.services import exports, pipeline
@@ -177,3 +178,9 @@ def test_a_technology_job_keeps_proven_users_and_exports_the_proof(db_clean, cra
     assert ev[1][0] == "Avient" and ev[1][3] == "Confirmed"
     rejected = {r[0]: r[2] for r in wb["Rejected"].iter_rows(min_row=2, values_only=True)}
     assert rejected["MAPLE MILLS LTD"] == "business address outside the US"
+
+    from app.cli import job_report
+    job_report(str(job_id))
+    out = capsys.readouterr().out
+    assert '"providers": [\n    "sec_filings"\n  ]' in out and "SEC full-text search: 7 filing(s)" in out
+    assert "Evidence rows: 6 (2 kept)" in out

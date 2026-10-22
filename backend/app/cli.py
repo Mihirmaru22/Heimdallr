@@ -1,6 +1,7 @@
 """Command-line helpers: `python -m app.cli create-admin EMAIL` (prompts for a password) and
 `python -m app.cli refresh-sec` (downloads SEC EDGAR's company list for the sec_edgar source) and
-`python -m app.cli llm-status | llm-test | llm-enable` (the free OpenRouter models)."""
+`python -m app.cli llm-status | llm-test | llm-enable` (the free OpenRouter models) and
+`python -m app.cli job-report JOB_ID` / `sec-check PRODUCT` (what a run planned and what each source answered)."""
 
 from __future__ import annotations
 
@@ -75,6 +76,70 @@ def llm(cmd: str) -> None:
     asyncio.run(run())
 
 
+def job_report(job_id: str) -> None:
+    """The plan a job ran with and everything its sources reported, in order: for debugging a run."""
+    import json
+    import uuid
+
+    from app.models import CrawlJob, CrawlJobEvent, Evidence, ExtractionSchema
+
+    with session_scope(bypass=True) as db:
+        job = db.get(CrawlJob, uuid.UUID(job_id))
+        if job is None:
+            sys.exit(f"No job {job_id}")
+        schema = db.get(ExtractionSchema, job.schema_id)
+        print(f"Question: {schema.nl_request}")
+        print(f"State: {job.state}  error: {job.error}")
+        print("Plan (discovery):", json.dumps(schema.spec.get("discovery"), indent=2, default=str))
+        print("Fields:", ", ".join(f["name"] for f in schema.spec.get("fields", [])))
+        print("Counters:", json.dumps(job.counters))
+        events = db.execute(select(CrawlJobEvent).where(CrawlJobEvent.job_id == job.id)
+                            .order_by(CrawlJobEvent.created_at)).scalars().all()
+        print("\nWarnings and notes:")
+        for e in events:
+            if e.type in ("warning", "info", "error") or e.type == "transition":
+                print(f"  [{e.type}] {e.message}")
+        print("\nSource lines from the live feed (not page reads):")
+        for e in events:
+            d = e.data or {}
+            if e.type == "activity" and d.get("kind") in ("search", "queued", "kept", "dropped", "failed"):
+                print(f"  {d.get('kind'):8} {e.message}")
+        ev = db.execute(select(Evidence).where(Evidence.job_id == job.id)).scalars().all()
+        print(f"\nEvidence rows: {len(ev)} ({sum(x.kept for x in ev)} kept)")
+
+
+def sec_check(product_name: str) -> None:
+    """One SEC full-text search exactly as the sec_filings source sends it, with SEC's raw answer."""
+    from datetime import date, timedelta
+
+    import httpx
+
+    from app.config import get_settings
+    from app.discovery.sec_filings import SEARCH
+    from app.evidence.products import product_for
+
+    product = product_for(product_name)
+    today = date.today()
+    params = {"q": " ".join(f'"{n}"' for n in product.names), "dateRange": "custom",
+              "startdt": (today - timedelta(days=365 * 3)).isoformat(), "enddt": today.isoformat()}
+    ua = get_settings().user_agent
+    print(f"User-Agent: {ua}\nQuery: {params['q']}")
+    try:
+        resp = httpx.get(SEARCH, params=params, headers={"User-Agent": ua}, timeout=60, follow_redirects=True)
+    except httpx.HTTPError as exc:
+        sys.exit(f"Request failed: {type(exc).__name__}: {exc}")
+    print(f"HTTP {resp.status_code}  {resp.headers.get('content-type')}")
+    try:
+        hits = resp.json()["hits"]
+    except Exception:
+        sys.exit("Not the expected JSON. First 500 characters:\n" + resp.text[:500])
+    print(f"Filings found: {hits['total']['value']}")
+    for h in hits["hits"][:10]:
+        src = h["_source"]
+        print(f"  {src['display_names'][0][:60]:60} {src.get('form'):6} {src.get('file_type', '')[:10]:10} "
+              f"{src.get('file_date')} states={src.get('biz_states')}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -86,7 +151,15 @@ def main() -> None:
     sub.add_parser("llm-status", help="show the OpenRouter key's free allowance, today's use and the free models")
     sub.add_parser("llm-test", help="send one tiny request to the best free model")
     sub.add_parser("llm-enable", help="switch model use back on after the cost guard switched it off")
+    p = sub.add_parser("job-report", help="print a job's plan, warnings and what each source reported")
+    p.add_argument("job_id")
+    p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
+    p.add_argument("product")
     args = parser.parse_args()
+    if args.cmd == "job-report":
+        return job_report(args.job_id)
+    if args.cmd == "sec-check":
+        return sec_check(args.product)
     if args.cmd.startswith("llm-"):
         llm(args.cmd)
     elif args.cmd == "refresh-sec":
