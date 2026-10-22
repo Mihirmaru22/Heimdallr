@@ -39,6 +39,8 @@ FORM_ORDER = ["10-K", "20-F", "10-Q", "S-1", "8-K", "DEF 14A"]  # the most telli
 MAX_PAGES = 5
 MAX_DOC_BYTES = 25_000_000
 GAP = 0.2  # seconds between requests to SEC
+RETRY_WAITS = (5.0, 20.0, 60.0)  # seconds before each new try of a failed request
+RETRY_STATUS = {429, 500, 502, 503, 504}
 
 
 def company_name(display: str) -> str:
@@ -64,6 +66,7 @@ class SecFilingsProvider:
         self.client = client
         self.judge = judge or Judge()
         self.gap = gap
+        self.retry_waits = RETRY_WAITS if gap else (0.0,) * len(RETRY_WAITS)  # tests pass gap=0: no waiting
         self.notes: list[str] = []
         self.evidence: list[dict[str, Any]] = []  # every piece looked at, kept or rejected
         self.on_note: Callable[..., None] | None = None  # the job's live activity feed, when there is one
@@ -73,10 +76,21 @@ class SecFilingsProvider:
             self.on_note(kind, message, url, source=self.name)
 
     async def _get(self, client: httpx.AsyncClient, url: str, **params: Any) -> httpx.Response:
-        await asyncio.sleep(self.gap)
-        resp = await client.get(url, params=params or None)
-        resp.raise_for_status()
-        return resp
+        """SEC's search service flakes (timeouts, dropped TLS, HTTP 500) and answers again a minute later, so a
+        failed request is tried again after RETRY_WAITS before it counts as a failure."""
+        for wait in (*self.retry_waits, None):
+            await asyncio.sleep(self.gap)
+            try:
+                resp = await client.get(url, params=params or None)
+                if resp.status_code not in RETRY_STATUS or wait is None:
+                    resp.raise_for_status()
+                    return resp
+            except httpx.TransportError:
+                if wait is None:
+                    raise
+            self._say("failed", f"SEC did not answer ({url.split('/')[2]}); trying again in {wait:.0f}s")
+            await asyncio.sleep(wait)
+        raise AssertionError("unreachable")
 
     @staticmethod
     def query(product: Product) -> str:

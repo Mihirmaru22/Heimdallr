@@ -135,6 +135,37 @@ async def test_only_users_become_results_and_every_rejection_says_why(db_clean):
     assert not any("avnt-10q" in u for u in seen)  # one document per company: its 10-K
 
 
+async def test_sec_flaking_is_tried_again_and_a_lasting_failure_is_not_reported_as_zero_filings(db_clean):
+    from app.discovery.providers import DiscoveryError
+
+    calls = []
+    good = sec_and_wikidata(8080, [])
+
+    def flaky(fails):
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.host == "efts.sec.gov":
+                calls.append(1)
+                if len(calls) == 1:
+                    raise httpx.ConnectTimeout("timed out")
+                if len(calls) <= fails:
+                    return httpx.Response(500, json={"message": "Internal server error"})
+            return good(request)
+        return handler
+
+    provider = SecFilingsProvider(httpx.AsyncClient(transport=httpx.MockTransport(flaky(2))), Judge(Router()), gap=0)
+    lines = []
+    provider.on_note = lambda kind, message, url=None, **_: lines.append((kind, message))
+    assert len(await provider.discover(spec())) == 2  # a timeout and a 500, then SEC answers
+    assert ("failed", "SEC did not answer (efts.sec.gov); trying again in 0s") in lines
+
+    calls.clear()
+    provider = SecFilingsProvider(httpx.AsyncClient(transport=httpx.MockTransport(flaky(99))), Judge(Router()), gap=0)
+    import pytest
+    with pytest.raises(DiscoveryError, match="SEC full-text search failed"):
+        await provider.discover(spec())
+    assert len(calls) == 4  # the first try and three more
+
+
 async def test_outside_the_us_it_says_so(db_clean):
     import pytest
 
