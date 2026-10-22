@@ -22,7 +22,7 @@ from sqlalchemy import select
 
 from app.crawl.urlnorm import registered_domain
 from app.evidence.products import product_for
-from app.extract.deterministic import NARROW_MAILBOX_RE, PERSONAL_MAILBOX_RE, ROLE_WORD_RE
+from app.extract.deterministic import NARROW_MAILBOX_RE, NOT_CONTACT_RE, PERSONAL_MAILBOX_RE, ROLE_WORD_RE
 from app.extract.records import CONTACT_HINTS
 from app.models import CrawlJob, DiscoveredUrl, Evidence, ExtractedRecord, ExtractionSchema, FetchedPage
 
@@ -40,6 +40,8 @@ def email_kind(email: str) -> str:
     local = email.split("@")[0].lower()
     if local in ("info", "contact", "hello", "sales", "office", "support", "enquiries", "inquiries"):
         return "main"
+    if NOT_CONTACT_RE.search(local):
+        return "not a contact"  # recruiting, legal, abuse...: the extractor should never have kept it
     if NARROW_MAILBOX_RE.match(local) or re.search(r"investor|^ir[._-]", local):
         return "narrow"
     if PERSONAL_MAILBOX_RE.match(local) and not ROLE_WORD_RE.search(local):
@@ -58,8 +60,8 @@ def score_job(db, job_id: uuid.UUID, key: dict[str, Any] | None = None) -> dict[
     d = spec.get("discovery") or {}
     product = product_for(d["technology"], d.get("technology_aliases") or []) if d.get("technology") else None
     out: dict[str, str] = {}
-    if job.started_at and job.finished_at:
-        out["time (s)"] = str(round((job.finished_at - job.started_at).total_seconds()))
+    if job.finished_at:  # from the job's creation, so source searches before the crawl are counted
+        out["time (s)"] = str(round((job.finished_at - (job.created_at or job.started_at)).total_seconds()))
 
     # --- funnel ---------------------------------------------------------------------------------------
     ev = db.execute(select(Evidence).where(Evidence.job_id == job_id)).scalars().all()

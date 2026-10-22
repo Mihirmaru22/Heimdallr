@@ -105,11 +105,16 @@ def score(job_ids: list[str], key_path: str | None) -> None:
     key = load_key(key_path)
     with session_scope(bypass=True) as db:
         cards = [score_job(db, uuid.UUID(j), key) for j in job_ids]
-    names = list(dict.fromkeys(k for c in cards for k in c))
+    long = {"key: missing"}  # lists too long for a column: printed under the table
+    names = [n for n in dict.fromkeys(k for c in cards for k in c) if n not in long]
     width = max(len(n) for n in names)
-    print(" " * width + "  " + "  ".join(j[:8].ljust(18) for j in job_ids))
+    print(" " * width + "  " + "  ".join(j[:8].ljust(22) for j in job_ids))
     for n in names:
-        print(n.ljust(width) + "  " + "  ".join(str(c.get(n, "")).ljust(18) for c in cards))
+        print(n.ljust(width) + "  " + "  ".join(str(c.get(n, "")).ljust(22) for c in cards))
+    for n in long:
+        for j, c in zip(job_ids, cards, strict=True):
+            if n in c:
+                print(f"{n} ({j[:8]}): {c[n]}")
 
 
 def sec_check(product_name: str, aliases: list[str]) -> None:
