@@ -392,3 +392,84 @@ def test_the_heartbeat_is_written_while_a_worker_holds_the_job(db_clean):
         time.sleep(0.3)
     with session_scope(org_id) as db:
         assert db.get(CrawlJob, job_id).heartbeat_at is not None
+
+
+def _hit(url, provider="tavily", title="", snippet=""):
+    return {"provider": provider, "query": "cybersecurity companies United Kingdom", "url": url, "title": title,
+            "snippet": snippet}
+
+
+def test_only_these_countries_reads_company_pages_when_the_homepage_does_not_say(db_clean, crawl_env, monkeypatch):
+    """Confirmed in the country (from its contact page), confirmed outside it, and not confirmed: each is told
+    apart, the first is kept and the other two stay out, with the reason and what search said about them."""
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+    from app.models import CrawlJobEvent
+
+    url = crawl_env["url"]
+
+    class Search:
+        name = "searxng"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url(h), "searxng", {"_source": url(h), "_search": [_hit(url(h), **kw)]})
+                    for h, kw in (("northwind.test", {}), ("southwind.test", {"provider": "linkup"}),
+                                  ("eastwind.test", {"title": "Eastwind", "snippet": "A UK cyber security firm"}))]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Search()])
+    job_id, org_id = make_job([], discovery={"providers": ["searxng"], "industry": "cybersecurity",
+                                             "countries": ["GB"]})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    seen = urls_by_status(job_id, org_id)
+
+    status, reason = seen[url("southwind.test")]
+    assert status == "skipped" and reason.startswith("outside the requested countries: based in US")
+    assert "structured address on " + url("southwind.test", "/contact.html") in reason
+    status, reason = seen[url("eastwind.test")]
+    # "London" and "UK" in its text, and the snippet's "A UK cyber security firm", are not proof of where it is.
+    assert status == "skipped" and reason.startswith("country not confirmed: could not confirm it is based in GB")
+    assert url("eastwind.test", "/about.html") in reason
+    assert "found by tavily for 'cybersecurity companies United Kingdom'" in reason and "A UK cyber" in reason
+    assert seen[url("northwind.test")][0] == "fetched"
+    with session_scope(org_id) as db:
+        seed = db.execute(select(DiscoveredUrl).where(DiscoveredUrl.url == url("northwind.test"),
+                                                      DiscoveredUrl.job_id == job_id)).scalar_one()
+        assert seed.hint["_country"].startswith("based in GB (2 phone number(s) on ")
+        assert seed.hint["_search"][0]["provider"] == "tavily"  # the hit stays with the site it found
+        notes = db.execute(select(CrawlJobEvent.message).where(CrawlJobEvent.job_id == job_id,
+                                                               CrawlJobEvent.type == "info")).scalars().all()
+    assert ("Country check (only GB): 1 site(s) confirmed in the country, 1 confirmed outside it, "
+            "1 not confirmed either way (left out)") in notes
+    assert [r.data["company_name"] for r in records(job_id, org_id)] == ["Northwind Cyber"]
+
+
+def test_a_value_from_a_source_is_traced_to_that_source(db_clean, crawl_env, monkeypatch):
+    """A registry's name is selected over the page's own, and is traced to the registry, not to the homepage it
+    was stored with; the page's own name stays as an alternative traced to the page."""
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+    from app.models import FieldValue
+
+    url = crawl_env["url"]
+    item = "http://www.wikidata.org/entity/Q1"
+
+    class Registry:
+        name = "wikidata"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url("acme-security.test"), "wikidata",
+                                    {"company_name": "Acme Security Group", "_source": item}, referrer=item)]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Registry()])
+    job_id, org_id = make_job([], discovery={"providers": ["wikidata"], "industry": "security"})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    (record,) = records(job_id, org_id)
+    with session_scope(org_id) as db:
+        names = db.execute(select(FieldValue).where(FieldValue.record_id == record.id,
+                                                    FieldValue.field_name == "company_name")).scalars().all()
+    (chosen,) = [f for f in names if f.selected]
+    assert (chosen.value, chosen.method, chosen.source_url, chosen.source_page_id) == (
+        "Acme Security Group", "wikidata", item, None)
+    assert any(f.value == "Acme Security Ltd" and f.source_url == url("acme-security.test") for f in names
+               if not f.selected)
+    assert item in record.source_urls

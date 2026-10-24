@@ -89,3 +89,38 @@ async def test_discovery_reads_list_pages_and_keeps_only_names_whose_website_che
     p.fetch_page = fetch_page
     assert [r.hint["company_name"] for r in await p.discover(spec)] == ["Sophos"]
 
+
+
+async def test_list_pages_do_not_take_the_places_of_direct_results_waiting(tmp_path, monkeypatch):
+    """With the limit reached, a list's names and the direct results still waiting share the room left, instead
+    of the list's names taking all of it."""
+    direct = [f"https://{n}.example/" for n in ("alpha", "bravo", "charlie", "delta")]
+
+    def handler(request):
+        if request.url.host == "api.tavily.com":
+            if json.loads(request.content)["query"] != "cybersecurity companies Britain":
+                return httpx.Response(200, json={"results": []})
+            return httpx.Response(200, json={"results": [
+                {"url": "https://news.example/top-uk-cyber", "title": "Top 3 cybersecurity companies in the UK"},
+                *({"url": u, "title": "A cyber firm"} for u in direct)]})
+        q = request.url.params["q"]
+        site = {"Sophos": "https://www.sophos.com/", "NCC Group": "https://www.nccgroup.com/"}
+        return httpx.Response(200, json={"results": [{"url": h} for n, h in site.items() if q.startswith(n)] * 5})
+
+    async def fetch_page(url):
+        if url == "https://news.example/top-uk-cyber":
+            return parse_page(url, LIST)
+        return parse_page(url, f"<html><head><title>{HOMES[url]}</title></head><body>x</body></html>") \
+            if url in HOMES else None
+
+    monkeypatch.setattr(SearchHub, "from_settings", classmethod(lambda cls, c, url=None: cls(
+        c, [TavilyBackend("t-key"), SearxngBackend("http://searx")], Usage(tmp_path / "u.json"))))
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["searxng"], "industry": "cybersecurity", "countries": ["GB"], "max_results": 4}})
+    p = SearxngProvider(httpx.AsyncClient(transport=httpx.MockTransport(handler)), base_url="",
+                        judge=Judge(Router(["Sophos", "NCC Group"])))
+    p.fetch_page = fetch_page
+    found = [r.url for r in await p.discover(spec)]
+    # Three wordings share 4 places (2 each on the first page); 2 are left, and 2 direct results are waiting.
+    assert found == [direct[0], direct[1], "https://www.sophos.com/", direct[2]]

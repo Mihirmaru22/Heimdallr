@@ -98,3 +98,18 @@ def test_a_multinational_is_placed_where_most_of_its_numbers_are():
                                                 "+18008133523", "+61295524451"))
     assert site_country(ncc) == "GB"  # two UK numbers, one US, one AU
     assert site_country(_doc("https://www.example.com/", tels("+442076644522", "+18008133523"))) is None  # a tie
+
+
+def test_a_country_is_read_from_the_companys_own_pages_not_from_its_words():
+    from app.discovery.relevance import pages_country
+
+    home = _doc("https://acme.com/", "<p>Cyber security</p><a href='/contact'>Contact</a>")
+    numbers = _doc("https://acme.com/contact", "<p>Sales +44 (0) 845 838 2050, support +44 20 7946 0123</p>")
+    assert pages_country([home, numbers]) == ("GB", "2 phone number(s) on https://acme.com/contact")
+    us = _doc("https://acme.com/about", "x", '{"@type": "Organization", "address": {"addressCountry": "US"}}')
+    assert pages_country([home, numbers, us]) == ("US", "structured address on https://acme.com/about")
+    words = _doc("https://acme.com/about", "<p>Teams in London; the UK is our biggest market.</p>")
+    assert pages_country([home, words]) == (None, "")
+    assert pages_country([_doc("https://acme.co.uk/", "x")]) == ("GB", "the country-code domain")
+    offices = _doc("https://acme.com/contact", "<p>UK +44 20 7946 0123</p><p>US +1 617 904 9180, +1 833 303 6463</p>")
+    assert pages_country([home, offices]) == (None, "")  # an office directory, not a headquarters

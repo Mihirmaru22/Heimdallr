@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -334,6 +335,15 @@ class WikidataProvider:
         return out
 
 
+MAX_HITS_KEPT = 5  # search hits remembered per site: which engines found it, for which wording, and what they said
+
+
+def hit_context(hit, query: str) -> dict[str, str]:
+    """What one search hit said about a site, kept with the site so a drop or a record can be traced to it."""
+    return {"provider": hit.provider or "web search", "query": query, "url": hit.url, "title": (hit.title or "")[:200],
+            "snippet": " ".join((hit.snippet or "").split())[:300]}
+
+
 REGION_NAMES = {"europe": "Europe", "north_america": "North America", "asia": "Asia", "africa": "Africa",
                 "south_america": "South America", "oceania": "Australia"}
 # Sites that list or talk about companies rather than being one. A result on these is never a homepage.
@@ -490,23 +500,45 @@ class SearxngProvider:
         noun = "companies" if spec.entity in ("company", "record") else f"{spec.entity}s"
         lists: list[str] = []
 
+        by_site: dict[str, DiscoveryResult] = {}
+
         def take(hits, query: str, limit: int) -> list:
-            """Adds up to `limit` new company homepages; returns the hits not taken."""
+            """Adds up to `limit` new company homepages; returns the hits not taken. Every hit is kept with the
+            site it points to, so several engines finding one company stay visible."""
             left = []
+            count = {"new": 0, "list": 0, "not a company site": 0, "repeat": 0, "held back": 0}
             for r in hits:
                 if looks_like_list(r.url, r.title, noun):  # a page about many companies is no company's site
+                    count["list"] += 1
                     if r.url not in lists:
                         lists.append(r.url)
                     continue
                 home = self.homepage(r.url)
-                if not home or registered_domain(home) in sites:
+                if not home:
+                    count["not a company site"] += 1
+                    continue
+                site = registered_domain(home)
+                if site in sites:
+                    count["repeat"] += 1
+                    seen = by_site.get(site)
+                    if seen is not None and len(seen.hint["_search"]) < MAX_HITS_KEPT:
+                        seen.hint["_search"].append(hit_context(r, query))
                     continue
                 if len(out) >= want or limit <= 0:
+                    count["held back"] += 1
                     left.append((r, query))
                     continue
-                sites.add(registered_domain(home))
-                out.append(DiscoveryResult(home, "searxng", {"_source": r.url}, referrer=f"{r.provider}: {query}"))
+                sites.add(site)
+                out.append(DiscoveryResult(home, "searxng", {"_source": r.url, "_search": [hit_context(r, query)]},
+                                           referrer=f"{r.provider}: {query}"))
+                by_site[site] = out[-1]
+                count["new"] += 1
                 limit -= 1
+            if len(hits) > 1:  # a single leftover taken later is not a search of its own
+                engines = Counter(r.provider or "web search" for r in hits)
+                self._say("search", f"Search {query!r}: {len(hits)} result(s) ("
+                          + ", ".join(f"{e} {n}" for e, n in engines.most_common()) + "): "
+                          + ", ".join(f"{n} {k}" for k, n in count.items() if n))
             return left
 
         # Every wording gets its share of the first page before any wording's leftovers or later pages, so the
@@ -525,9 +557,12 @@ class SearxngProvider:
                 if not hits:
                     exhausted.add(query)
                 leftovers += take(hits, query, share)
-            # Names read off list pages come before the leftover search results: a ranking or directory that
-            # answers the question is a better lead than a result that merely ranked lower.
-            out += await self._from_lists(client, hub, queries[0], lists, sites, want - len(out))
+            # Names read off list pages and the leftover search results share what room is left: a ranking that
+            # answers the question is a good lead, but so is a company search found directly, and a list's names
+            # once took every remaining place. Up to half the room is kept for the direct results waiting.
+            room = want - len(out)
+            waiting = {registered_domain(self.homepage(r.url)) for r, _q in leftovers} - sites
+            out += await self._from_lists(client, hub, queries[0], lists, sites, room - min(len(waiting), room // 2))
             for r, query in leftovers:
                 take([r], query, 1)
             for page in range(2, self.MAX_PAGES + 1):

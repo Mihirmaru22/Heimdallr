@@ -34,7 +34,16 @@ from app.crawl.urlnorm import (
 )
 from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError, providers_for
-from app.discovery.relevance import off_topic_reason, outside_countries_reason, unreadable
+from app.discovery.relevance import (
+    COUNTRY_UNKNOWN,
+    IN_COUNTRY,
+    NOT_CHECKED,
+    OUTSIDE_COUNTRY,
+    country_status,
+    off_topic_reason,
+    pages_country,
+    unreadable,
+)
 from app.discovery.sitecheck import SiteChecker
 from app.evidence.judge import proof_confidence
 from app.evidence.site import SiteProof
@@ -71,6 +80,8 @@ SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_
                 "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings",
                 "case_studies": "case studies and customer stories", "news": "news articles (GDELT)"}
 RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
+# A site whose homepage does not say where it is: this many of its own contact or about pages are read to find out.
+COUNTRY_PAGES = 3
 
 
 class JobCancelled(Exception):
@@ -89,6 +100,15 @@ def _page_rank(url: str, keywords: list[str]) -> int:
 
 def _priority(url: str, depth: int, keywords: list[str]) -> int:
     return depth * 50 + 50 - (40, 30, 0)[_page_rank(url, keywords)]
+
+
+def _found_by(hint: dict[str, Any]) -> str:
+    """"; found by tavily for 'q': "Title" - snippet", so a dropped search result shows what search said."""
+    hit = next(iter(hint.get("_search") or []), None)
+    if not hit:
+        return ""
+    said = " - ".join(x for x in (f'"{hit["title"]}"' if hit.get("title") else "", hit.get("snippet", "")) if x)
+    return f"; found by {hit['provider']} for {hit['query']!r}" + (f": {said[:200]}" if said else "")
 
 
 class CrawlRunner:
@@ -110,6 +130,7 @@ class CrawlRunner:
         self.site_found: dict[str, set[str]] = {}
         self.done_sites: set[str] = set()
         self.told_unchecked = False
+        self.country_checks: dict[str, int] = {}  # "only these countries": sites per outcome (IN_COUNTRY...)
         self.settings = get_settings()
         self.resolver = resolver
         self.client = client or (make_client(resolver=resolver) if resolver else make_client())
@@ -468,6 +489,31 @@ class CrawlRunner:
                                  "only rules are applied", final)
         return reason
 
+    async def _verify_country(self, doc: PageDoc, site: str, hint: dict[str, Any]) -> tuple[str, str]:
+        """The country of a site whose homepage does not say, read from a few of its own contact and about pages
+        (robots.txt, politeness and network rules as for any page). A search result's own page on the site is
+        read first: what search said is a clue to where to look, never the answer."""
+        hits = [normalize_url(h.get("url", "")) for h in hint.get("_search") or []]
+        contact = sorted((link for link, _text in doc.links if _page_rank(link, []) == 0),
+                         key=lambda u: next(i for i, k in enumerate(CONTACT_HINTS) if k in u.lower()))
+        pages = [u for u in dict.fromkeys(hits + contact)
+                 if u and u != doc.url and registered_domain(u) == site and looks_like_page(u)][:COUNTRY_PAGES]
+        docs = [doc]
+        for url in pages:
+            page = await self.fetch_page(url)
+            if page is not None and registered_domain(page.url) == site:
+                docs.append(page)
+        country, how = pages_country(docs)
+        wanted = self.spec.discovery.countries
+        if country in wanted:
+            return IN_COUNTRY, f"based in {country} ({how})"
+        if country:
+            return OUTSIDE_COUNTRY, f"based in {country}, outside {', '.join(wanted)} ({how})"
+        read = len(docs) - 1
+        return COUNTRY_UNKNOWN, (f"could not confirm it is based in {', '.join(wanted)}: no address, country-code "
+                                 f"domain or one-country phone numbers on the homepage or {read} company page(s) read"
+                                 + (f" ({', '.join(d.url for d in docs[1:])})" if read else ""))
+
     async def process(self, row: DiscoveredUrl) -> None:
         url = row.url
         site = registered_domain(url)
@@ -535,15 +581,24 @@ class CrawlRunner:
                 self._finish(row.id, UrlStatus.skipped, f"{row.method} result dropped: {reason}")
                 self.note("dropped", f"Dropped {site}: {reason}", final)
                 return
+        hint = row.hint or {}
         if row.depth == 0:
-            reason = outside_countries_reason(doc, self.spec, row.method, row.hint)
-            if reason:  # "only these countries" is on: the site is left out entirely
+            status, why = country_status(doc, self.spec, row.method, hint)
+            if status == COUNTRY_UNKNOWN:
+                status, why = await self._verify_country(doc, site, hint)
+            if status != NOT_CHECKED:
+                self.country_checks[status] = self.country_checks.get(status, 0) + 1
+            if status in (OUTSIDE_COUNTRY, COUNTRY_UNKNOWN):  # "only these countries" is on: the site is left out
                 self.allowed_sites.discard(site)
-                self._finish(row.id, UrlStatus.skipped, f"outside the requested countries: {reason}")
-                self.note("dropped", f"Dropped {site}: {reason}", final)
+                head = "outside the requested countries" if status == OUTSIDE_COUNTRY else "country not confirmed"
+                self._finish(row.id, UrlStatus.skipped, f"{head}: {why}{_found_by(hint)}")
+                self.note("dropped", f"Dropped {site}: {why}", final, country=status)
                 return
-            self.note("kept", f"Kept {site}" + (f" ({row.hint['company_name']})" if row.hint.get("company_name")
-                                                else "") + ": homepage checks passed", final)
+            if status == IN_COUNTRY:
+                hint = {**hint, "_country": why}
+            self.note("kept", f"Kept {site}" + (f" ({hint['company_name']})" if hint.get("company_name")
+                                                else "") + ": homepage checks passed"
+                      + (f"; {why}" if status == IN_COUNTRY else ""), final, country=status)
         found = extract_page(doc, self.spec.fields)
         for f in self.spec.fields:
             if f.semantic == Semantic.phone and f.name in found:
@@ -571,10 +626,13 @@ class CrawlRunner:
                     confidence = REGISTRY_CONFIDENCE.get(key, 0.7)
                 else:
                     confidence = 0.7
+                # The value came from the source (a Wikidata item, a list page), not from this page.
+                source = str(row.hint.get("_source") or "")
                 for name in [f.name for f in self.spec.fields if key in (f.name, f.semantic.value)]:
                     candidates.setdefault(name, []).append({
                         "value": value, "method": row.method, "confidence": confidence,
-                        "evidence": f"{row.method}: {row.hint.get('_source', '')}"})
+                        "evidence": f"{row.method}: {source}",
+                        "source_url": source if source.startswith(("http://", "https://")) else None})
         if self.site_proof is not None:
             await self._check_site_proof(doc, site, candidates)
             await self._check_code(doc, result.headers, site, candidates)
@@ -585,7 +643,7 @@ class CrawlRunner:
                                bytes=len(result.body), content_hash=result.sha256, title=doc.title[:1000],
                                text_excerpt=doc.text[:2000], candidates=candidates))
             db.execute(update(DiscoveredUrl).where(DiscoveredUrl.id == row.id).values(
-                status=UrlStatus.fetched, status_reason=None, lease_until=None))
+                status=UrlStatus.fetched, status_reason=None, lease_until=None, hint=hint))
         self._note_found(final, found, row.depth)
         if self._site_complete(site, candidates):
             return  # every detail is in hand: the rest of the site's pages are left for other sites' turn
@@ -650,7 +708,8 @@ class CrawlRunner:
             for name, value in values.items():
                 if value and name in {f.name for f in self.spec.fields}:
                     candidates.setdefault(name, []).append({"value": value, "method": "proof",
-                                                            "confidence": confidence, "evidence": piece["url"]})
+                                                            "confidence": confidence, "evidence": piece["url"],
+                                                            "source_url": piece["url"] or None})
         else:
             self.note("dropped", f"Not proof {where}: {piece['reason']}", piece["url"] or page_url, source="proof")
         self.save_evidence("proof", [piece])
@@ -778,6 +837,13 @@ class CrawlRunner:
             except Exception:  # noqa: BLE001
                 log.exception("could not save activity")
             with session_scope(self.org_id) as db:
+                if self.country_checks:  # whether the "only these countries" check, not search, limited the output
+                    c = self.country_checks
+                    log_event(db, self.org_id, self.job_id, "info",
+                              f"Country check (only {', '.join(self.spec.discovery.countries)}): "
+                              f"{c.get(IN_COUNTRY, 0)} site(s) confirmed in the country, "
+                              f"{c.get(OUTSIDE_COUNTRY, 0)} confirmed outside it, "
+                              f"{c.get(COUNTRY_UNKNOWN, 0)} not confirmed either way (left out)")
                 # Anything still queued when the budget ran out is recorded as skipped.
                 if self.counts_cache.get("fetched", 0) >= self.spec.crawl.max_pages:
                     db.execute(update(DiscoveredUrl).where(

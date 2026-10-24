@@ -170,3 +170,30 @@ async def test_every_wording_gets_a_share_before_the_first_one_fills_the_list(tm
     kinds = [re.match(r"https://([a-z]+)", r.url).group(1) for r in found]
     assert len(found) == 9 and kinds.count("plain") == kinds.count("largest") == kinds.count("hq") == 3
     assert all(r.referrer.startswith("tavily: ") for r in found)
+
+
+async def test_discovery_keeps_each_hits_engine_wording_title_and_snippet(tmp_path, monkeypatch):
+    def handler(request):
+        if request.url.host == "api.tavily.com":
+            return httpx.Response(200, json={"results": [
+                {"url": "https://www.acme-cyber.co.uk/", "title": "Acme Cyber", "content": "Pen testing in Leeds."}]})
+        return httpx.Response(200, json={"results": [  # Linkup finds the same company by its about page
+            {"type": "text", "url": "https://acme-cyber.co.uk/about", "name": "About Acme", "content": "Since 2009"}]})
+
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["searxng"], "industry": "cybersecurity", "countries": ["GB"]}})
+    monkeypatch.setattr(SearchHub, "from_settings", classmethod(lambda cls, c, url=None: cls(
+        c, [TavilyBackend("t-key"), LinkupBackend("l-key")], Usage(tmp_path / "u.json"))))
+    p = SearxngProvider(httpx.AsyncClient(transport=httpx.MockTransport(handler)), base_url="")
+    said = []
+    p.on_note = lambda kind, message, url=None, **_kw: said.append(message)
+    (found,) = await p.discover(spec)
+    assert found.url == "https://www.acme-cyber.co.uk/" and found.referrer.startswith("tavily: ")
+    first, again = found.hint["_search"][:2]
+    assert first == {"provider": "tavily", "query": "cybersecurity companies Britain",
+                     "url": "https://www.acme-cyber.co.uk/", "title": "Acme Cyber", "snippet": "Pen testing in Leeds."}
+    assert (again["provider"], again["url"], again["title"], again["snippet"]) == (
+        "linkup", "https://acme-cyber.co.uk/about", "About Acme", "Since 2009")
+    assert "Search 'cybersecurity companies Britain': 2 result(s) (tavily 1, linkup 1): 1 new, 1 repeat" \
+        in said

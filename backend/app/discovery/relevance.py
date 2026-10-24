@@ -17,7 +17,7 @@ import phonenumbers
 
 from app.crawl.urlnorm import registered_domain
 from app.discovery.providers import COUNTRY_QIDS
-from app.extract.deterministic import PageDoc, _address_text, _orgs
+from app.extract.deterministic import PageDoc, _address_text, _orgs, _phones
 from app.spec.models import ExtractionSpec
 from app.spec.spelling import spellings, to_us
 
@@ -52,6 +52,32 @@ def country_iso(value: str | None) -> str | None:
     return COUNTRY_NAMES.get(v.lower())
 
 
+# What the "only these countries" check concluded about a site.
+IN_COUNTRY, OUTSIDE_COUNTRY, COUNTRY_UNKNOWN, NOT_CHECKED = "in_country", "outside_country", "unknown", "not_checked"
+
+
+def country_status(doc: PageDoc, spec: ExtractionSpec, method: str, hint: dict | None) -> tuple[str, str]:
+    """With "only these countries" on: (IN_COUNTRY, OUTSIDE_COUNTRY, COUNTRY_UNKNOWN or NOT_CHECKED, why).
+
+    A registry entry or the site's own homepage decides. Registries have already matched the country and start
+    URLs the user typed are always kept, so for them an unknown country is NOT_CHECKED, not COUNTRY_UNKNOWN.
+    """
+    d = spec.discovery
+    if not d.countries or not d.strict_countries or method == "seed":
+        return NOT_CHECKED, ""
+    if country := country_iso((hint or {}).get("country")):
+        how = f"{method} says {country}"
+    else:
+        country, how = site_country(doc), "the homepage"
+    if country:
+        if country in d.countries:
+            return IN_COUNTRY, f"based in {country} ({how})"
+        return OUTSIDE_COUNTRY, f"based in {country}, outside {', '.join(d.countries)} ({how})"
+    if method not in REGISTRIES:
+        return COUNTRY_UNKNOWN, f"could not confirm it is based in {', '.join(d.countries)}"
+    return NOT_CHECKED, ""
+
+
 def outside_countries_reason(doc: PageDoc, spec: ExtractionSpec, method: str, hint: dict | None) -> str | None:
     """With "only these countries" on, why a discovered site must be left out (None to keep it).
 
@@ -59,15 +85,45 @@ def outside_countries_reason(doc: PageDoc, spec: ExtractionSpec, method: str, hi
     result whose country cannot be confirmed is dropped too; registries have already matched the country,
     and start URLs the user typed are always kept.
     """
-    d = spec.discovery
-    if not d.countries or not d.strict_countries or method == "seed":
-        return None
-    country = country_iso((hint or {}).get("country")) or site_country(doc)
-    if country:
-        return None if country in d.countries else f"based in {country}, outside {', '.join(d.countries)}"
-    if method not in REGISTRIES:
-        return f"could not confirm it is based in {', '.join(d.countries)}"
-    return None
+    status, why = country_status(doc, spec, method, hint)
+    return why if status in (OUTSIDE_COUNTRY, COUNTRY_UNKNOWN) else None
+
+
+def pages_country(docs: list[PageDoc]) -> tuple[str | None, str]:
+    """(ISO country, where it was read) from a homepage plus the company's own contact or about pages.
+
+    The same evidence as `site_country`, in the same order, over several pages: a structured address on any
+    page, then a country-code domain, then the phone numbers of all pages together
+    when they all belong to one country: a multinational's contact page lists its regional offices, and where
+    most of those numbers are is not where it is based. Contact pages often write
+    their numbers as plain text ("+44 (0) 845 838 2050"), so numbers written with their country code count
+    too, not only tel: links. A page's words ("UK", "London") are never read as a location.
+    """
+    for doc in docs:
+        for org in _orgs(doc):
+            _full, _loc, country = _address_text(org.get("address"))
+            if iso := country_iso((country or "").strip()):
+                return iso, f"structured address on {doc.url}"
+    tld = (registered_domain(docs[0].url) or "").rsplit(".", 1)[-1].lower() if docs else ""
+    if len(tld) == 2 and tld not in GENERIC_CCTLDS:
+        return CCTLD_TO_ISO.get(tld, tld.upper()), "the country-code domain"
+    numbers: dict[str, str] = {}
+    where: dict[str, set[str]] = {}
+    for doc in docs:
+        for cand in _phones(doc):
+            if not str(cand.value).startswith("+"):
+                continue
+            try:
+                region = phonenumbers.region_code_for_number(phonenumbers.parse(cand.value, None))
+            except phonenumbers.NumberParseException:
+                continue
+            if region and region != "ZZ":
+                numbers[cand.value] = region
+                where.setdefault(region, set()).add(doc.url)
+    if len(set(numbers.values())) == 1:  # a contact page listing several countries is an office directory
+        (iso,) = set(numbers.values())
+        return iso, f"{len(numbers)} phone number(s) on {', '.join(sorted(where[iso]))}"
+    return None, ""
 
 
 def industry_terms(industry: str) -> list[str]:
