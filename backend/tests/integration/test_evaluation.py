@@ -54,3 +54,12 @@ def test_a_benchmark_run_can_take_the_sources_todays_rules_pick_and_keep_the_res
         assert {k: v for k, v in new.spec.items() if k != "discovery"} == \
             {k: v for k, v in old.spec.items() if k != "discovery"}
         assert evaluation.with_current_sources(db, new).id == new.id  # nothing to change: the same plan
+
+
+def test_a_capped_health_check_run_does_not_become_the_benchmark_plan(db_clean):
+    full, _ = make_job([], discovery={"providers": ["seeds"], "industry": "defense", "max_results": 50})
+    capped, _ = make_job([], discovery={"providers": ["seeds"], "industry": "defense", "max_results": 10})
+    with session_scope(bypass=True) as db:
+        runs = [db.get(CrawlJob, full), db.get(CrawlJob, capped)]  # the capped one is the latest
+        assert evaluation.plan_run(db, runs).id == full
+        assert evaluation.plan_run(db, runs[:1]).id == full and evaluation.plan_run(db, []) is None
