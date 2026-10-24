@@ -96,6 +96,9 @@ class NewsProvider(CaseStudiesProvider):
                 self.dates[url] = seen_date(a.get("seendate", ""))
         return urls
 
+    async def _context(self, product, d):
+        return []  # GDELT is searched by the product's names alone
+
     async def discover(self, spec):
         self.years = self.years or spec.discovery.evidence_years
         return await super().discover(spec)
