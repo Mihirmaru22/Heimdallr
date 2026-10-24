@@ -29,6 +29,7 @@ from app.evidence.products import Product, product_for
 from app.evidence.quotes import find_mentions, verify_quote
 from app.evidence.thirdparty import MAX_SENTENCES, STRENGTH, read_page
 from app.extract.deterministic import PageDoc
+from app.search import EVIDENCE, SearchError, SearchHub, search_configured
 from app.spec.models import ExtractionSpec
 
 PHRASES = ("case study", "customer story", "success story")
@@ -64,6 +65,7 @@ class CaseStudiesProvider:
         self.client = client
         self.judge = judge or Judge()
         self.searxng_url = (searxng_url if searxng_url is not None else get_settings().searxng_url).rstrip("/")
+        self.hub: SearchHub | None = None  # made with the client, in search()
         self.notes: list[str] = []
         self.evidence: list[dict[str, Any]] = []
         self.on_note: Callable[..., None] | None = None
@@ -80,27 +82,24 @@ class CaseStudiesProvider:
         return [f'"{n}" "{p}"' for n in names for p in PHRASES]
 
     async def search(self, client: httpx.AsyncClient, product: Product) -> list[str]:
+        hub = self.hub = SearchHub.from_settings(client, self.searxng_url)
         urls: list[str] = []
         for query in self.queries(product):
             for page in range(1, SEARCH_PAGES + 1):
                 try:
-                    resp = await client.get(f"{self.searxng_url}/search", params={
-                        "q": query, "format": "json", "pageno": page, "language": "en", "safesearch": 1})
-                except httpx.HTTPError as exc:
+                    hits = await hub.search(query, page=page, kind=EVIDENCE)
+                except SearchError as exc:
                     if urls:
                         return urls
-                    raise DiscoveryError(f"SearXNG is not reachable ({type(exc).__name__})") from None
-                if resp.status_code != 200:
+                    raise DiscoveryError(str(exc)) from None
+                if not hits:
                     break
-                found = [r.get("url", "") for r in resp.json().get("results", [])]
-                if not found:
-                    break
-                for u in found:
-                    url = normalize_url(u)
+                for hit in hits:
+                    url = normalize_url(hit.url)
                     site = registered_domain(url) if url else ""
                     if url and site and site not in NOT_COMPANY_SITES and url not in urls:
                         urls.append(url)
-                await asyncio.sleep(1.0 if get_settings().env != "test" else 0)
+                await asyncio.sleep(1.0 if get_settings().env != "test" and page < SEARCH_PAGES else 0)
         return urls
 
     def _record(self, **kw: Any) -> dict[str, Any]:
@@ -117,9 +116,9 @@ class CaseStudiesProvider:
         d = spec.discovery
         if not d.technology:
             raise DiscoveryError(f"{self.what} are searched for a technology")
-        if not self.searxng_url:
-            raise DiscoveryError(f"{self.what} need web search (to find each customer's website); SearXNG is "
-                                 "not configured, skipped")
+        if not search_configured(self.searxng_url):
+            raise DiscoveryError(f"{self.what} need web search (to find each customer's website); none is "
+                                 "configured, skipped")
         if self.fetch_page is None:
             raise DiscoveryError(f"{self.what} are read by the crawler; skipped outside a crawl")
         product = product_for(d.technology, d.technology_aliases)
@@ -165,7 +164,7 @@ class CaseStudiesProvider:
                     key = f.customer.lower()
                     if key not in users or kept["strength"] > users[key]["strength"]:
                         users[key] = kept
-            finder = WebsiteFinder(client, self.searxng_url, self._text)
+            finder = WebsiteFinder(client, self.searxng_url, self._text, hub=self.hub)
             results: list[DiscoveryResult] = []
             seen: set[str] = set()
             for ev in sorted(users.values(), key=lambda e: -e["strength"])[:d.max_results]:
@@ -186,6 +185,8 @@ class CaseStudiesProvider:
             await self.judge.aclose()
             if self.client is None:
                 await client.aclose()
+        for backend, why in (self.hub.problems if self.hub else {}).items():
+            self.notes.append(f"{self.name}: search backend {backend} was switched off ({why})")
         missing = len(users) - len(results)
         if missing > 0:
             self.notes.append(f"{self.name}: {missing} customer(s) with proof have no confirmed website; they "

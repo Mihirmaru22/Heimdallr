@@ -370,3 +370,25 @@ def test_a_homepage_with_no_text_is_not_judged_on_its_content(db_clean, crawl_en
     pipeline.run_job(job_id, resolver=crawl_env["resolver"])
     assert urls_by_status(job_id, org_id)[url("loader.test")][0] == "fetched"
     assert any("could not be read" in m for _k, m in activity(job_id, org_id))
+
+
+def test_a_second_delivery_of_a_job_a_worker_is_busy_with_does_nothing(db_clean, crawl_env):
+    from app.db import utcnow
+
+    job_id, org_id = make_job([crawl_env["url"]("acme-security.test")])
+    with session_scope(org_id) as db:
+        job = db.get(CrawlJob, job_id)
+        job.state, job.heartbeat_at = "planning", utcnow()
+    assert pipeline.run_job(job_id, resolver=crawl_env["resolver"]) == "running_elsewhere"
+    with session_scope(org_id) as db:
+        assert db.get(CrawlJob, job_id).state == "planning"  # untouched
+
+
+def test_the_heartbeat_is_written_while_a_worker_holds_the_job(db_clean):
+    import time
+
+    job_id, org_id = make_job([])
+    with pipeline._beating(job_id, org_id, every=0.05):
+        time.sleep(0.3)
+    with session_scope(org_id) as db:
+        assert db.get(CrawlJob, job_id).heartbeat_at is not None

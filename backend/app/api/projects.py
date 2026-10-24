@@ -9,7 +9,6 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.crawl import netguard
 from app.crawl.netguard import BlockedDestination
 from app.crawl.urlnorm import normalize_url
@@ -18,6 +17,7 @@ from app.deps import OrgContext, org_member
 from app.errors import ApiError
 from app.models import ExtractionSchema, Project, Role
 from app.schemas import GenerateSchemaIn, Page, PlanPreview, ProjectIn, ProjectOut, SchemaOut, SchemaUpdate, UrlCheck
+from app.search import search_configured
 from app.services.common import audit, org_limits, record_usage
 from app.spec.models import validate_spec
 
@@ -207,8 +207,8 @@ def preview(schema_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Ses
     if len(spec.crawl.start_urls) > PREVIEW_URL_CHECKS:
         warnings.append(f"Only the first {PREVIEW_URL_CHECKS} start URLs were checked here; "
                         "all are checked at run time.")
-    if "searxng" in spec.discovery.providers and not get_settings().searxng_url:
-        warnings.append("Web search (SearXNG) is not configured on this server, so it will be skipped.")
+    if "searxng" in spec.discovery.providers and not search_configured():
+        warnings.append("Web search is not configured on this server, so it will be skipped.")
     if "sec_edgar" in spec.discovery.providers:
         from app.discovery.sec_edgar import SecEdgarProvider, index_ready
 

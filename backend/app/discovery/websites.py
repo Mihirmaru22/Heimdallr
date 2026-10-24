@@ -19,6 +19,7 @@ import httpx
 
 from app.crawl.urlnorm import homepage, normalize_url, registered_domain
 from app.discovery.providers import NOT_COMPANY_SITES
+from app.search import LOOKUP, SearchError, SearchHub
 
 NAME_NOISE = {"inc", "corp", "corporation", "co", "company", "companies", "holding", "holdings", "group", "ltd",
               "plc", "sa", "nv", "ag", "se", "llc", "lp", "the", "and", "of", "international", "intl", "de", "del",
@@ -50,28 +51,25 @@ def names_company(text: str, company: str) -> bool:
 
 
 class WebsiteFinder:
-    def __init__(self, client: httpx.AsyncClient, searxng_url: str, fetch_text: FetchText) -> None:
+    def __init__(self, client: httpx.AsyncClient, searxng_url: str, fetch_text: FetchText,
+                 hub: SearchHub | None = None) -> None:
         self.client = client
-        self.searxng_url = searxng_url.rstrip("/")
+        self.hub = hub or SearchHub.from_settings(client, searxng_url)
         self.fetch_text = fetch_text
 
     async def search(self, query: str) -> list[str]:
-        resp = await self.client.get(f"{self.searxng_url}/search", params={
-            "q": query, "format": "json", "pageno": 1, "language": "en", "safesearch": 1})
-        if resp.status_code != 200:
-            return []
-        return [r.get("url", "") for r in resp.json().get("results", [])[:TOP]]
+        return [h.url for h in (await self.hub.search(query, kind=LOOKUP))[:TOP]]
 
     async def find(self, company: str) -> tuple[str, str]:
         """(homepage, how it was confirmed) or ("", why not)."""
-        if not self.searxng_url:
+        if not self.hub.configured:
             return "", "web search is not configured"
         if not name_words(company):
             return "", "the name has no distinctive word"
         try:
             urls = await self.search(f"{company} official website")
-        except httpx.HTTPError as exc:
-            return "", f"web search failed ({type(exc).__name__})"
+        except SearchError as exc:
+            return "", str(exc)
         domains = [registered_domain(u) for u in urls if normalize_url(u)]
         domains = [d for d in domains if d and d not in NOT_COMPANY_SITES]
         if not domains:

@@ -21,6 +21,7 @@ import httpx
 
 from app.config import get_settings
 from app.crawl.urlnorm import normalize_url, registered_domain
+from app.search import SearchError, SearchHub
 from app.spec.models import ExtractionSpec
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
@@ -382,14 +383,37 @@ class SearxngProvider:
         scheme, rest = norm.split("://", 1)
         return f"{scheme}://{rest.split('/', 1)[0]}/"
 
+    @classmethod
+    def shapes(cls, spec: ExtractionSpec) -> list[str]:
+        """The same question worded two other ways. Search engines answer differently to a list-style and a
+        where-based phrasing, so asking both finds companies the plain wording misses."""
+        from app.spec.interpret import COUNTRIES
+
+        d = spec.discovery
+        noun = "companies" if spec.entity in ("company", "record") else f"{spec.entity}s"
+        names = {iso: name.title() for name, iso in COUNTRIES.items() if len(name) > 3}
+        places = [names.get(c, c) for c in d.countries] or ([REGION_NAMES[d.region]] if d.region else [""])
+        subject = " ".join(x for x in [d.industry or "", *d.keywords[:3]] if x).strip()
+        if not subject:
+            return []
+        out = [f"largest {subject} {noun} in {place}".strip() for place in places[:3]]
+        out += [f"{subject} {noun} headquartered in {place}" for place in places[:3] if place]
+        return out
+
     async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
-        if not self.base_url:
-            raise DiscoveryError("SearXNG is not configured (set WEBDATA_SEARXNG_URL); skipped")
+        client = self.client or httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent})
+        hub = SearchHub.from_settings(client, self.base_url)
+        if not hub.configured:
+            if self.client is None:
+                await client.aclose()
+            raise DiscoveryError("web search is not configured (set a search API key or WEBDATA_SEARXNG_URL); skipped")
         queries = self.queries(spec)
         if not queries:
-            raise DiscoveryError("SearXNG discovery needs an industry or keywords")
+            if self.client is None:
+                await client.aclose()
+            raise DiscoveryError("web search discovery needs an industry or keywords")
+        queries += self.shapes(spec)
         want = spec.discovery.max_results
-        client = self.client or httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent})
         out: list[DiscoveryResult] = []
         sites: set[str] = set()
         try:
@@ -398,32 +422,26 @@ class SearxngProvider:
                     if len(out) >= want:
                         return out
                     try:
-                        resp = await client.get(f"{self.base_url}/search", params={
-                            "q": query, "format": "json", "pageno": page, "language": "en", "safesearch": 1})
-                    except httpx.HTTPError as exc:
+                        hits = await hub.search(query, page=page)
+                    except SearchError as exc:
                         if out:
                             return out
-                        raise DiscoveryError(f"SearXNG is not reachable at {self.base_url}: "
-                                             f"{type(exc).__name__}") from None
-                    if resp.status_code == 403:
-                        raise DiscoveryError("SearXNG refused JSON output; enable `json` under search.formats")
-                    if resp.status_code != 200:
+                        raise DiscoveryError(str(exc)) from None
+                    if not hits:
                         break
-                    results = resp.json().get("results", [])
-                    if not results:
-                        break
-                    for r in results:
-                        home = self.homepage(r.get("url", ""))
+                    for r in hits:
+                        home = self.homepage(r.url)
                         if home and registered_domain(home) not in sites:
                             sites.add(registered_domain(home))
-                            out.append(DiscoveryResult(home, "searxng", {"_source": r.get("url", "")},
-                                                       referrer=f"searxng: {query}"))
+                            out.append(DiscoveryResult(home, "searxng", {"_source": r.url},
+                                                       referrer=f"{r.provider}: {query}"))
                     await asyncio.sleep(1.0 if get_settings().env != "test" else 0)
         finally:
             if self.client is None:
                 await client.aclose()
         if not out:
-            raise DiscoveryError("SearXNG found no company websites for this query")
+            raise DiscoveryError(hub.explain() if hub.problems
+                                 else "web search found no company websites for this query")
         return out[:want]
 
 

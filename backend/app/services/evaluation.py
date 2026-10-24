@@ -143,3 +143,11 @@ def start_runs(db, keys: dict[str, dict[str, Any]], refresh_sources: bool = Fals
 def unfinished(db, job_ids: list[uuid.UUID]) -> int:
     return db.execute(select(func.count()).select_from(CrawlJob).where(
         CrawlJob.id.in_(job_ids), CrawlJob.state.not_in((*FINISHED, S.failed, S.cancelled)))).scalar_one()
+
+
+def starts_of(db, job_id: uuid.UUID) -> int:
+    """How many times a worker began this job's discovery. More than one means a duplicate task ran it, so the
+    run's score measures the duplicate, not the code."""
+    return db.execute(select(func.count()).select_from(CrawlJobEvent).where(
+        CrawlJobEvent.job_id == job_id, CrawlJobEvent.type == "transition",
+        CrawlJobEvent.to_state == S.planning.value)).scalar_one()

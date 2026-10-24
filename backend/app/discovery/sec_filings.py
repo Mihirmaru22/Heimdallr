@@ -31,6 +31,7 @@ from app.evidence.judge import KEEP, USE, Judge, score
 from app.evidence.products import Product, product_for
 from app.evidence.quotes import document_text, find_mentions, verify_quote
 from app.models import SecCompany
+from app.search import search_configured
 from app.spec.models import ExtractionSpec
 
 SEARCH = "https://efts.sec.gov/LATEST/search-index"
@@ -303,7 +304,7 @@ class SecFilingsProvider:
         # Neither the filing, SEC's company data nor Wikidata gave one: look the name up, accepting a domain
         # only when the search agrees on it and its homepage names the company.
         missing = [ev for ev in users.values() if not ev["website"]]
-        if missing and self.fetch_text is not None and get_settings().searxng_url:
+        if missing and self.fetch_text is not None and search_configured():
             finder = WebsiteFinder(client, get_settings().searxng_url, self.fetch_text)
             for ev in missing:
                 site, how = await finder.find(ev["company"])

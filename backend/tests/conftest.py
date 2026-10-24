@@ -17,6 +17,9 @@ os.environ.setdefault("WEBDATA_COOKIE_SECURE", "false")
 # A developer's backend/.env must not reach the tests: no live model calls, no real web search.
 os.environ["WEBDATA_OPENROUTER_API_KEY"] = ""
 os.environ["WEBDATA_SEARXNG_URL"] = ""
+for _name in ("TAVILY", "LINKUP", "EXA", "KEENABLE"):
+    os.environ[f"WEBDATA_{_name}_API_KEY"] = ""
+os.environ["WEBDATA_KEENABLE_ENABLED"] = "false"
 
 import email_validator  # noqa: E402
 import pytest  # noqa: E402

@@ -7,16 +7,19 @@ the persisted state and continues from there.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
 import logging
+import threading
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.config import get_settings
 from app.crawl.runner import CrawlRunner, JobCancelled
-from app.db import session_scope
+from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError
 from app.models import CrawlJob, DiscoveredUrl, ExtractionSchema, Organization, UrlStatus
 from app.models import JobState as S
@@ -26,6 +29,43 @@ from app.services.state_machine import log_event, transition
 from app.spec.models import validate_spec
 
 log = logging.getLogger("webdata.pipeline")
+
+
+HEARTBEAT_EVERY = 20.0  # seconds between proofs of life while a worker holds a job
+HEARTBEAT_FRESH = timedelta(seconds=90)  # a younger heartbeat means a worker still has the job
+
+
+@contextlib.contextmanager
+def _beating(job_id: uuid.UUID, org_id: uuid.UUID, every: float = HEARTBEAT_EVERY):
+    """Writes the job's heartbeat for as long as this worker holds it, whichever step it is in. Discovery used
+    to run for about fifteen minutes without one, so the stuck-job sweep re-queued the job and a second worker
+    task ran it alongside the first."""
+    stop = threading.Event()
+
+    def beat() -> None:
+        while True:
+            try:
+                with session_scope(org_id) as db:
+                    db.execute(update(CrawlJob).where(CrawlJob.id == job_id).values(heartbeat_at=utcnow()))
+            except Exception:  # noqa: BLE001 - a missed beat must never stop the job
+                log.warning("could not write the heartbeat of job %s", job_id)
+            if stop.wait(every):
+                return
+
+    thread = threading.Thread(target=beat, name=f"heartbeat-{job_id}", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+
+
+def _held_elsewhere(job: CrawlJob) -> bool:
+    """Another worker task is working on this job right now (it wrote a heartbeat moments ago)."""
+    return (job.state in (S.validating.value, S.planning.value, S.queued.value, S.running.value,
+                          S.waiting_quota.value, S.validating_results.value)
+            and job.heartbeat_at is not None and utcnow() - job.heartbeat_at < HEARTBEAT_FRESH)
 
 
 def _load(job_id: uuid.UUID):
@@ -90,6 +130,15 @@ def run_job(job_id: uuid.UUID, *, resolver=None, redis=None, client_factory=None
     job, org, schema = _load(job_id)
     if job is None or org is None or schema is None:
         return "missing"
+    if _held_elsewhere(job):
+        log.warning("job %s is already being worked on; this duplicate delivery does nothing", job_id)
+        return "running_elsewhere"
+    with _beating(job_id, org.id):
+        return _run(job_id, job, org, schema, resolver, redis, client_factory)
+
+
+def _run(job_id: uuid.UUID, job: CrawlJob, org: Organization, schema: ExtractionSchema, resolver, redis,
+         client_factory) -> str:
     org_id = org.id
     limits = org_limits(org)
     state = S(job.state)

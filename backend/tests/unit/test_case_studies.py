@@ -91,7 +91,7 @@ async def test_without_a_model_no_page_yields_a_customer():
 
 
 async def test_it_needs_web_search_and_the_crawler():
-    with pytest.raises(DiscoveryError, match="SearXNG"):
+    with pytest.raises(DiscoveryError, match="none is configured"):
         await CaseStudiesProvider(searxng_url="").discover(spec())
     with pytest.raises(DiscoveryError, match="crawler"):
         await CaseStudiesProvider(searxng_url="http://searx").discover(spec())
