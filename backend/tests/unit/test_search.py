@@ -1,6 +1,7 @@
 """The shared search layer: several engines merged, free allowances respected, a failing engine switched off."""
 
 import json
+import re
 
 import httpx
 import pytest
@@ -57,8 +58,8 @@ async def test_engines_are_asked_together_and_merged_one_each_in_turn_without_re
     hits = await h.search("q", kind=GENERAL)
     urls = [x.url for x in hits]
     assert "https://e-only.com/" not in urls  # Exa only answers evidence questions
-    assert urls == ["https://k-only.com/", "https://www.a.com/", "https://s-only.com/", "https://t-only.com/",
-                    "https://l-only.com/"]  # one from each engine in turn; a.com once; no image result
+    assert urls == ["https://k-only.com/", "https://www.a.com/", "https://t-only.com/", "https://l-only.com/",
+                    "https://s-only.com/"]  # one from each API in turn, a.com once, no image; SearXNG tops up
     assert len({u.split("://")[1].removeprefix("www.").rstrip("/") for u in urls}) == len(urls)  # a.com once
     assert max(len(x.snippet) for x in hits) <= 400
 
@@ -127,10 +128,45 @@ async def test_nothing_configured_says_so(tmp_path):
 
 
 def test_the_same_question_is_worded_other_ways_without_changing_the_plain_one():
+    def spec(**d):
+        return ExtractionSpec.model_validate({"entity": "company", "fields": [
+            {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+            "discovery": {"providers": ["searxng"], **d}})
+
+    two = spec(industry="pharmaceutical", countries=["DE", "FR"])
+    assert SearxngProvider.queries(two) == ["pharmaceutical companies Germany", "pharmaceutical companies France"]
+    assert SearxngProvider.wordings(two) == [
+        "pharmaceutical companies Germany", "largest pharmaceutical companies in Germany",
+        "pharmaceutical companies headquartered in Germany", "pharmaceutical companies France",
+        "largest pharmaceutical companies in France", "pharmaceutical companies headquartered in France"]
+    assert SearxngProvider.wordings(spec(industry="defense")) == ["defense companies", "largest defense companies"]
+    many = spec(industry="steel", countries=["DE", "FR", "IT", "ES"])
+    assert len(SearxngProvider.wordings(many)) == SearxngProvider.MAX_QUERIES
+
+
+async def test_searxng_is_not_asked_when_the_apis_give_enough(tmp_path):
+    def many(request):
+        if request.url.host == "api.tavily.com":
+            return httpx.Response(200, json={"results": [{"url": f"https://c{i}.com/"} for i in range(12)]})
+        return answer(request)
+
+    h = hub(many, [TavilyBackend("t-key"), SearxngBackend("http://searx")], tmp_path)
+    assert len(await h.search("q")) == 12 and "searxng" not in h.calls
+
+
+async def test_every_wording_gets_a_share_before_the_first_one_fills_the_list(tmp_path, monkeypatch):
+    def handler(request):
+        q = json.loads(request.content)["query"]
+        tag = "largest" if q.startswith("largest") else "hq" if "headquartered" in q else "plain"
+        return httpx.Response(200, json={"results": [{"url": f"https://{tag}{i}.com/"} for i in range(20)]})
+
     spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
         {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
-        "discovery": {"providers": ["searxng"], "industry": "pharmaceutical", "countries": ["DE", "FR"]}})
-    assert SearxngProvider.queries(spec) == ["pharmaceutical companies Germany", "pharmaceutical companies France"]
-    shapes = SearxngProvider.shapes(spec)
-    assert "largest pharmaceutical companies in Germany" in shapes
-    assert "pharmaceutical companies headquartered in France" in shapes
+        "discovery": {"providers": ["searxng"], "industry": "cybersecurity", "countries": ["GB"], "max_results": 9}})
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(SearchHub, "from_settings", classmethod(
+        lambda cls, c, url=None: cls(c, [TavilyBackend("t-key")], Usage(tmp_path / "u.json"))))
+    found = await SearxngProvider(client, base_url="").discover(spec)
+    kinds = [re.match(r"https://([a-z]+)", r.url).group(1) for r in found]
+    assert len(found) == 9 and kinds.count("plain") == kinds.count("largest") == kinds.count("hq") == 3
+    assert all(r.referrer.startswith("tavily: ") for r in found)

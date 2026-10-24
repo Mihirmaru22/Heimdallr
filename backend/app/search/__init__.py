@@ -34,6 +34,7 @@ GENERAL, EVIDENCE, LOOKUP = "general", "evidence", "lookup"
 FAILS_BEFORE_OFF = 5
 COOLDOWN_SECONDS = 60.0
 MAX_HITS = 30
+TOP_UP_BELOW = 10  # the fallback engine is asked only when the others gave fewer distinct results than this
 
 
 class SearchError(Exception):
@@ -56,6 +57,7 @@ class Backend:
     name = ""
     kinds: tuple[str, ...] = (GENERAL, EVIDENCE)
     pages = 1  # result pages it can give; more pages only where this is above 1
+    fallback = False  # asked only to top up what the others gave
     monthly_cap: int | None = None  # calls per month we allow ourselves (None = no counter)
 
     async def search(self, client: httpx.AsyncClient, query: str, page: int) -> list[Hit]:
@@ -71,9 +73,12 @@ class Backend:
 
 
 class SearxngBackend(Backend):
+    """Self-hosted, so free, but it scrapes engines that block it after a busy day: it only tops up."""
+
     name = "searxng"
     kinds = (GENERAL, EVIDENCE, LOOKUP)
     pages = 5
+    fallback = True
 
     def __init__(self, url: str) -> None:
         self.url = url.rstrip("/")
@@ -254,17 +259,29 @@ class SearchHub:
         return hits
 
     async def search(self, query: str, *, page: int = 1, kind: str = GENERAL) -> list[Hit]:
-        """Hits from every usable backend, merged: one from each in turn, so no engine crowds out the rest.
-        Repeats are dropped, except for a website lookup, where several engines giving the same address is the
-        agreement the caller counts."""
+        """Hits from the search APIs, merged; SearXNG only tops up when they give too little."""
         active = [b for b in self.backends if self._usable(b, kind, page)]
         if not active:
             if page == 1:
                 raise SearchError(self.explain(kind))
             return []
-        answers = await asyncio.gather(*(self._ask(b, query, page) for b in active))
-        if page == 1 and not any(answers) and all(b.name in self.problems for b in active):
+        asked = [b for b in active if not b.fallback] or active
+        answers = list(await asyncio.gather(*(self._ask(b, query, page) for b in asked)))
+        merged = self._merge(answers, kind)
+        rest = [b for b in active if b not in asked]
+        if rest and len(merged) < TOP_UP_BELOW:
+            asked += rest
+            extra = self._merge(list(await asyncio.gather(*(self._ask(b, query, page) for b in rest))), kind)
+            have = {_key(h.url) for h in merged}
+            merged += [h for h in extra if kind == LOOKUP or _key(h.url) not in have]
+        if page == 1 and not merged and all(b.name in self.problems for b in asked):
             raise SearchError(self.explain(kind))
+        return merged[:MAX_HITS]
+
+    @staticmethod
+    def _merge(answers: list[list[Hit]], kind: str) -> list[Hit]:
+        """One hit from each engine in turn, so no engine crowds out the rest; repeats dropped except for a
+        website lookup, where several engines giving the same address is the agreement the caller counts."""
         merged: list[Hit] = []
         seen: set[str] = set()
         for rank in range(max((len(a) for a in answers), default=0)):
@@ -276,7 +293,7 @@ class SearchHub:
                     continue
                 seen.add(key)
                 merged.append(hits[rank])
-        return merged[:MAX_HITS]
+        return merged
 
     def explain(self, kind: str = GENERAL) -> str:
         if not self.backends:

@@ -354,6 +354,7 @@ class SearxngProvider:
 
     name = "searxng"
     MAX_PAGES = 5
+    MAX_QUERIES = 6
 
     def __init__(self, client: httpx.AsyncClient | None = None, base_url: str | None = None) -> None:
         self.client = client
@@ -383,10 +384,11 @@ class SearxngProvider:
         scheme, rest = norm.split("://", 1)
         return f"{scheme}://{rest.split('/', 1)[0]}/"
 
-    @classmethod
-    def shapes(cls, spec: ExtractionSpec) -> list[str]:
-        """The same question worded two other ways. Search engines answer differently to a list-style and a
-        where-based phrasing, so asking both finds companies the plain wording misses."""
+    @staticmethod
+    def wordings(spec: ExtractionSpec) -> list[str]:
+        """The searches discovery sends: for each place the plain wording, then a list-style and a where-based
+        one (engines answer each differently, so each finds companies the others miss), at most MAX_QUERIES so
+        a many-country question does not spend a month's free searches at once."""
         from app.spec.interpret import COUNTRIES
 
         d = spec.discovery
@@ -396,9 +398,13 @@ class SearxngProvider:
         subject = " ".join(x for x in [d.industry or "", *d.keywords[:3]] if x).strip()
         if not subject:
             return []
-        out = [f"largest {subject} {noun} in {place}".strip() for place in places[:3]]
-        out += [f"{subject} {noun} headquartered in {place}" for place in places[:3] if place]
-        return out
+        out: list[str] = []
+        for place in places:
+            out.append(f"{subject} {noun} {place}".strip())
+            out.append(f"largest {subject} {noun} in {place}" if place else f"largest {subject} {noun}")
+            if place:
+                out.append(f"{subject} {noun} headquartered in {place}")
+        return out[:SearxngProvider.MAX_QUERIES]
 
     async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
         client = self.client or httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent})
@@ -407,34 +413,61 @@ class SearxngProvider:
             if self.client is None:
                 await client.aclose()
             raise DiscoveryError("web search is not configured (set a search API key or WEBDATA_SEARXNG_URL); skipped")
-        queries = self.queries(spec)
+        queries = self.wordings(spec)
         if not queries:
             if self.client is None:
                 await client.aclose()
             raise DiscoveryError("web search discovery needs an industry or keywords")
-        queries += self.shapes(spec)
         want = spec.discovery.max_results
         out: list[DiscoveryResult] = []
         sites: set[str] = set()
+
+        def take(hits, query: str, limit: int) -> list:
+            """Adds up to `limit` new company homepages; returns the hits not taken."""
+            left = []
+            for r in hits:
+                home = self.homepage(r.url)
+                if not home or registered_domain(home) in sites:
+                    continue
+                if len(out) >= want or limit <= 0:
+                    left.append((r, query))
+                    continue
+                sites.add(registered_domain(home))
+                out.append(DiscoveryResult(home, "searxng", {"_source": r.url}, referrer=f"{r.provider}: {query}"))
+                limit -= 1
+            return left
+
+        # Every wording gets its share of the first page before any wording's leftovers or later pages, so the
+        # first wording alone no longer fills the list.
+        share = max(1, -(-want // len(queries)))
+        leftovers: list = []
+        exhausted: set[str] = set()
         try:
             for query in queries:
-                for page in range(1, self.MAX_PAGES + 1):
+                try:
+                    hits = await hub.search(query)
+                except SearchError as exc:
+                    if out:
+                        break
+                    raise DiscoveryError(str(exc)) from None
+                if not hits:
+                    exhausted.add(query)
+                leftovers += take(hits, query, share)
+            for r, query in leftovers:
+                take([r], query, 1)
+            for page in range(2, self.MAX_PAGES + 1):
+                for query in queries:
                     if len(out) >= want:
-                        return out
+                        return out[:want]
+                    if query in exhausted:
+                        continue
                     try:
                         hits = await hub.search(query, page=page)
-                    except SearchError as exc:
-                        if out:
-                            return out
-                        raise DiscoveryError(str(exc)) from None
+                    except SearchError:
+                        hits = []
                     if not hits:
-                        break
-                    for r in hits:
-                        home = self.homepage(r.url)
-                        if home and registered_domain(home) not in sites:
-                            sites.add(registered_domain(home))
-                            out.append(DiscoveryResult(home, "searxng", {"_source": r.url},
-                                                       referrer=f"{r.provider}: {query}"))
+                        exhausted.add(query)
+                    take(hits, query, want)
                     await asyncio.sleep(1.0 if get_settings().env != "test" else 0)
         finally:
             if self.client is None:
