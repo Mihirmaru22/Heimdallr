@@ -113,3 +113,17 @@ def test_a_country_is_read_from_the_companys_own_pages_not_from_its_words():
     assert pages_country([_doc("https://acme.co.uk/", "x")]) == ("GB", "the country-code domain")
     offices = _doc("https://acme.com/contact", "<p>UK +44 20 7946 0123</p><p>US +1 617 904 9180, +1 833 303 6463</p>")
     assert pages_country([home, offices]) == (None, "")  # an office directory, not a headquarters
+
+
+def test_addresses_in_several_countries_do_not_say_where_the_headquarters_is():
+    from app.discovery.relevance import pages_country
+
+    def page(path, country):
+        address = '{"@type": "Organization", "address": {"addressCountry": "' + country + '"}}'
+        return _doc(f"https://acme.com{path}", "x", address)
+
+    home = _doc("https://acme.com/", "<p>Cyber security, call +44 20 7946 0123</p>")
+    assert pages_country([home, page("/contact", "GB"), page("/about", "US")]) == (
+        None, "structured addresses in several countries: GB on https://acme.com/contact; US on https://acme.com/about")
+    assert pages_country([home, page("/contact", "GB"), page("/legal", "GB")]) == (
+        "GB", "structured address on https://acme.com/contact, https://acme.com/legal")

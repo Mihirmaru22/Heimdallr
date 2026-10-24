@@ -559,10 +559,12 @@ class SearxngProvider:
                 leftovers += take(hits, query, share)
             # Names read off list pages and the leftover search results share what room is left: a ranking that
             # answers the question is a good lead, but so is a company search found directly, and a list's names
-            # once took every remaining place. Up to half the room is kept for the direct results waiting.
+            # once took every remaining place. Up to half the room, and at least one place, is kept for the
+            # direct results waiting.
             room = want - len(out)
             waiting = {registered_domain(self.homepage(r.url)) for r, _q in leftovers} - sites
-            out += await self._from_lists(client, hub, queries[0], lists, sites, room - min(len(waiting), room // 2))
+            held = min(len(waiting), max(1, room // 2)) if room > 0 else 0
+            out += await self._from_lists(client, hub, queries[0], lists, sites, room - held)
             for r, query in leftovers:
                 take([r], query, 1)
             for page in range(2, self.MAX_PAGES + 1):

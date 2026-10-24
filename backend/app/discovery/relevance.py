@@ -92,18 +92,25 @@ def outside_countries_reason(doc: PageDoc, spec: ExtractionSpec, method: str, hi
 def pages_country(docs: list[PageDoc]) -> tuple[str | None, str]:
     """(ISO country, where it was read) from a homepage plus the company's own contact or about pages.
 
-    The same evidence as `site_country`, in the same order, over several pages: a structured address on any
-    page, then a country-code domain, then the phone numbers of all pages together
-    when they all belong to one country: a multinational's contact page lists its regional offices, and where
-    most of those numbers are is not where it is based. Contact pages often write
-    their numbers as plain text ("+44 (0) 845 838 2050"), so numbers written with their country code count
-    too, not only tel: links. A page's words ("UK", "London") are never read as a location.
+    The same evidence as `site_country`, in the same order, over several pages: structured addresses when
+    they all give one country, then a country-code domain, then the phone numbers of all pages together when
+    they all belong to one country. Addresses or numbers in several countries settle nothing: a branch office
+    looks like the headquarters, and a multinational's contact page lists its regional offices. Contact pages
+    often write their numbers as plain text ("+44 (0) 845 838 2050"), so numbers written with their country
+    code count too, not only tel: links. A page's words ("UK", "London") are never read as a location.
     """
+    addresses: dict[str, list[str]] = {}  # country -> pages with a structured address there
     for doc in docs:
         for org in _orgs(doc):
             _full, _loc, country = _address_text(org.get("address"))
-            if iso := country_iso((country or "").strip()):
-                return iso, f"structured address on {doc.url}"
+            if (iso := country_iso((country or "").strip())) and doc.url not in addresses.get(iso, []):
+                addresses.setdefault(iso, []).append(doc.url)
+    if len(addresses) == 1:
+        ((iso, pages),) = addresses.items()
+        return iso, f"structured address on {', '.join(pages)}"
+    if addresses:  # a branch office and the headquarters look alike: several countries settle nothing
+        return None, "structured addresses in several countries: " + "; ".join(
+            f"{iso} on {', '.join(pages)}" for iso, pages in addresses.items())
     tld = (registered_domain(docs[0].url) or "").rsplit(".", 1)[-1].lower() if docs else ""
     if len(tld) == 2 and tld not in GENERIC_CCTLDS:
         return CCTLD_TO_ISO.get(tld, tld.upper()), "the country-code domain"

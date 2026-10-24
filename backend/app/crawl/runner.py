@@ -82,6 +82,7 @@ SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_
 RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
 # A site whose homepage does not say where it is: this many of its own contact or about pages are read to find out.
 COUNTRY_PAGES = 3
+COUNTRY_CHECK = "country_check"  # the method of a page read to find where a company is based
 
 
 class JobCancelled(Exception):
@@ -300,6 +301,11 @@ class CrawlRunner:
     async def fetch_page(self, url: str) -> PageDoc | None:
         """A page for a discovery source, fetched like any crawled page: robots.txt respected, network rules
         checked. None when it cannot be read or has no text."""
+        got = await self._fetch_doc(url)
+        return None if got is None or unreadable(got[1]) else got[1]
+
+    async def _fetch_doc(self, url: str) -> tuple[Any, PageDoc] | None:
+        """(fetch result, parsed page) under robots.txt and the network rules; None when nothing was fetched."""
         decision = await self.robots.check(url)
         if not decision.allowed:
             return None
@@ -307,8 +313,7 @@ class CrawlRunner:
             result = await self.fetcher.fetch(url)
         except FetchError:
             return None
-        doc = parse_page(normalize_url(result.final_url) or url, result.text)
-        return None if unreadable(doc) else doc
+        return result, parse_page(normalize_url(result.final_url) or url, result.text)
 
     async def fetch_text(self, url: str) -> str | None:
         doc = await self.fetch_page(url)
@@ -489,30 +494,90 @@ class CrawlRunner:
                                  "only rules are applied", final)
         return reason
 
-    async def _verify_country(self, doc: PageDoc, site: str, hint: dict[str, Any]) -> tuple[str, str]:
+    def _room_for(self, site: str) -> bool:
+        """True while one more page of this site may be read: within the job's page budget (counting the pages
+        being read now) and the site's."""
+        crawl = self.spec.crawl
+        return (self.counts()["fetched"] + self.active < crawl.max_pages
+                and self._site_page_count(site) + 1 < crawl.max_pages_per_site)
+
+    def _record_check_page(self, url: str, referrer: str) -> uuid.UUID:
+        """A page read to check the country is a page fetched: it counts against the page budgets and is billed
+        like any other, and is not read again later."""
+        values = {"status": UrlStatus.fetched, "status_reason": "read to check where the company is based",
+                  "lease_until": None}
+        with session_scope(self.org_id) as db:
+            return db.execute(insert(DiscoveredUrl).values(
+                id=uuid.uuid4(), org_id=self.org_id, job_id=self.job_id, url=url, url_hash=url_hash(url),
+                host=host_of(url), referrer_url=referrer, method=COUNTRY_CHECK, depth=1, attempts=1, hint={},
+                priority=_priority(url, 1, self.spec.crawl.priority_keywords), discovered_at=utcnow(), **values,
+            ).on_conflict_do_update(index_elements=["job_id", "url_hash"], set_=values)
+                .returning(DiscoveredUrl.id)).scalar_one()
+
+    async def _verify_country(self, doc: PageDoc, site: str, hint: dict[str, Any]
+                              ) -> tuple[str, str, list[tuple[uuid.UUID, Any, PageDoc]]]:
         """The country of a site whose homepage does not say, read from a few of its own contact and about pages
-        (robots.txt, politeness and network rules as for any page). A search result's own page on the site is
-        read first: what search said is a clue to where to look, never the answer."""
+        (robots.txt, politeness and network rules as for any page, and within the page budgets). A search
+        result's own page on the site is read first: what search said is a clue to where to look, never the
+        answer. Also returns the pages read (row id, fetch result, page), to be kept if the site is."""
         hits = [normalize_url(h.get("url", "")) for h in hint.get("_search") or []]
         contact = sorted((link for link, _text in doc.links if _page_rank(link, []) == 0),
                          key=lambda u: next(i for i, k in enumerate(CONTACT_HINTS) if k in u.lower()))
         pages = [u for u in dict.fromkeys(hits + contact)
                  if u and u != doc.url and registered_domain(u) == site and looks_like_page(u)][:COUNTRY_PAGES]
-        docs = [doc]
+        checked: list[tuple[uuid.UUID, Any, PageDoc]] = []
+        stopped = False
         for url in pages:
-            page = await self.fetch_page(url)
-            if page is not None and registered_domain(page.url) == site:
-                docs.append(page)
-        country, how = pages_country(docs)
+            if not self._room_for(site):
+                stopped = True
+                break
+            got = await self._fetch_doc(url)
+            if got is None:
+                continue
+            result, page = got
+            url_id = self._record_check_page(url, doc.url)
+            if registered_domain(page.url) == site and not unreadable(page):
+                checked.append((url_id, result, page))
+        country, how = pages_country([doc] + [page for _id, _r, page in checked])
         wanted = self.spec.discovery.countries
         if country in wanted:
-            return IN_COUNTRY, f"based in {country} ({how})"
+            return IN_COUNTRY, f"based in {country} ({how})", checked
         if country:
-            return OUTSIDE_COUNTRY, f"based in {country}, outside {', '.join(wanted)} ({how})"
-        read = len(docs) - 1
-        return COUNTRY_UNKNOWN, (f"could not confirm it is based in {', '.join(wanted)}: no address, country-code "
-                                 f"domain or one-country phone numbers on the homepage or {read} company page(s) read"
-                                 + (f" ({', '.join(d.url for d in docs[1:])})" if read else ""))
+            return OUTSIDE_COUNTRY, f"based in {country}, outside {', '.join(wanted)} ({how})", checked
+        read = len(checked)
+        pages_read = f" ({', '.join(p.url for _i, _r, p in checked)})" if read else ""
+        why = how or ("no address, country-code domain or one-country phone numbers on the homepage or "
+                      f"{read} company page(s) read{pages_read}")
+        return COUNTRY_UNKNOWN, (f"could not confirm it is based in {', '.join(wanted)}: {why}"
+                                 + ("; the page budget stopped the check" if stopped else "")), checked
+
+    def _extracted(self, doc: PageDoc) -> dict[str, list[Any]]:
+        found = extract_page(doc, self.spec.fields)
+        for f in self.spec.fields:
+            if f.semantic == Semantic.phone and f.name in found:
+                prefer_country_phones(found[f.name], self.spec.discovery.countries)
+            if f.semantic == Semantic.contact_email and f.name in found:
+                prefer_country_emails(found[f.name], self.spec.discovery.countries)
+        return found
+
+    async def _proof_checks(self, doc: PageDoc, result, site: str, final: str,
+                            candidates: dict[str, list[dict[str, Any]]]) -> None:
+        if self.site_proof is not None:
+            await self._check_site_proof(doc, site, candidates)
+            await self._check_code(doc, result.headers, site, candidates)
+            await self._check_job_boards(result.text, site, final, candidates)
+
+    def _save_page(self, url_id: uuid.UUID, final: str, result, doc: PageDoc,
+                   candidates: dict[str, list[dict[str, Any]]], hint: dict[str, Any] | None = None) -> None:
+        """The page and its candidates; with `hint`, its frontier row is marked fetched in the same transaction."""
+        with session_scope(self.org_id) as db:
+            db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=url_id, final_url=final,
+                               http_status=result.status, content_type=result.content_type[:128],
+                               bytes=len(result.body), content_hash=result.sha256, title=doc.title[:1000],
+                               text_excerpt=doc.text[:2000], candidates=candidates))
+            if hint is not None:
+                db.execute(update(DiscoveredUrl).where(DiscoveredUrl.id == url_id).values(
+                    status=UrlStatus.fetched, status_reason=None, lease_until=None, hint=hint))
 
     async def process(self, row: DiscoveredUrl) -> None:
         url = row.url
@@ -582,10 +647,11 @@ class CrawlRunner:
                 self.note("dropped", f"Dropped {site}: {reason}", final)
                 return
         hint = row.hint or {}
+        checked: list[tuple[uuid.UUID, Any, PageDoc]] = []  # pages read to check the country
         if row.depth == 0:
             status, why = country_status(doc, self.spec, row.method, hint)
             if status == COUNTRY_UNKNOWN:
-                status, why = await self._verify_country(doc, site, hint)
+                status, why, checked = await self._verify_country(doc, site, hint)
             if status != NOT_CHECKED:
                 self.country_checks[status] = self.country_checks.get(status, 0) + 1
             if status in (OUTSIDE_COUNTRY, COUNTRY_UNKNOWN):  # "only these countries" is on: the site is left out
@@ -599,12 +665,7 @@ class CrawlRunner:
             self.note("kept", f"Kept {site}" + (f" ({hint['company_name']})" if hint.get("company_name")
                                                 else "") + ": homepage checks passed"
                       + (f"; {why}" if status == IN_COUNTRY else ""), final, country=status)
-        found = extract_page(doc, self.spec.fields)
-        for f in self.spec.fields:
-            if f.semantic == Semantic.phone and f.name in found:
-                prefer_country_phones(found[f.name], self.spec.discovery.countries)
-            if f.semantic == Semantic.contact_email and f.name in found:
-                prefer_country_emails(found[f.name], self.spec.discovery.countries)
+        found = self._extracted(doc)
         candidates = {name: [c.__dict__ for c in cands] for name, cands in found.items() if cands}
         if row.hint.get("company_name"):
             self.site_names.setdefault(site, str(row.hint["company_name"]))
@@ -633,19 +694,18 @@ class CrawlRunner:
                         "value": value, "method": row.method, "confidence": confidence,
                         "evidence": f"{row.method}: {source}",
                         "source_url": source if source.startswith(("http://", "https://")) else None})
-        if self.site_proof is not None:
-            await self._check_site_proof(doc, site, candidates)
-            await self._check_code(doc, result.headers, site, candidates)
-            await self._check_job_boards(result.text, site, final, candidates)
-        with session_scope(self.org_id) as db:
-            db.add(FetchedPage(org_id=self.org_id, job_id=self.job_id, url_id=row.id, final_url=final,
-                               http_status=result.status, content_type=result.content_type[:128],
-                               bytes=len(result.body), content_hash=result.sha256, title=doc.title[:1000],
-                               text_excerpt=doc.text[:2000], candidates=candidates))
-            db.execute(update(DiscoveredUrl).where(DiscoveredUrl.id == row.id).values(
-                status=UrlStatus.fetched, status_reason=None, lease_until=None, hint=hint))
+        await self._proof_checks(doc, result, site, final, candidates)
+        self._save_page(row.id, final, result, doc, candidates, hint=hint)
         self._note_found(final, found, row.depth)
-        if self._site_complete(site, candidates):
+        done = self._site_complete(site, candidates)
+        for url_id, page_result, page in checked:  # read to check the country, so kept like any page of the site
+            page_found = self._extracted(page)
+            page_candidates = {name: [c.__dict__ for c in cands] for name, cands in page_found.items() if cands}
+            await self._proof_checks(page, page_result, site, page.url, page_candidates)
+            self._save_page(url_id, page.url, page_result, page, page_candidates)
+            self._note_found(page.url, page_found, 1)
+            done = done or self._site_complete(site, page_candidates)
+        if done:
             return  # every detail is in hand: the rest of the site's pages are left for other sites' turn
         new: list[dict[str, Any]] = []
         origin = final.split("/", 3)[0] + "//" + final.split("/", 3)[2]

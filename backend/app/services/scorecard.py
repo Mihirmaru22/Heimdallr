@@ -76,9 +76,11 @@ def score_job(db, job_id: uuid.UUID, key: dict[str, Any] | None = None) -> dict[
         out["proof: kept, with a website"] = _pct(len(with_site), len(kept_companies))
 
     urls = db.execute(select(DiscoveredUrl.host, DiscoveredUrl.url, DiscoveredUrl.depth, DiscoveredUrl.status,
-                             DiscoveredUrl.status_reason).where(DiscoveredUrl.job_id == job_id)).all()
+                             DiscoveredUrl.status_reason, DiscoveredUrl.method).where(
+        DiscoveredUrl.job_id == job_id)).all()
     seeds = {registered_domain(u.url) for u in urls if u.depth == 0}
-    fetched_sites = {registered_domain(u.url) for u in urls if u.status == "fetched"}
+    # A page read only to check a dropped site's country does not make the site read.
+    fetched_sites = {registered_domain(u.url) for u in urls if u.status == "fetched" and u.method != "country_check"}
     out["sites queued"] = str(len(seeds))
     out["sites read (1+ page)"] = _pct(len(seeds & fetched_sites), len(seeds))
     unread = Counter((u.status_reason or u.status)[:60] for u in urls
