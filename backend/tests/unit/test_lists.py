@@ -82,3 +82,10 @@ async def test_discovery_reads_list_pages_and_keeps_only_names_whose_website_che
         ("https://www.sophos.com/", "Sophos"), ("https://www.nccgroup.com/", "NCC Group")]
     assert all(r.referrer == "list page: https://news.example/top-uk-cyber" for r in found)
     assert router.calls == 1  # one model call for the one list page
+
+    monkeypatch.setattr(SearxngProvider, "MAX_PER_LIST", 1)  # one list page cannot fill the list
+    p = SearxngProvider(httpx.AsyncClient(transport=httpx.MockTransport(handler)), base_url="",
+                        judge=Judge(Router(["Sophos", "NCC Group"])))
+    p.fetch_page = fetch_page
+    assert [r.hint["company_name"] for r in await p.discover(spec)] == ["Sophos"]
+

@@ -70,7 +70,7 @@ class Judgement:
     quote: str
     judged_by: str  # rules | model:<id> | unreviewed: <why>
     reason: str = ""
-    weight: float = 1.0  # below 1 when the use rests on fewer agreeing readings than asked for
+    one_reading: bool = False  # the use rests on one reading (no second could be made, or readings split)
 
 
 def rule_relationship(company: str, product: Product, quote: str) -> tuple[str, str] | None:
@@ -94,9 +94,8 @@ RETRY_WAIT = 30.0  # seconds
 RETRIES = 2
 MAX_BUSY_IN_A_ROW = 5  # pieces left unreviewed in a row before the judge gives up for the run
 # A use verdict without a second agreeing reading (the free models were busy, or the readings split two to one)
-# still counts, but for less: Likely rather than Confirmed. Dropping it outright made the same companies come and
-# go between identical runs, depending only on which free model happened to answer.
-ONE_READING = 0.8
+# still counts, but at most as Likely, never Confirmed. Dropping it outright made the same companies come and go
+# between identical runs, depending only on which free model happened to answer.
 
 
 class Judge:
@@ -145,7 +144,12 @@ class Judge:
                                                 f"Sentences:\n{numbered}"}]
         try:
             reply = await self._ask(messages)
-            answer = Answer.model_validate(reply.json())
+            try:
+                answer = Answer.model_validate(reply.json())
+            except (ValueError, ValidationError):
+                # One free model answering in a broken shape says nothing about the proof: ask another once.
+                reply = await self._ask(messages, avoid=reply.model)
+                answer = Answer.model_validate(reply.json())
         except LLMUnavailable as exc:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {exc}")
         except (ValueError, ValidationError):
@@ -162,11 +166,11 @@ class Judge:
                 return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
             if second is None:
                 return Judgement(answer.relationship, quote, f"model:{reply.model}",
-                                 f"{answer.reason}; one reading only (a second could not be made)", ONE_READING)
+                                 f"{answer.reason}; one reading only (a second could not be made)", one_reading=True)
             third = await self._second_reading(messages, reply.model)
             if third in USE:
                 return Judgement(answer.relationship, quote, f"model:{reply.model}",
-                                 f"{answer.reason}; readings split two to one ({second} once)", ONE_READING)
+                                 f"{answer.reason}; readings split two to one ({second} once)", one_reading=True)
             why = f"a second reading says {second}" + (f", a third {third}" if third else "")
             return Judgement("unreviewed", quote, f"model:{reply.model}", f"{answer.reason}; {why}")
         return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
@@ -191,8 +195,17 @@ def age_years(day: str, today: date | None = None) -> float | None:
     return ((today or date.today()) - d).days / 365.25
 
 
-def score(relationship: str, base_strength: float, day: str, today: date | None = None) -> tuple[str, float]:
-    """(verdict, strength) for one piece of proof. Verdicts: Confirmed, Likely, Mentioned; "" means rejected."""
+def score(relationship: str, base_strength: float, day: str, today: date | None = None, *,
+          one_reading: bool = False) -> tuple[str, float]:
+    """(verdict, strength) for one piece of proof. Verdicts: Confirmed, Likely, Mentioned; "" means rejected.
+    A use resting on one reading is at most Likely; it is not weakened further, so it is never dropped for that."""
+    verdict, strength = _score(relationship, base_strength, day, today)
+    if one_reading and relationship in USE and verdict == "Confirmed":
+        return "Likely", min(strength, 0.69)
+    return verdict, strength
+
+
+def _score(relationship: str, base_strength: float, day: str, today: date | None = None) -> tuple[str, float]:
     if relationship not in KEEP:
         return "", 0.0
     age = age_years(day, today)

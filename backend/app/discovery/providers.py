@@ -357,6 +357,7 @@ class SearxngProvider:
     MAX_QUERIES = 6
     MAX_LIST_PAGES = 3  # list pages read per question (one free model call each)
     MAX_LIST_LOOKUPS = 30  # names from those pages looked up
+    MAX_PER_LIST = 6  # sites one list page may add: one off-topic list (a jobs board) once crowded out the rest
 
     def __init__(self, client: httpx.AsyncClient | None = None, base_url: str | None = None,
                  judge=None) -> None:
@@ -401,9 +402,12 @@ class SearxngProvider:
                 if not names and judge.unavailable:
                     self.notes.append(f"web search: list pages not read ({judge.unavailable})")
                     break
+                added = 0
                 for name in names:
                     if len(out) >= room or lookups >= self.MAX_LIST_LOOKUPS:
                         return out
+                    if added >= self.MAX_PER_LIST:
+                        break
                     lookups += 1
                     site, how = await finder.find(name)
                     domain = registered_domain(site) if site else ""
@@ -413,6 +417,7 @@ class SearxngProvider:
                     self._say("search", f"Website of {name} (from a list page): {site} ({how})", site)
                     out.append(DiscoveryResult(site, "searxng", {"company_name": name, "_source": url},
                                                referrer=f"list page: {url}"))
+                    added += 1
         finally:
             if self.judge is None:
                 await judge.aclose()
