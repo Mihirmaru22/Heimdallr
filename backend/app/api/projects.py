@@ -239,10 +239,10 @@ def preview(schema_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Ses
 
 
 def estimated_llm_calls(spec, sites: int) -> int:
-    """At most this many free-model requests: one per web-search homepage check, and for a technology question
-    about two per company judged (proof check, plus a second reading of a use verdict)."""
+    """At most this many free-model requests: one per web-search homepage check and list page, and for a
+    technology question about two per company judged (proof check, plus a second reading of a use verdict)."""
     d = spec.discovery
-    calls = d.max_results if "searxng" in d.providers else 0
+    calls = d.max_results + 3 if "searxng" in d.providers else 0  # homepage checks, plus up to 3 list pages
     if d.technology:
         calls += 2 * max(sites, d.max_results)
     return calls

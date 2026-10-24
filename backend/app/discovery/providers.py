@@ -355,10 +355,68 @@ class SearxngProvider:
     name = "searxng"
     MAX_PAGES = 5
     MAX_QUERIES = 6
+    MAX_LIST_PAGES = 3  # list pages read per question (one free model call each)
+    MAX_LIST_LOOKUPS = 30  # names from those pages looked up
 
-    def __init__(self, client: httpx.AsyncClient | None = None, base_url: str | None = None) -> None:
+    def __init__(self, client: httpx.AsyncClient | None = None, base_url: str | None = None,
+                 judge=None) -> None:
         self.client = client
         self.base_url = (base_url if base_url is not None else get_settings().searxng_url).rstrip("/")
+        self.judge = judge
+        self.fetch_page = None  # set by the crawler: robots.txt respected, network rules checked
+        self.on_note = None
+        self.notes: list[str] = []
+
+    def _say(self, kind: str, message: str, url: str | None = None) -> None:
+        if self.on_note is not None:
+            self.on_note(kind, message, url, source=self.name)
+
+    async def _from_lists(self, client, hub, question: str, pages: list[str], sites: set[str], room: int
+                          ) -> list[DiscoveryResult]:
+        """Companies named on list pages, each kept only when its own website is found and confirmed."""
+        from app.discovery.lists import names_on_list
+        from app.discovery.websites import WebsiteFinder
+        from app.evidence.judge import Judge
+
+        if self.fetch_page is None or not pages or room <= 0:
+            return []
+        judge = self.judge or Judge()
+
+        async def text(url: str) -> str | None:
+            doc = await self.fetch_page(url)
+            return f"{doc.title} {doc.text}" if doc else None
+
+        finder = WebsiteFinder(client, self.base_url, text, hub=hub)
+        out: list[DiscoveryResult] = []
+        lookups = 0
+        try:
+            for url in pages[:self.MAX_LIST_PAGES]:
+                doc = await self.fetch_page(url)
+                if doc is None:
+                    self._say("skipped", f"List page could not be read: {url}", url)
+                    continue
+                names, why = await names_on_list(judge, question, doc)
+                self._say("read" if names else "skipped", f"List page {url}: "
+                          + (f"{len(names)} name(s)" if names else why), url)
+                if not names and judge.unavailable:
+                    self.notes.append(f"web search: list pages not read ({judge.unavailable})")
+                    break
+                for name in names:
+                    if len(out) >= room or lookups >= self.MAX_LIST_LOOKUPS:
+                        return out
+                    lookups += 1
+                    site, how = await finder.find(name)
+                    domain = registered_domain(site) if site else ""
+                    if not domain or domain in sites:
+                        continue
+                    sites.add(domain)
+                    self._say("search", f"Website of {name} (from a list page): {site} ({how})", site)
+                    out.append(DiscoveryResult(site, "searxng", {"company_name": name, "_source": url},
+                                               referrer=f"list page: {url}"))
+        finally:
+            if self.judge is None:
+                await judge.aclose()
+        return out
 
     @staticmethod
     def queries(spec: ExtractionSpec) -> list[str]:
@@ -422,10 +480,19 @@ class SearxngProvider:
         out: list[DiscoveryResult] = []
         sites: set[str] = set()
 
+        from app.discovery.lists import looks_like_list
+
+        noun = "companies" if spec.entity in ("company", "record") else f"{spec.entity}s"
+        lists: list[str] = []
+
         def take(hits, query: str, limit: int) -> list:
             """Adds up to `limit` new company homepages; returns the hits not taken."""
             left = []
             for r in hits:
+                if looks_like_list(r.url, r.title, noun):  # a page about many companies is no company's site
+                    if r.url not in lists:
+                        lists.append(r.url)
+                    continue
                 home = self.homepage(r.url)
                 if not home or registered_domain(home) in sites:
                     continue
@@ -453,6 +520,9 @@ class SearxngProvider:
                 if not hits:
                     exhausted.add(query)
                 leftovers += take(hits, query, share)
+            # Names read off list pages come before the leftover search results: a ranking or directory that
+            # answers the question is a better lead than a result that merely ranked lower.
+            out += await self._from_lists(client, hub, queries[0], lists, sites, want - len(out))
             for r, query in leftovers:
                 take([r], query, 1)
             for page in range(2, self.MAX_PAGES + 1):
