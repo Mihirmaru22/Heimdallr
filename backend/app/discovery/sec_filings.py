@@ -236,7 +236,7 @@ class SecFilingsProvider:
                     self._record(**base, kept=False, reason="the product's name was not found in the document text")
                     continue
                 j = await self.judge.judge(name, product, quotes, f"{source_type} filed {day}")
-                verdict, strength = score(j.relationship, FILING_STRENGTH, day)
+                verdict, strength = score(j.relationship, FILING_STRENGTH * j.weight, day)
                 row = {**base, "quote": j.quote, "relationship": j.relationship, "judged_by": j.judged_by,
                        "strength": strength, "verdict": verdict}
                 if j.relationship not in KEEP or not verdict:

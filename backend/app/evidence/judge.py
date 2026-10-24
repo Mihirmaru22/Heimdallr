@@ -70,6 +70,7 @@ class Judgement:
     quote: str
     judged_by: str  # rules | model:<id> | unreviewed: <why>
     reason: str = ""
+    weight: float = 1.0  # below 1 when the use rests on fewer agreeing readings than asked for
 
 
 def rule_relationship(company: str, product: Product, quote: str) -> tuple[str, str] | None:
@@ -92,6 +93,10 @@ TRANSIENT = ("no free model",)
 RETRY_WAIT = 30.0  # seconds
 RETRIES = 2
 MAX_BUSY_IN_A_ROW = 5  # pieces left unreviewed in a row before the judge gives up for the run
+# A use verdict without a second agreeing reading (the free models were busy, or the readings split two to one)
+# still counts, but for less: Likely rather than Confirmed. Dropping it outright made the same companies come and
+# go between identical runs, depending only on which free model happened to answer.
+ONE_READING = 0.8
 
 
 class Judge:
@@ -149,19 +154,28 @@ class Judge:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {type(exc).__name__}")
         quote = quotes[min(answer.quote, len(quotes)) - 1]
         if answer.relationship in USE:
-            # The same quote has been read as "uses" in one run and as a customer's system in another. Use counts
-            # only when a second reading, by another free model where one is available, agrees.
+            # The same quote has been read as "uses" in one run and as a customer's system in another, so a use
+            # is read again, by another free model where one is available. Agreement confirms it. Disagreement
+            # is settled by a third reading; no further reading leaves the first, weighted down.
             second = await self._second_reading(messages, reply.model)
-            if second is None or second not in USE:
-                why = "a second reading could not be made" if second is None else f"a second reading says {second}"
-                return Judgement("unreviewed", quote, f"model:{reply.model}", f"{answer.reason}; {why}")
+            if second in USE:
+                return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
+            if second is None:
+                return Judgement(answer.relationship, quote, f"model:{reply.model}",
+                                 f"{answer.reason}; one reading only (a second could not be made)", ONE_READING)
+            third = await self._second_reading(messages, reply.model)
+            if third in USE:
+                return Judgement(answer.relationship, quote, f"model:{reply.model}",
+                                 f"{answer.reason}; readings split two to one ({second} once)", ONE_READING)
+            why = f"a second reading says {second}" + (f", a third {third}" if third else "")
+            return Judgement("unreviewed", quote, f"model:{reply.model}", f"{answer.reason}; {why}")
         return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
 
     async def _second_reading(self, messages: list[dict[str, str]], first_model: str) -> str | None:
         try:
             reply = await self._ask(messages, avoid=first_model)
             return Answer.model_validate(reply.json()).relationship
-        except Exception:  # noqa: BLE001 - no second reading: the use stays unconfirmed, never confirmed
+        except Exception:  # noqa: BLE001 - no further reading: the caller weighs the use down
             return None
 
     async def aclose(self) -> None:

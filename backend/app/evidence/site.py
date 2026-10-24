@@ -102,7 +102,7 @@ class SiteProof:
 
     def _piece(self, who: str, site: str, j: Any, url: str, day: str, source_type: str, strength: float
                ) -> dict[str, Any]:
-        verdict, strength = score(j.relationship, strength, day)
+        verdict, strength = score(j.relationship, strength * getattr(j, "weight", 1.0), day)
         kept = j.relationship in KEEP and bool(verdict)
         if kept:
             self.has_proof.add(site)

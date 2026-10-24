@@ -4,7 +4,7 @@ much the proof counts for."""
 import json
 from datetime import date
 
-from app.evidence.judge import Judge, rule_relationship, score
+from app.evidence.judge import ONE_READING, Judge, rule_relationship, score
 from app.evidence.products import product_for
 from app.evidence.quotes import document_text, find_mentions, verify_quote
 from app.llm.openrouter import LLMUnavailable, Reply
@@ -79,10 +79,34 @@ async def test_the_model_only_picks_a_relationship_and_one_of_our_quotes():
 async def test_use_counts_only_when_a_second_reading_by_another_model_agrees():
     quotes = ["SAP S/4HANA is a risk.", "A manufacturer switched to our product during its S/4HANA migration."]
     router = Router({"relationship": "rolling_out", "quote": 2, "reason": "migrating"},
+                    {"relationship": "other_mention", "quote": 2, "reason": "a customer's migration"},
                     {"relationship": "other_mention", "quote": 2, "reason": "a customer's migration"})
     j = await Judge(router).judge("Vertex", product_for("SAP"), quotes, "10-K")
-    assert j.relationship == "unreviewed" and "second reading says other_mention" in j.reason
-    assert router.calls == 2
+    assert j.relationship == "unreviewed" and "second reading says other_mention, a third other_mention" in j.reason
+    assert router.calls == 3
+
+
+async def test_split_readings_are_settled_by_a_third_and_count_for_less():
+    router = Router({"relationship": "uses", "quote": 1, "reason": "in use"},
+                    {"relationship": "other_mention", "quote": 1, "reason": "unclear"},
+                    {"relationship": "uses", "quote": 1, "reason": "in use"})
+    j = await Judge(router).judge("Coty", product_for("SAP S/4HANA"), ["S/4HANA went live at Coty plants."], "10-K")
+    assert j.relationship == "uses" and j.weight == ONE_READING and "split two to one" in j.reason
+    assert score(j.relationship, 0.85 * j.weight, "2026-02-01", TODAY)[0] == "Likely"
+
+
+async def test_a_use_with_no_second_reading_possible_counts_for_less_instead_of_vanishing():
+    class OneAnswer(Router):
+        async def chat(self, messages, **kw):
+            if self.calls:
+                self.calls += 1
+                raise LLMUnavailable("no free model answered")
+            return await super().chat(messages, **kw)
+
+    router = OneAnswer({"relationship": "uses", "quote": 1, "reason": "in use"})
+    j = await Judge(router, wait=0).judge("Davey", product_for("SAP S/4HANA"), ["S/4HANA runs Davey's finance."],
+                                          "10-K")
+    assert j.relationship == "uses" and j.weight == ONE_READING and "one reading only" in j.reason
 
 
 async def test_without_a_model_proof_stays_unreviewed_and_the_model_is_not_asked_again():
