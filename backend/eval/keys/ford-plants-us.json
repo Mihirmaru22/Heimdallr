@@ -1,0 +1,35 @@
+{
+ "question": "list the manufacturing plants of Ford in the US with address and phone",
+ "notes": "DRAFT, please check. Rows are plants, matched by name.",
+ "must_include": [
+  {
+   "company": "Dearborn Truck"
+  },
+  {
+   "company": "Kansas City Assembly"
+  },
+  {
+   "company": "Kentucky Truck"
+  },
+  {
+   "company": "Louisville Assembly"
+  },
+  {
+   "company": "Chicago Assembly"
+  },
+  {
+   "company": "Michigan Assembly"
+  },
+  {
+   "company": "Flat Rock Assembly"
+  },
+  {
+   "company": "Ohio Assembly"
+  }
+ ],
+ "must_exclude": [
+  {
+   "company": "Ford dealership"
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+# Local SearXNG used by WebData AI for website discovery. Only the app talks to it.
+use_default_settings: true
+general:
+  instance_name: "webdata-searxng"
+server:
+  # Overridden by the SEARXNG_SECRET environment variable set in docker-compose.yml.
+  secret_key: "overridden-by-env"
+  limiter: false          # private instance on the Compose network; no public traffic reaches it
+  image_proxy: false
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json                # the app reads /search?format=json
+ui:
+  static_use_hash: true

@@ -1,0 +1,46 @@
+{
+ "question": "US defense companies with website, email and phone",
+ "notes": "DRAFT, please check. Prime contractors; clubs, associations and .gov sites must not appear (Potomac Officers Club got in on 2026-10-21).",
+ "must_include": [
+  {
+   "company": "Lockheed Martin",
+   "website": "https://www.lockheedmartin.com/"
+  },
+  {
+   "company": "RTX",
+   "website": "https://www.rtx.com/"
+  },
+  {
+   "company": "Northrop Grumman",
+   "website": "https://www.northropgrumman.com/"
+  },
+  {
+   "company": "General Dynamics",
+   "website": "https://www.gd.com/"
+  },
+  {
+   "company": "L3Harris",
+   "website": "https://www.l3harris.com/"
+  },
+  {
+   "company": "Huntington Ingalls",
+   "website": "https://hii.com/"
+  },
+  {
+   "company": "Leidos",
+   "website": "https://www.leidos.com/"
+  }
+ ],
+ "must_exclude": [
+  {
+   "company": "Potomac Officers Club"
+  },
+  {
+   "company": "Department of Defense",
+   "website": "https://www.defense.gov/"
+  },
+  {
+   "company": "National Defense Industrial Association"
+  }
+ ]
+}

@@ -1,0 +1,52 @@
+{
+ "question": "pharmaceutical companies in India with website, email and phone",
+ "notes": "DRAFT, please check. Large listed Indian drug makers; directories and regulators must not appear.",
+ "must_include": [
+  {
+   "company": "Sun Pharmaceutical",
+   "website": "https://sunpharma.com/"
+  },
+  {
+   "company": "Dr. Reddy's",
+   "website": "https://www.drreddys.com/"
+  },
+  {
+   "company": "Cipla",
+   "website": "https://www.cipla.com/"
+  },
+  {
+   "company": "Lupin",
+   "website": "https://www.lupin.com/"
+  },
+  {
+   "company": "Aurobindo Pharma",
+   "website": "https://www.aurobindo.com/"
+  },
+  {
+   "company": "Zydus Lifesciences",
+   "website": "https://www.zyduslife.com/"
+  },
+  {
+   "company": "Glenmark",
+   "website": "https://www.glenmarkpharma.com/"
+  },
+  {
+   "company": "Torrent Pharmaceuticals",
+   "website": "https://www.torrentpharma.com/"
+  }
+ ],
+ "must_exclude": [
+  {
+   "company": "IndiaMART",
+   "website": "https://www.indiamart.com/"
+  },
+  {
+   "company": "CDSCO",
+   "website": "https://cdsco.gov.in/"
+  },
+  {
+   "company": "Pharmabiz",
+   "website": "https://www.pharmabiz.com/"
+  }
+ ]
+}

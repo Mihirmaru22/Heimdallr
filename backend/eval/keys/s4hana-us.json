@@ -1,0 +1,107 @@
+{
+ "question": "US companies that use SAP S/4HANA, with website and contact info",
+ "notes": "Must-haves: US filers whose own SEC filing says they implemented or run S/4HANA (quotes read 2026-10-22). Must-nots: vendors, resellers, foreign filers.",
+ "must_include": [
+  {
+   "company": "Celanese",
+   "website": "https://www.celanese.com/"
+  },
+  {
+   "company": "Davey Tree",
+   "website": "https://www.davey.com/"
+  },
+  {
+   "company": "UiPath",
+   "website": "https://www.uipath.com/"
+  },
+  {
+   "company": "H.B. Fuller",
+   "website": "https://www.hbfuller.com/"
+  },
+  {
+   "company": "Marzetti",
+   "website": "https://www.marzetticompany.com/"
+  },
+  {
+   "company": "NewMarket",
+   "website": "https://www.newmarket.com/"
+  },
+  {
+   "company": "CommScope",
+   "website": "https://www.commscope.com/"
+  },
+  {
+   "company": "V2X",
+   "website": "https://gov2x.com/"
+  },
+  {
+   "company": "Coty",
+   "website": "https://www.coty.com/"
+  },
+  {
+   "company": "Peabody Energy",
+   "website": "https://www.peabodyenergy.com/"
+  },
+  {
+   "company": "AdvanSix",
+   "website": "https://www.advansix.com/"
+  },
+  {
+   "company": "Delek US",
+   "website": "https://www.delekus.com/"
+  },
+  {
+   "company": "Northrop Grumman",
+   "website": "https://www.northropgrumman.com/"
+  },
+  {
+   "company": "Spectrum Brands",
+   "website": "https://www.spectrumbrands.com/"
+  },
+  {
+   "company": "Accuray",
+   "website": "https://www.accuray.com/"
+  }
+ ],
+ "must_exclude": [
+  {
+   "company": "SAP SE",
+   "website": "https://www.sap.com/"
+  },
+  {
+   "company": "Rimini Street"
+  },
+  {
+   "company": "Hackett Group"
+  },
+  {
+   "company": "Cognizant"
+  },
+  {
+   "company": "NetApp"
+  },
+  {
+   "company": "Grifols"
+  },
+  {
+   "company": "Infosys"
+  },
+  {
+   "company": "Wipro"
+  },
+  {
+   "company": "Diageo"
+  },
+  {
+   "company": "AGCO"
+  },
+  {
+   "company": "Mitesco"
+  },
+  {
+   "company": "Vertex, Inc.",
+   "website": "https://www.vertexinc.com/",
+   "why": "tax software vendor whose filings describe customers' S/4HANA migrations"
+  }
+ ]
+}
