@@ -23,6 +23,7 @@ dependencies = [
     "argon2-cffi",
     "xlsxwriter",
     "python-multipart",
+    "pypdf>=6.21.2",
 ]
 
 [dependency-groups]

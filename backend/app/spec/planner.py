@@ -9,6 +9,7 @@ reader (interpret.py) is used instead and the person is told why.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any, Literal
 
@@ -16,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from app.evidence.site import PROOF_PAGES
 from app.llm.openrouter import LLMUnavailable, OpenRouter
-from app.spec.interpret import FIELD_CATALOG, interpret, is_tech_niche
+from app.spec.interpret import COUNT_RE, FIELD_CATALOG, interpret, is_tech_niche, technology_in
 from app.spec.models import ExtractionSpec, FieldSpec, FieldType, Semantic
 
 # Columns of a technology question: the verdict and the proof behind it, one row per company.
@@ -215,14 +216,49 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
     return notes
 
 
-async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | None = None
-                    ) -> tuple[ExtractionSpec, str, list[str]]:
+# Every free model busy at once ("no free model answered: ... rate limited") clears within seconds; the plan is
+# asked again before the rules take over, because the rules read less of the question than a model does.
+BUSY = ("no free model",)
+PLAN_RETRY_WAITS = (8.0, 20.0)
+
+
+def rules_spec(question: str, start_urls: list[str]) -> tuple[ExtractionSpec, list[str]]:
+    """The spec the rules read, built the same way as a model's plan, so a technology question keeps its
+    technology, its proof sources and its proof columns when no model answered."""
+    base = interpret(question, start_urls)
+    technology = technology_in(question)
+    if not technology:
+        return base, []
+    count = COUNT_RE.search(question)
+    plan = Plan(rows="companies", industry=base.discovery.industry, technology=technology,
+                countries=base.discovery.countries, region=base.discovery.region,
+                max_results=int(count.group(1)) if count else None,
+                details=[f.name for f in base.fields if f.name in DETAILS])
+    spec = spec_from_plan(plan, question, start_urls)
+    return spec, [f"The rules read the product as {technology!r}; check it before starting.",
+                  *technology_notes(spec)]
+
+
+def _fallback(question: str, start_urls: list[str], why: str) -> tuple[ExtractionSpec, str, list[str]]:
+    spec, notes = rules_spec(question, start_urls)
+    return spec, "rules", [why, *notes]
+
+
+async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | None = None,
+                    retry_waits: tuple[float, ...] = PLAN_RETRY_WAITS) -> tuple[ExtractionSpec, str, list[str]]:
     """(spec, who read it: "model:<id>" or "rules", notes for the person)."""
     own = router is None
     router = router or OpenRouter()
     try:
-        reply = await router.chat([{"role": "system", "content": SYSTEM},
-                                   {"role": "user", "content": question[:4000]}], json_mode=True, max_tokens=800)
+        messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question[:4000]}]
+        for attempt in range(len(retry_waits) + 1):
+            try:
+                reply = await router.chat(messages, json_mode=True, max_tokens=800)
+                break
+            except LLMUnavailable as exc:
+                if attempt == len(retry_waits) or not str(exc).startswith(BUSY):
+                    raise
+                await asyncio.sleep(retry_waits[attempt])
         plan = Plan.model_validate(reply.json())
         spec = spec_from_plan(plan, question, start_urls)
         notes = []
@@ -236,15 +272,14 @@ async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | N
                          "where a page labels them, until model reading arrives in a later step.")
         return spec, f"model:{reply.model}", notes
     except LLMUnavailable as exc:
-        return interpret(question, start_urls), "rules", [f"Read with rules because no free model was available: "
-                                                          f"{exc}"]
+        return _fallback(question, start_urls, f"Read with rules because no free model was available: {exc}")
     except (ValueError, ValidationError) as exc:
         reason = type(exc).__name__ if not isinstance(exc, ValidationError) else "the plan did not fit the form"
-        return interpret(question, start_urls), "rules", [f"Read with rules because the model's answer could not "
-                                                          f"be used ({reason})."]
+        return _fallback(question, start_urls, f"Read with rules because the model's answer could not be used "
+                                               f"({reason}).")
     except Exception as exc:  # noqa: BLE001 - Redis down, network: the form must still work with the rules
-        return interpret(question, start_urls), "rules", [f"Read with rules because model reading failed "
-                                                          f"({type(exc).__name__})."]
+        return _fallback(question, start_urls, f"Read with rules because model reading failed "
+                                               f"({type(exc).__name__}).")
     finally:
         if own:
             await router.aclose()

@@ -17,7 +17,7 @@ from app.models import CrawlJob, CrawlJobEvent, DiscoveredUrl, Evidence, Extract
 
 PLAN_KEYS = ("providers", "technology", "technology_aliases", "industry", "keywords", "countries", "region",
              "max_results", "evidence_years")
-SOURCE_KINDS = ("search", "kept", "dropped", "failed")
+SOURCE_KINDS = ("search", "kept", "dropped", "skipped", "failed")  # "skipped": e.g. no website taken, and why
 TOP_SITES = 40
 
 

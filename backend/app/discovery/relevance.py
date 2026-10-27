@@ -89,7 +89,7 @@ def outside_countries_reason(doc: PageDoc, spec: ExtractionSpec, method: str, hi
     return why if status in (OUTSIDE_COUNTRY, COUNTRY_UNKNOWN) else None
 
 
-def pages_country(docs: list[PageDoc]) -> tuple[str | None, str]:
+def pages_country(docs: list[PageDoc], wanted: list[str] | tuple[str, ...] = ()) -> tuple[str | None, str]:
     """(ISO country, where it was read) from a homepage plus the company's own contact or about pages.
 
     The same evidence as `site_country`, in the same order, over several pages: structured addresses when
@@ -130,6 +130,42 @@ def pages_country(docs: list[PageDoc]) -> tuple[str | None, str]:
     if len(set(numbers.values())) == 1:  # a contact page listing several countries is an office directory
         (iso,) = set(numbers.values())
         return iso, f"{len(numbers)} phone number(s) on {', '.join(sorted(where[iso]))}"
+    if numbers:
+        return None, ""
+    return national_numbers_country(docs, wanted)
+
+
+def national_numbers_country(docs: list[PageDoc], wanted: list[str] | tuple[str, ...]) -> tuple[str | None, str]:
+    """A company's own pages often write their numbers the way callers inside the country dial them ("020 7946
+    0000", "(800) 555-0199"): such a number says where it is when it is a valid number of one requested country
+    and of no other requested country. Lick's and Emerald Technology's UK numbers were all written like that, so
+    they were left out as "not confirmed" (measured 2026-10-26)."""
+    found: dict[str, set[str]] = {}
+    where: dict[str, set[str]] = {}
+    for doc in docs:
+        raws = [unquote(a.attributes.get("href") or "")[4:].split("/")[0].strip()
+                for a in doc.tree.css('a[href^="tel:"]')]
+        for region in wanted:
+            if region not in phonenumbers.SUPPORTED_REGIONS:
+                continue
+            nums = []
+            for raw in raws:
+                if raw and not raw.startswith("+"):
+                    try:
+                        nums.append(phonenumbers.parse(raw, region))
+                    except phonenumbers.NumberParseException:
+                        continue
+            nums += [m.number for m in phonenumbers.PhoneNumberMatcher(doc.text[:50_000], region,
+                                                                        leniency=phonenumbers.Leniency.VALID)
+                     if not m.raw_string.lstrip().startswith("+")]
+            for num in nums:
+                if phonenumbers.is_valid_number_for_region(num, region):
+                    found.setdefault(region, set()).add(
+                        phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164))
+                    where.setdefault(region, set()).add(doc.url)
+    if len(found) == 1:
+        ((iso, nums),) = found.items()
+        return iso, f"{len(nums)} phone number(s) written in {iso} national format on {', '.join(sorted(where[iso]))}"
     return None, ""
 
 

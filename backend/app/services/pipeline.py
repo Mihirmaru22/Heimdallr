@@ -85,6 +85,12 @@ def _move(job_id: uuid.UUID, org_id: uuid.UUID, dst: S, message: str = "", **fie
             return None
         if job.state == dst.value:
             return job
+        if job.state == S.cancel_requested.value and dst != S.cancelled:
+            # The person cancelled while this step ran: the job ends cancelled, whatever the step was moving to.
+            if dst == S.failed:
+                transition(db, job, S.cancelled, "Cancelled by user")
+                return job
+            raise JobCancelled()
         if not transition(db, job, dst, message, **fields):
             return None
         return job

@@ -169,7 +169,7 @@ function Exports({ base, jobId, state }: { base: string; jobId: string; state: s
       include_excluded: withExcluded }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["exports", jobId] }),
   });
-  if (state !== "completed" && state !== "partially_completed") return null;
+  if (state !== "completed" && state !== "partially_completed" && state !== "failed") return null;
   return (
     <Card title="Export to Excel">
       <div className="row wrap">

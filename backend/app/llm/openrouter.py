@@ -35,11 +35,14 @@ FUNDED_DAILY = 1000  # once 10 credits have ever been bought (it does not depend
 PER_MINUTE = 20
 CATALOG_TTL = 6 * 3600
 MODEL_COOLDOWN = 600  # seconds a failing model is skipped
-MAX_MODELS_PER_CALL = 3
+MAX_MODELS_PER_CALL = 5  # with 3, a few models that always refuse or are busy left no model to answer at all
+# A model that refuses this key outright (403 "only available on agentic harnesses", 404 gone) will refuse again:
+# it is skipped until the next day instead of taking a place among the models tried for every call.
+PERMANENT_STATUSES = (403, 404)
 # Free models built for one narrow job (moderation, code, embeddings) are no use for reading web pages.
 SPECIALIZED_RE = re.compile(r"safety|guard|moderat|code|coder|embed|rerank|tts|audio|ocr", re.I)
 # Room for a reasoning model's thinking before its answer; with too little, the answer comes back empty.
-MIN_TOKENS = 1024
+MIN_TOKENS = 2048  # 1024 still ended reasoning models' replies empty (finish_reason=length)
 
 
 class LLMUnavailable(Exception):
@@ -325,7 +328,8 @@ class OpenRouter:
                 raise LLMUnavailable("OpenRouter refused the request (402: the account balance is negative)")
             if resp.status_code != 200 or error:
                 state.count_failure(model, f"http_{resp.status_code}")
-                state.cool_down(model)
+                state.cool_down(model, _seconds_to_midnight() if resp.status_code in PERMANENT_STATUSES
+                                else MODEL_COOLDOWN)
                 problems.append(f"{model}: HTTP {resp.status_code} {str((error or {}).get('message', ''))[:120]}")
                 continue
             self._check_reply(model, body)

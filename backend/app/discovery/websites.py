@@ -60,29 +60,71 @@ class WebsiteFinder:
     async def search(self, query: str) -> list[str]:
         return [h.url for h in (await self.hub.search(query, kind=LOOKUP))[:TOP]]
 
-    async def find(self, company: str) -> tuple[str, str]:
-        """(homepage, how it was confirmed) or ("", why not)."""
+    async def _homepage_text(self, url: str) -> tuple[str, str | None]:
+        """(the homepage address that answered, its text). A search result's address is not always the one a
+        site serves: "http://sram.com/" answers 404 where "https://www.sram.com/" is the site."""
+        host = url.split("://", 1)[-1].split("/", 1)[0]
+        bare = host.removeprefix("www.")
+        tried: list[str] = []
+        for candidate in (url, f"https://{host}/", f"https://www.{bare}/", f"https://{bare}/"):
+            if candidate in tried:
+                continue
+            tried.append(candidate)
+            text = await self.fetch_text(candidate)
+            if text is not None:
+                return candidate, text
+        return url, None
+
+    async def _pick(self, company: str, query: str) -> tuple[str | None, str, int, int]:
+        """(homepage of the domain most results agree on, why, agreeing results, results) for one search."""
+        try:
+            urls = await self.search(query)
+        except SearchError as exc:
+            return None, str(exc), 0, 0
+        pairs = [(u, registered_domain(u)) for u in urls if normalize_url(u)]
+        pairs = [(u, d) for u, d in pairs if d and d not in NOT_COMPANY_SITES]
+        if not pairs:
+            return None, "web search found nothing", 0, len(urls)
+        # One company's country sites (enersys.com, enersys.com.pl) agree with each other: they are counted by
+        # the brand name in front of the suffix, and the address search gave most often stands for them.
+        brands = Counter(d.split(".")[0] for _u, d in pairs)
+        brand, n = brands.most_common(1)[0]
+        domains = Counter(d for _u, d in pairs if d.split(".")[0] == brand)
+        best = domains.most_common(1)[0][0]
+        if n < AGREE:
+            return None, f"web search results disagree ({', '.join(dict.fromkeys(d for _u, d in pairs))})", n, len(urls)
+        if not domain_fits(best, company):
+            return None, f"{best} does not carry the company's name", n, len(urls)
+        return homepage(next(u for u, d in pairs if d == best)), best, n, len(urls)
+
+    async def find(self, company: str, context: str = "", unverified_ok: bool = False) -> tuple[str, str]:
+        """(homepage, how it was confirmed) or ("", why not).
+
+        `context` (the place asked for) is added to a second search when the first one does not settle it.
+        `unverified_ok`: for a company that already has proof, a homepage that cannot be read does not cost its
+        website when search agrees on it and its domain carries the name; the reason says it was not verified."""
         if not self.hub.configured:
             return "", "web search is not configured"
         if not name_words(company):
             return "", "the name has no distinctive word"
-        try:
-            urls = await self.search(f"{company} official website")
-        except SearchError as exc:
-            return "", str(exc)
-        domains = [registered_domain(u) for u in urls if normalize_url(u)]
-        domains = [d for d in domains if d and d not in NOT_COMPANY_SITES]
-        if not domains:
-            return "", "web search found nothing"
-        best, n = Counter(domains).most_common(1)[0]
-        if n < AGREE:
-            return "", f"web search results disagree ({', '.join(dict.fromkeys(domains))})"
-        if not domain_fits(best, company):
-            return "", f"{best} does not carry the company's name"
-        url = homepage(next(u for u in urls if registered_domain(u) == best))
-        text = await self.fetch_text(url)
-        if text is None:
-            return "", f"{best}'s homepage could not be read"
-        if not names_company(text, company):
-            return "", f"{best}'s homepage does not name {company}"
-        return url, f"web search ({n} of the top {len(urls)} results) and its homepage names it"
+        queries = [f"{company} official website"]
+        if context:
+            queries.append(f"{company} {context} official website")
+        why = ""
+        for query in queries:
+            url, best, n, total = await self._pick(company, query)
+            if url is None:
+                why = best
+                continue
+            url, text = await self._homepage_text(url)
+            if text is None:
+                if unverified_ok:
+                    return url, (f"web search ({n} of the top {total} results) and the name in its domain; "
+                                 "its homepage could not be read, so it is not verified")
+                why = f"{best}'s homepage could not be read"
+                continue
+            if not names_company(text, company):
+                why = f"{best}'s homepage does not name {company}"
+                continue
+            return url, f"web search ({n} of the top {total} results) and its homepage names it"
+        return "", why

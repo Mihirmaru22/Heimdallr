@@ -307,7 +307,7 @@ class SecFilingsProvider:
         if missing and self.fetch_text is not None and search_configured():
             finder = WebsiteFinder(client, get_settings().searxng_url, self.fetch_text)
             for ev in missing:
-                site, how = await finder.find(ev["company"])
+                site, how = await finder.find(ev["company"], unverified_ok=True)
                 ev["website"] = site
                 self._say("search" if site else "skipped", f"Website of {ev['company']}: "
                           + (f"{site} ({how})" if site else f"none taken ({how})"), site or None)

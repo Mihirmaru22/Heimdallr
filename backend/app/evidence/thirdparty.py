@@ -72,16 +72,22 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
         return [], f"not read: {judge.unavailable}"
     sentences = sentences[:MAX_SENTENCES]
     numbered = "\n".join(f"{i}. {s}" for i, s in enumerate(sentences, start=1))
+    messages = [{"role": "system", "content": SYSTEM},
+                {"role": "user", "content": f"Product: {product.name}\nPage: {url}\nTitle: {title}\n\n"
+                                            f"Sentences:\n{numbered}"}]
     try:
-        reply = await judge._ask([
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": f"Product: {product.name}\nPage: {url}\nTitle: {title}\n\n"
-                                        f"Sentences:\n{numbered}"}])
-        reading = Reading.model_validate(reply.json())
+        reply = await judge._ask(messages)
+        try:
+            reading = Reading.model_validate(reply.json())
+        except (ValueError, ValidationError):
+            # One free model answering in a broken shape says nothing about the page: ask another once, as the
+            # filing judge does. Without this, 12 of 70 pages in one measurement were never read.
+            reply = await judge._ask(messages, avoid=reply.model)
+            reading = Reading.model_validate(reply.json())
     except LLMUnavailable as exc:
         return [], f"not read: {exc}"
     except (ValueError, ValidationError):
-        return [], "not read: the model's answer could not be read"
+        return [], "not read: the model's answer could not be read (two models tried)"
     out: list[Found] = []
     for c in reading.customers[:MAX_CUSTOMERS * 2]:
         name = c.name.strip().strip(".,;:")

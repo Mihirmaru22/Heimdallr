@@ -73,9 +73,22 @@ class Judgement:
     one_reading: bool = False  # the use rests on one reading (no second could be made, or readings split)
 
 
-def rule_relationship(company: str, product: Product, quote: str) -> tuple[str, str] | None:
+def makes_product(company: str, product: Product) -> bool:
+    """The company is the product's maker: the product carries the company's name ("PTC" -> "PTC Windchill",
+    "Oracle Corporation" -> "Oracle NetSuite"), or a known maker of a product named inside it."""
+    from app.discovery.websites import name_words
+
+    words = set(name_words(company))
+    product_words = set(re.findall(r"[a-z0-9]+", product.name.lower()))
+    if words and words <= product_words:
+        return True
     name = company.lower()
-    if any(v in name for v in VENDORS.get(product.name.lower(), [])):
+    typed = f" {' '.join(re.findall(r'[a-z0-9/]+', product.name.lower()))} "
+    return any(v in name for key, makers in VENDORS.items() if f" {key} " in typed for v in makers)
+
+
+def rule_relationship(company: str, product: Product, quote: str) -> tuple[str, str] | None:
+    if makes_product(company, product):
         return "vendor", f"{company} makes {product.name}"
     if COMPETE_RE.search(quote):
         return "competitor", "the sentence is about competition"

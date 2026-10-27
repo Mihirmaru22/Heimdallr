@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html
+import io
+import logging
 import random
 import time
 from dataclasses import dataclass, field
@@ -14,8 +17,14 @@ from app.config import get_settings
 from app.crawl.netguard import BlockedDestination, check_url
 from app.crawl.urlnorm import normalize_url
 
+log = logging.getLogger("webdata.fetch")
+
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 TEXT_TYPES = HTML_TYPES + ("text/plain", "application/xml", "text/xml")
+PDF_TYPES = ("application/pdf",)
+# Documents a discovery source reads for proof: many case studies and customer stories are published as PDFs.
+DOCUMENT_TYPES = HTML_TYPES + PDF_TYPES
+MAX_PDF_PAGES = 40
 RETRY_STATUSES = {408, 425, 429, 500, 502, 503, 504}
 
 
@@ -54,6 +63,30 @@ class FetchResult:
     @property
     def is_html(self) -> bool:
         return self.content_type.split(";")[0].strip().lower() in HTML_TYPES
+
+    @property
+    def is_pdf(self) -> bool:
+        return self.content_type.split(";")[0].strip().lower() in PDF_TYPES or self.body[:5] == b"%PDF-"
+
+    def html(self) -> str:
+        """The page as HTML: a PDF's text becomes one paragraph per line, so it is read like any page."""
+        return pdf_html(self.body) if self.is_pdf else self.text
+
+
+def pdf_html(body: bytes) -> str:
+    """A PDF's text as a minimal HTML page ("" when it has no extractable text, e.g. a scanned image)."""
+    from pypdf import PdfReader
+
+    try:
+        reader = PdfReader(io.BytesIO(body))
+        title = str((reader.metadata or {}).get("/Title") or "")
+        lines = [line.strip() for page in reader.pages[:MAX_PDF_PAGES]
+                 for line in (page.extract_text() or "").splitlines()]
+    except Exception as exc:  # noqa: BLE001 - a broken PDF is a page without text, not a crash
+        log.info("PDF could not be read: %s", type(exc).__name__)
+        return ""
+    body_html = "".join(f"<p>{html.escape(line)}</p>" for line in lines if line)
+    return f"<html><head><title>{html.escape(title)}</title></head><body>{body_html}</body></html>" if body_html else ""
 
 
 class Fetcher:
@@ -117,10 +150,14 @@ class Fetcher:
                                        time.monotonic() - start,
                                        [(k.lower(), v) for k, v in resp.headers.multi_items()])
             except httpx.TimeoutException:
+                log.info("fetch timed out: %s", current)
                 raise FetchError("timeout", "timed out", retryable=True) from None
             except httpx.TransportError as exc:
                 if isinstance(exc.__cause__, BlockedDestination) or "non-public" in str(exc):
                     raise FetchError("blocked", str(exc), retryable=False) from None
+                # No HTTP response means no "HTTP Request" log line either: without this, a site that drops
+                # the connection leaves no trace at all.
+                log.info("fetch failed (%s: %s): %s", type(exc).__name__, str(exc)[:200], current)
                 raise FetchError("network", type(exc).__name__, retryable=True) from None
         raise FetchError("redirect", "too many redirects", retryable=False)
 

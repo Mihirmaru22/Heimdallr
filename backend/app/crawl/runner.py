@@ -7,6 +7,7 @@ stopped. No database transaction is held open while a page is being fetched.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -20,7 +21,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.config import get_settings
-from app.crawl.fetcher import Fetcher, FetchError
+from app.crawl.fetcher import DOCUMENT_TYPES, Fetcher, FetchError
 from app.crawl.netguard import BlockedDestination, check_url, make_client
 from app.crawl.politeness import LocalPoliteness, RedisPoliteness
 from app.crawl.robots import RobotsCache
@@ -75,6 +76,8 @@ REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year"
 # Proof columns: one piece of proof fills all of them, and the strongest piece wins (see proof_confidence).
 PROOF_KEYS = ("uses_technology", "evidence", "evidence_url", "evidence_date", "evidence_type")
 REGISTRY_METHODS = ("wikidata", "sec_edgar", "gleif", "sec_filings")
+PROOF_METHODS = ("case_studies", "news")  # sources whose page named the company and the product together
+PROOF_NAME_CONFIDENCE = 0.96  # above a page's JSON-LD name (0.95)
 LEASE = timedelta(minutes=5)
 SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
                 "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings",
@@ -83,6 +86,7 @@ RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the
 # A site whose homepage does not say where it is: this many of its own contact or about pages are read to find out.
 COUNTRY_PAGES = 3
 COUNTRY_CHECK = "country_check"  # the method of a page read to find where a company is based
+CANCEL_CHECK_EVERY = 5.0  # seconds between looks at the job's state while a discovery source works
 
 
 class JobCancelled(Exception):
@@ -142,6 +146,8 @@ class CrawlRunner:
             redis = aioredis.from_url(self.settings.redis_url)
         self.politeness = RedisPoliteness(redis, delay) if redis is not None else LocalPoliteness(delay)
         self.fetcher = Fetcher(self.client, self.politeness, resolver)
+        # Pages a discovery source reads for proof may be PDFs (case studies often are); crawled pages stay HTML.
+        self.doc_fetcher = Fetcher(self.client, self.politeness, resolver, allowed_types=DOCUMENT_TYPES)
         self.robots = RobotsCache(self.fetcher, self.settings.user_agent, self.settings.respect_robots)
         self.allowed_sites: set[str] = set()
         self.denied: set[str] = set()
@@ -247,7 +253,7 @@ class CrawlRunner:
                 if hasattr(provider, "fetch_page"):
                     provider.fetch_page = self.fetch_page
                 try:
-                    results = await provider.discover(self.spec)
+                    results = await self._discover_or_cancel(provider)
                     per_provider.append(results)
                     if provider.name != "seeds":
                         self.note("search", f"{label[0].upper()}{label[1:]} returned {len(results)} website(s)",
@@ -298,6 +304,25 @@ class CrawlRunner:
         self.allowed_sites |= {registered_domain(d) for d in self.spec.crawl.allowed_domains}
         return self.add_urls(items)
 
+    def _cancel_requested(self) -> bool:
+        with session_scope(self.org_id) as db:
+            job = db.get(CrawlJob, self.job_id)
+            return job is None or job.state == "cancel_requested"
+
+    async def _discover_or_cancel(self, provider) -> list:
+        """One source's results, stopping within seconds when the person cancels: a source can read for a
+        quarter of an hour, and a cancel used to wait for all of it (and then failed the job)."""
+        work = asyncio.ensure_future(provider.discover(self.spec))
+        while True:
+            done, _pending = await asyncio.wait({work}, timeout=CANCEL_CHECK_EVERY)
+            if done:
+                return work.result()
+            if self._cancel_requested():
+                work.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await work
+                raise JobCancelled()
+
     async def fetch_page(self, url: str) -> PageDoc | None:
         """A page for a discovery source, fetched like any crawled page: robots.txt respected, network rules
         checked. None when it cannot be read or has no text."""
@@ -310,10 +335,10 @@ class CrawlRunner:
         if not decision.allowed:
             return None
         try:
-            result = await self.fetcher.fetch(url)
+            result = await self.doc_fetcher.fetch(url)
         except FetchError:
             return None
-        return result, parse_page(normalize_url(result.final_url) or url, result.text)
+        return result, parse_page(normalize_url(result.final_url) or url, result.html())
 
     async def fetch_text(self, url: str) -> str | None:
         doc = await self.fetch_page(url)
@@ -538,7 +563,7 @@ class CrawlRunner:
             url_id = self._record_check_page(url, doc.url)
             if registered_domain(page.url) == site and not unreadable(page):
                 checked.append((url_id, result, page))
-        country, how = pages_country([doc] + [page for _id, _r, page in checked])
+        country, how = pages_country([doc] + [page for _id, _r, page in checked], self.spec.discovery.countries)
         wanted = self.spec.discovery.countries
         if country in wanted:
             return IN_COUNTRY, f"based in {country} ({how})", checked
@@ -685,6 +710,10 @@ class CrawlRunner:
                 elif row.method in REGISTRY_METHODS:
                     # A curated registry label beats what a page calls itself ("JNJ.com").
                     confidence = REGISTRY_CONFIDENCE.get(key, 0.7)
+                elif key == "company_name" and row.method in PROOF_METHODS:
+                    # The name the proof gives ("Manolo Blahnik") is the company the row is about; a page's own
+                    # metadata gave "THE MANOLO BLAHNIK ARCHIVES", "foliosociety" and "TECNI" instead.
+                    confidence = PROOF_NAME_CONFIDENCE
                 else:
                     confidence = 0.7
                 # The value came from the source (a Wikidata item, a list page), not from this page.
