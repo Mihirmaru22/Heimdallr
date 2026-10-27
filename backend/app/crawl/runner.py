@@ -20,7 +20,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.config import get_settings
-from app.crawl.fetcher import Fetcher, FetchError
+from app.crawl.fetcher import HTML_TYPES, Fetcher, FetchError
 from app.crawl.netguard import BlockedDestination, check_url, make_client
 from app.crawl.politeness import LocalPoliteness, RedisPoliteness
 from app.crawl.robots import RobotsCache
@@ -55,6 +55,7 @@ from app.extract.deterministic import (
     prefer_country_phones,
 )
 from app.extract.normalize import InvalidValue, normalize_value
+from app.extract.pdf import PDF_TYPES, pdf_html
 from app.extract.records import CONTACT_HINTS, _has_extractor
 from app.models import (
     CrawlJob,
@@ -142,9 +143,13 @@ class CrawlRunner:
             redis = aioredis.from_url(self.settings.redis_url)
         self.politeness = RedisPoliteness(redis, delay) if redis is not None else LocalPoliteness(delay)
         self.fetcher = Fetcher(self.client, self.politeness, resolver)
+        # Pages a discovery source reads (case studies, news) may be PDFs; crawled company pages stay HTML only.
+        self.doc_fetcher = Fetcher(self.client, self.politeness, resolver,
+                                   allowed_types=(*HTML_TYPES, "", *PDF_TYPES))
         self.robots = RobotsCache(self.fetcher, self.settings.user_agent, self.settings.respect_robots)
         self.allowed_sites: set[str] = set()
         self.denied: set[str] = set()
+        self.fetch_failures: dict[str, str] = {}  # url -> why it could not be fetched (http_403, robots...)
         self.sitemaps_done: set[str] = set()
         self.host_sem: dict[str, asyncio.Semaphore] = {}
         self.started = time.monotonic()
@@ -246,6 +251,8 @@ class CrawlRunner:
                     provider.fetch_text = self.fetch_text
                 if hasattr(provider, "fetch_page"):
                     provider.fetch_page = self.fetch_page
+                if hasattr(provider, "failures"):
+                    provider.failures = self.fetch_failures
                 try:
                     results = await provider.discover(self.spec)
                     per_provider.append(results)
@@ -301,19 +308,27 @@ class CrawlRunner:
     async def fetch_page(self, url: str) -> PageDoc | None:
         """A page for a discovery source, fetched like any crawled page: robots.txt respected, network rules
         checked. None when it cannot be read or has no text."""
-        got = await self._fetch_doc(url)
+        got = await self._fetch_doc(url, self.doc_fetcher)
         return None if got is None or unreadable(got[1]) else got[1]
 
-    async def _fetch_doc(self, url: str) -> tuple[Any, PageDoc] | None:
+    async def _fetch_doc(self, url: str, fetcher: Fetcher | None = None) -> tuple[Any, PageDoc] | None:
         """(fetch result, parsed page) under robots.txt and the network rules; None when nothing was fetched."""
         decision = await self.robots.check(url)
         if not decision.allowed:
+            self.fetch_failures[url] = "robots"
             return None
         try:
-            result = await self.fetcher.fetch(url)
-        except FetchError:
+            result = await (fetcher or self.fetcher).fetch(url)
+        except FetchError as exc:
+            self.fetch_failures[url] = exc.kind
             return None
-        return result, parse_page(normalize_url(result.final_url) or url, result.text)
+        text = result.text
+        if result.content_type.split(";")[0].strip().lower() in PDF_TYPES or result.body[:5] == b"%PDF-":
+            text = pdf_html(result.body)
+            if text is None:
+                self.fetch_failures[url] = "unreadable_pdf"
+                return None
+        return result, parse_page(normalize_url(result.final_url) or url, text)
 
     async def fetch_text(self, url: str) -> str | None:
         doc = await self.fetch_page(url)

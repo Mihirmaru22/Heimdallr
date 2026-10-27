@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 GENERAL, EVIDENCE, LOOKUP = "general", "evidence", "lookup"
 FAILS_BEFORE_OFF = 5
 COOLDOWN_SECONDS = 60.0
-MAX_HITS = 30
+MAX_HITS = 50
 TOP_UP_BELOW = 10  # the fallback engine is asked only when the others gave fewer distinct results than this
 
 
@@ -123,7 +123,7 @@ class TavilyBackend(Backend):
 
     async def search(self, client, query, page):
         resp = await client.post("https://api.tavily.com/search", headers={"Authorization": f"Bearer {self.api_key}"},
-                                 json={"query": query, "search_depth": "basic", "max_results": 10})
+                                 json={"query": query, "search_depth": "basic", "max_results": 20})  # same 1 credit
         self.check(resp, quota_codes=(432, 433))
         return [Hit(r.get("url", ""), r.get("title", ""), r.get("content", ""), self.name)
                 for r in resp.json().get("results", []) if r.get("url")]
@@ -141,7 +141,7 @@ class LinkupBackend(Backend):
                                  json={"q": query, "depth": "standard", "outputType": "searchResults"}, timeout=60)
         self.check(resp)
         return [Hit(r.get("url", ""), r.get("name", ""), (r.get("content") or "")[:400], self.name)
-                for r in resp.json().get("results", []) if r.get("type") == "text" and r.get("url")][:10]
+                for r in resp.json().get("results", []) if r.get("type") == "text" and r.get("url")][:20]
 
 
 class ExaBackend(Backend):
@@ -156,7 +156,7 @@ class ExaBackend(Backend):
 
     async def search(self, client, query, page):
         resp = await client.post("https://api.exa.ai/search", headers={"x-api-key": self.api_key},
-                                 json={"query": query, "type": "lite", "numResults": 10})
+                                 json={"query": query, "type": "lite", "numResults": 25})  # 1-25 results cost the same
         self.check(resp, quota_codes=(402,))
         return [Hit(r.get("url", ""), r.get("title", ""), "", self.name)
                 for r in resp.json().get("results", []) if r.get("url")]

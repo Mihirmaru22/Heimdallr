@@ -68,8 +68,8 @@ COUNT_RE = re.compile(r"\b(?:up to|at most|max(?:imum)?|top|find|list)\s+(\d{1,5
 # "companies that use Veeva Vault", "firms using SAP S/4HANA", "users of PTC Windchill": the product is the words
 # after a verb of use, up to the next clause ("with website", "in India", a comma). A grammar rule, not a product
 # list, so it reads any product a question names.
-TECH_STOP = r"(?=\s*(?:[,;:!?()]|\.(?:\s|$)|$)|\s+(?:with|and|for|to|in|at|across|from|as|so|including|plus|or|that|who|which|" \
-            r"giving|showing|along|based|headquartered|located|within)\b)"
+TECH_STOP = (r"(?=\s*(?:[,;:!?()]|\.(?:\s|$)|$)|\s+(?:with|and|for|to|in|at|across|from|as|so|including|plus|"
+             r"or|that|who|which|giving|showing|along|based|headquartered|located|within)\b)")
 TECH_RES = [
     re.compile(r"\b(?:use|uses|using|used|deploy|deploys|deployed|deploying|implement|implements|"
                r"implemented|implementing|adopt|adopts|adopted|rely on|relies on|standardi[sz]ed on|"

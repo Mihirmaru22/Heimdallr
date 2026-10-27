@@ -77,4 +77,6 @@ async def test_windows_of_three_months_reach_back_and_articles_are_read_like_cas
     assert windows[0] == ("20260703000000", "20261001000000") and windows[1][1] == windows[0][0]
     assert windows[-1][0] == "20251001000000"  # one year, no further
     assert len(p.evidence) == 1  # the syndicated copy was not read again
-    assert any("GDELT refused one search window" in n for n in p.notes)
+    # A window refused as "too many requests" is asked again after a pause instead of being skipped.
+    assert windows[2] == windows[1]
+    assert not any("GDELT refused one search window" in n for n in p.notes)

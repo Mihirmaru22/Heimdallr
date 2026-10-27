@@ -27,6 +27,49 @@ def document_text(html_or_text: str) -> str:
     return re.sub(r"\s+", " ", text.replace("\xa0", " ")).strip()
 
 
+SENTENCE_STOP = (".", "!", "?", ":")
+
+
+def _short(line: str) -> bool:
+    """A line of at most three words: a menu entry, a heading, a button, never a sentence on its own."""
+    return len(line.split()) <= 3
+
+
+def _block_bounds(text: str, start: int, end: int, at: int, at_end: int) -> tuple[int, int]:
+    """Narrow [start, end) around the mention at [at, at_end) to the lines of its own sentence.
+
+    Page text keeps one line per text node, so an inline link or bold word breaks a sentence over lines and a
+    menu is a run of short lines. A neighbouring line joins the quote unless a sentence ended before it, or it
+    is part of a run of short lines (a menu, a list of links). Set 1's quotes were menus ("Products Solutions
+    Customers ... uses Windchill") and the model then read them as naming nobody."""
+    if "\n" not in text[start:end]:
+        return start, end
+    line_start = text.rfind("\n", start, at) + 1 or start
+    line_start = max(line_start, start)
+    cur = line_start
+    while cur > start:
+        prev_start = max(text.rfind("\n", start, cur - 1) + 1, start)
+        prev = text[prev_start:cur - 1].strip()
+        before = text[max(text.rfind("\n", start, prev_start - 1) + 1, start):prev_start - 1].strip() \
+            if prev_start > start else ""
+        if not prev or prev.endswith(SENTENCE_STOP) or (_short(prev) and (not before or _short(before))):
+            break
+        cur = prev_start
+    new_start = cur
+    nl = text.find("\n", at_end, end)
+    new_end = end
+    while nl != -1:
+        line_end = text.find("\n", nl + 1, end)
+        line = text[nl + 1:line_end if line_end != -1 else end].strip()
+        after_end = text.find("\n", line_end + 1, end) if line_end != -1 else -1
+        after = text[line_end + 1:after_end if after_end != -1 else end].strip() if line_end != -1 else ""
+        if text[:nl].rstrip().endswith(SENTENCE_STOP) or not line or (_short(line) and (not after or _short(after))):
+            new_end = nl
+            break
+        nl = line_end
+    return new_start, new_end
+
+
 def find_mentions(text: str, product: Product, limit: int = 3) -> list[str]:
     """Up to `limit` distinct sentences that mention the product, in document order."""
     out: list[str] = []
@@ -44,8 +87,11 @@ def find_mentions(text: str, product: Product, limit: int = 3) -> list[str]:
             if end - m.end() > MAX_QUOTE // 2:
                 cut = text.rfind(" ", m.end(), m.end() + MAX_QUOTE // 2)
                 end = cut if cut != -1 else m.end()
-            quote = text[start:end].strip(" _•-–|")
+            start, end = _block_bounds(text, start, end, m.start(), m.end())
+            quote = text[start:end].strip(" _•-–|\n")
             # One quote per sentence: "SAP S/4HANA" and "S/4HANA" inside it are the same mention.
+            if _short(quote) and not quote.endswith(SENTENCE_STOP):
+                continue  # the product's name in a menu or a heading shows nobody using it
             if quote and quote not in out and not any(start < e and s < end for s, e in spans):
                 spans.append((start, end))
                 out.append(quote)

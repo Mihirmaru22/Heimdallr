@@ -22,12 +22,17 @@ from app.crawl.urlnorm import normalize_url, registered_domain
 from app.discovery.case_studies import MAX_PAGES, CaseStudiesProvider
 from app.discovery.providers import NOT_COMPANY_SITES, DiscoveryError
 from app.evidence.products import Product
+from app.search import Hit
 
 GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 WINDOW = timedelta(days=90)  # GDELT lists at most 3 months per search
 PER_WINDOW = 75  # articles asked for per window
 WANT = MAX_PAGES * 2  # candidates gathered before reading (some cannot be read or name nobody)
 PAUSE = 5.0  # seconds between requests, as GDELT asks
+# GDELT refuses a window with 429 / "limit requests" when another job on this address asked too recently (13 of
+# set 1's 20 windows). Such a window is asked again after a longer pause instead of being skipped.
+REFUSED_RETRIES = 2
+REFUSED_PAUSE = 15.0
 
 
 def gdelt_query(product: Product) -> str:
@@ -53,16 +58,20 @@ class NewsProvider(CaseStudiesProvider):
         self.years = years
         self.now = lambda: datetime.now(UTC)
 
-    async def search(self, client: httpx.AsyncClient, product: Product) -> list[str]:
+    async def search(self, client: httpx.AsyncClient, product: Product, places: list[str] | None = None,
+                     countries: list[str] | None = None) -> list[str]:
         query = gdelt_query(product)
         years = self.years or 3
-        pause = PAUSE if get_settings().env != "test" else 0
-        urls: list[str] = []
+        test = get_settings().env == "test"
+        pause = PAUSE if not test else 0
+        hits: list[Hit] = []
+        urls: set[str] = set()
         titles: set[str] = set()
         end = self.now()
         oldest = end - timedelta(days=365 * years)
         asked = 0
-        while end > oldest and len(urls) < WANT:
+        refused = 0
+        while end > oldest and len(hits) < WANT:
             start = max(oldest, end - WINDOW)
             if asked:
                 await asyncio.sleep(pause)
@@ -73,14 +82,20 @@ class NewsProvider(CaseStudiesProvider):
                     "sort": "hybridrel", "startdatetime": f"{start:%Y%m%d%H%M%S}",
                     "enddatetime": f"{end:%Y%m%d%H%M%S}"})
             except httpx.HTTPError as exc:
-                if urls:
+                if hits:
                     break
                 raise DiscoveryError(f"GDELT is not reachable ({type(exc).__name__})") from None
-            end = start
             try:
                 articles = resp.json().get("articles", []) if resp.status_code == 200 else None
             except ValueError:  # GDELT answers errors ("phrase too short", "limit requests") as plain text
                 articles = None
+            busy = resp.status_code == 429 or "limit requests" in resp.text[:300].lower()
+            if articles is None and busy and refused < REFUSED_RETRIES:
+                refused += 1
+                await asyncio.sleep(REFUSED_PAUSE * refused if not test else 0)
+                continue  # the same window again
+            refused = 0
+            end = start
             if articles is None:
                 self.notes.append(f"news: GDELT refused one search window ({resp.status_code}: "
                                   f"{resp.text[:120].strip()})")
@@ -91,10 +106,11 @@ class NewsProvider(CaseStudiesProvider):
                 title = " ".join((a.get("title") or "").lower().split())
                 if not url or not site or site in NOT_COMPANY_SITES or url in urls or (title and title in titles):
                     continue  # syndicated copies carry the same title
-                urls.append(url)
+                urls.add(url)
                 titles.add(title)
+                hits.append(Hit(url, a.get("title") or "", "", "gdelt"))
                 self.dates[url] = seen_date(a.get("seendate", ""))
-        return urls
+        return self._order(hits, places, countries)
 
     async def _context(self, product, d):
         return []  # GDELT is searched by the product's names alone
