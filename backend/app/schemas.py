@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 T = TypeVar("T")
 
@@ -101,8 +101,18 @@ class ProjectOut(ORM):
 
 
 class GenerateSchemaIn(BaseModel):
-    request: str = Field(min_length=3, max_length=5000)
+    """A question in plain words, a filled-in search form, or both (the form decides what it fills)."""
+    request: str = Field(default="", max_length=5000)
     start_urls: list[str] = Field(default_factory=list, max_length=500)
+    form: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _something_to_plan(self):
+        if len(self.request.strip()) < 3 and not (self.form and any(self.form.get(k) for k in
+                                                                     ("find", "conditions", "countries", "region",
+                                                                      "parent_company"))):
+            raise ValueError("Describe what you need, or fill in the search form")
+        return self
 
 
 class SchemaOut(ORM):

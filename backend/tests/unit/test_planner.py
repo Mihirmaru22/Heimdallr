@@ -113,3 +113,64 @@ def test_a_question_with_nothing_to_search_says_so_instead_of_promising_a_list()
                                                         "countries": ["DE"]}})
     (note,) = technology_notes(spec)
     assert note.startswith("Nothing can be searched")
+
+
+# --- the search form: a general plan, typed, never guessed ---------------------------------------
+
+async def test_a_form_is_the_plan_for_any_kind_of_search():
+    from app.spec.planner import SearchForm
+
+    no_model = FakeRouter(error=LLMUnavailable("no key"))
+    pizza = SearchForm.model_validate({"find": "restaurants", "conditions": [{"kind": "offers", "value": "pizza"}],
+                                       "countries": ["Italy", "fr"], "details": ["phone"]})
+    spec, by, _notes = await plan_spec("", [], no_model, form=pizza)
+    d = spec.discovery
+    assert by == "form" and d.industry == "restaurants" and d.keywords == ["pizza"] and d.countries == ["IT", "FR"]
+    assert d.technology is None and "phone" in [f.name for f in spec.fields]
+
+    role = SearchForm.model_validate({"find": "companies", "conditions": [{"kind": "has_role", "value": "plant head"}],
+                                      "countries": ["Germany", "Narnia"]})
+    spec, _by, notes = await plan_spec("", [], no_model, form=role)
+    assert spec.discovery.industry is None and spec.discovery.keywords == ["plant head"]
+    assert spec.discovery.countries == ["DE"] and any("Narnia" in n for n in notes)
+    assert any("role" in n for n in notes)
+
+
+async def test_a_form_with_a_product_gets_proof_sources_and_the_product_s_other_names():
+    from app.spec.planner import SearchForm
+
+    form = SearchForm.model_validate({"find": "insurance companies", "countries": ["United States"],
+                                      "conditions": [{"kind": "uses", "value": "Guidewire"}]})
+    router = FakeRouter({"aliases": ["Guidewire PolicyCenter", "Guidewire ClaimCenter"]})
+    spec, by, notes = await plan_spec("", [], router, form=form)
+    d = spec.discovery
+    assert by == "form" and d.technology == "Guidewire" and d.industry == "insurance" and d.countries == ["US"]
+    assert d.technology_aliases == ["Guidewire PolicyCenter", "Guidewire ClaimCenter"]
+    assert d.providers[:3] == ["sec_filings", "case_studies", "news"]
+    assert "uses_technology" in [f.name for f in spec.fields]
+    assert any("written proof" in n for n in notes)
+    # No model: the typed name alone, still a technology question.
+    spec, _by, _notes = await plan_spec("", [], FakeRouter(error=LLMUnavailable("no key")), form=form)
+    assert spec.discovery.technology == "Guidewire" and spec.discovery.technology_aliases == []
+
+
+async def test_the_question_fills_only_what_the_form_leaves_empty():
+    from app.spec.planner import SearchForm
+
+    form = SearchForm.model_validate({"find": "pharmaceutical companies"})
+    spec, by, _notes = await plan_spec("pharmaceutical companies in India that use Veeva Vault", [],
+                                       FakeRouter(error=LLMUnavailable("no key")), form=form)
+    d = spec.discovery
+    assert by == "form" and d.technology == "Veeva Vault" and d.countries == ["IN"] and d.industry == "pharmaceutical"
+
+
+def test_the_api_needs_a_question_or_a_form():
+    import pytest
+    from pydantic import ValidationError
+
+    from app.schemas import GenerateSchemaIn
+
+    with pytest.raises(ValidationError):
+        GenerateSchemaIn(request="")
+    assert GenerateSchemaIn(request="", form={"find": "restaurants"}).form == {"find": "restaurants"}
+    assert GenerateSchemaIn(request="pharma companies in india").form is None

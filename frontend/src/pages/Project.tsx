@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Job, type Page, type Preview, type Project, type Schema, type Spec } from "../api";
 import { Badge, Card, ErrorBox, when } from "../components/ui";
 import SchemaEditor from "../components/SchemaEditor";
+import SearchForm, { EMPTY_FORM, formFilled, formPayload, type SearchFormValue } from "../components/SearchForm";
 
 const EXAMPLES = [
   "pharmaceutical companies in India with their contact email, phone and headquarters",
@@ -22,6 +23,9 @@ export default function ProjectPage({ orgId }: { orgId: string }) {
     refetchInterval: 5000 });
 
   const [request, setRequest] = useState("");
+  const [form, setForm] = useState<SearchFormValue>(EMPTY_FORM);
+  const [showForm, setShowForm] = useState(false);
+  const useForm = showForm && formFilled(form);
   const [urls, setUrls] = useState("");
   const [selected, setSelected] = useState<Schema | null>(null);
   const [draft, setDraft] = useState<Spec | null>(null);
@@ -36,7 +40,7 @@ export default function ProjectPage({ orgId }: { orgId: string }) {
 
   const generate = useMutation({
     mutationFn: () => api.post<Schema>(`${base}/projects/${projectId}/schemas/generate`,
-      { request, start_urls: urls.split(/\s+/).filter(Boolean) }),
+      { request, start_urls: urls.split(/\s+/).filter(Boolean), form: useForm ? formPayload(form) : null }),
     onSuccess: (s) => { pick(s); refresh(); },
   });
   const save = useMutation({
@@ -66,15 +70,19 @@ export default function ProjectPage({ orgId }: { orgId: string }) {
       <Card title="1. Describe what you need">
         <textarea rows={3} placeholder={`Ask in your own words, e.g. "${EXAMPLES[0]}"`} value={request}
           onChange={(e) => setRequest(e.target.value)} />
+        <button className="link" onClick={() => setShowForm(!showForm)}>
+          {showForm ? "Hide the search form" : "Or fill in a search form (what to find, conditions, where, details)"}</button>
+        {showForm && <SearchForm value={form} onChange={setForm} />}
         <label>Starting websites (optional, space or line separated)
           <textarea rows={2} value={urls} onChange={(e) => setUrls(e.target.value)} placeholder="https://example.com" /></label>
         <div className="row">
-          <button className="primary" disabled={request.trim().length < 3 || generate.isPending} onClick={() => generate.mutate()}>
+          <button className="primary" disabled={(request.trim().length < 3 && !useForm) || generate.isPending} onClick={() => generate.mutate()}>
             {generate.isPending ? "Reading your question…" : "Plan the research"}</button>
           {EXAMPLES.map((ex, i) => <button key={ex} className="link" onClick={() => setRequest(ex)}>Example {i + 1}</button>)}
         </div>
         <p className="muted small">A free AI model reads your question into a plan (or simple rules, when no free model is
-          available). Nothing runs until you check the plan below and press Run.</p>
+          available); a filled-in form is used as the plan exactly as you typed it. Nothing runs until you check the plan
+          below and press Run.</p>
         {generate.data?.notes?.map((n) => <p key={n} className="warn small">{n}</p>)}
         <ErrorBox error={generate.error} />
       </Card>
@@ -86,7 +94,8 @@ export default function ProjectPage({ orgId }: { orgId: string }) {
                   {schemas.data.map((s) => <option key={s.id} value={s.id}>v{s.version} ({s.status})</option>)}
                 </select>)}>
           {selected.nl_request && <p className="muted">“{selected.nl_request}” · read by {selected.interpreter.startsWith("model:")
-            ? `free model ${selected.interpreter.slice(6)}` : selected.interpreter === "rules" ? "rules" : "you"}</p>}
+            ? `free model ${selected.interpreter.slice(6)}` : selected.interpreter === "rules" ? "rules"
+            : selected.interpreter === "form" ? "your search form" : "you"}</p>}
           <SchemaEditor spec={draft} onChange={(s) => { setDraft(s); setPreview(null); }} />
           <ErrorBox error={save.error || check.error || run.error} />
           <div className="row">

@@ -108,17 +108,22 @@ def generate_schema(project_id: uuid.UUID, body: GenerateSchemaIn, ctx: OrgConte
     """Turn a plain-language question into a draft spec: one free-model call, or the rules when none answers."""
     import asyncio
 
-    from app.spec.planner import plan_spec
+    from app.spec.planner import SearchForm, plan_spec
 
     get_in_org(db, Project, project_id, ctx.org.id, "project")
+    try:
+        form = SearchForm.model_validate(body.form) if body.form else None
+    except ValidationError as exc:
+        raise _spec_error(exc) from None
     # Sync endpoints run in a worker thread with no event loop, so the async planner gets its own.
-    draft, interpreter, notes = asyncio.run(plan_spec(body.request, body.start_urls))
+    draft, interpreter, notes = asyncio.run(plan_spec(body.request, body.start_urls, form=form))
     try:
         spec = validate_spec(draft.model_dump(mode="json"), org_limits(ctx.org))
     except (ValidationError, ValueError) as exc:
         raise _spec_error(exc) from None
+    question = body.request.strip() or (form.sentence() if form else "")
     s = ExtractionSchema(org_id=ctx.org.id, project_id=project_id, version=_next_version(db, project_id),
-                         nl_request=body.request, spec=spec.model_dump(mode="json"), status="draft",
+                         nl_request=question, spec=spec.model_dump(mode="json"), status="draft",
                          interpreter=interpreter[:64])
     db.add(s)
     if interpreter.startswith("model:"):
