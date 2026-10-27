@@ -24,7 +24,9 @@ from app.worker import tasks
 from ._util import client_ip, get_in_org
 
 router = APIRouter(prefix="/orgs/{org_id}", tags=["exports"])
-EXPORTABLE = {S.completed, S.partially_completed}
+# A failed run is exportable too: its Evidence, Rejected and Diagnostics sheets show what was found and why it was
+# dropped (set 1's Windchill run failed with 0 rows while holding Confirmed proof no one could see).
+EXPORTABLE = {S.completed, S.partially_completed, S.failed}
 
 
 def _out(org_id: uuid.UUID, exp: Export, user_id: uuid.UUID) -> ExportOut:
@@ -40,7 +42,7 @@ def create_export(job_id: uuid.UUID, body: ExportIn, request: Request, ctx: OrgC
                   db: Session = Depends(get_db)) -> ExportOut:
     job = get_in_org(db, CrawlJob, job_id, ctx.org.id, "job")
     if S(job.state) not in EXPORTABLE:
-        raise ApiError(409, "job_not_finished", "Export is available once the job has completed")
+        raise ApiError(409, "job_not_finished", "Export is available once the job has finished")
     exp = Export(org_id=ctx.org.id, job_id=job.id, requested_by=ctx.user.id, status="pending",
                  options=body.model_dump(mode="json"))
     db.add(exp)

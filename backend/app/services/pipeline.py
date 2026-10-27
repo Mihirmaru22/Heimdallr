@@ -25,7 +25,7 @@ from app.models import CrawlJob, DiscoveredUrl, ExtractionSchema, Organization, 
 from app.models import JobState as S
 from app.services.common import org_limits, record_usage
 from app.services.finalize import finalize_job
-from app.services.state_machine import log_event, transition
+from app.services.state_machine import IllegalTransition, log_event, transition
 from app.spec.models import validate_spec
 
 log = logging.getLogger("webdata.pipeline")
@@ -210,6 +210,17 @@ def _run(job_id: uuid.UUID, job: CrawlJob, org: Organization, schema: Extraction
     except JobCancelled:
         _cancelled(job_id, org_id)
         return S.cancelled.value
+    except IllegalTransition:
+        # Someone moved the job while this step ran: a cancel asked for mid-step is honoured, not a failure.
+        with session_scope(org_id) as db:
+            now = db.get(CrawlJob, job_id)
+            current = S(now.state) if now else None
+        if current == S.cancel_requested:
+            _cancelled(job_id, org_id)
+            return S.cancelled.value
+        log.exception("job %s changed state under the worker", job_id)
+        _move(job_id, org_id, S.failed, "The job changed state while it ran; see events", error="IllegalTransition")
+        return S.failed.value
     except DiscoveryError as exc:
         _move(job_id, org_id, S.failed, f"Discovery failed: {exc}", error=str(exc)[:2000])
         return S.failed.value

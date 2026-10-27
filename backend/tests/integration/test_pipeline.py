@@ -532,5 +532,30 @@ def test_a_site_with_addresses_in_two_countries_is_left_out_as_not_confirmed(db_
     status, reason = urls_by_status(job_id, org_id)[url("westwind.test")]
     assert status == "skipped" and reason == (
         "country not confirmed: could not confirm it is based in GB: structured addresses in several countries: "
-        f"US on {url('westwind.test', '/contact.html')}; GB on {url('westwind.test', '/about.html')}")
+        f"GB on {url('westwind.test', '/about.html')}; US on {url('westwind.test', '/contact.html')}")
     assert records(job_id, org_id) == []
+
+
+def test_a_cancel_asked_for_during_discovery_cancels_the_job(crawl_env, monkeypatch):
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+
+    url = crawl_env["url"]
+    asked = []
+
+    class Slow:
+        name = "searxng"
+
+        async def discover(self, spec):
+            with session_scope(bypass=True) as db:  # the person presses Cancel while this source reads
+                db.get(CrawlJob, job_id).state = "cancel_requested"
+            asked.append(self.name)
+            return [DiscoveryResult(url("westwind.test"), "searxng", {})]
+
+    class Next(Slow):
+        name = "wikidata"
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Slow(), Next()])
+    job_id, org_id = make_job([], discovery={"providers": ["searxng", "wikidata"], "industry": "cybersecurity"})
+    assert pipeline.run_job(job_id, resolver=crawl_env["resolver"]) == "cancelled"
+    assert asked == ["searxng"]  # the next source was not started

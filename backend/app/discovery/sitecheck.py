@@ -9,6 +9,7 @@ a model was unreachable.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Literal
 
@@ -59,10 +60,16 @@ def listing_reason(doc: PageDoc) -> str | None:
     return f"a listing or association site (title says {m.group(0)!r})" if m else None
 
 
+BUSY_WAIT = 20.0  # seconds before one more try when every free model was busy at once
+MAX_BUSY_IN_A_ROW = 5  # sites left unchecked in a row for busy models before checking stops for the run
+
+
 class SiteChecker:
-    def __init__(self, router: OpenRouter | None = None) -> None:
+    def __init__(self, router: OpenRouter | None = None, wait: float = BUSY_WAIT) -> None:
         self.router = router
+        self.wait = wait
         self.unavailable: str | None = None
+        self.busy_in_a_row = 0
 
     async def check(self, doc: PageDoc, spec: ExtractionSpec) -> tuple[str | None, str]:
         """(reason to drop the site or None to keep it, who decided: "rules", "model:<id>" or "unchecked: ...")."""
@@ -75,15 +82,29 @@ class SiteChecker:
         if self.unavailable:
             return None, f"unchecked: {self.unavailable}"
         text = f"Title: {doc.title}\nDescription: {doc.meta.get('description', '')}\n\n{doc.text[:1500]}"
+        messages = [{"role": "system", "content": SYSTEM},
+                    {"role": "user", "content": f"Industry: {subject}\nWebsite: {doc.url}\n\n{text}"}]
         try:
             self.router = self.router or OpenRouter()
-            reply = await self.router.chat([
-                {"role": "system", "content": SYSTEM},
-                {"role": "user", "content": f"Industry: {subject}\nWebsite: {doc.url}\n\n{text}"}],
-                json_mode=True, max_tokens=300)
+            try:
+                reply = await self.router.chat(messages, json_mode=True, max_tokens=300)
+            except LLMUnavailable as exc:
+                if not str(exc).startswith("no free model"):
+                    raise
+                # A moment when every free model is busy is not the end of checking: one site's check switched
+                # it off for the whole of set 1's Veeva run, which then kept an investing app, a ministry and a
+                # news site as pharma companies.
+                await asyncio.sleep(self.wait)
+                reply = await self.router.chat(messages, json_mode=True, max_tokens=300)
+            self.busy_in_a_row = 0
             verdict = Verdict.model_validate(reply.json())
         except LLMUnavailable as exc:
-            self.unavailable = str(exc)
+            if not str(exc).startswith("no free model"):
+                self.unavailable = str(exc)  # no key, switched off, the day's allowance used: for the run
+            else:
+                self.busy_in_a_row += 1
+                if self.busy_in_a_row >= MAX_BUSY_IN_A_ROW:
+                    self.unavailable = f"free models stayed busy: {exc}"
             return None, f"unchecked: {exc}"
         except (ValueError, ValidationError):
             return None, "unchecked: the model's answer could not be read"

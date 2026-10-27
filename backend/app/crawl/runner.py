@@ -86,6 +86,11 @@ COUNTRY_PAGES = 3
 COUNTRY_CHECK = "country_check"  # the method of a page read to find where a company is based
 
 
+CANCEL_CHECK_SECONDS = 5.0
+# Sources that name a company as written in its proof (SEC names are filing names, so not SEC).
+PROOF_METHODS = {"case_studies", "news"}
+
+
 class JobCancelled(Exception):
     pass
 
@@ -150,6 +155,8 @@ class CrawlRunner:
         self.allowed_sites: set[str] = set()
         self.denied: set[str] = set()
         self.fetch_failures: dict[str, str] = {}  # url -> why it could not be fetched (http_403, robots...)
+        self.discovering = False  # while discovery sources run, their notes also check for a cancel
+        self.cancel_checked = 0.0
         self.sitemaps_done: set[str] = set()
         self.host_sem: dict[str, asyncio.Semaphore] = {}
         self.started = time.monotonic()
@@ -164,6 +171,17 @@ class CrawlRunner:
         site = registered_domain(url) if url else data.pop("site", None)
         self.activity.append({"at": utcnow(), "message": message[:500],
                               "data": {"kind": kind, "site": site, "url": url, **data}})
+        if self.discovering and time.monotonic() - self.cancel_checked > CANCEL_CHECK_SECONDS:
+            # Discovery sources can read for half an hour; they report here, so a cancel is honoured within
+            # seconds instead of after discovery (set 1: the job ran on and then ended "failed").
+            self.cancel_checked = time.monotonic()
+            self._raise_if_cancelled()
+
+    def _raise_if_cancelled(self) -> None:
+        with session_scope(self.org_id) as db:
+            job = db.get(CrawlJob, self.job_id)
+            if job is None or job.state == "cancel_requested":
+                raise JobCancelled()
 
     def flush_activity(self) -> None:
         if not self.activity:
@@ -239,8 +257,10 @@ class CrawlRunner:
         by_site: dict[str, dict[str, Any]] = {}
         per_provider: list[list[Any]] = []
         flusher = asyncio.create_task(self._flush_every_second())  # sources that read documents report live
+        self.discovering = True
         try:
             for provider in providers_for(self.spec):
+                self._raise_if_cancelled()
                 label = SOURCE_NAMES.get(provider.name, provider.name)
                 if provider.name != "seeds":
                     self.note("search", self._discovery_line(provider.name), source=provider.name)
@@ -266,6 +286,7 @@ class CrawlRunner:
                 self.flush_activity()
                 notes += getattr(provider, "notes", [])
         finally:
+            self.discovering = False
             flusher.cancel()
         # Take results from the sources in turn (Wikidata, SEC, web search, Wikidata...), so the first
         # source cannot fill the whole budget on its own and every source contributes companies.
@@ -700,6 +721,10 @@ class CrawlRunner:
                     value = homepage(value)  # a registry pointing at an inner page names the site's root
                 if key in PROOF_KEYS:
                     confidence = proof_confidence(row.hint.get("uses_technology", ""), row.hint.get("_strength", 0))
+                elif key == "company_name" and row.method in PROOF_METHODS:
+                    # The name the proof itself uses, checked word for word on that page, beats what the site
+                    # calls itself in its tags ("THE MANOLO BLAHNIK ARCHIVES", "foliosociety" in set 1).
+                    confidence = 0.97
                 elif row.method in REGISTRY_METHODS:
                     # A curated registry label beats what a page calls itself ("JNJ.com").
                     confidence = REGISTRY_CONFIDENCE.get(key, 0.7)

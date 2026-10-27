@@ -80,3 +80,18 @@ async def test_the_models_answer_decides_not_the_kind_of_business():
 async def test_a_government_body_is_not_a_company_in_the_industry():
     agency = Router({"kind": "government_or_public_body", "in_industry": None, "reason": "national regulator"})
     assert "government or public body" in (await SiteChecker(agency).check(page("Regulator"), SPEC))[0]
+
+
+async def test_a_busy_moment_is_waited_out_and_does_not_switch_checking_off():
+    class Busy(Router):
+        async def chat(self, messages, **_kw):
+            self.calls += 1
+            if self.calls % 3 != 0:  # busy, busy, then an answer
+                raise LLMUnavailable("no free model answered: a: rate limited")
+            return Reply(json.dumps({"kind": "news_or_blog", "in_industry": False}), "m:free")
+
+    checker = SiteChecker(Busy(), wait=0)
+    reason, by = await checker.check(page("Indian Pharma Post"), SPEC)
+    assert reason is None and by.startswith("unchecked") and checker.unavailable is None
+    reason, by = await checker.check(page("Indian Pharma Post"), SPEC)
+    assert "news or blog" in reason and by == "model:m:free"
