@@ -127,3 +127,18 @@ def test_addresses_in_several_countries_do_not_say_where_the_headquarters_is():
         None, "structured addresses in several countries: GB on https://acme.com/contact; US on https://acme.com/about")
     assert pages_country([home, page("/contact", "GB"), page("/legal", "GB")]) == (
         "GB", "structured address on https://acme.com/contact, https://acme.com/legal")
+
+
+def test_national_numbers_count_for_a_country_asked_for_and_a_labelled_headquarters_settles_a_directory():
+    from app.discovery.relevance import pages_country
+
+    home = _doc("https://lick.com/", "<p>Paint and wallpaper</p>")
+    contact = _doc("https://lick.com/contact", "<p>Call us on 020 7946 0958 or 0161 496 0000</p>")
+    assert pages_country([home, contact]) == (None, "")  # nothing asked for: a national number names no country
+    country, how = pages_country([home, contact], ["GB"])
+    assert country == "GB" and "2 phone number(s)" in how
+    offices = _doc("https://bsci.com/contact", "<p>Global Headquarters</p><p>300 Boston Scientific Way, "
+                   "Marlborough, MA</p><p>+1 508 683 4000</p><p>Europe office +33 1 39 30 49 00</p>"
+                   "<p>Japan office +81 3 6853 1000</p>")
+    country, how = pages_country([_doc("https://bsci.com/", "x"), offices], ["US"])
+    assert country == "US" and "headquarters" in how

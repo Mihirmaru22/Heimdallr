@@ -89,15 +89,18 @@ def outside_countries_reason(doc: PageDoc, spec: ExtractionSpec, method: str, hi
     return why if status in (OUTSIDE_COUNTRY, COUNTRY_UNKNOWN) else None
 
 
-def pages_country(docs: list[PageDoc]) -> tuple[str | None, str]:
+def pages_country(docs: list[PageDoc], wanted: tuple[str, ...] | list[str] = ()) -> tuple[str | None, str]:
     """(ISO country, where it was read) from a homepage plus the company's own contact or about pages.
 
     The same evidence as `site_country`, in the same order, over several pages: structured addresses when
     they all give one country, then a country-code domain, then the phone numbers of all pages together when
     they all belong to one country. Addresses or numbers in several countries settle nothing: a branch office
-    looks like the headquarters, and a multinational's contact page lists its regional offices. Contact pages
-    often write their numbers as plain text ("+44 (0) 845 838 2050"), so numbers written with their country
-    code count too, not only tel: links. A page's words ("UK", "London") are never read as a location.
+    looks like the headquarters, and a multinational's contact page lists its regional offices; then only a
+    number under the site's own headquarters heading settles it. Contact pages often write their numbers as plain
+    text, with their country code ("+44 (0) 845 838 2050") or the national way for callers in the country
+    ("020 7946 0958"); the latter counts for a country asked for (`wanted`) when it is a valid number there (set 1
+    lost Lick and Emerald Technology, UK firms with only national numbers). A page's words ("UK", "London") are
+    never read as a location.
     """
     addresses: dict[str, list[str]] = {}  # country -> pages with a structured address there
     for doc in docs:
@@ -117,20 +120,84 @@ def pages_country(docs: list[PageDoc]) -> tuple[str | None, str]:
     numbers: dict[str, str] = {}
     where: dict[str, set[str]] = {}
     for doc in docs:
-        for cand in _phones(doc):
-            if not str(cand.value).startswith("+"):
-                continue
-            try:
-                region = phonenumbers.region_code_for_number(phonenumbers.parse(cand.value, None))
-            except phonenumbers.NumberParseException:
-                continue
-            if region and region != "ZZ":
-                numbers[cand.value] = region
-                where.setdefault(region, set()).add(doc.url)
+        for number, region in _numbers(doc, wanted):
+            numbers[number] = region
+            where.setdefault(region, set()).add(doc.url)
     if len(set(numbers.values())) == 1:  # a contact page listing several countries is an office directory
         (iso,) = set(numbers.values())
         return iso, f"{len(numbers)} phone number(s) on {', '.join(sorted(where[iso]))}"
+    if len(set(numbers.values())) > 1:
+        # An office directory: the first number under the site's own headquarters heading settles it.
+        head: dict[str, set[str]] = {}
+        for doc in docs:
+            for m in HQ_LABEL.finditer(doc.text):
+                window = doc.text[m.end():m.end() + HQ_WINDOW]
+                first = min(_text_numbers(window, wanted), key=lambda nr: _at(window, nr[0]), default=None)
+                if first:
+                    head.setdefault(first[1], set()).add(doc.url)
+        if len(head) == 1:
+            ((iso, urls),) = head.items()
+            return iso, f"the phone number under its headquarters' heading on {', '.join(sorted(urls))}"
     return None, ""
+
+
+# A heading or label for the company's own main office, in the languages of the countries asked for most.
+HQ_LABEL = re.compile(r"\b(?:global |corporate |world(?:wide)? )?(?:headquarters|head ?office|registered office|"
+                      r"corporate office|main office|hauptsitz|firmensitz|siège social|sede (?:central|legal)|"
+                      r"hoofdkantoor|registered address)\b", re.I)
+HQ_WINDOW = 300  # characters after the label where its address and number are
+
+
+def _at(text: str, e164: str) -> int:
+    """Where a number written any way ("+1 508 683 4000", "(508) 683-4000") first appears in the text."""
+    digits = e164.lstrip("+")
+    flat, index = "", []
+    for i, ch in enumerate(text):
+        if ch.isdigit():
+            flat += ch
+            index.append(i)
+    for tail in (digits, digits[-10:], digits[-9:]):
+        k = flat.find(tail)
+        if k != -1:
+            return index[k]
+    return len(text)
+
+
+def _text_numbers(text: str, wanted: tuple[str, ...] | list[str]) -> list[tuple[str, str]]:
+    """Valid phone numbers written in the text, with their country: "+44 20 7946 0958", and numbers written the
+    national way ("020 7946 0958") when they are valid numbers of a country asked for. A national number is
+    written for callers inside that country; a + number names its country itself."""
+    out: list[tuple[str, str]] = []
+    for region in [*wanted[:3], None] if wanted else [None]:
+        try:
+            matches = list(phonenumbers.PhoneNumberMatcher(text[:50_000], region or "ZZ",
+                                                           leniency=phonenumbers.Leniency.VALID))
+        except Exception:  # noqa: BLE001 - a malformed page is no evidence
+            continue
+        for m in matches:
+            r = phonenumbers.region_code_for_number(m.number)
+            if r and r != "ZZ":
+                out.append((phonenumbers.format_number(m.number, phonenumbers.PhoneNumberFormat.E164), r))
+    return out
+
+
+def _numbers(doc: PageDoc, wanted: tuple[str, ...] | list[str]) -> list[tuple[str, str]]:
+    """The page's phone numbers (tel: links, structured data, text) with their countries."""
+    out: list[tuple[str, str]] = []
+    for cand in _phones(doc):
+        value = str(cand.value)
+        for region in ([None] if value.startswith("+") else list(wanted[:3])):
+            try:
+                num = phonenumbers.parse(value, region)
+            except phonenumbers.NumberParseException:
+                continue
+            if not value.startswith("+") and not phonenumbers.is_valid_number(num):
+                continue
+            r = phonenumbers.region_code_for_number(num)
+            if r and r != "ZZ":
+                out.append((phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164), r))
+                break
+    return out + _text_numbers(doc.text, wanted)
 
 
 def industry_terms(industry: str) -> list[str]:

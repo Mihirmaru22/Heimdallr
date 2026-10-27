@@ -536,8 +536,11 @@ class CrawlRunner:
         result's own page on the site is read first: what search said is a clue to where to look, never the
         answer. Also returns the pages read (row id, fetch result, page), to be kept if the site is."""
         hits = [normalize_url(h.get("url", "")) for h in hint.get("_search") or []]
+        # Legal notices and about pages state the registered office; contact pages are often support forms or
+        # office directories (Boston Scientific's were), so they come last.
+        order = ("impressum", "imprint", "legal", "about", "kontakt", "contact")
         contact = sorted((link for link, _text in doc.links if _page_rank(link, []) == 0),
-                         key=lambda u: next(i for i, k in enumerate(CONTACT_HINTS) if k in u.lower()))
+                         key=lambda u: next((i for i, k in enumerate(order) if k in u.lower()), len(order)))
         pages = [u for u in dict.fromkeys(hits + contact)
                  if u and u != doc.url and registered_domain(u) == site and looks_like_page(u)][:COUNTRY_PAGES]
         checked: list[tuple[uuid.UUID, Any, PageDoc]] = []
@@ -553,7 +556,7 @@ class CrawlRunner:
             url_id = self._record_check_page(url, doc.url)
             if registered_domain(page.url) == site and not unreadable(page):
                 checked.append((url_id, result, page))
-        country, how = pages_country([doc] + [page for _id, _r, page in checked])
+        country, how = pages_country([doc] + [page for _id, _r, page in checked], self.spec.discovery.countries)
         wanted = self.spec.discovery.countries
         if country in wanted:
             return IN_COUNTRY, f"based in {country} ({how})", checked
