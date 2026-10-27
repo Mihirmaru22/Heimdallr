@@ -35,7 +35,10 @@ FUNDED_DAILY = 1000  # once 10 credits have ever been bought (it does not depend
 PER_MINUTE = 20
 CATALOG_TTL = 6 * 3600
 MODEL_COOLDOWN = 600  # seconds a failing model is skipped
-MAX_MODELS_PER_CALL = 3
+MAX_MODELS_PER_CALL = 3  # models a call may wait on (busy, empty, network); refusals don't count
+# A model that refuses our key outright (401/403/404, e.g. "agentic harnesses only" or no free endpoint left)
+# refuses it again on the next call, so it is skipped for the rest of the UTC day rather than ten minutes.
+REFUSED = {401, 403, 404, 405, 410}  # not 400/422: those can be this one request (too long, a format)
 # Free models built for one narrow job (moderation, code, embeddings) are no use for reading web pages.
 SPECIALIZED_RE = re.compile(r"safety|guard|moderat|code|coder|embed|rerank|tts|audio|ocr", re.I)
 # Room for a reasoning model's thinking before its answer; with too little, the answer comes back empty.
@@ -276,9 +279,11 @@ class OpenRouter:
             raise PaidModelError(problem)
 
     async def chat(self, messages: list[dict[str, str]], *, json_mode: bool = False, max_tokens: int = 1200,
-                   temperature: float = 0.0, avoid: str | None = None) -> Reply:
+                   temperature: float = 0.0, avoid: str | None = None,
+                   max_models: int = MAX_MODELS_PER_CALL) -> Reply:
         """One completion from the best available free model, trying the next free model if one fails.
-        `avoid` puts that model last, for a second opinion from a different one."""
+        `avoid` puts that model last, for a second opinion from a different one. Up to `max_models` models
+        that were busy or failing are tried; models that refuse the request outright are skipped past."""
         await self._check_allowance()
         state = self._state()
         candidates = [m for m in await self.free_models() if not state.cooling(m)]
@@ -289,8 +294,12 @@ class OpenRouter:
         http = await self._http()
         tried: list[str] = []
         problems: list[str] = []
-        for model in candidates[:MAX_MODELS_PER_CALL]:
+        waited = 0  # models that took a real attempt (busy, empty, network, answered)
+        for model in candidates:
+            if waited >= max_models:
+                break
             tried.append(model)
+            waited += 1
             # Reasoning models spend tokens thinking first, so the limit has a floor, and their thinking is
             # left out of the reply (`exclude`) since only the answer is used.
             payload: dict[str, Any] = {"model": model, "messages": messages,
@@ -323,6 +332,15 @@ class OpenRouter:
             if resp.status_code == 402:
                 # Free models can refuse a key whose balance went negative; never top up from here.
                 raise LLMUnavailable("OpenRouter refused the request (402: the account balance is negative)")
+            code = str((error or {}).get("code") or "")
+            status = resp.status_code if resp.status_code != 200 else (int(code) if code.isdigit() else 0)
+            if status in REFUSED:
+                # Refused at once and for good (today): skip it for the day and don't count it as a wait.
+                state.count_failure(model, f"http_{status}")
+                state.cool_down(model, _seconds_to_midnight())
+                problems.append(f"{model}: HTTP {status} {str((error or {}).get('message', ''))[:120]}")
+                waited -= 1
+                continue
             if resp.status_code != 200 or error:
                 state.count_failure(model, f"http_{resp.status_code}")
                 state.cool_down(model)

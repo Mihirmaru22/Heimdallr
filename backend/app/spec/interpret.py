@@ -65,6 +65,35 @@ US_RE = re.compile(r"\b(?:in|from|across|based in|headquartered in)\s+(?:the\s+)
 URL_RE = re.compile(r"https?://[^\s,;'\")<>]+", re.I)
 DOMAIN_RE = re.compile(r"(?<![@\w.-])((?:[a-z0-9-]+\.)+[a-z]{2,24})(?![\w-])", re.I)
 COUNT_RE = re.compile(r"\b(?:up to|at most|max(?:imum)?|top|find|list)\s+(\d{1,5})\b", re.I)
+# "companies that use Veeva Vault", "firms using SAP S/4HANA", "users of PTC Windchill": the product is the words
+# after a verb of use, up to the next clause ("with website", "in India", a comma). A grammar rule, not a product
+# list, so it reads any product a question names.
+TECH_STOP = r"(?=\s*(?:[,;:!?()]|\.(?:\s|$)|$)|\s+(?:with|and|for|to|in|at|across|from|as|so|including|plus|or|that|who|which|" \
+            r"giving|showing|along|based|headquartered|located|within)\b)"
+TECH_RES = [
+    re.compile(r"\b(?:use|uses|using|used|deploy|deploys|deployed|deploying|implement|implements|"
+               r"implemented|implementing|adopt|adopts|adopted|rely on|relies on|standardi[sz]ed on|"
+               r"migrated to|switched to|went live on|run on|runs on|running on|built on)\s+"
+               r"(?:on\s+)?(?:the\s+)?(.+?)" + TECH_STOP, re.I),
+    re.compile(r"\b(?:users|customers|clients|adopters) of\s+(?:the\s+)?(.+?)" + TECH_STOP, re.I),
+]
+# What follows a verb of use but is not a product ("companies that use their own data", "use it").
+NOT_TECH = {"it", "them", "this", "that", "these", "those", "their", "its", "our", "your", "my", "any", "all",
+            "some", "something", "anything", "a", "an"}
+
+
+def find_technology(request: str) -> str | None:
+    """The product a question asks about, read from its grammar ("... that use <product> ..."), or None."""
+    for rx in TECH_RES:
+        for m in rx.finditer(request):
+            phrase = m.group(1).strip(" '\"")
+            words = phrase.split()
+            if not words or len(words) > 6 or words[0].lower() in NOT_TECH:
+                continue
+            return phrase[:100]
+    return None
+
+
 INDUSTRY_RE = re.compile(r"\b(?:find|list|collect|get)\s+(?:up to\s+\d+\s+|\d+\s+)?([a-z][a-z \-]{1,40}?)\s+"
                          r"(?:companies|company|firms|vendors|startups|businesses)", re.I)
 

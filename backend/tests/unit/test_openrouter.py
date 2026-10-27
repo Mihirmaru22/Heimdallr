@@ -167,3 +167,17 @@ async def test_an_empty_answer_moves_on_and_every_failure_is_reported():
     assert "small/model-8b:free: empty reply" in str(exc.value)
     # A reasoning model gets room to think before it answers, and its thinking is not sent back.
     assert sent[0]["max_tokens"] >= 1024 and sent[0]["reasoning"] == {"effort": "low", "exclude": True}
+
+
+async def test_a_model_that_refuses_the_key_is_skipped_for_the_day_and_costs_no_wait():
+    def handler(request):
+        model = httpx.Response(200, content=request.content).json()["model"]
+        if model == "good/model-70b:free":
+            return httpx.Response(403, json={"error": {"code": 403, "message": "agentic harnesses only"}})
+        return answer(model)
+    router, _ = gateway(handler)
+    # One model may be waited on, but a refusal is not a wait: the next model still gets its turn.
+    reply = await router.chat([{"role": "user", "content": "hi"}], max_models=1)
+    assert reply.model == "small/model-8b:free"
+    assert router.state.stats()["good/model-70b:free"]["http_403"] == 1
+    assert router.state.cooling("good/model-70b:free")

@@ -113,3 +113,47 @@ def test_a_question_with_nothing_to_search_says_so_instead_of_promising_a_list()
                                                         "countries": ["DE"]}})
     (note,) = technology_notes(spec)
     assert note.startswith("Nothing can be searched")
+
+
+async def test_without_a_model_a_product_question_keeps_its_product():
+    # Veeva Vault in India came back as 26 unproven pharma companies when the rules dropped the product.
+    question = ("List pharmaceutical companies in India that use Veeva Vault, with company name, website and "
+                "the link proving they use it")
+    spec, by, notes = await plan_spec(question, [], FakeRouter(error=LLMUnavailable("no key")), wait=0)
+    d = spec.discovery
+    assert by == "rules" and d.technology == "Veeva Vault" and d.countries == ["IN"]
+    assert d.industry == "pharmaceutical" and "case_studies" in d.providers
+    assert any(f.name == "uses_technology" for f in spec.fields)
+    assert any("Veeva Vault" in n for n in notes)
+
+
+class BusyThenAnswers(FakeRouter):
+    def __init__(self, answer):
+        super().__init__(answer)
+        self.calls = []
+
+    async def chat(self, messages, **kw):
+        self.calls.append(kw)
+        if len(self.calls) == 1:
+            raise LLMUnavailable("no free model answered: a: rate limited")
+        if len(self.calls) == 2:
+            return Reply("not json", "first/model:free")
+        return await super().chat(messages, **kw)
+
+
+async def test_planning_waits_out_a_busy_moment_and_asks_another_model_after_a_broken_answer():
+    router = BusyThenAnswers({"rows": "companies", "technology": "Windchill", "countries": ["US"]})
+    spec, by, _notes = await plan_spec("companies in the US that use PTC Windchill", [], router, wait=0)
+    assert by.startswith("model:") and spec.discovery.technology == "Windchill"
+    assert router.calls[2]["avoid"] == "first/model:free"
+
+
+def test_the_product_is_read_from_the_grammar_of_any_question():
+    from app.spec.interpret import find_technology
+
+    assert find_technology("companies in the UK that use Oracle NetSuite, with website") == "Oracle NetSuite"
+    assert find_technology("firms using SAP S/4HANA in Germany") == "SAP S/4HANA"
+    assert find_technology("users of PTC Windchill in the US") == "PTC Windchill"
+    assert find_technology("companies that run on Salesforce.") == "Salesforce"
+    assert find_technology("pharma companies in india with phone") is None
+    assert find_technology("companies that use their own fleet") is None

@@ -9,6 +9,7 @@ reader (interpret.py) is used instead and the person is told why.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any, Literal
 
@@ -16,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from app.evidence.site import PROOF_PAGES
 from app.llm.openrouter import LLMUnavailable, OpenRouter
-from app.spec.interpret import FIELD_CATALOG, interpret, is_tech_niche
+from app.spec.interpret import FIELD_CATALOG, find_technology, interpret, is_tech_niche
 from app.spec.models import ExtractionSpec, FieldSpec, FieldType, Semantic
 
 # Columns of a technology question: the verdict and the proof behind it, one row per company.
@@ -215,15 +216,53 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
     return notes
 
 
-async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | None = None
-                    ) -> tuple[ExtractionSpec, str, list[str]]:
+PLAN_RETRY_WAIT = 20.0  # seconds before planning is asked once more when every free model was busy
+PLAN_MODELS = 6  # a question is read once per job, so it may wait on more models than a page check
+
+
+def rules_plan(question: str, start_urls: list[str]) -> Plan | None:
+    """A plan read with rules alone, for a question that names a product. Without it, a product question read
+    by the rules lost its product and became a plain industry list (Veeva Vault in India: 26 unproven rows)."""
+    technology = find_technology(question)
+    if not technology:
+        return None
+    base = interpret(question, start_urls)
+    d = base.discovery
+    return Plan(rows="companies", industry=d.industry, technology=technology, countries=d.countries,
+                region=d.region, max_results=None,
+                details=[f.name for f in base.fields if f.name in DETAILS])
+
+
+def _rules(question: str, start_urls: list[str], why: str) -> tuple[ExtractionSpec, str, list[str]]:
+    plan = rules_plan(question, start_urls)
+    if plan is None:
+        return interpret(question, start_urls), "rules", [why]
+    spec = spec_from_plan(plan, question, start_urls)
+    return spec, "rules", [why, f"The rules read the product as {plan.technology!r}; check it before running.",
+                           *technology_notes(spec)]
+
+
+async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | None = None,
+                    wait: float = PLAN_RETRY_WAIT) -> tuple[ExtractionSpec, str, list[str]]:
     """(spec, who read it: "model:<id>" or "rules", notes for the person)."""
     own = router is None
     router = router or OpenRouter()
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question[:4000]}]
     try:
-        reply = await router.chat([{"role": "system", "content": SYSTEM},
-                                   {"role": "user", "content": question[:4000]}], json_mode=True, max_tokens=800)
-        plan = Plan.model_validate(reply.json())
+        try:
+            reply = await router.chat(messages, json_mode=True, max_tokens=800, max_models=PLAN_MODELS)
+        except LLMUnavailable as exc:
+            if not str(exc).startswith("no free model"):
+                raise  # no key, switched off, the day's allowance used: waiting won't help
+            await asyncio.sleep(wait)  # every free model was busy at once: one more try after a pause
+            reply = await router.chat(messages, json_mode=True, max_tokens=800, max_models=PLAN_MODELS)
+        try:
+            plan = Plan.model_validate(reply.json())
+        except (ValueError, ValidationError):
+            # One model answering in a broken shape says nothing about the question: ask a different one once.
+            reply = await router.chat(messages, json_mode=True, max_tokens=800, max_models=PLAN_MODELS,
+                                      avoid=reply.model)
+            plan = Plan.model_validate(reply.json())
         spec = spec_from_plan(plan, question, start_urls)
         notes = []
         if plan.technology and plan.rows == "companies":
@@ -236,15 +275,14 @@ async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | N
                          "where a page labels them, until model reading arrives in a later step.")
         return spec, f"model:{reply.model}", notes
     except LLMUnavailable as exc:
-        return interpret(question, start_urls), "rules", [f"Read with rules because no free model was available: "
-                                                          f"{exc}"]
+        return _rules(question, start_urls, f"Read with rules because no free model was available: {exc}")
     except (ValueError, ValidationError) as exc:
         reason = type(exc).__name__ if not isinstance(exc, ValidationError) else "the plan did not fit the form"
-        return interpret(question, start_urls), "rules", [f"Read with rules because the model's answer could not "
-                                                          f"be used ({reason})."]
+        return _rules(question, start_urls, f"Read with rules because the model's answer could not be used "
+                                            f"({reason}).")
     except Exception as exc:  # noqa: BLE001 - Redis down, network: the form must still work with the rules
-        return interpret(question, start_urls), "rules", [f"Read with rules because model reading failed "
-                                                          f"({type(exc).__name__})."]
+        return _rules(question, start_urls, f"Read with rules because model reading failed "
+                                            f"({type(exc).__name__}).")
     finally:
         if own:
             await router.aclose()
