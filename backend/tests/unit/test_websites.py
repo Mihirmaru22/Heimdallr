@@ -37,3 +37,20 @@ def test_name_checks():
     assert not domain_fits("bloomberg.com", "CommScope Holding Company, Inc.")
     assert names_company("Welcome to CommScope", "CommScope Holding Company, Inc.")
     assert not names_company("Welcome to Vistance", "CommScope Holding Company, Inc.")
+
+
+async def test_one_brand_on_several_domains_agrees_and_its_homepage_is_tried_over_https_and_www():
+    urls = ["http://enersys.com/", "https://www.enersys.com.pl/", "https://www.enersys.de/",
+            "https://www.ensercorp.com/", "https://www.enersys.com/en/"]
+    pages = {"https://www.enersys.com/": "EnerSys | Stored energy solutions"}
+    site, how = await finder(urls, pages).find("EnerSys")
+    assert site == "https://www.enersys.com/" and "homepage names it" in how
+
+
+async def test_when_the_agreed_domain_is_another_company_the_next_one_carrying_the_name_is_checked():
+    urls = ["https://www.grs.com/", "https://www.grs.com/a", "https://www.grs.com/b",
+            "https://www.grsbuildingsupplies.co.uk/", "https://www.yell.com/grs"]
+    pages = {"https://grs.com/": "GRS Roadstone", "https://grsbuildingsupplies.co.uk/":
+             "GRS Building Supplies, builders merchant in Kent"}
+    site, _how = await finder(urls, pages).find("GRS Building Supplies")
+    assert site == "https://grsbuildingsupplies.co.uk/"
