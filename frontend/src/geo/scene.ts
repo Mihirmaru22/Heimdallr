@@ -168,6 +168,9 @@ export class GlobeScene {
   private zoomNow = 1;
   private userUntil = 0;
   // Adaptive quality: bloom and pixel ratio step down when frames run slow.
+  // Horizon framing: the globe is drawn much larger than the view with its top edge at this fraction of the
+  // height, like a planet rising, while the canvas stays the size of the view.
+  private horizon: number | null = null;
   private quality = 2;
   private useBloom = true;
   private slow = 0;
@@ -184,9 +187,10 @@ export class GlobeScene {
   private cleanup: (() => void)[] = [];
   private tmp = new THREE.Vector3();
 
-  constructor(host: HTMLElement, opts: { demo?: boolean; labels?: boolean } = {}) {
+  constructor(host: HTMLElement, opts: { demo?: boolean; labels?: boolean; horizon?: number } = {}) {
     this.host = host;
     this.demo = !!opts.demo;
+    this.horizon = opts.horizon ?? null;
     this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio));
@@ -786,10 +790,17 @@ export class GlobeScene {
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     this.bloom.resolution.set(w / 2, h / 2);
-    this.uniforms.uHeight.value = h;
     this.camera.aspect = w / h;
     // Keep the whole globe in view on tall, narrow screens.
     this.distance = w / h < 1 ? 4.6 / Math.max(0.55, w / h) : 4.6;
+    let k = 1;
+    if (this.horizon != null) {
+      // Globe about 1.3x the view's width; at k = 1 it spans ~0.76 of the height with its top at ~0.12.
+      k = Math.max(2, (1.3 * w) / (0.76 * h));
+      this.distance = 4.6;
+      this.camera.setViewOffset(w * k, h * k, (w * k - w) / 2, 0.12 * k * h - this.horizon * h, w, h);
+    }
+    this.uniforms.uHeight.value = h * k;
     this.camera.updateProjectionMatrix();
     if (!this.frame) this.render();
   };

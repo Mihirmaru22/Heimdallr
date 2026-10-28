@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { localStorageSet, useSession } from "./session";
 import LoginPage from "./pages/Login";
+import LandingPage from "./pages/Landing";
 import ProjectsPage from "./pages/Projects";
 import ProjectPage from "./pages/Project";
 import JobPage from "./pages/Job";
@@ -19,7 +20,17 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   if (loading) return <div className="center"><BrandMark className="brand-mark" /></div>;
-  if (!me) return <LoginPage />;
+  if (!me) {
+    // Signed out: the home page at "/", the sign-in page at /login; any other link asks to sign in first.
+    const next = location.pathname !== "/" && location.pathname !== "/login" ? location.pathname : "";
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to={`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`} replace />} />
+      </Routes>
+    );
+  }
 
   const logout = async () => {
     await api.post("/auth/logout").catch(() => {});

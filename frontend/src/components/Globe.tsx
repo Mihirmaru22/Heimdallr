@@ -6,8 +6,8 @@ export type { GlobeSignal };
 // React wrapper for the research globe. Signals are handed over by id, so the scene sees each step once.
 // Steps older than a few seconds when they arrive (a page opened mid-run) are applied quietly, without
 // beams and ripples, so opening a run does not replay its whole history as fireworks.
-export default function Globe({ signals, demo = false, focus, labels = true, className = "" }:
-  { signals?: GlobeSignal[]; demo?: boolean; focus?: string[]; labels?: boolean; className?: string }) {
+export default function Globe({ signals, demo = false, focus, labels = true, horizon, className = "" }:
+  { signals?: GlobeSignal[]; demo?: boolean; focus?: string[]; labels?: boolean; horizon?: number; className?: string }) {
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<GlobeScene | null>(null);
   const seen = useRef(0);
@@ -15,14 +15,14 @@ export default function Globe({ signals, demo = false, focus, labels = true, cla
   useEffect(() => {
     let s: GlobeScene;
     try {
-      s = new GlobeScene(host.current!, { demo, labels });
+      s = new GlobeScene(host.current!, { demo, labels, horizon });
     } catch {
       host.current!.classList.add("globe-fallback");
       return;
     }
     scene.current = s;
     return () => { s.dispose(); scene.current = null; seen.current = 0; };
-  }, [demo, labels]);
+  }, [demo, labels, horizon]);
 
   const focusKey = (focus ?? []).join(",");
   useEffect(() => { scene.current?.setFocus(focusKey ? focusKey.split(",") : []); }, [focusKey]);
