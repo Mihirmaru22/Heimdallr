@@ -30,7 +30,9 @@ SYSTEM = f"""You read one web page that names a software product. Reply with JSO
 {{"publisher": one of {list(PUBLISHERS)},
  "customers": [{{"name": the organisation's name exactly as written on the page,
                 "quote": the number of the sentence that shows it,
-                "relationship": one of ["uses", "rolling_out", "evaluating", "moved_away"]}}]}}
+                "relationship": one of ["uses", "rolling_out", "evaluating", "moved_away"],
+                "based_in": the number of a sentence that says in which country the organisation is based or
+                            headquartered, or 0 when no sentence says so}}]}}
 "publisher": "vendor" if the product's maker published the page, "partner" if a firm that implements or resells
 it did, "customer" if the organisation that uses it did, "news" for a news or trade-press site.
 "customers": only organisations the page says use, are implementing, are evaluating or replaced the product
@@ -44,6 +46,7 @@ class Customer(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     quote: int = Field(default=1, ge=1, le=MAX_SENTENCES)
     relationship: Literal["uses", "rolling_out", "evaluating", "moved_away"]
+    based_in: int = Field(default=0, ge=0, le=MAX_SENTENCES)
 
 
 class Reading(BaseModel):
@@ -59,6 +62,23 @@ class Found:
     quote: str
     publisher: str
     judged_by: str
+    country: str = ""  # ISO code a sentence of the page gives for where the customer is based
+    country_quote: str = ""
+
+
+def countries_named(text: str) -> set[str]:
+    """ISO codes of the countries a sentence names ("UK-headquartered", "India's largest", "in Germany"). Two-letter
+    forms count only in capitals ("UK", "US"): "us" is also a word."""
+    from app.discovery.relevance import COUNTRY_NAMES
+
+    found = set()
+    for name, iso in COUNTRY_NAMES.items():
+        if len(name) <= 3:
+            if re.search(rf"(?<![A-Za-z]){re.escape(name.upper())}(?![A-Za-z])", text):
+                found.add(iso)
+        elif re.search(rf"(?<![a-z]){re.escape(name)}(?![a-z])", text, re.I):
+            found.add(iso)
+    return found
 
 
 def _contains(text: str, name: str) -> bool:
@@ -100,7 +120,15 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
             continue  # the product's maker is never its own customer
         if any(f.customer.lower() == name.lower() for f in out):
             continue
-        out.append(Found(name, c.relationship, quote, reading.publisher, f"model:{reply.model}"))
+        country, country_quote = "", ""
+        if c.based_in:
+            said = sentences[min(c.based_in, len(sentences)) - 1]
+            # The model only points: the sentence must name the customer and exactly one country.
+            named = countries_named(said)
+            if _contains(said, name) and len(named) == 1:
+                country, country_quote = next(iter(named)), said
+        out.append(Found(name, c.relationship, quote, reading.publisher, f"model:{reply.model}", country,
+                         country_quote))
         if len(out) >= MAX_CUSTOMERS:
             break
     return out, "" if out else "the page names no organisation that uses it"

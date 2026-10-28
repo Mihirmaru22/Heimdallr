@@ -182,14 +182,12 @@ def _page(url, body):
     return parse_page(url, f"<html><body>{body}</body></html>")
 
 
-def test_numbers_written_the_national_way_confirm_the_requested_country():
+def test_numbers_written_the_national_way_settle_nothing():
+    # A US number is also a valid Indian national number: reading them as the requested country passed a US
+    # company as Indian (run 2, 2026-10-28). Where a company is comes from registries and the proof instead.
     home = _page("https://www.example-med.com/", "Welcome")
     contact = _page("https://www.example-med.com/contact", "Call us on (508) 683-4000 or 1-888-272-1001.")
-    assert pages_country([home, contact], ["US"])[0] == "US"
-    assert pages_country([home, contact], ["GB"]) == (None, "")  # not valid UK numbers
-    assert pages_country([home, contact]) == (None, "")  # no country asked: nothing to read them as
-    mixed = _page("https://www.example-med.com/offices", "London +44 20 7946 0000. Paris +33 1 42 68 53 00.")
-    assert pages_country([home, contact, mixed], ["US"]) == (None, "")  # offices in several countries
+    assert pages_country([home, contact]) == (None, "")
 
 
 # --- reading order and cap (P4, P7) -----------------------------------------------------------

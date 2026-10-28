@@ -271,6 +271,11 @@ class CaseStudiesProvider:
                         self._record(**row, kept=False, reason=f.relationship.replace("_", " "))
                         continue
                     kept = self._record(**row, kept=True, reason=f"named by a {f.publisher} page")
+                    if f.country:
+                        self.facts.append({"site": "", "company": f.customer, "kind": "country", "value": f.country,
+                                           "by": f"proof: {SOURCE_TYPES[f.publisher].lower()}",
+                                           "detail": f"the page says so: \"{f.country_quote[:200]}\"",
+                                           "source_url": url, "quote": f.country_quote})
                     key = f.customer.lower()
                     if key not in users or kept["strength"] > users[key]["strength"]:
                         users[key] = kept

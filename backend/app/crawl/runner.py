@@ -99,6 +99,8 @@ class JobCancelled(Exception):
 def country_source(method: str, hint: dict[str, Any], why: str) -> str:
     """Which kind of evidence a country check used: a registry's own entry (Wikidata, SEC, GLEIF) or the
     company's own pages. Weighed in that order by the final decision."""
+    if hint.get("_country_by") and " says " in why:
+        return str(hint["_country_by"]).split(":", 2)[0] + ": " + str(hint["_country_by"]).split(":", 2)[1].strip()
     if hint.get("country") and f"{method} says" in why and method in REGISTRY_METHODS:
         return f"registry: {method}"
     if hint.get("country") and " says " in why:
@@ -279,6 +281,7 @@ class CrawlRunner:
                 self.save_facts(getattr(provider, "facts", None) or [])
                 self.flush_activity()
                 notes += getattr(provider, "notes", [])
+            per_provider.append(await self._resolve_entities(per_provider, notes))
         finally:
             flusher.cancel()
         # Take results from the sources in turn (Wikidata, SEC, web search, Wikidata...), so the first
@@ -318,6 +321,64 @@ class CrawlRunner:
         self.allowed_sites = {registered_domain(i["url"]) for i in items}
         self.allowed_sites |= {registered_domain(d) for d in self.spec.crawl.allowed_domains}
         return self.add_urls(items)
+
+    async def _resolve_entities(self, per_provider: list[list[Any]], notes: list[str]) -> list[Any]:
+        """Match every company a source named to a registered entity, once, before anything is crawled: the
+        registry's country becomes the company's country fact (and the crawl's), and its official website gives
+        a company with proof but no website found one. Returns the companies that gained a website this way."""
+        from app.discovery.entities import GLEIF_GAP, EntityResolver, resolution_facts
+        from app.discovery.providers import DiscoveryResult
+
+        d = self.spec.discovery
+        named = [r for group in per_provider for r in group if r.hint.get("company_name") and r.method != "seed"]
+        with session_scope(self.org_id) as db:
+            homeless = db.execute(select(Evidence).where(
+                Evidence.job_id == self.job_id, Evidence.kept.is_(True), Evidence.website == "",
+                Evidence.verdict.in_(("Confirmed", "Likely")))).scalars().all()
+            homeless = [{"company": e.company, "verdict": e.verdict, "quote": e.quote, "url": e.url,
+                         "date": e.evidence_date, "type": e.source_type, "strength": e.strength} for e in homeless]
+        if not (named and d.countries) and not homeless:
+            return []
+        self.note("search", f"Matching {len(named) + len(homeless)} named companies to registry entries "
+                            "(Wikidata, GLEIF, SEC)", source="registries")
+        added: list[Any] = []
+        # The crawler's own client: network rules apply, and tests decide what it can reach.
+        resolver = EntityResolver(self.client, gleif_gap=0.0 if self.settings.env == "test" else GLEIF_GAP)
+        settled = 0
+        if d.countries:
+            for r in named:
+                name, site = str(r.hint["company_name"]), registered_domain(r.url) or ""
+                res = await resolver.resolve(name, r.url)
+                self.facts += resolution_facts(name, site, res)
+                if res.country:
+                    settled += 1
+                    r.hint["country"], r.hint["_country_by"] = res.country, f"{res.by}: {res.detail}"
+        best: dict[str, dict[str, Any]] = {}
+        for e in homeless:
+            key = e["company"].casefold()
+            if key not in best or e["strength"] > best[key]["strength"]:
+                best[key] = e
+        for e in best.values():
+            res = await resolver.resolve(e["company"])
+            self.facts += resolution_facts(e["company"], registered_domain(res.website) if res.website else "",
+                                           res)
+            if not res.website:
+                continue
+            hint = {"company_name": e["company"], "website_url": res.website, "uses_technology": e["verdict"],
+                    "evidence": e["quote"], "evidence_url": e["url"], "evidence_date": e["date"],
+                    "evidence_type": e["type"], "_source": e["url"], "_strength": e["strength"]}
+            if res.country:
+                hint["country"], hint["_country_by"] = res.country, f"{res.by}: {res.detail}"
+            added.append(DiscoveryResult(res.website, "case_studies", hint, referrer=e["url"]))
+            self.note("search", f"Website of {e['company']} from {res.by.removeprefix('registry: ')}: "
+                                f"{res.website}", res.website, source="registries")
+        self.save_facts()
+        notes.append(f"registries: {settled} of {len(named)} named companies placed in a country; "
+                     f"{len(added)} of {len(best)} proven companies without a website got one")
+        if resolver.problems:
+            notes.append("registries: lookups failed (" + "; ".join(resolver.problems) + ")")
+        self.flush_activity()
+        return added
 
     def _cancel_requested(self) -> bool:
         with session_scope(self.org_id) as db:
@@ -604,7 +665,7 @@ class CrawlRunner:
             url_id = self._record_check_page(url, doc.url)
             if registered_domain(page.url) == site and not unreadable(page):
                 checked.append((url_id, result, page))
-        country, how = pages_country([doc] + [page for _id, _r, page in checked], self.spec.discovery.countries)
+        country, how = pages_country([doc] + [page for _id, _r, page in checked])
         wanted = self.spec.discovery.countries
         if country in wanted:
             return IN_COUNTRY, f"based in {country} ({how})", checked
