@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Activity } from "../api";
 import { External } from "./icons";
 
@@ -34,56 +34,6 @@ export function hue(site: string) {
 
 function time(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-}
-
-export function useCounts(lines: Activity[]) {
-  return useMemo(() => {
-    const c: Record<string, number> = {};
-    for (const l of lines) c[l.data.kind] = (c[l.data.kind] ?? 0) + 1;
-    return c;
-  }, [lines]);
-}
-
-// "Now" line: the step the worker is on, and how long it has been on it, ticking every second.
-export function NowLine({ lines, live }: { lines: Activity[]; live: boolean }) {
-  const current = lines.at(-1);
-  const [, tick] = useState(0);
-  useEffect(() => {
-    if (!live) return;
-    const t = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [live]);
-  const since = current ? Math.max(0, Math.round((Date.now() - new Date(current.created_at).getTime()) / 1000)) : 0;
-  const k = current ? KIND[current.data.kind] ?? KIND.read : null;
-  return (
-    <div className={`now ${live ? "is-live" : ""}`} aria-live="polite">
-      {live ? <span className="pulse" aria-hidden /> : <span className="done-dot" aria-hidden />}
-      <div className="now-body">
-        <span className="now-kind">{live ? (k ? k.label : "Starting") : "Finished"}</span>
-        <span className="now-text" key={current?.id}>{live ? (current ? current.message : "Getting the plan ready…")
-          : current ? `Last step: ${current.message}` : "No steps were recorded."}</span>
-      </div>
-      {live && current && <span className="now-since mono" title="Time on this step">{since}s</span>}
-    </div>
-  );
-}
-
-export function Tally({ counts }: { counts: Record<string, number> }) {
-  const items: [string, number, string][] = [
-    ["searches", counts.search ?? 0, "info"],
-    ["pages read", counts.read ?? 0, "muted"],
-    ["sites kept", counts.kept ?? 0, "ok"],
-    ["dropped", (counts.dropped ?? 0) + (counts.skipped ?? 0), "warn"],
-    ["pages with details", counts.found ?? 0, "ok"],
-    ["blocked or failed", (counts.blocked ?? 0) + (counts.failed ?? 0), "bad"],
-  ];
-  return (
-    <dl className="tally">
-      {items.map(([label, n, cls]) => (
-        <div key={label} className={`tally-item ${cls}`}><dt>{label}</dt><dd className="mono">{n.toLocaleString()}</dd></div>
-      ))}
-    </dl>
-  );
 }
 
 export default function ActivityFeed({ lines, live, error }: { lines: Activity[]; live: boolean; error: string | null }) {

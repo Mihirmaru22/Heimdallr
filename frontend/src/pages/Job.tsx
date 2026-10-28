@@ -3,10 +3,10 @@ import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, display, type CrawlUrl, type ExportRow, type Job, type JobEvent, type Page, type Progress,
   type Project, type RecordRow, type Schema } from "../api";
-import { Badge, Card, Crumbs, duration, ErrorBox, Pager, Spinner, when } from "../components/ui";
+import { Badge, Card, Crumbs, ErrorBox, Pager, Spinner, when } from "../components/ui";
 import RecordDrawer from "../components/RecordDrawer";
-import ActivityFeed, { NowLine, Tally, useCounts } from "../components/ActivityFeed";
-import LazyLens from "../components/LazyLens";
+import ActivityFeed from "../components/ActivityFeed";
+import Mission from "../components/Mission";
 import { useActivity } from "../useActivity";
 import { Download, Retry, Stop } from "../components/icons";
 
@@ -30,38 +30,32 @@ export default function JobPage({ orgId }: { orgId: string }) {
     queryFn: () => api.get<Project>(`${base}/projects/${job.data!.project_id}`) });
   const terminal = progress.data?.terminal ?? false;
   const activity = useActivity(base, jobId!, !terminal);
-  const counts = useCounts(activity.lines);
 
   const cancel = useMutation({ mutationFn: () => api.post(`${base}/jobs/${jobId}/cancel`), onSuccess: () => qc.invalidateQueries() });
   const retry = useMutation({ mutationFn: () => api.post(`${base}/jobs/${jobId}/retry`), onSuccess: () => qc.invalidateQueries() });
   const c = progress.data?.counters ?? {};
   const state = progress.data?.state ?? "…";
   const tabs: [Tab, string, number | undefined][] = [
-    ["activity", "Live research", undefined], ["records", "Records", progress.data?.records],
+    ["activity", "Full log", activity.lines.length], ["records", "Records", progress.data?.records],
     ["urls", "Pages", c.discovered], ["events", "Events", undefined]];
+
+  const crumbs = <Crumbs items={[["Research", "/"], [project.data?.name ?? "Project", job.data ? `/projects/${job.data.project_id}` : null], ["Run", null]]} />;
+  const actions = <>
+    {!terminal && <button className="danger" onClick={() => cancel.mutate()}
+      disabled={cancel.isPending || state === "cancel_requested"}><Stop /> Cancel</button>}
+    {(state === "failed" || state === "cancelled") &&
+      <button onClick={() => retry.mutate()} disabled={retry.isPending}><Retry /> Retry</button>}
+  </>;
 
   return (
     <div>
-      <Crumbs items={[["Research", "/"], [project.data?.name ?? "Project", job.data ? `/projects/${job.data.project_id}` : null], ["Run", null]]} />
-      <div className="job-head">
-        <div>
-          <h1>{schema.data?.spec.title || project.data?.name || "Research run"} <Badge value={state} /></h1>
-          {schema.data?.nl_request && <p className="job-question">“{schema.data.nl_request}”</p>}
-        </div>
-        <div className="page-actions">
-          {!terminal && <button className="danger" onClick={() => cancel.mutate()}
-            disabled={cancel.isPending || state === "cancel_requested"}><Stop /> Cancel</button>}
-          {(state === "failed" || state === "cancelled") &&
-            <button onClick={() => retry.mutate()} disabled={retry.isPending}><Retry /> Retry</button>}
-        </div>
-      </div>
-
-      <NowLine lines={activity.lines} live={!terminal} />
+      <Mission lines={activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
+        title={schema.data?.spec.title || project.data?.name || "Research run"} question={schema.data?.nl_request}
+        elapsed={progress.data?.elapsed_seconds ?? null} focus={schema.data?.spec.discovery.countries ?? []} />
       {progress.data?.error && <div className="error" role="alert"><strong>{progress.data.error}</strong></div>}
       <ErrorBox error={cancel.error || retry.error} />
 
       <div className="stats">
-        <Stat label="Elapsed" value={duration(progress.data?.elapsed_seconds)} />
         <Stat label="Sites found" value={c.discovered} /><Stat label="Pages fetched" value={c.fetched} />
         <Stat label="Queued" value={c.queued} /><Stat label="Skipped" value={c.skipped} />
         <Stat label="Blocked" value={c.blocked} /><Stat label="Failed" value={c.failed} />
@@ -76,19 +70,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
             {label}{n != null && n > 0 && <span className="count">{n.toLocaleString()}</span>}</button>)}
       </div>
-      {tab === "activity" && (
-        <div className="research">
-          <section className="observatory" aria-label="Sources map">
-            <div className="observatory-legend" aria-hidden>
-              <span><span className="dot seen" />read</span><span><span className="dot kept" />kept</span>
-              <span><span className="dot dropped" />dropped</span>
-            </div>
-            <LazyLens signals={activity.lines.map((l) => ({ id: l.id, kind: l.data.kind, site: l.data.site }))} />
-            <Tally counts={counts} />
-          </section>
-          <ActivityFeed lines={activity.lines} live={!terminal} error={activity.error} />
-        </div>
-      )}
+      {tab === "activity" && <ActivityFeed lines={activity.lines} live={!terminal} error={activity.error} />}
       {tab === "records" && schema.data && <Records base={base} jobId={jobId!} schema={schema.data} terminal={terminal} />}
       {tab === "urls" && <Urls base={base} jobId={jobId!} />}
       {tab === "events" && <Events base={base} jobId={jobId!} live={!terminal} />}

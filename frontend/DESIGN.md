@@ -1,7 +1,7 @@
 # WebData AI frontend: design notes
 
-Written so later changes stay consistent. The app is a working tool, so the theatre is kept small:
-one signature (the Lens) and calm, precise everything else.
+Written so later changes stay consistent. The app is a working tool: the run screen is the one place
+for theatre (the Globe), and the forms are calm, sectioned and precise.
 
 ## Concept card
 
@@ -9,16 +9,25 @@ one signature (the Lens) and calm, precise everything else.
 Idea:        A watchtower over the web. Every source the research touches lands on a slowly turning
              lens as a point of light, and what is kept stays lit.
 Metaphor:    Heimdallr's lookout: a lighthouse beam sweeping a globe of sources.
-Signature:   The Lens (src/components/Lens.tsx). On the job page it is driven by the real activity
-             feed: a search sends a scan ring across the globe, a site read lights a point, a kept
-             site turns the beacon colour and is wired to the core, a dropped site fades out.
+Signature:   The Globe (src/geo/scene.ts, wrapped by src/components/Globe.tsx). A dotted Earth from
+             Natural Earth country shapes (world-atlas). Every activity line reacts: each search
+             provider is a satellite that fires beams at the land, a site read lights its country
+             (by ccTLD, otherwise a stable land dot) with a hop arc from the last site, a kept site
+             ripples, raises a pillar and flies an arc into "Sites kept", a found detail throws
+             sparks, dropped and blocked sites ripple grey and red. The countries the plan targets
+             are tinted and turned to face you. The run page (Mission.tsx) puts it full-bleed with a
+             HUD: current step, the reading stream, the live wire and counters.
 Emotion:     Calm watchfulness. You can see the research working without reading a line.
 Motion verb: Sweep like a beam. Things arrive with a short sweep or settle, never bounce.
 Screenshot:  The job page mid-run: the lens full of lit points on the left, the feed scrolling on the right.
 ```
 
-The same lens idles on the sign-in page and the project page (an illustration, with points lit at
-random), so the first thing you see is the thing the product does.
+The same globe idles in demo mode on the sign-in page and the home page, so the first thing you see is
+the thing the product does. The globe stage is always dark (`.force-dark`), in both themes.
+
+Forms are built from `components/form.tsx`: numbered, bordered sections that open one at a time and
+show a one-line summary when closed, tile pickers, tag inputs and grouped detail chips. A sticky rail
+on the right keeps the research brief and the main action in view.
 
 ## System
 

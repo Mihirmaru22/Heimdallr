@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, type Job, type Page, type Project } from "../api";
 import { ago, Badge, Card, ErrorBox, Spinner } from "../components/ui";
-import LazyLens from "../components/LazyLens";
+import LazyGlobe from "../components/LazyGlobe";
 import { Arrow, Plus } from "../components/icons";
 
 export default function ProjectsPage({ orgId }: { orgId: string }) {
@@ -40,7 +40,7 @@ export default function ProjectsPage({ orgId }: { orgId: string }) {
           </form>
           <ErrorBox error={create.error} />
         </div>
-        <LazyLens demo />
+        <LazyGlobe demo />
         <div className="hero-legend" aria-hidden>
           <span><span className="dot seen" />read</span><span><span className="dot kept" />kept</span>
           <span><span className="dot dropped" />dropped</span>

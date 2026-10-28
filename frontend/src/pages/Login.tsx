@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { BrandMark, ErrorBox, Spinner } from "../components/ui";
-import LazyLens from "../components/LazyLens";
+import LazyGlobe from "../components/LazyGlobe";
 import ThemeSwitch from "../components/ThemeSwitch";
 import { Arrow } from "../components/icons";
 
@@ -33,7 +33,7 @@ export default function LoginPage() {
   return (
     <div className="auth">
       <section className="auth-stage" aria-label="About WebData AI">
-        <LazyLens demo />
+        <LazyGlobe demo />
         <div className="brand"><BrandMark /> WebData AI</div>
         <div>
           <p className="auth-title">Ask the web a question. <em>Keep</em> only what it can prove.</p>

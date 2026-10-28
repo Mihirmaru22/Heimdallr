@@ -65,7 +65,7 @@ export function Spinner() {
   return <span className="spinner" aria-hidden />;
 }
 
-// The lens drawn flat: a globe, an orbit, the beacon at the core and one lit site.
+// The globe drawn flat: a globe, an orbit, the beacon at the core and one lit site.
 export function BrandMark({ className = "brand-mark" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
