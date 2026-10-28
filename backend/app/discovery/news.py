@@ -19,14 +19,14 @@ import httpx
 
 from app.config import get_settings
 from app.crawl.urlnorm import normalize_url, registered_domain
-from app.discovery.case_studies import MAX_PAGES, CaseStudiesProvider
+from app.discovery.case_studies import CaseStudiesProvider
 from app.discovery.providers import NOT_COMPANY_SITES, DiscoveryError
 from app.evidence.products import Product
 
 GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 WINDOW = timedelta(days=90)  # GDELT lists at most 3 months per search
 PER_WINDOW = 75  # articles asked for per window
-WANT = MAX_PAGES * 2  # candidates gathered before reading (some cannot be read or name nobody)
+WANT = 60  # articles gathered before reading; reading then stops on coverage (case_studies.PLATEAU)
 PAUSE = 5.0  # seconds between requests, as GDELT asks
 WINDOW_TRIES = 3  # requests per 3-month window when GDELT says "limit requests to one every 5 seconds"
 TURN_KEY = "webdata:gdelt:turn"
@@ -124,6 +124,7 @@ class NewsProvider(CaseStudiesProvider):
                     continue  # syndicated copies carry the same title
                 urls.append(url)
                 titles.add(title)
+                self.meta.setdefault(url, (a.get("title") or "", ""))
                 self.dates[url] = seen_date(a.get("seendate", ""))
         return urls
 

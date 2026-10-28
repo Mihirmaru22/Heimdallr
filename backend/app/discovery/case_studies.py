@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -25,20 +26,26 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.config import get_settings
 from app.crawl.urlnorm import normalize_url, registered_domain
 from app.discovery.providers import NOT_COMPANY_SITES, DiscoveryError, DiscoveryResult
-from app.discovery.websites import WebsiteFinder
+from app.discovery.relevance import CCTLD_TO_ISO
+from app.discovery.websites import WebsiteFinder, names_company
 from app.evidence.judge import Judge, score
 from app.evidence.products import Product, product_for
 from app.evidence.quotes import find_mentions, verify_quote
-from app.evidence.thirdparty import MAX_SENTENCES, STRENGTH, read_page
+from app.evidence.thirdparty import MAX_SENTENCES, STRENGTH, countries_named, read_page
 from app.extract.deterministic import PageDoc
 from app.llm.openrouter import LLMUnavailable
-from app.search import EVIDENCE, SearchError, SearchHub, search_configured
+from app.search import EVIDENCE, TARGETED, SearchError, SearchHub, search_configured
 from app.spec.models import ExtractionSpec
 
 PHRASES = ("case study", "customer story", "success story")
-MAX_PAGES = 30  # pages read per run (one model call each); pages that could not be fetched do not count
+# Reading stops when coverage stops growing, not at a fixed number of pages: after PLATEAU pages in a row that
+# named no new company (and at least that many read), or when the job's reading budget is spent. Measured on
+# 2026-10-28: a fixed 30 of ~400 candidates, read in the engines' order, gave a different sample every run.
+PLATEAU = 10
+TARGETED_READS = 3  # pages read from one company's own proof search
 SEARCH_PAGES = 2  # result pages per query
 HOST_FAILURES = 2  # pages of one site that could not be read before its other candidates are passed over
+CCTLD = {iso: tld for tld, iso in CCTLD_TO_ISO.items()}  # "GB" -> "uk"
 MAX_ADOPTION_QUERIES = 4
 SOURCE_TYPES = {"vendor": "Vendor case study", "partner": "Partner case study", "customer": "Customer's own page",
                 "news": "News article", "other": "Web page"}
@@ -145,6 +152,11 @@ class CaseStudiesProvider:
         self.dates: dict[str, str] = {}  # url -> date the search source gives, when the page itself gives none
         self.context: list[str] = []  # searches naming the question's industry and place, asked first
         self.place = ""  # the one place asked for, written out ("United Kingdom"), or ""
+        self.meta: dict[str, tuple[str, str]] = {}  # url -> (title, snippet) search gave
+        self.targeted_urls: set[str] = set()  # urls found by a named company's own proof search
+        self.asked: set[str] = set()  # companies whose own proof search was made
+        self.deadline: float | None = None  # monotonic time the job's reading budget ends (set by the crawler)
+        self.read = 0  # pages read
 
     def _say(self, kind: str, message: str, url: str | None = None) -> None:
         if self.on_note is not None:
@@ -175,7 +187,7 @@ class CaseStudiesProvider:
         return list(dict.fromkeys(out))
 
     async def search(self, client: httpx.AsyncClient, product: Product) -> list[str]:
-        hub = self.hub = SearchHub.from_settings(client, self.searxng_url)
+        hub = self.hub = self.hub or SearchHub.from_settings(client, self.searxng_url)
         urls: list[str] = []
         for query in list(dict.fromkeys([*self.context, *self.queries(product, self.place)])):
             for page in range(1, SEARCH_PAGES + 1):
@@ -192,8 +204,46 @@ class CaseStudiesProvider:
                     site = registered_domain(url) if url else ""
                     if url and site and site not in NOT_COMPANY_SITES and url not in urls:
                         urls.append(url)
+                        self.meta.setdefault(url, (hit.title or "", hit.snippet or ""))
                 await asyncio.sleep(1.0 if get_settings().env != "test" and page < SEARCH_PAGES else 0)
         return urls
+
+    def rank(self, url: str, product: Product, countries: list[str]) -> tuple:
+        """A page's place in the reading order, from what search said about it, so the same candidates are always
+        read in the same order: pages found for a named company first, then pages whose title or snippet names
+        the product, then the place asked for; ties by address."""
+        title, snippet = self.meta.get(url, ("", ""))
+        text = f"{title} {snippet}"
+        score = 4 * (url in self.targeted_urls) + 2 * product.mentioned_in(text)
+        if countries:
+            site = registered_domain(url) or ""
+            tlds = {CCTLD.get(c, c.lower()) for c in countries}
+            score += bool(countries_named(text) & set(countries) or site.rsplit(".", 1)[-1] in tlds)
+        return (-score, candidate_key(url))
+
+    async def targeted(self, client: httpx.AsyncClient, company: str, product: Product) -> list[str]:
+        """One company's own proof search ("Farmers Insurance" "Guidewire"): the pages whose title, snippet or
+        address name the company, best first. Asked once per company per job."""
+        if company.casefold() in self.asked:
+            return []
+        self.asked.add(company.casefold())
+        hub = self.hub = self.hub or SearchHub.from_settings(client, self.searxng_url)
+        name = ([n for n in product.names if len(n) > 4] or product.names)[0]
+        try:
+            hits = await hub.search(f'"{company}" "{name}"', kind=TARGETED)
+        except SearchError:
+            return []
+        out = []
+        for hit in hits:
+            url = normalize_url(hit.url)
+            site = registered_domain(url) if url else ""
+            if not url or not site or site in NOT_COMPANY_SITES:
+                continue
+            if names_company(f"{hit.title} {hit.snippet} {url.replace('-', ' ')}", company):
+                self.meta.setdefault(url, (hit.title or "", hit.snippet or ""))
+                self.targeted_urls.add(url)
+                out.append(url)
+        return out
 
     def _record(self, **kw: Any) -> dict[str, Any]:
         self.evidence.append(kw)
@@ -220,77 +270,14 @@ class CaseStudiesProvider:
         try:
             self.context = await self._context(product, d)
             urls = await self.search(client, product)
-            self._say("search", f"{len(urls)} page(s) found among {product.name} {self.what}; reading up to "
-                                f"{MAX_PAGES}")
-            self.notes.append(f"{self.name}: {len(urls)} candidate page(s), reading up to {MAX_PAGES}")
-            read, failures = 0, Counter()
-            seen_keys: set[str] = set()
-            unread: list[str] = []
-            for url in urls:
-                key = candidate_key(url)
-                host = registered_domain(url) or ""
-                if key in seen_keys:
-                    continue  # another address of a page already taken
-                seen_keys.add(key)
-                if read >= MAX_PAGES or failures[host] >= HOST_FAILURES:
-                    unread.append(url)
-                    continue
-                base = dict(company=registered_domain(url), product=product.name, url=url, evidence_date="",
-                            source_type="Web page", website="", quote="", relationship="", judged_by="",
-                            strength=0.0, verdict="")
-                self._say("read", f"Reading {url}", url)
-                doc = await self.fetch_page(url)
-                if doc is None:
-                    failures[host] += 1
-                    why = "page could not be read (robots.txt, error or no text)"
-                    if failures[host] == HOST_FAILURES:
-                        why += f"; {host}'s other candidates are passed over"
-                    self._record(**base, kept=False, reason=why)
-                    continue
-                read += 1
-                text = f"{doc.title} {doc.text}"
-                sentences = [q for q in find_mentions(doc.text, product, limit=MAX_SENTENCES)
-                             if verify_quote(q, doc.text)]
-                if not sentences:
-                    self._record(**base, kept=False, reason="the product's name is not on the page")
-                    continue
-                found, why = await read_page(self.judge, product, doc.title, sentences, text, url)
-                day = page_date(doc) or self.dates.get(url, "")
-                if not found:
-                    self._record(**{**base, "evidence_date": day, "quote": sentences[0]}, kept=False, reason=why)
-                    if self.judge.unavailable:  # nothing more can be read this run
-                        self.notes.append(f"{self.name}: stopped reading pages ({self.judge.unavailable})")
-                        break
-                    continue
-                for f in found:
-                    verdict, strength = score(f.relationship, STRENGTH[f.publisher], day)
-                    row = {**base, "company": f.customer, "evidence_date": day, "quote": f.quote,
-                           "source_type": SOURCE_TYPES[f.publisher], "relationship": f.relationship,
-                           "judged_by": f.judged_by, "strength": strength, "verdict": verdict}
-                    if not verdict:
-                        self._record(**row, kept=False, reason=f.relationship.replace("_", " "))
-                        continue
-                    kept = self._record(**row, kept=True, reason=f"named by a {f.publisher} page")
-                    if f.country:
-                        self.facts.append({"site": "", "company": f.customer, "kind": "country", "value": f.country,
-                                           "by": f"proof: {SOURCE_TYPES[f.publisher].lower()}",
-                                           "detail": f"the page says so: \"{f.country_quote[:200]}\"",
-                                           "source_url": url, "quote": f.country_quote})
-                    key = f.customer.lower()
-                    if key not in users or kept["strength"] > users[key]["strength"]:
-                        users[key] = kept
-            # Pages found but not read stay visible, so "never found" and "found but not read" can be told apart.
-            for url in unread:
-                host = registered_domain(url) or ""
-                why = (f"not read: {host} refused or gave no text {HOST_FAILURES} times"
-                       if failures[host] >= HOST_FAILURES
-                       else f"not read: {MAX_PAGES} pages were already read (the limit per run)")
-                self.evidence.append(dict(company=host, product=product.name, url=url, evidence_date="",
-                                          source_type="Web page", website="", quote="", relationship="",
-                                          judged_by="", strength=0.0, verdict="", kept=False, reason=why))
-            if unread:
-                self.notes.append(f"{self.name}: {len(unread)} candidate page(s) not read (listed on the Rejected "
-                                  "sheet)")
+            self.hub = self.hub or SearchHub.from_settings(client, self.searxng_url)
+            self._say("search", f"{len(urls)} page(s) found among {product.name} {self.what}; reading until "
+                                f"{PLATEAU} pages in a row name no new company")
+            pending = list(dict.fromkeys(urls))
+            stop = await self._read_loop(client, product, d, pending, users)
+            self.notes.append(f"{self.name}: {len(urls)} candidate page(s) from the general searches, "
+                              f"{len(self.targeted_urls)} from companies' own proof searches; {self.read} read; "
+                              f"stopped: {stop}")
             finder = WebsiteFinder(client, self.searxng_url, self._text, hub=self.hub)
             results: list[DiscoveryResult] = []
             seen: set[str] = set()
@@ -324,6 +311,134 @@ class CaseStudiesProvider:
         if not results:
             raise DiscoveryError(f"none of the {self.what} showed an organisation using {product.name}")
         return results
+
+    def _over_budget(self) -> bool:
+        return self.deadline is not None and time.monotonic() > self.deadline
+
+    async def _read_one(self, url: str, product: Product) -> tuple[list[Any], bool]:
+        """Read one candidate page: (proof rows kept from it, whether the page could be fetched)."""
+        base = dict(company=registered_domain(url), product=product.name, url=url, evidence_date="",
+                    source_type="Web page", website="", quote="", relationship="", judged_by="",
+                    strength=0.0, verdict="")
+        self._say("read", f"Reading {url}", url)
+        doc = await self.fetch_page(url)
+        if doc is None:
+            self._record(**base, kept=False, reason="page could not be read (robots.txt, error or no text)")
+            return [], False
+        self.read += 1
+        text = f"{doc.title} {doc.text}"
+        sentences = [q for q in find_mentions(doc.text, product, limit=MAX_SENTENCES) if verify_quote(q, doc.text)]
+        if not sentences:
+            self._record(**base, kept=False, reason="the product's name is not on the page")
+            return [], True
+        found, why = await read_page(self.judge, product, doc.title, sentences, text, url)
+        day = page_date(doc) or self.dates.get(url, "")
+        if not found:
+            self._record(**{**base, "evidence_date": day, "quote": sentences[0]}, kept=False, reason=why)
+            return [], True
+        kept_rows = []
+        for f in found:
+            verdict, strength = score(f.relationship, STRENGTH[f.publisher], day)
+            row = {**base, "company": f.customer, "evidence_date": day, "quote": f.quote,
+                   "source_type": SOURCE_TYPES[f.publisher], "relationship": f.relationship,
+                   "judged_by": f.judged_by, "strength": strength, "verdict": verdict}
+            if not verdict:
+                self._record(**row, kept=False, reason=f.relationship.replace("_", " "))
+                continue
+            kept_rows.append(self._record(**row, kept=True, reason=f"named by a {f.publisher} page"))
+            if f.country:
+                self.facts.append({"site": "", "company": f.customer, "kind": "country", "value": f.country,
+                                   "by": f"proof: {SOURCE_TYPES[f.publisher].lower()}",
+                                   "detail": f"the page says so: \"{f.country_quote[:200]}\"",
+                                   "source_url": url, "quote": f.country_quote})
+        return kept_rows, True
+
+    async def _read_loop(self, client: httpx.AsyncClient, product: Product, d, pending: list[str],
+                         users: dict[str, dict[str, Any]]) -> str:
+        """Read candidates best first. Every company a page names gets its own proof search, whose pages are read
+        first; reading stops when PLATEAU pages in a row named no new company, or at the reading budget.
+        Returns why it stopped. Pages left unread are listed on the Rejected sheet with that reason."""
+        failures: Counter = Counter()
+        seen_keys: set[str] = set()
+        since_new, stop = 0, "every candidate page was read"
+        while pending:
+            if self._over_budget():
+                stop = "the reading budget was reached"
+                break
+            if self.read >= PLATEAU and since_new >= PLATEAU:
+                stop = f"coverage: the last {PLATEAU} pages read named no new company"
+                break
+            if self.judge.unavailable:
+                stop = f"no model to read pages ({self.judge.unavailable})"
+                self.notes.append(f"{self.name}: stopped reading pages ({self.judge.unavailable})")
+                break
+            pending.sort(key=lambda u: self.rank(u, product, d.countries))
+            url = pending.pop(0)
+            key, host = candidate_key(url), registered_domain(url) or ""
+            if key in seen_keys:
+                continue  # another address of a page already taken
+            seen_keys.add(key)
+            if failures[host] >= HOST_FAILURES:
+                self._unread(url, product, f"not read: {host} refused or gave no text {HOST_FAILURES} times")
+                continue
+            kept_rows, fetched = await self._read_one(url, product)
+            if not fetched:
+                failures[host] += 1
+                continue
+            new = [r for r in kept_rows if r["company"].casefold() not in users]
+            since_new = 0 if new else since_new + 1
+            for row in kept_rows:
+                k = row["company"].casefold()
+                if k not in users or row["strength"] > users[k]["strength"]:
+                    users[k] = row
+            for row in new:
+                if row["verdict"] != "Confirmed" and not self._over_budget():
+                    pending += [u for u in await self.targeted(client, row["company"], product) if u not in pending]
+        for url in pending:
+            self._unread(url, product, f"not read: {stop}")
+        if pending:
+            self.notes.append(f"{self.name}: {len(pending)} candidate page(s) not read ({stop}; listed on the "
+                              "Rejected sheet)")
+        return stop
+
+    def _unread(self, url: str, product: Product, why: str) -> None:
+        self.evidence.append(dict(company=registered_domain(url) or "", product=product.name, url=url,
+                                  evidence_date="", source_type="Web page", website="", quote="", relationship="",
+                                  judged_by="", strength=0.0, verdict="", kept=False, reason=why))
+
+    async def prove(self, spec: ExtractionSpec, companies: list[tuple[str, str]]) -> dict[str, dict[str, Any]]:
+        """Each named company's own proof search, for companies a list or registry source found (no proof page
+        named them): the best pages naming it are read and only proof about that company is kept. Measured on
+        2026-10-28: Farmers, COUNTRY Financial and Mercury were in the Guidewire run, confirmed US, and their
+        vendor's announcements about them were never searched for. Returns company name -> strongest proof."""
+        from app.discovery.entities import name_match
+
+        product = product_for(spec.discovery.technology, spec.discovery.technology_aliases)
+        client = self.client or httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent})
+        proven: dict[str, dict[str, Any]] = {}
+        try:
+            for name, website in companies:
+                if self._over_budget() or self.judge.unavailable:
+                    break
+                urls = (await self.targeted(client, name, product))[:TARGETED_READS]
+                for url in sorted(urls, key=lambda u: self.rank(u, product, spec.discovery.countries)):
+                    kept_rows, _fetched = await self._read_one(url, product)
+                    for row in kept_rows:
+                        if not (name_match(name, row["company"]) or name_match(row["company"], name)
+                                or names_company(row["company"], name)):
+                            continue  # proof about someone else on that page
+                        row["company"], row["website"] = name, website
+                        if name not in proven or row["strength"] > proven[name]["strength"]:
+                            proven[name] = row
+                    if name in proven and proven[name]["verdict"] == "Confirmed":
+                        break
+        finally:
+            await self.judge.aclose()
+            if self.client is None:
+                await client.aclose()
+        self.notes.append(f"{self.name}: {len(companies)} listed companies searched for their own proof, "
+                          f"{len(proven)} proven")
+        return proven
 
     async def _context(self, product: Product, d) -> list[str]:
         from app.spec.interpret import COUNTRIES

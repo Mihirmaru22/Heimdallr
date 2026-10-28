@@ -15,6 +15,7 @@ Rules kept here, not scattered in callers:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import logging
 import time
@@ -31,10 +32,18 @@ log = logging.getLogger(__name__)
 
 # Which kinds of question a backend is asked. "lookup" (one company's website) stays on free, uncapped engines.
 GENERAL, EVIDENCE, LOOKUP = "general", "evidence", "lookup"
+# Proof searches for one named company ("Farmers Insurance" "Guidewire"): many per job, so only the engines
+# without a monthly cap are asked.
+TARGETED = "targeted"
 FAILS_BEFORE_OFF = 5
 COOLDOWN_SECONDS = 60.0
 MAX_HITS = 30
 TOP_UP_BELOW = 10  # the fallback engine is asked only when the others gave fewer distinct results than this
+
+
+# One job's searches, reused within that job only (never across jobs): a query asked twice in a run gets the
+# same answer, so which pages are read does not change mid-run. Set by the crawler for the length of a job.
+JOB_CACHE: contextvars.ContextVar[dict | None] = contextvars.ContextVar("search_job_cache", default=None)
 
 
 class SearchError(Exception):
@@ -76,7 +85,7 @@ class SearxngBackend(Backend):
     """Self-hosted, so free, but it scrapes engines that block it after a busy day: it only tops up."""
 
     name = "searxng"
-    kinds = (GENERAL, EVIDENCE, LOOKUP)
+    kinds = (GENERAL, EVIDENCE, LOOKUP, TARGETED)
     pages = 5
     fallback = True
 
@@ -97,7 +106,7 @@ class KeenableBackend(Backend):
     """The keyless public endpoint (no credits; the shared pool allows 1,000 calls an hour per address)."""
 
     name = "keenable"
-    kinds = (GENERAL, EVIDENCE, LOOKUP)
+    kinds = (GENERAL, EVIDENCE, LOOKUP, TARGETED)
 
     def __init__(self, api_key: str = "") -> None:
         self.api_key = api_key
@@ -259,7 +268,18 @@ class SearchHub:
         return hits
 
     async def search(self, query: str, *, page: int = 1, kind: str = GENERAL) -> list[Hit]:
-        """Hits from the search APIs, merged; SearXNG only tops up when they give too little."""
+        """Hits from the search APIs, merged; SearXNG only tops up when they give too little. Within a job, a
+        query asked before is answered from that job's own record of it."""
+        cache = JOB_CACHE.get()
+        key = (kind, " ".join(query.split()).casefold(), page)
+        if cache is not None and key in cache:
+            return list(cache[key])
+        hits = await self._search(query, page=page, kind=kind)
+        if cache is not None:
+            cache[key] = list(hits)
+        return hits
+
+    async def _search(self, query: str, *, page: int = 1, kind: str = GENERAL) -> list[Hit]:
         active = [b for b in self.backends if self._usable(b, kind, page)]
         if not active:
             if page == 1:
