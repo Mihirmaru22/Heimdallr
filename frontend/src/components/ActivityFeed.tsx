@@ -36,17 +36,23 @@ function time(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 }
 
+const LATEST = 300;
+
 export default function ActivityFeed({ lines, live, error }: { lines: Activity[]; live: boolean; error: string | null }) {
   const [filter, setFilter] = useState("All");
   const [showReads, setShowReads] = useState(true);
   const [follow, setFollow] = useState(true);
+  const [all, setAll] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (follow && box.current) box.current.scrollTop = box.current.scrollHeight;
   }, [lines, follow, filter, showReads]);
 
-  const shown = lines.filter((l) => FILTERS[filter](l.data.kind) && (showReads || l.data.kind !== "read"));
+  const matching = lines.filter((l) => FILTERS[filter](l.data.kind) && (showReads || l.data.kind !== "read"));
+  // Long runs have thousands of lines; drawing only the latest keeps the page quick until asked for more.
+  const hidden = all ? 0 : Math.max(0, matching.length - LATEST);
+  const shown = hidden ? matching.slice(hidden) : matching;
 
   return (
     <section className="feed-panel" aria-label="Live research feed">
@@ -64,6 +70,7 @@ export default function ActivityFeed({ lines, live, error }: { lines: Activity[]
           const el = e.currentTarget;
           setFollow(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
         }}>
+        {hidden > 0 && <button type="button" className="feed-more" onClick={() => setAll(true)}>Show {hidden.toLocaleString()} earlier lines</button>}
         {shown.length === 0 && <p className="feed-empty">{live ? "Waiting for the first step…" : "No activity recorded for this job."}</p>}
         {shown.map((l) => {
           const k = KIND[l.data.kind] ?? KIND.read;

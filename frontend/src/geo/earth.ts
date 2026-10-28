@@ -105,11 +105,12 @@ function hash(s: string, seed: number) {
 }
 
 // Where a site sits: on its country's land when the domain ends in a country code (.de, .co.in, .uk),
-// otherwise on a land dot picked from the name, so the same site always lands in the same place.
-export function siteDot(earth: Earth, site: string): number {
+// otherwise on a dot picked from the name (within `pool` when given, e.g. the countries a run is limited to),
+// so the same site always lands in the same place.
+export function siteDot(earth: Earth, site: string, pool?: number[]): number {
   const tld = site.split(".").pop()?.toLowerCase() ?? "";
   const iso = TLD_TO_ISO[tld];
-  const dots = (iso !== undefined && earth.byCountry.get(iso)) || earth.land;
+  const dots = (iso !== undefined && earth.byCountry.get(iso)) || (pool?.length ? pool : earth.land);
   return dots[hash(site, 7) % dots.length];
 }
 

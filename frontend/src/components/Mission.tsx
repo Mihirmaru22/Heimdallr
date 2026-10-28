@@ -21,6 +21,32 @@ export function AnimatedNumber({ value }: { value: number }) {
   return <>{shown.toLocaleString()}</>;
 }
 
+// The clock and the "on this step for Ns" counter tick on their own, so the rest of the screen only
+// re-renders when new activity arrives.
+function Clock({ elapsed, since, live }: { elapsed: number | null; since: string | null; live: boolean }) {
+  useTick(live);
+  // Before crawling starts the API has no elapsed time yet; count from when the run was created.
+  const anchor = useRef<{ at: number; base: number } | null>(null);
+  if (elapsed != null && (!anchor.current || Math.abs(anchor.current.base - elapsed) > 2.5)) anchor.current = { at: Date.now(), base: elapsed };
+  let clock: number | null = elapsed;
+  if (live && elapsed != null && anchor.current) clock = anchor.current.base + (Date.now() - anchor.current.at) / 1000;
+  else if (live && elapsed == null && since) clock = Math.max(0, (Date.now() - new Date(since).getTime()) / 1000);
+  return <div className="hud-clock mono" aria-label="Elapsed">{clock == null ? "00:00" : duration(clock)}</div>;
+}
+
+function Since({ at }: { at: string }) {
+  useTick(true);
+  return <em className="mono"> · {Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000))}s</em>;
+}
+
+// What the run is doing before its first activity line, by state.
+const WAITING: Record<string, string> = {
+  created: "Starting the run…",
+  validating: "Checking the plan and starting websites…",
+  planning: "Finding starting pages: asking search sources and registries…",
+  queued: "Waiting for a worker to pick the run up…",
+};
+
 function useTick(on: boolean) {
   const [, setN] = useState(0);
   useEffect(() => {
@@ -50,11 +76,10 @@ function Decode({ text }: { text: string }) {
   return <>{out}</>;
 }
 
-export default function Mission({ lines, live, state, title, question, elapsed, focus, actions, crumbs }: {
+export default function Mission({ lines, live, state, title, question, elapsed, createdAt, focus, actions, crumbs }: {
   lines: Activity[]; live: boolean; state: string; title: string; question?: string; elapsed: number | null;
-  focus: string[]; actions: ReactNode; crumbs: ReactNode;
+  createdAt: string | null; focus: string[]; actions: ReactNode; crumbs: ReactNode;
 }) {
-  useTick(live);
   const signals = useMemo(() => lines.map((l) => ({ id: l.id, kind: l.data.kind, site: l.data.site,
     source: (l.data.source as string | undefined) ?? null, at: l.created_at })), [lines]);
   const counts = useMemo(() => {
@@ -69,14 +94,9 @@ export default function Mission({ lines, live, state, title, question, elapsed, 
     return { ...c, sources: sources.size, keptSites: kept.size } as Record<string, number>;
   }, [lines]);
   const current = lines.at(-1);
-  const since = current ? Math.max(0, Math.round((Date.now() - new Date(current.created_at).getTime()) / 1000)) : 0;
   const reading = lines.filter((l) => l.data.kind === "read" && l.data.url).slice(-9);
   const wire = lines.filter((l) => l.data.kind !== "read").slice(-8);
   const k = current ? KIND[current.data.kind] ?? KIND.read : null;
-  // Elapsed ticks locally between progress polls.
-  const anchor = useRef<{ at: number; base: number } | null>(null);
-  if (elapsed != null && (!anchor.current || Math.abs(anchor.current.base - elapsed) > 2.5)) anchor.current = { at: Date.now(), base: elapsed };
-  const clock = elapsed == null ? null : live && anchor.current ? anchor.current.base + (Date.now() - anchor.current.at) / 1000 : elapsed;
 
   const stats: [string, number, string][] = [
     ["sources searched", counts.sources || counts.search || 0, "info"],
@@ -102,7 +122,7 @@ export default function Mission({ lines, live, state, title, question, elapsed, 
             <div className={`hud-state ${live ? "is-live" : ""}`}>
               <span className="hud-state-dot" aria-hidden /> {state.replace(/_/g, " ")}
             </div>
-            <div className="hud-clock mono" aria-label="Elapsed">{clock == null ? "00:00" : duration(clock)}</div>
+            <Clock elapsed={elapsed} since={createdAt} live={live} />
             <div className="hud-actions">{actions}</div>
           </div>
         </header>
@@ -110,12 +130,12 @@ export default function Mission({ lines, live, state, title, question, elapsed, 
         <div className="hud-now" aria-live="polite">
           <span className={live ? "pulse" : "done-dot"} aria-hidden />
           <div className="hud-now-body">
-            <span className="hud-now-kind">{live ? (k ? k.label : "Starting") : "Finished"}{live && current && <em className="mono"> · {since}s</em>}</span>
+            <span className="hud-now-kind">{live ? (k ? k.label : state.replace(/_/g, " ")) : "Finished"}{live && current && <Since at={current.created_at} />}</span>
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span key={current?.id ?? "none"} className="hud-now-text"
                 initial={{ opacity: 0, y: 14, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                 exit={{ opacity: 0, y: -14, filter: "blur(6px)" }} transition={{ duration: 0.35, ease: [0.2, 0.75, 0.15, 1] }}>
-                {current ? current.message : live ? "Getting the plan ready…" : "No steps were recorded."}
+                {current ? current.message : live ? WAITING[state] ?? "Getting the plan ready…" : "No steps were recorded."}
               </motion.span>
             </AnimatePresence>
           </div>
@@ -136,7 +156,7 @@ export default function Mission({ lines, live, state, title, question, elapsed, 
         <aside className="hud-wire" aria-label="Latest finds and decisions">
           <span className="hud-label">Live wire</span>
           <ul>
-            <AnimatePresence initial={false}>
+            <AnimatePresence initial={false} mode="popLayout">
               {wire.map((l) => {
                 const kk = KIND[l.data.kind] ?? KIND.read;
                 const site = l.data.site ?? "";

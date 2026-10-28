@@ -51,7 +51,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
     <div>
       <Mission lines={activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
         title={schema.data?.spec.title || project.data?.name || "Research run"} question={schema.data?.nl_request}
-        elapsed={progress.data?.elapsed_seconds ?? null} focus={schema.data?.spec.discovery.countries ?? []} />
+        elapsed={progress.data?.elapsed_seconds ?? null} createdAt={job.data?.created_at ?? null} focus={schema.data?.spec.discovery.countries ?? []} />
       {progress.data?.error && <div className="error" role="alert"><strong>{progress.data.error}</strong></div>}
       <ErrorBox error={cancel.error || retry.error} />
 

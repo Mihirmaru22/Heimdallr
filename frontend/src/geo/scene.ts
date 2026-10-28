@@ -159,6 +159,19 @@ export class GlobeScene {
   private labels: Label[] = [];
   private lastRead: number | null = null;
   private focus = new Set<number>();
+  private focusList: number[] = [];
+  // Camera director: with target countries the globe holds still, zoomed onto them; without, it swings round
+  // to face each new hit, then drifts until the next one.
+  private aim: { rx: number; ry: number } | null = null;
+  private aimAt = -10;
+  private zoom = 1;
+  private zoomNow = 1;
+  private userUntil = 0;
+  // Adaptive quality: bloom and pixel ratio step down when frames run slow.
+  private quality = 2;
+  private useBloom = true;
+  private slow = 0;
+  private frames = 0;
   private frame = 0;
   private last = 0;
   private visible = true;
@@ -176,7 +189,7 @@ export class GlobeScene {
     this.demo = !!opts.demo;
     this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    this.renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio));
     // The composer's targets skip colour management on clear, so hand it the linear value.
     this.renderer.setClearColor(new THREE.Color(STAGE.bg).convertSRGBToLinear(), 1);
     this.renderer.domElement.setAttribute("aria-hidden", "true");
@@ -352,14 +365,56 @@ export class GlobeScene {
 
   setFocus(alpha2: string[]) {
     this.focus = focusDots(this.earth, alpha2);
-    // Turn the target countries towards the camera.
+    this.focusList = [...this.focus];
     if (this.focus.size) {
-      let x = 0, z = 0;
-      for (const i of this.focus) { x += this.earth.positions[i * 3]; z += this.earth.positions[i * 3 + 2]; }
-      this.drag.ry = Math.atan2(-x, z);
+      // Hold still facing the target countries, zoomed so they fill the view.
+      const c = new THREE.Vector3();
+      for (const i of this.focus) c.add(this.dotLocal(i));
+      c.normalize();
+      let spread = 0;
+      const angles = this.focusList.map((i) => this.dotLocal(i).angleTo(c)).sort((a, b) => a - b);
+      spread = angles[Math.floor(angles.length * 0.9)] ?? 0;
+      this.aim = this.rotationFacing(c);
+      this.zoom = Math.max(0.6, Math.min(1, 0.5 + spread * 1.2));
+      this.drag.vx = this.drag.vy = 0;
+    } else {
+      this.aim = null;
+      this.zoom = 1;
     }
+    this.replaceSites();
     this.paintDots();
     this.render();
+  }
+
+  // The earth rotation (rx, ry) that brings a local point to the front, taking the short way round.
+  private rotationFacing(p: THREE.Vector3) {
+    const ry = Math.atan2(-p.x, p.z);
+    const rx = Math.atan2(p.y, Math.hypot(p.x, p.z));
+    const wrap = (a: number) => a - Math.round(a / (Math.PI * 2)) * Math.PI * 2;
+    return { rx: Math.max(-0.9, Math.min(1.2, rx)), ry: this.drag.ry + wrap(ry - this.drag.ry) };
+  }
+
+  // Sites placed before the target countries were known move onto them (only sites without a country code).
+  private replaceSites() {
+    this.pillars = 0;
+    for (const [site, s] of this.sites) {
+      s.dot = siteDot(this.earth, site, this.focusList);
+      const p = this.dotLocal(s.dot).multiplyScalar(1.012);
+      this.sitePos.setXYZ(s.i, p.x, p.y, p.z);
+      if (s.state === "kept") this.pillar(site, s.dot);
+    }
+    this.sitePos.needsUpdate = true;
+    this.pillarGeo.setDrawRange(0, this.pillars * 2);
+  }
+
+  private pillar(site: string, dot: number) {
+    const base = this.dotLocal(dot);
+    const h = 1.04 + 0.05 + hashOf(site) * 0.1;
+    this.pillarPos.setXYZ(this.pillars * 2, base.x, base.y, base.z);
+    this.pillarPos.setXYZ(this.pillars * 2 + 1, base.x * h, base.y * h, base.z * h);
+    this.pillarPos.needsUpdate = true;
+    this.pillars++;
+    this.pillarGeo.setDrawRange(0, this.pillars * 2);
   }
 
   private bumpVault() {
@@ -392,6 +447,12 @@ export class GlobeScene {
     if (!s) return;
     if (!fx) { if (sig.kind === "kept") this.bumpVault(); return; }
     const local = this.dotLocal(s.dot);
+    // No target countries: swing round to each hit. A kept site always wins; reads at most every 1.6 s.
+    const t = this.uniforms.uTime.value;
+    if (!this.focus.size && (sig.kind === "kept" || t - this.aimAt > 1.6)) {
+      this.aim = this.rotationFacing(local);
+      this.aimAt = t;
+    }
     if (sig.kind === "read" || sig.kind === "queued") {
       if (this.lastRead !== null && this.lastRead !== s.dot && sig.kind === "read") {
         this.arc(this.dotWorld(this.lastRead), this.dotWorld(s.dot), STAGE.hop, 0.9, 0.5);
@@ -416,7 +477,8 @@ export class GlobeScene {
   }
 
   render() {
-    this.composer.render();
+    if (this.useBloom) this.composer.render();
+    else this.renderer.render(this.scene, this.camera);
     this.placeLabels();
   }
 
@@ -455,14 +517,14 @@ export class GlobeScene {
     return this.earthGroup.localToWorld(this.dotLocal(dot).multiplyScalar(1.01));
   }
   private siteLocal(site: string) {
-    return this.dotLocal(siteDot(this.earth, site));
+    return this.dotLocal(siteDot(this.earth, site, this.focusList));
   }
 
   private light(site: string, state: SiteState, fx: boolean) {
     let s = this.sites.get(site);
     if (!s) {
       if (this.sites.size >= MAX_SITES) return null;
-      const dot = siteDot(this.earth, site);
+      const dot = siteDot(this.earth, site, this.focusList);
       s = { i: this.sites.size, state, dot };
       this.sites.set(site, s);
       const p = this.dotLocal(dot).multiplyScalar(1.012);
@@ -474,15 +536,7 @@ export class GlobeScene {
     } else if (RANK[state] < RANK[s.state]) {
       return s;
     }
-    if (state === "kept" && s.state !== "kept") {
-      const base = this.dotLocal(s.dot);
-      const h = 1.04 + 0.05 + hashOf(site) * 0.1;
-      this.pillarPos.setXYZ(this.pillars * 2, base.x, base.y, base.z);
-      this.pillarPos.setXYZ(this.pillars * 2 + 1, base.x * h, base.y * h, base.z * h);
-      this.pillarPos.needsUpdate = true;
-      this.pillars++;
-      this.pillarGeo.setDrawRange(0, this.pillars * 2);
-    }
+    if (state === "kept" && s.state !== "kept") this.pillar(site, s.dot);
     s.state = state;
     const col = new THREE.Color(state === "kept" ? STAGE.kept : state === "dropped" ? STAGE.dropped : state === "bad" ? STAGE.bad : STAGE.seen);
     this.siteColor.setXYZ(s.i, col.r, col.g, col.b);
@@ -606,7 +660,8 @@ export class GlobeScene {
 
   private step = (now: number) => {
     this.frame = 0;
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    const raw = now - this.last;
+    const dt = Math.min(0.05, raw / 1000);
     this.last = now;
     const t = (this.uniforms.uTime.value += dt);
     this.uniforms.uBeam.value = (t * 0.45) % (Math.PI * 2);
@@ -614,15 +669,25 @@ export class GlobeScene {
     // Camera intro, then a slow drift; dragging takes over rotation with inertia.
     this.intro = Math.min(1, this.intro + dt / 1.8);
     const e = 1 - Math.pow(1 - this.intro, 3);
-    const dist = this.distance * (1.45 - 0.45 * e);
-    this.camera.position.set(0, 0.25, dist);
-    this.camera.lookAt(0, 0.08, 0);
+    this.zoomNow += (this.zoom - this.zoomNow) * (1 - Math.exp(-dt * 1.6));
+    const dist = this.distance * this.zoomNow * (1.45 - 0.45 * e);
+    this.camera.position.set(0, 0.25 * this.zoomNow, dist);
+    this.camera.lookAt(0, 0.08 * this.zoomNow, 0);
     if (!this.drag.on) {
-      this.drag.ry += dt * (this.focus.size ? 0.025 : 0.06) + this.drag.vy;
-      this.drag.rx += this.drag.vx;
-      this.drag.vx *= 0.94;
-      this.drag.vy *= 0.94;
-      this.drag.rx += (0.35 - this.drag.rx) * 0.01;
+      if (this.aim && t > this.userUntil) {
+        const k = 1 - Math.exp(-dt * (this.focus.size ? 1.8 : 3.4));
+        this.drag.rx += (this.aim.rx - this.drag.rx) * k;
+        this.drag.ry += (this.aim.ry - this.drag.ry) * k;
+        this.drag.vx = this.drag.vy = 0;
+        // Without target countries, let go once the hit faces the camera and drift until the next one.
+        if (!this.focus.size && Math.abs(this.aim.ry - this.drag.ry) < 0.01 && Math.abs(this.aim.rx - this.drag.rx) < 0.01) this.aim = null;
+      } else {
+        this.drag.ry += dt * (this.focus.size ? 0 : 0.06) + this.drag.vy;
+        this.drag.rx += this.drag.vx;
+        this.drag.vx *= 0.94;
+        this.drag.vy *= 0.94;
+        if (!this.focus.size) this.drag.rx += (0.35 - this.drag.rx) * 0.01;
+      }
     }
     this.drag.rx = Math.max(-0.9, Math.min(1.2, this.drag.rx));
     this.earthGroup.rotation.set(this.drag.rx, this.drag.ry, 0);
@@ -686,9 +751,24 @@ export class GlobeScene {
     this.sparkPos.needsUpdate = true;
 
     if (this.demo && t > this.demoAt) this.demoTick(t);
+    this.adapt(raw);
     this.render();
     this.schedule();
   };
+
+  // Frames slower than ~45 fps for two seconds drop the bloom, then the pixel ratio.
+  private adapt(ms: number) {
+    if (this.quality === 0) return;
+    this.frames++;
+    if (ms > 22) this.slow++;
+    if (this.frames < 120) return;
+    if (this.slow > 60) {
+      this.quality--;
+      if (this.quality === 1) this.useBloom = false;
+      else { this.renderer.setPixelRatio(1); this.resize(); }
+    }
+    this.frames = this.slow = 0;
+  }
 
   private schedule() {
     if (!this.reduced && this.visible && !document.hidden && !this.frame) {
@@ -731,7 +811,7 @@ export class GlobeScene {
       this.drag.vy = dx * 3 * 0.5; this.drag.vx = dy * 2 * 0.5;
       if (this.reduced) { this.earthGroup.rotation.set(this.drag.rx, this.drag.ry, 0); this.render(); }
     };
-    const up = () => { this.drag.on = false; el.classList.remove("dragging"); };
+    const up = () => { this.drag.on = false; el.classList.remove("dragging"); this.userUntil = this.uniforms.uTime.value + 4; };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
