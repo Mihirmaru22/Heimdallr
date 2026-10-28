@@ -39,6 +39,11 @@ MAX_MODELS_PER_CALL = 5  # with 3, a few models that always refuse or are busy l
 # A model that refuses this key outright (403 "only available on agentic harnesses", 404 gone) will refuse again:
 # it is skipped until the next day instead of taking a place among the models tried for every call.
 PERMANENT_STATUSES = (403, 404)
+# OpenRouter keeps a slow free model's request open by sending blank keep-alive bytes, so a read timeout never
+# fires: one call once took 42 minutes. Each model gets at most CALL_DEADLINE seconds of wall-clock time, and one
+# chat() stops trying further models once CHAT_BUDGET seconds have passed.
+CALL_DEADLINE = 75.0
+CHAT_BUDGET = 150.0
 # Free models built for one narrow job (moderation, code, embeddings) are no use for reading web pages.
 SPECIALIZED_RE = re.compile(r"safety|guard|moderat|code|coder|embed|rerank|tts|audio|ocr", re.I)
 # Room for a reasoning model's thinking before its answer; with too little, the answer comes back empty.
@@ -196,6 +201,8 @@ class OpenRouter:
         self.client = client
         self.state = state
         self.sleep = sleep
+        self.deadline = CALL_DEADLINE
+        self.budget = CHAT_BUDGET
 
     def _state(self) -> State:
         self.state = self.state or State()
@@ -292,7 +299,11 @@ class OpenRouter:
         http = await self._http()
         tried: list[str] = []
         problems: list[str] = []
+        started = time.monotonic()
         for model in candidates[:MAX_MODELS_PER_CALL]:
+            if tried and time.monotonic() - started > self.budget:
+                problems.append(f"stopped after {round(time.monotonic() - started)} s")
+                break
             tried.append(model)
             # Reasoning models spend tokens thinking first, so the limit has a floor, and their thinking is
             # left out of the reply (`exclude`) since only the answer is used.
@@ -302,7 +313,13 @@ class OpenRouter:
             if json_mode:
                 payload["response_format"] = {"type": "json_object"}
             try:
-                resp = await http.post(f"{API}/chat/completions", headers=self._headers(), json=payload)
+                resp = await asyncio.wait_for(
+                    http.post(f"{API}/chat/completions", headers=self._headers(), json=payload), self.deadline)
+            except TimeoutError:
+                state.count_failure(model, "deadline")
+                state.cool_down(model, 120)
+                problems.append(f"{model}: no answer within {round(self.deadline)} s")
+                continue
             except httpx.HTTPError as exc:
                 state.count_failure(model, "network")
                 state.cool_down(model, 120)

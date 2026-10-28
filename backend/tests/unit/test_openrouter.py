@@ -167,3 +167,33 @@ async def test_an_empty_answer_moves_on_and_every_failure_is_reported():
     assert "small/model-8b:free: empty reply" in str(exc.value)
     # A reasoning model gets room to think before it answers, and its thinking is not sent back.
     assert sent[0]["max_tokens"] >= 1024 and sent[0]["reasoning"] == {"effort": "low", "exclude": True}
+
+
+async def test_a_model_that_keeps_the_request_open_is_given_up_on_and_the_next_one_asked():
+    import asyncio
+
+    async def handler(request):
+        model = httpx.Response(200, content=request.content).json()["model"]
+        if model == "good/model-70b:free":
+            await asyncio.sleep(5)  # keep-alive bytes would keep a read timeout from ever firing
+        return answer(model)
+
+    router, _ = gateway(handler)
+    router.deadline = 0.05
+    reply = await router.chat([{"role": "user", "content": "hi"}])
+    assert reply.model == "small/model-8b:free" and reply.attempts == ["good/model-70b:free", "small/model-8b:free"]
+    assert router.state.stats()["good/model-70b:free"] == {"deadline": 1}
+    assert router.state.cooling("good/model-70b:free")
+
+
+async def test_one_call_stops_trying_models_when_its_time_budget_is_spent():
+    import asyncio
+
+    async def slow(request):
+        await asyncio.sleep(5)
+        return answer("x")
+
+    router, _ = gateway(slow)
+    router.deadline, router.budget = 0.05, 0.01
+    with pytest.raises(LLMUnavailable, match="stopped after"):
+        await router.chat([{"role": "user", "content": "hi"}])
