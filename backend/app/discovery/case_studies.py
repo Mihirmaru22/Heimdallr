@@ -38,10 +38,12 @@ from app.search import EVIDENCE, TARGETED, SearchError, SearchHub, search_config
 from app.spec.models import ExtractionSpec
 
 PHRASES = ("case study", "customer story", "success story")
-# Reading stops when coverage stops growing, not at a fixed number of pages: after PLATEAU pages in a row that
-# named no new company (and at least that many read), or when the job's reading budget is spent. Measured on
-# 2026-10-28: a fixed 30 of ~400 candidates, read in the engines' order, gave a different sample every run.
-PLATEAU = 10
+# Reading stops when coverage stops growing, not at a fixed number of pages: at least MIN_READ pages are read,
+# then reading goes on until PLATEAU pages in a row from the general searches named no new company that could be
+# delivered, or the job's reading budget is spent. Only about 1 page in 6 names a company at all, so a short run of
+# empty pages is chance, not coverage: with PLATEAU = 10 the first redesigned run stopped after 22 pages.
+MIN_READ = 30
+PLATEAU = 20
 TARGETED_READS = 3  # pages read from one company's own proof search
 SEARCH_PAGES = 2  # result pages per query
 HOST_FAILURES = 2  # pages of one site that could not be read before its other candidates are passed over
@@ -153,6 +155,7 @@ class CaseStudiesProvider:
         self.context: list[str] = []  # searches naming the question's industry and place, asked first
         self.place = ""  # the one place asked for, written out ("United Kingdom"), or ""
         self.meta: dict[str, tuple[str, str]] = {}  # url -> (title, snippet) search gave
+        self.order: dict[str, int] = {}  # url -> when search first gave it
         self.targeted_urls: set[str] = set()  # urls found by a named company's own proof search
         self.target_of: dict[str, str] = {}  # targeted url -> the company it was searched for (casefolded)
         self.resolver = None  # the job's EntityResolver (set by the crawler, so names are matched once per job)
@@ -208,21 +211,24 @@ class CaseStudiesProvider:
                     if url and site and site not in NOT_COMPANY_SITES and url not in urls:
                         urls.append(url)
                         self.meta.setdefault(url, (hit.title or "", hit.snippet or ""))
+                        self.order.setdefault(url, len(self.order))
                 await asyncio.sleep(1.0 if get_settings().env != "test" and page < SEARCH_PAGES else 0)
         return urls
 
     def rank(self, url: str, product: Product, countries: list[str]) -> tuple:
-        """A page's place in the reading order, from what search said about it, so the same candidates are always
-        read in the same order: pages found for a named company first, then pages whose title or snippet names
-        the product, then the place asked for; ties by address."""
+        """A page's place in the reading order, from what search said about it: pages found for a named company
+        first, then pages whose title, snippet or domain is about the place asked for, then pages naming the
+        product; within one score, the order search found them in (the place-specific searches are asked first,
+        and each engine ranks its own results), which a job keeps fixed. Breaking ties by address instead read
+        domains alphabetically and lost the engines' relevance (2026-10-29)."""
         title, snippet = self.meta.get(url, ("", ""))
         text = f"{title} {snippet}"
-        score = 4 * (url in self.targeted_urls) + 2 * product.mentioned_in(text)
+        score = 4 * (url in self.targeted_urls) + product.mentioned_in(text)
         if countries:
             site = registered_domain(url) or ""
             tlds = {CCTLD.get(c, c.lower()) for c in countries}
-            score += bool(countries_named(text) & set(countries) or site.rsplit(".", 1)[-1] in tlds)
-        return (-score, candidate_key(url))
+            score += 2 * bool(countries_named(text) & set(countries) or site.rsplit(".", 1)[-1] in tlds)
+        return (-score, self.order.get(url, len(self.order)))
 
     async def targeted(self, client: httpx.AsyncClient, company: str, product: Product) -> list[str]:
         """One company's own proof search ("Farmers Insurance" "Guidewire"): the pages whose title, snippet or
@@ -246,16 +252,19 @@ class CaseStudiesProvider:
                 self.meta.setdefault(url, (hit.title or "", hit.snippet or ""))
                 self.targeted_urls.add(url)
                 self.target_of.setdefault(url, company.casefold())
+                self.order.setdefault(url, len(self.order))
                 out.append(url)
         return out
 
     async def _worth_chasing(self, client: httpx.AsyncClient, row: dict[str, Any], d) -> bool:
-        """Whether a newly named company gets its own proof search: not when it already has Confirmed proof, and
-        not when the evidence puts it outside the countries asked for (a UK question once spent its reading on
+        return row["verdict"] != "Confirmed" and not self._over_budget() and await self._could_deliver(client, row, d)
+
+    async def _could_deliver(self, client: httpx.AsyncClient, row: dict[str, Any], d) -> bool:
+        """Whether a newly named company could be delivered: not when the evidence puts it outside the countries
+        asked for. A company that could gets its own proof search unless its proof is already Confirmed; one that
+        could not (a UK question once spent its reading on
         US and Australian companies a page happened to name). Where it is comes from what the proof page itself
         said, else from a registry, matched once per job; unknown is chased."""
-        if row["verdict"] == "Confirmed" or self._over_budget():
-            return False
         if not d.countries:
             return True
         said = next((f["value"] for f in self.facts if f["kind"] == "country" and f["company"] == row["company"]
@@ -299,7 +308,7 @@ class CaseStudiesProvider:
             urls = await self.search(client, product)
             self.hub = self.hub or SearchHub.from_settings(client, self.searxng_url)
             self._say("search", f"{len(urls)} page(s) found among {product.name} {self.what}; reading until "
-                                f"{PLATEAU} pages in a row name no new company")
+                                f"{PLATEAU} pages in a row name no new company (at least {MIN_READ})")
             pending = list(dict.fromkeys(urls))
             stop = await self._read_loop(client, product, d, pending, users)
             self.notes.append(f"{self.name}: {len(urls)} candidate page(s) from the general searches, "
@@ -403,8 +412,9 @@ class CaseStudiesProvider:
             if self._over_budget():
                 stop = "the reading budget was reached"
                 break
-            if self.read >= PLATEAU and since_new >= PLATEAU:
-                stop = f"coverage: the last {PLATEAU} pages read from the general searches named no new company"
+            if self.read >= MIN_READ and since_new >= PLATEAU:
+                stop = (f"coverage: the last {PLATEAU} pages read from the general searches named no new company "
+                        "that could be delivered")
                 break
             if self.judge.unavailable:
                 stop = f"no model to read pages ({self.judge.unavailable})"
@@ -429,15 +439,17 @@ class CaseStudiesProvider:
                 failures[host] += 1
                 continue
             new = [r for r in kept_rows if r["company"].casefold() not in users]
-            if url not in self.targeted_urls:
-                # Coverage is measured on the general searches: a company's own proof page can only re-prove it.
-                since_new = 0 if new else since_new + 1
             for row in kept_rows:
                 k = row["company"].casefold()
                 if k not in users or row["strength"] > users[k]["strength"]:
                     users[k] = row
-            for row in new:
-                if await self._worth_chasing(client, row, d):
+            deliverable = [r for r in new if await self._could_deliver(client, r, d)]
+            if url not in self.targeted_urls:
+                # Coverage is measured on the general searches and on companies the question could deliver: a
+                # company's own proof page can only re-prove it, and a company elsewhere does not answer it.
+                since_new = 0 if deliverable else since_new + 1
+            for row in deliverable:
+                if row["verdict"] != "Confirmed" and not self._over_budget():
                     pending += [u for u in await self.targeted(client, row["company"], product) if u not in pending]
         # Pages no free model answered are asked once more, now that the busy moment has likely passed.
         retry, self.unanswered = self.unanswered, []

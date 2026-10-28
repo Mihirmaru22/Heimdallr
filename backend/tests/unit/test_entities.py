@@ -75,7 +75,12 @@ async def test_the_resolver_asks_wikidata_and_gleif_and_keeps_one_answer_per_nam
     assert len(calls) == n  # asked once per job
 
 
-def test_countries_a_sentence_names():
+def test_countries_a_sentence_names_and_states():
+    from app.evidence.thirdparty import countries_stated
+
+    assert countries_stated("Ringers Western ... Roadshow heads to New Zealand") == set()
+    assert countries_stated("Lick, the UK-headquartered home decor brand") == {"GB"}
+    assert countries_stated("Acme, a company based in Germany, chose it") == {"DE"}
     assert countries_named("Lick, the UK-headquartered home décor brand, has turned to NetSuite") == {"GB"}
     assert countries_named("Kemwell BioPharma, India's largest biologics CDMO") == {"IN"}
     assert countries_named("it helps us grow") == set()  # "us" the word is not the US

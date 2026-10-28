@@ -4,7 +4,7 @@ import json
 
 import httpx
 
-from app.discovery.case_studies import PLATEAU, CaseStudiesProvider
+from app.discovery.case_studies import MIN_READ, PLATEAU, CaseStudiesProvider
 from app.evidence.judge import Judge
 from app.evidence.products import product_for
 from app.extract.deterministic import parse_page
@@ -65,14 +65,15 @@ def test_the_reading_order_comes_from_the_pages_not_the_engines():
 
 
 async def test_reading_stops_when_pages_stop_naming_new_companies_and_says_so():
-    noise = [(f"https://blog{i}.example/guidewire-tips", "Guidewire tips") for i in range(30)]
+    noise = [(f"https://blog{i}.example/guidewire-tips", "Guidewire tips") for i in range(60)]
     pages = {u: "<html><head><title>Tips</title></head><body><p>Five Guidewire tips for admins.</p></body></html>"
              for u, _t in noise}
     p = provider(lambda q: noise, pages)
     users = {}
     stop = await p._read_loop(p.client, product_for("Guidewire"), spec().discovery, [u for u, _ in noise], users)
-    assert stop.startswith("coverage") and p.read == PLATEAU
-    assert sum(e["reason"].startswith("not read: coverage") for e in p.evidence) == 30 - PLATEAU
+    # Never fewer than MIN_READ pages, then a run of PLATEAU empty ones: here both end at MIN_READ.
+    assert stop.startswith("coverage") and p.read == max(MIN_READ, PLATEAU)
+    assert sum(e["reason"].startswith("not read: coverage") for e in p.evidence) == 60 - max(MIN_READ, PLATEAU)
 
 
 async def test_a_named_company_gets_its_own_proof_search_and_those_pages_are_read_first():

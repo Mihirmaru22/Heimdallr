@@ -85,6 +85,26 @@ def countries_named(text: str) -> set[str]:
     return found
 
 
+# How a sentence says where an organisation is: "UK-headquartered", "Germany-based", "based in India",
+# "headquartered in the United States", "India's largest...". A country merely named nearby ("Roadshow heads to New
+# Zealand") says nothing about where the customer is: that placed an Australian brand in New Zealand (2026-10-29).
+LOCATIVE = (r"(?:based|headquartered|located|registered|incorporated)\s+in\s+(?:the\s+)?{c}",
+            r"{c}[\s-](?:based|headquartered|born|owned)", r"{c}['’]s\b", r"\bin\s+{c}\s*['’]s\b")
+
+
+def countries_stated(text: str) -> set[str]:
+    """ISO codes of the countries a sentence states something is based in (see LOCATIVE)."""
+    from app.discovery.relevance import COUNTRY_NAMES
+
+    found = set()
+    for name, iso in COUNTRY_NAMES.items():
+        c = re.escape(name.upper()) if len(name) <= 3 else re.escape(name)
+        flags = 0 if len(name) <= 3 else re.I
+        if any(re.search(rf"(?<![A-Za-z]){p.format(c=c)}", text, flags) for p in LOCATIVE):
+            found.add(iso)
+    return found
+
+
 def _contains(text: str, name: str) -> bool:
     return bool(re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text, re.I))
 
@@ -128,7 +148,7 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
         if c.based_in:
             said = sentences[min(c.based_in, len(sentences)) - 1]
             # The model only points: the sentence must name the customer and exactly one country.
-            named = countries_named(said)
+            named = countries_stated(said)
             if _contains(said, name) and len(named) == 1:
                 country, country_quote = next(iter(named)), said
         out.append(Found(name, c.relationship, quote, reading.publisher, f"model:{reply.model}", country,
