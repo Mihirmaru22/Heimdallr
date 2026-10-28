@@ -154,6 +154,8 @@ class CaseStudiesProvider:
         self.place = ""  # the one place asked for, written out ("United Kingdom"), or ""
         self.meta: dict[str, tuple[str, str]] = {}  # url -> (title, snippet) search gave
         self.targeted_urls: set[str] = set()  # urls found by a named company's own proof search
+        self.target_of: dict[str, str] = {}  # targeted url -> the company it was searched for (casefolded)
+        self.resolver = None  # the job's EntityResolver (set by the crawler, so names are matched once per job)
         self.asked: set[str] = set()  # companies whose own proof search was made
         self.deadline: float | None = None  # monotonic time the job's reading budget ends (set by the crawler)
         self.read = 0  # pages read
@@ -243,8 +245,32 @@ class CaseStudiesProvider:
             if names_company(f"{hit.title} {hit.snippet} {url.replace('-', ' ')}", company):
                 self.meta.setdefault(url, (hit.title or "", hit.snippet or ""))
                 self.targeted_urls.add(url)
+                self.target_of.setdefault(url, company.casefold())
                 out.append(url)
         return out
+
+    async def _worth_chasing(self, client: httpx.AsyncClient, row: dict[str, Any], d) -> bool:
+        """Whether a newly named company gets its own proof search: not when it already has Confirmed proof, and
+        not when the evidence puts it outside the countries asked for (a UK question once spent its reading on
+        US and Australian companies a page happened to name). Where it is comes from what the proof page itself
+        said, else from a registry, matched once per job; unknown is chased."""
+        if row["verdict"] == "Confirmed" or self._over_budget():
+            return False
+        if not d.countries:
+            return True
+        said = next((f["value"] for f in self.facts if f["kind"] == "country" and f["company"] == row["company"]
+                     and f["value"]), "")
+        if said:
+            return said in d.countries
+        from app.discovery.entities import EntityResolver, resolution_facts
+
+        self.resolver = self.resolver or EntityResolver(client)
+        res = await self.resolver.resolve(row["company"])
+        self.facts += resolution_facts(row["company"], "", res)
+        if res.country and res.country not in d.countries:
+            self._say("skipped", f"Not searching {row['company']}'s own proof: {res.by} places it in {res.country}")
+            return False
+        return True
 
     def _record(self, **kw: Any) -> dict[str, Any]:
         self.evidence.append(kw)
@@ -378,7 +404,7 @@ class CaseStudiesProvider:
                 stop = "the reading budget was reached"
                 break
             if self.read >= PLATEAU and since_new >= PLATEAU:
-                stop = f"coverage: the last {PLATEAU} pages read named no new company"
+                stop = f"coverage: the last {PLATEAU} pages read from the general searches named no new company"
                 break
             if self.judge.unavailable:
                 stop = f"no model to read pages ({self.judge.unavailable})"
@@ -393,18 +419,25 @@ class CaseStudiesProvider:
             if failures[host] >= HOST_FAILURES:
                 self._unread(url, product, f"not read: {host} refused or gave no text {HOST_FAILURES} times")
                 continue
+            target = self.target_of.get(url)
+            if target and users.get(target, {}).get("verdict") in ("Confirmed", "Likely"):
+                # A company's own proof page is read to find its use; once it has one, its other pages add nothing.
+                self._unread(url, product, f"not read: {target} already has proof")
+                continue
             kept_rows, fetched = await self._read_one(url, product)
             if not fetched:
                 failures[host] += 1
                 continue
             new = [r for r in kept_rows if r["company"].casefold() not in users]
-            since_new = 0 if new else since_new + 1
+            if url not in self.targeted_urls:
+                # Coverage is measured on the general searches: a company's own proof page can only re-prove it.
+                since_new = 0 if new else since_new + 1
             for row in kept_rows:
                 k = row["company"].casefold()
                 if k not in users or row["strength"] > users[k]["strength"]:
                     users[k] = row
             for row in new:
-                if row["verdict"] != "Confirmed" and not self._over_budget():
+                if await self._worth_chasing(client, row, d):
                     pending += [u for u in await self.targeted(client, row["company"], product) if u not in pending]
         # Pages no free model answered are asked once more, now that the busy moment has likely passed.
         retry, self.unanswered = self.unanswered, []

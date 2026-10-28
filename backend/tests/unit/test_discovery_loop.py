@@ -159,3 +159,32 @@ async def test_a_use_needs_two_readings_to_be_confirmed_and_disagreement_leaves_
         p.judge = Judge(Models(second))
         rows, _ok = await p._read_one("https://vendor.example/acme", product_for("Guidewire"))
         assert rows[0]["verdict"] == verdict
+
+
+async def test_a_company_the_evidence_puts_elsewhere_gets_no_proof_search_of_its_own():
+    from app.discovery.entities import Resolution
+
+    class Registry:
+        async def resolve(self, company, website=""):
+            return Resolution(country="AU", by="registry: wikidata", detail=f"{company} (wikidata Q1)")
+
+    general = [("https://news.example/acme", "Acme selects Guidewire")]
+    p = provider(lambda q: [("https://vendor.example/acme-2", "Acme on Guidewire")] if q.startswith('"Acme"')
+                 else general, {"https://news.example/acme": story("Acme")})
+    p.resolver = Registry()
+    users = {}
+    await p._read_loop(p.client, product_for("Guidewire"), spec().discovery, [u for u, _ in general], users)
+    assert "acme" in users and p.asked == set()  # placed in AU: a US question does not chase it
+    assert any(f["kind"] == "country" and f["value"] == "AU" for f in p.facts)
+
+
+async def test_a_company_s_other_pages_are_not_read_once_it_has_proof():
+    general = [("https://news.example/acme", "Acme selects Guidewire")]
+    own = [(f"https://vendor.example/acme-{i}", "Acme selects Guidewire") for i in range(3)]
+    pages = {u: story("Acme") for u, _ in general + own}
+    p = provider(lambda q: own if q.startswith('"Acme"') else general, pages)
+    users = {}
+    await p._read_loop(p.client, product_for("Guidewire"), spec(countries=[]).discovery,
+                       [u for u, _ in general], users)
+    assert p.read == 1  # the news page; Acme then had Likely proof, so its own pages were not needed
+    assert sum("already has proof" in e["reason"] for e in p.evidence) == 3

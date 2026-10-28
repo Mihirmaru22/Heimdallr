@@ -258,6 +258,11 @@ class CrawlRunner:
         per_provider: list[list[Any]] = []
         flusher = asyncio.create_task(self._flush_every_second())  # sources that read documents report live
         cache_token = JOB_CACHE.set({})  # this job's searches, reused within the job only
+        from app.discovery.entities import GLEIF_GAP, EntityResolver
+
+        # One registry matcher for the job: each name is looked up once, by whichever step needs it first.
+        self.entity_resolver = EntityResolver(self.client, gleif_gap=0.0 if self.settings.env == "test"
+                                              else GLEIF_GAP)
         self.read_deadline = time.monotonic() + self.spec.discovery.read_budget_minutes * 60
         try:
             for provider in providers_for(self.spec):
@@ -273,6 +278,8 @@ class CrawlRunner:
                     provider.fetch_page = self.fetch_page
                 if hasattr(provider, "deadline"):
                     provider.deadline = self.read_deadline
+                if hasattr(provider, "resolver"):
+                    provider.resolver = self.entity_resolver
                 try:
                     results = await self._discover_or_cancel(provider)
                     per_provider.append(results)
@@ -333,7 +340,7 @@ class CrawlRunner:
         """Match every company a source named to a registered entity, once, before anything is crawled: the
         registry's country becomes the company's country fact (and the crawl's), and its official website gives
         a company with proof but no website found one. Returns the companies that gained a website this way."""
-        from app.discovery.entities import GLEIF_GAP, EntityResolver, resolution_facts
+        from app.discovery.entities import resolution_facts
         from app.discovery.providers import DiscoveryResult
 
         d = self.spec.discovery
@@ -350,7 +357,7 @@ class CrawlRunner:
                             "(Wikidata, GLEIF, SEC)", source="registries")
         added: list[Any] = []
         # The crawler's own client: network rules apply, and tests decide what it can reach.
-        resolver = EntityResolver(self.client, gleif_gap=0.0 if self.settings.env == "test" else GLEIF_GAP)
+        resolver = self.entity_resolver
         settled = 0
         if d.countries:
             for r in named:
@@ -413,6 +420,7 @@ class CrawlRunner:
                             f"{d.technology}", source="case_studies")
         prover = CaseStudiesProvider()
         prover.fetch_page, prover.on_note, prover.deadline = self.fetch_page, self.note, self.read_deadline
+        prover.resolver = self.entity_resolver
         found = await prover.prove(self.spec, [(str(r.hint["company_name"]), r.url) for r in listed.values()])
         for name, row in found.items():
             r = listed[name.casefold()]
