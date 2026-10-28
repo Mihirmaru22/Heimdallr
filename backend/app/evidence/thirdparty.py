@@ -16,7 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.evidence.judge import Judge, rule_relationship
+from app.evidence.judge import USE, Judge, rule_relationship
 from app.evidence.products import Product
 from app.llm.openrouter import LLMUnavailable
 
@@ -64,6 +64,10 @@ class Found:
     judged_by: str
     country: str = ""  # ISO code a sentence of the page gives for where the customer is based
     country_quote: str = ""
+    # A second reading by another free model: "agree" (it also says this company uses it), "disagree" (it does
+    # not), or "single" (no second reading could be made). A reading is one fact with its model, not a verdict.
+    agreement: str = "single"
+    second_by: str = ""
 
 
 def countries_named(text: str) -> set[str]:
@@ -131,4 +135,28 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
                          country_quote))
         if len(out) >= MAX_CUSTOMERS:
             break
+    if any(f.relationship in USE for f in out):
+        await _second_reading(judge, messages, reply.model, out)
     return out, "" if out else "the page names no organisation that uses it"
+
+
+def _same(a: str, b: str) -> bool:
+    return a.casefold().strip() == b.casefold().strip() or _contains(a, b) or _contains(b, a)
+
+
+async def _second_reading(judge: Judge, messages: list[dict[str, str]], first: str, found: list[Found]) -> None:
+    """Another free model reads the same sentences. Agreement keeps a use; disagreement leaves it as a mention to
+    look at; no second reading leaves it as one reading (at most Likely). The same page was read as a use by one
+    free model and as nobody by another (Brookhaven, 2026-10-26): one reading alone does not decide."""
+    try:
+        reply = await judge._ask(messages, avoid=first)
+        second = Reading.model_validate(reply.json())
+    except (LLMUnavailable, ValueError, ValidationError):
+        return
+    if reply.model == first:
+        return  # the same model again is not a second reading
+    uses = [c.name for c in second.customers if c.relationship in USE]
+    for f in found:
+        if f.relationship in USE:
+            f.agreement = "agree" if any(_same(f.customer, n) for n in uses) else "disagree"
+            f.second_by = f"model:{reply.model}"

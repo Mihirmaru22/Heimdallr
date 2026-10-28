@@ -157,6 +157,7 @@ class CaseStudiesProvider:
         self.asked: set[str] = set()  # companies whose own proof search was made
         self.deadline: float | None = None  # monotonic time the job's reading budget ends (set by the crawler)
         self.read = 0  # pages read
+        self.unanswered: list[str] = []  # pages no free model answered, asked again at the end
 
     def _say(self, kind: str, message: str, url: str | None = None) -> None:
         if self.on_note is not None:
@@ -334,18 +335,29 @@ class CaseStudiesProvider:
         found, why = await read_page(self.judge, product, doc.title, sentences, text, url)
         day = page_date(doc) or self.dates.get(url, "")
         if not found:
+            if why.startswith("not read: no free model") and url not in self.unanswered:
+                self.unanswered.append(url)  # no model answered: the page is asked again later, not judged
+                self.read -= 1
+                return [], True
             self._record(**{**base, "evidence_date": day, "quote": sentences[0]}, kept=False, reason=why)
             return [], True
         kept_rows = []
         for f in found:
-            verdict, strength = score(f.relationship, STRENGTH[f.publisher], day)
+            # Two readings that agree keep a use at its strength; one reading is at most Likely; readings that
+            # disagree leave a mention, kept and visible, never a use.
+            relationship = "unreviewed" if f.agreement == "disagree" else f.relationship
+            verdict, strength = score(relationship, STRENGTH[f.publisher], day, one_reading=f.agreement == "single")
+            second = "agrees" if f.agreement == "agree" else "disagrees"
+            judged = f.judged_by + (f"; second reading {f.second_by} {second}" if f.second_by else "; one reading")
             row = {**base, "company": f.customer, "evidence_date": day, "quote": f.quote,
                    "source_type": SOURCE_TYPES[f.publisher], "relationship": f.relationship,
-                   "judged_by": f.judged_by, "strength": strength, "verdict": verdict}
+                   "judged_by": judged[:120], "strength": strength, "verdict": verdict}
             if not verdict:
                 self._record(**row, kept=False, reason=f.relationship.replace("_", " "))
                 continue
-            kept_rows.append(self._record(**row, kept=True, reason=f"named by a {f.publisher} page"))
+            note = {"agree": "two readings agree", "single": "one reading", "disagree": "readings disagree"}
+            kept_rows.append(self._record(**row, kept=True,
+                                          reason=f"named by a {f.publisher} page; {note[f.agreement]}"))
             if f.country:
                 self.facts.append({"site": "", "company": f.customer, "kind": "country", "value": f.country,
                                    "by": f"proof: {SOURCE_TYPES[f.publisher].lower()}",
@@ -394,6 +406,19 @@ class CaseStudiesProvider:
             for row in new:
                 if row["verdict"] != "Confirmed" and not self._over_budget():
                     pending += [u for u in await self.targeted(client, row["company"], product) if u not in pending]
+        # Pages no free model answered are asked once more, now that the busy moment has likely passed.
+        retry, self.unanswered = self.unanswered, []
+        for url in retry:
+            if self._over_budget() or self.judge.unavailable:
+                pending.append(url)
+                continue
+            kept_rows, _fetched = await self._read_one(url, product)
+            for row in kept_rows:
+                k = row["company"].casefold()
+                if k not in users or row["strength"] > users[k]["strength"]:
+                    users[k] = row
+        for url in self.unanswered:  # still no answer: kept visible with that reason
+            self._unread(url, product, "not read: no free model answered, twice")
         for url in pending:
             self._unread(url, product, f"not read: {stop}")
         if pending:

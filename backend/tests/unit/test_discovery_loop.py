@@ -127,3 +127,35 @@ async def test_a_job_asks_each_search_once():
     assert first == again and len(calls) == 1
     await hub.search("guidewire case study")  # outside a job: asked again, nothing is kept between jobs
     assert len(calls) == 2
+
+
+async def test_a_use_needs_two_readings_to_be_confirmed_and_disagreement_leaves_a_mention():
+    from app.evidence.thirdparty import read_page
+
+    class Models:
+        def __init__(self, second_says_use):
+            self.second_says_use, self.calls = second_says_use, 0
+
+        async def chat(self, messages, avoid=None, **_kw):
+            self.calls += 1
+            if avoid is None:
+                body = {"publisher": "vendor", "customers": [{"name": "Acme", "quote": 1, "relationship": "uses"}]}
+                return Reply(json.dumps(body), "first:free")
+            customers = [{"name": "Acme", "quote": 1, "relationship": "uses"}] if self.second_says_use else []
+            return Reply(json.dumps({"publisher": "vendor", "customers": customers}), "second:free")
+
+        async def aclose(self):
+            pass
+
+    sentence = "Acme has selected Guidewire ClaimCenter."
+    found, _ = await read_page(Judge(Models(True)), product_for("Guidewire"), "Acme", [sentence], sentence, "u")
+    assert found[0].agreement == "agree" and found[0].second_by == "model:second:free"
+    found, _ = await read_page(Judge(Models(False)), product_for("Guidewire"), "Acme", [sentence], sentence, "u")
+    assert found[0].agreement == "disagree"
+
+    pages = {"https://vendor.example/acme": story("Acme")}
+    for second, verdict in ((True, "Confirmed"), (False, "Mentioned")):
+        p = provider(lambda q: [], pages)
+        p.judge = Judge(Models(second))
+        rows, _ok = await p._read_one("https://vendor.example/acme", product_for("Guidewire"))
+        assert rows[0]["verdict"] == verdict

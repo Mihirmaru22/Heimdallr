@@ -122,7 +122,7 @@ async def test_an_unreadable_proof_answer_is_asked_of_another_model():
     router = BrokenThenFine()
     sentence = "PTC today announced that Komatsu America Corp. has chosen Windchill."
     found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [sentence], sentence, "u")
-    assert [f.customer for f in found] == ["Komatsu America"] and router.avoided == [None, "broken:free"]
+    assert [f.customer for f in found] == ["Komatsu America"] and router.avoided[:2] == [None, "broken:free"]
 
 
 def test_the_maker_is_recognised_from_the_product_s_name():

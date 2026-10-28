@@ -72,7 +72,8 @@ async def test_a_vendor_story_names_its_customer_whose_website_is_then_found():
     p = provider(Router())
     (vw,) = await p.discover(spec())
     assert vw.url == "https://www.volkswagen.com/" and vw.method == "case_studies"
-    assert vw.hint["company_name"] == "Volkswagen" and vw.hint["uses_technology"] == "Confirmed"
+    # One free model answered (the test router is one model): one reading is at most Likely.
+    assert vw.hint["company_name"] == "Volkswagen" and vw.hint["uses_technology"] == "Likely"
     assert vw.hint["evidence"].startswith("Volkswagen standardized product development on Teamcenter")
     assert vw.hint["evidence_type"] == "Vendor case study" and vw.hint["evidence_date"] == "2025-06-02"
     kept = [e["company"] for e in p.evidence if e["kept"]]
