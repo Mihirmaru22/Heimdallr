@@ -31,7 +31,7 @@ function Clock({ elapsed, since, live }: { elapsed: number | null; since: string
   let clock: number | null = elapsed;
   if (live && elapsed != null && anchor.current) clock = anchor.current.base + (Date.now() - anchor.current.at) / 1000;
   else if (live && elapsed == null && since) clock = Math.max(0, (Date.now() - new Date(since).getTime()) / 1000);
-  return <div className="hud-clock mono" aria-label="Elapsed">{clock == null ? "00:00" : duration(clock)}</div>;
+  return <div className="hud-clock mono" aria-label="Elapsed">{clock == null ? "00:00" : duration(Math.max(0, clock))}</div>;
 }
 
 function Since({ at }: { at: string }) {
