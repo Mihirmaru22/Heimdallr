@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, display, type RecordDetail, type Schema } from "../api";
-import { Badge, ErrorBox } from "./ui";
+import { Badge, ErrorBox, Spinner } from "./ui";
+import { X } from "./icons";
 
 export default function RecordDrawer({ base, recordId, schema, onClose }:
   { base: string; recordId: string; schema: Schema; onClose: () => void }) {
@@ -9,6 +10,11 @@ export default function RecordDrawer({ base, recordId, schema, onClose }:
   const rec = useQuery({ queryKey: ["record", recordId], queryFn: () => api.get<RecordDetail>(`${base}/records/${recordId}`) });
   const [edits, setEdits] = useState<Record<string, string>>({});
   useEffect(() => setEdits({}), [recordId]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   const save = useMutation({
     mutationFn: (body: object) => api.patch<RecordDetail>(`${base}/records/${recordId}`, body),
     onSuccess: (r) => { qc.setQueryData(["record", recordId], r); qc.invalidateQueries({ queryKey: ["records"] }); setEdits({}); },
@@ -16,11 +22,14 @@ export default function RecordDrawer({ base, recordId, schema, onClose }:
   const r = rec.data;
 
   return (
-    <div className="drawer" role="dialog" aria-label="Record details">
+    <>
+    <div className="scrim" onClick={onClose} aria-hidden />
+    <div className="drawer" role="dialog" aria-modal="true" aria-label="Record details">
       <div className="drawer-head">
-        <h2>Record {r && <Badge value={r.status} />}</h2>
-        <button className="icon" onClick={onClose} aria-label="Close">✕</button>
+        <h2>{r ? display(r.data[schema.spec.fields[0]?.name]) || "Record" : "Record"} {r && <Badge value={r.status} />}</h2>
+        <button className="icon" onClick={onClose} aria-label="Close" autoFocus><X /></button>
       </div>
+      {rec.isLoading && <p className="muted"><Spinner /></p>}
       {r && (
         <>
           {schema.spec.fields.map((f) => {
@@ -32,14 +41,14 @@ export default function RecordDrawer({ base, recordId, schema, onClose }:
                   <input value={edits[f.name] ?? display(r.data[f.name])}
                          onChange={(e) => setEdits({ ...edits, [f.name]: e.target.value })} /></label>
                 {chosen ? (
-                  <p className="small muted">
+                  <p className="prov">
                     {chosen.value_status} via {chosen.method}
                     {chosen.confidence != null && ` · ${Math.round(chosen.confidence * 100)}% confidence`}
                     {chosen.source_url && <> · <a href={chosen.source_url} target="_blank" rel="noreferrer noopener">source</a></>}
                     {chosen.evidence && <><br /><q>{chosen.evidence}</q></>}
                     {chosen.error && <><br /><span className="error">{chosen.error}</span></>}
                   </p>
-                ) : <p className="small muted">not found on the crawled pages</p>}
+                ) : <p className="prov">not found on the crawled pages</p>}
                 {values.filter((v) => !v.selected && v.value_status === "found").length > 0 && (
                   <details className="small"><summary>Other candidates</summary>
                     <ul>{values.filter((v) => !v.selected).map((v, i) => <li key={i}>{display(v.value)} <span className="muted">({v.method})</span></li>)}</ul>
@@ -48,14 +57,17 @@ export default function RecordDrawer({ base, recordId, schema, onClose }:
             );
           })}
           <ErrorBox error={save.error} />
-          <div className="row">
+          <div className="row wrap" style={{ marginTop: 18 }}>
             <button className="primary" disabled={!Object.keys(edits).length || save.isPending}
                     onClick={() => save.mutate({ data: edits })}>Save corrections</button>
             <button onClick={() => save.mutate({ excluded: !r.excluded })}>{r.excluded ? "Include in export" : "Exclude from export"}</button>
           </div>
-          <p className="small muted">Sources: {r.source_urls.map((u) => <a key={u} href={u} target="_blank" rel="noreferrer noopener" className="url">{u} </a>)}</p>
+          <p className="section-label">Sources</p>
+          <ul className="small" style={{ paddingLeft: 18, margin: 0 }}>{r.source_urls.map((u) =>
+            <li key={u}><a href={u} target="_blank" rel="noreferrer noopener" className="url">{u}</a></li>)}</ul>
         </>
       )}
     </div>
+    </>
   );
 }

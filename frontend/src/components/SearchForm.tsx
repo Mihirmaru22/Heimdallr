@@ -49,55 +49,76 @@ export default function SearchForm({ value, onChange }: { value: SearchFormValue
   const setCondition = (i: number, patch: Partial<Condition>) =>
     set({ conditions: value.conditions.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
   return (
-    <div className="search-form">
-      <div className="row">
-        <label>Find
-          <input value={value.find} placeholder="companies, pharmaceutical companies, restaurants…"
-            onChange={(e) => set({ find: e.target.value })} /></label>
-        <label>One row is
-          <select value={value.rows} onChange={(e) => set({ rows: e.target.value as SearchFormValue["rows"] })}>
-            <option value="companies">a company or organisation</option>
-            <option value="sites">a site of one company (plant, office, store)</option>
-            <option value="people">a person</option>
-          </select></label>
-        {value.rows === "sites" && (
-          <label>Company
-            <input value={value.parent_company} placeholder="e.g. Ford" onChange={(e) => set({ parent_company: e.target.value })} /></label>)}
-      </div>
-      <p className="muted small">Each row must…</p>
-      {value.conditions.map((c, i) => (
-        <div className="row" key={i}>
-          <select value={c.kind} onChange={(e) => setCondition(i, { kind: e.target.value as ConditionKind })}>
-            {KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-          </select>
-          <input value={c.value} placeholder={KINDS.find(([k]) => k === c.kind)![2]}
-            onChange={(e) => setCondition(i, { value: e.target.value })} />
-          <button className="link" onClick={() => set({ conditions: value.conditions.filter((_c, j) => j !== i) })}>remove</button>
+    <div className="search-form stack">
+      <div className="sentence">
+        <div className="clause">
+          <span className="clause-word" id="sf-find">Find</span>
+          <div className="clause-body">
+            <input aria-labelledby="sf-find" value={value.find} placeholder="companies, pharmaceutical companies, restaurants…"
+              onChange={(e) => set({ find: e.target.value })} />
+          </div>
         </div>
-      ))}
-      <button className="link" onClick={() => set({ conditions: [...value.conditions, { kind: "uses", value: "" }] })}>
-        + add a condition</button>
-      <div className="row">
-        <label>Countries
-          <input value={value.countries} placeholder="e.g. United Kingdom, IN, Germany"
-            onChange={(e) => set({ countries: e.target.value })} /></label>
-        <label>or region
-          <select value={value.region} onChange={(e) => set({ region: e.target.value })}>
-            {REGIONS.map((r) => <option key={r} value={r}>{r ? r.replace("_", " ") : "—"}</option>)}
-          </select></label>
-        <label>How many
-          <input type="number" min={1} max={1000} value={value.max_results} placeholder="50"
-            onChange={(e) => set({ max_results: e.target.value })} /></label>
+        <div className="clause">
+          <span className="clause-word" id="sf-rows">One row is</span>
+          <div className="clause-body">
+            <select aria-labelledby="sf-rows" value={value.rows} onChange={(e) => set({ rows: e.target.value as SearchFormValue["rows"] })}>
+              <option value="companies">a company or organisation</option>
+              <option value="sites">a site of one company (plant, office, store)</option>
+              <option value="people">a person</option>
+            </select>
+            {value.rows === "sites" && (
+              <input aria-label="Company whose sites to list" value={value.parent_company} placeholder="of which company? e.g. Ford"
+                onChange={(e) => set({ parent_company: e.target.value })} />)}
+          </div>
+        </div>
+        <div className="clause">
+          <span className="clause-word">Each row must</span>
+          <div className="clause-body">
+            {value.conditions.map((c, i) => (
+              <div className="condition" key={i}>
+                <select aria-label={`Condition ${i + 1} kind`} value={c.kind} onChange={(e) => setCondition(i, { kind: e.target.value as ConditionKind })}>
+                  {KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                </select>
+                <input aria-label={`Condition ${i + 1}`} value={c.value} placeholder={KINDS.find(([k]) => k === c.kind)![2]}
+                  onChange={(e) => setCondition(i, { value: e.target.value })} />
+                <button type="button" className="icon" aria-label={`Remove condition ${i + 1}`}
+                  onClick={() => set({ conditions: value.conditions.filter((_c, j) => j !== i) })}>✕</button>
+              </div>
+            ))}
+            <button type="button" className="add" onClick={() => set({ conditions: [...value.conditions, { kind: "uses", value: "" }] })}>
+              + {value.conditions.length ? "another condition" : "add a condition"}</button>
+          </div>
+        </div>
+        <div className="clause">
+          <span className="clause-word" id="sf-where">In</span>
+          <div className="clause-body">
+            <input aria-labelledby="sf-where" value={value.countries} placeholder="countries, e.g. United Kingdom, IN, Germany"
+              onChange={(e) => set({ countries: e.target.value })} />
+            <select aria-label="or a region" value={value.region} onChange={(e) => set({ region: e.target.value })}>
+              {REGIONS.map((r) => <option key={r} value={r}>{r ? r.replace("_", " ") : "or a region…"}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="clause">
+          <span className="clause-word" id="sf-many">Up to</span>
+          <div className="clause-body">
+            <input className="narrow" aria-labelledby="sf-many" type="number" min={1} max={1000} value={value.max_results} placeholder="50"
+              onChange={(e) => set({ max_results: e.target.value })} />
+            <span className="muted small">rows</span>
+          </div>
+        </div>
       </div>
-      <p className="muted small">Details for each row (name and website are always included)</p>
-      <div className="row wrap">
-        {DETAILS.map(([name, label]) => (
-          <label key={name} className="check">
-            <input type="checkbox" checked={value.details.includes(name)}
-              onChange={(e) => set({ details: e.target.checked ? [...value.details, name] : value.details.filter((d) => d !== name) })} />
-            {label}</label>))}
+      <div>
+        <p className="section-label">Details for each row <span className="field-hint">name and website are always included</span></p>
+        <div className="chips">
+          {DETAILS.map(([name, label]) => (
+            <label key={name} className="chip">
+              <input type="checkbox" checked={value.details.includes(name)}
+                onChange={(e) => set({ details: e.target.checked ? [...value.details, name] : value.details.filter((d) => d !== name) })} />
+              {label}</label>))}
+        </div>
       </div>
-      <label>Other details (comma separated)
+      <label>Other details <span className="field-hint">comma separated, up to 8</span>
         <input value={value.custom} placeholder="e.g. plant head, number of employees" onChange={(e) => set({ custom: e.target.value })} /></label>
     </div>
   );

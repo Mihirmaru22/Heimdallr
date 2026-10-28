@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Job, type Page, type Preview, type Project, type Schema, type Spec } from "../api";
-import { Badge, Card, ErrorBox, when } from "../components/ui";
+import { ago, Badge, Card, Crumbs, ErrorBox, Spinner } from "../components/ui";
+import LazyLens from "../components/LazyLens";
+import { Arrow, Check, Search, Spark } from "../components/icons";
 import SchemaEditor from "../components/SchemaEditor";
 import SearchForm, { EMPTY_FORM, formFilled, formPayload, type SearchFormValue } from "../components/SearchForm";
 
@@ -64,70 +66,122 @@ export default function ProjectPage({ orgId }: { orgId: string }) {
   });
   const dirty = selected && draft && JSON.stringify(selected.spec) !== JSON.stringify(draft);
 
+  const ran = (jobs.data?.items.length ?? 0) > 0;
+  const step = !selected ? 1 : 2;
+
   return (
     <div>
-      <p><Link to="/">Projects</Link> / <strong>{project.data?.name}</strong></p>
-      <Card title="1. Describe what you need">
-        <textarea rows={3} placeholder={`Ask in your own words, e.g. "${EXAMPLES[0]}"`} value={request}
-          onChange={(e) => setRequest(e.target.value)} />
-        <button className="link" onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Hide the search form" : "Or fill in a search form (what to find, conditions, where, details)"}</button>
-        {showForm && <SearchForm value={form} onChange={setForm} />}
-        <label>Starting websites (optional, space or line separated)
-          <textarea rows={2} value={urls} onChange={(e) => setUrls(e.target.value)} placeholder="https://example.com" /></label>
-        <div className="row">
-          <button className="primary" disabled={(request.trim().length < 3 && !useForm) || generate.isPending} onClick={() => generate.mutate()}>
-            {generate.isPending ? "Reading your question…" : "Plan the research"}</button>
-          {EXAMPLES.map((ex, i) => <button key={ex} className="link" onClick={() => setRequest(ex)}>Example {i + 1}</button>)}
+      <Crumbs items={[["Research", "/"], [project.data?.name ?? "Project", null]]} />
+      <div className="page-head">
+        <div>
+          <h1>{project.data?.name ?? " "}</h1>
+          {project.data?.description && <p>{project.data.description}</p>}
         </div>
-        <p className="muted small">A free AI model reads your question into a plan (or simple rules, when no free model is
-          available); a filled-in form is used as the plan exactly as you typed it. Nothing runs until you check the plan
-          below and press Run.</p>
-        {generate.data?.notes?.map((n) => <p key={n} className="warn small">{n}</p>)}
-        <ErrorBox error={generate.error} />
+      </div>
+      <ol className="steps" aria-label="Progress">
+        <li className={step > 1 ? "done" : "current"}>Ask a question</li>
+        <li className={step === 2 ? "current" : ""}>Check the plan</li>
+        <li className={ran ? "done" : ""}>Run and review</li>
+      </ol>
+
+      <Card className="ask-card">
+        <div className="ask">
+          <div className="ask-main">
+            <div className="mode-row">
+              <h2>What do you want to find?</h2>
+              <div className="segmented" role="group" aria-label="How to ask">
+                <button type="button" aria-pressed={!showForm} onClick={() => setShowForm(false)}>In your words</button>
+                <button type="button" aria-pressed={showForm} onClick={() => setShowForm(true)}>With the form</button>
+              </div>
+            </div>
+            <div className="ask-box">
+              <label className="sr-only" htmlFor="ask">Your question</label>
+              <textarea id="ask" rows={showForm ? 2 : 3} value={request} onChange={(e) => setRequest(e.target.value)}
+                placeholder={showForm ? "Anything the form doesn't cover (optional)" : `Ask in your own words, e.g. "${EXAMPLES[0]}"`} />
+            </div>
+            {!showForm && (
+              <div className="examples">
+                <span>Try</span>
+                {EXAMPLES.map((ex) => <button key={ex} type="button" className="chip" onClick={() => setRequest(ex)}>{ex}</button>)}
+              </div>
+            )}
+            {showForm && (
+              <div style={{ marginTop: 16 }}>
+                <p className="muted small">Fill in what you know. What you type here is used exactly; the question box only fills what the form leaves empty.</p>
+                <SearchForm value={form} onChange={setForm} />
+              </div>
+            )}
+            <details className="more">
+              <summary>Starting websites <span className="muted small">optional</span></summary>
+              <textarea rows={2} aria-label="Starting websites, space or line separated" value={urls}
+                onChange={(e) => setUrls(e.target.value)} placeholder="https://example.com  https://another.example" />
+            </details>
+            <div className="action-row">
+              <button className="primary big" disabled={(request.trim().length < 3 && !useForm) || generate.isPending} onClick={() => generate.mutate()}>
+                {generate.isPending ? <><Spinner /> Reading your question…</> : <><Spark /> Plan the research</>}</button>
+              <p className="muted">A free model turns your question into a plan (or simple rules when none is available).
+                Nothing runs until you check the plan and press Run.</p>
+            </div>
+            {generate.data?.notes?.map((n) => <p key={n} className="note warn">{n}</p>)}
+            <ErrorBox error={generate.error} />
+          </div>
+          <LazyLens demo />
+        </div>
       </Card>
 
       {selected && draft && (
-        <Card title={<>2. Review the schema <span className="muted small">v{selected.version} · {selected.status}</span></>}
+        <Card title={<>Check the plan <span className="badge muted">v{selected.version} · {selected.status}</span></>}
               actions={schemas.data && schemas.data.length > 1 && (
-                <select value={selected.id} onChange={(e) => pick(schemas.data!.find((s) => s.id === e.target.value)!)}>
+                <select aria-label="Plan version" value={selected.id} onChange={(e) => pick(schemas.data!.find((s) => s.id === e.target.value)!)}>
                   {schemas.data.map((s) => <option key={s.id} value={s.id}>v{s.version} ({s.status})</option>)}
                 </select>)}>
-          {selected.nl_request && <p className="muted">“{selected.nl_request}” · read by {selected.interpreter.startsWith("model:")
-            ? `free model ${selected.interpreter.slice(6)}` : selected.interpreter === "rules" ? "rules"
-            : selected.interpreter === "form" ? "your search form" : "you"}</p>}
+          {selected.nl_request && <div className="plan-head"><q>{selected.nl_request}</q>
+            <span>read by {selected.interpreter.startsWith("model:")
+              ? `free model ${selected.interpreter.slice(6)}` : selected.interpreter === "rules" ? "rules"
+              : selected.interpreter === "form" ? "your search form" : "you"}</span></div>}
           <SchemaEditor spec={draft} onChange={(s) => { setDraft(s); setPreview(null); }} />
-          <ErrorBox error={save.error || check.error || run.error} />
-          <div className="row">
-            <button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>Save</button>
-            <button onClick={() => check.mutate()} disabled={check.isPending}>Check plan</button>
-            <button className="primary" onClick={() => run.mutate()} disabled={run.isPending}>
-              {run.isPending ? "Starting…" : "3. Run crawl"}</button>
-          </div>
           {preview && (
             <div className="preview">
-              <p>Up to <strong>{preview.estimated_max_pages}</strong> pages · discovery: {preview.discovery_providers.join(", ")} ·
-                AI calls (at most, free models): <strong>{preview.estimated_llm_calls}</strong></p>
-              {preview.warnings.map((w) => <p key={w} className="warn small">{w}</p>)}
+              <div className="preview-stats">
+                <div><b>{preview.estimated_max_pages.toLocaleString()}</b><span>pages at most</span></div>
+                <div><b>{preview.estimated_llm_calls.toLocaleString()}</b><span>free model calls at most</span></div>
+                <div><b>{preview.discovery_providers.length}</b><span>sources: {preview.discovery_providers.join(", ")}</span></div>
+              </div>
+              {preview.warnings.map((w) => <p key={w} className="note warn">{w}</p>)}
               {preview.urls.length > 0 && (
-                <table><thead><tr><th>Start URL</th><th>Allowed</th><th>Reason</th></tr></thead><tbody>
+                <div className="table-wrap"><table><thead><tr><th>Start URL</th><th>Allowed</th><th>Reason</th></tr></thead><tbody>
                   {preview.urls.map((u) => <tr key={u.url}><td className="url">{u.url}</td>
-                    <td>{u.allowed ? "yes" : "no"}</td><td className="small">{u.reason}</td></tr>)}
-                </tbody></table>)}
+                    <td><Badge value={u.allowed ? "ready" : "blocked_policy"} /></td><td className="small">{u.reason}</td></tr>)}
+                </tbody></table></div>)}
             </div>
           )}
+          <ErrorBox error={save.error || check.error || run.error} />
+          <div className="sticky-actions">
+            <button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+              {dirty && <span className="dirty-dot" aria-hidden />}{dirty ? "Save changes" : "Saved"}</button>
+            <button onClick={() => check.mutate()} disabled={check.isPending}>
+              {check.isPending ? <Spinner /> : <Check />} Check plan</button>
+            <span className="spacer" />
+            <button className="primary big" onClick={() => run.mutate()} disabled={run.isPending}>
+              {run.isPending ? <><Spinner /> Starting…</> : <><Search /> Run the research <span className="ico-go"><Arrow /></span></>}</button>
+          </div>
         </Card>
       )}
 
-      <Card title="Jobs">
-        <table>
-          <thead><tr><th>Started</th><th>State</th><th>Pages fetched</th><th>Records</th><th>Error</th></tr></thead>
-          <tbody>{jobs.data?.items.map((j) => (
-            <tr key={j.id}><td><Link to={`/jobs/${j.id}`}>{when(j.created_at)}</Link></td><td><Badge value={j.state} /></td>
-              <td>{j.counters.fetched ?? 0}</td><td>{j.counters.extracted ?? 0}</td><td className="small">{j.error}</td></tr>))}
-          </tbody>
-        </table>
-        {jobs.data?.items.length === 0 && <p className="muted">No jobs yet.</p>}
+      <Card title="Runs">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Started</th><th>State</th><th className="num">Pages fetched</th><th className="num">Records</th><th>Error</th></tr></thead>
+            <tbody>{jobs.data?.items.map((j) => (
+              <tr key={j.id} className="clickable" onClick={() => navigate(`/jobs/${j.id}`)}>
+                <td><Link to={`/jobs/${j.id}`} onClick={(e) => e.stopPropagation()}>{ago(j.created_at)}</Link></td>
+                <td><Badge value={j.state} /></td>
+                <td className="num mono">{j.counters.fetched ?? 0}</td><td className="num mono">{j.counters.extracted ?? 0}</td>
+                <td className="small error">{j.error}</td></tr>))}
+            </tbody>
+          </table>
+        </div>
+        {jobs.data?.items.length === 0 && <p className="empty">No runs yet. Plan the research above, then press Run.</p>}
       </Card>
     </div>
   );

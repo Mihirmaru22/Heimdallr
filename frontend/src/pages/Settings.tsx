@@ -27,20 +27,23 @@ export default function SettingsPage({ orgId }: { orgId: string }) {
   const u = usage.data;
 
   return (
+    <>
+    <div className="page-head"><div><h1>Organization</h1><p>This month's usage against your limits, and who can see this organization's research.</p></div></div>
     <div className="grid2">
       <Card title={`Usage ${u?.period ?? ""}`}>
         {u && (
-          <table><tbody>
-            <tr><td>Pages fetched this month</td><td>{u.pages} / {u.limits.max_pages_per_org_month}</td></tr>
-            <tr><td>Active jobs</td><td>{u.active_jobs} / {u.limits.max_active_jobs_per_org}</td></tr>
-            <tr><td>Rows exported this month</td><td>{u.export_rows}</td></tr>
-            <tr><td>AI model requests this month</td><td>{u.llm_requests} (free models only)</td></tr>
+          <div className="table-wrap"><table><tbody>
+            <tr><td>Pages fetched this month</td><td className="num mono">{u.pages} / {u.limits.max_pages_per_org_month}
+              <Meter value={u.pages} max={u.limits.max_pages_per_org_month} /></td></tr>
+            <tr><td>Active jobs</td><td className="num mono">{u.active_jobs} / {u.limits.max_active_jobs_per_org}</td></tr>
+            <tr><td>Rows exported this month</td><td className="num mono">{u.export_rows}</td></tr>
+            <tr><td>AI model requests this month <span className="field-hint">free models only</span></td><td className="num mono">{u.llm_requests}</td></tr>
             {Object.entries(u.limits).filter(([k]) => !["max_pages_per_org_month", "max_active_jobs_per_org"].includes(k))
-              .map(([k, v]) => <tr key={k}><td>{LIMIT_LABELS[k] ?? k}</td><td>{v}</td></tr>)}
-          </tbody></table>)}
+              .map(([k, v]) => <tr key={k}><td>{LIMIT_LABELS[k] ?? k}</td><td className="num mono">{v}</td></tr>)}
+          </tbody></table></div>)}
       </Card>
       <Card title="Members">
-        <table>
+        <div className="table-wrap"><table>
           <thead><tr><th>Email</th><th>Role</th><th>Since</th><th /></tr></thead>
           <tbody>{members.data?.map((m) => (
             <tr key={m.user_id}><td>{m.email}</td>
@@ -52,7 +55,7 @@ export default function SettingsPage({ orgId }: { orgId: string }) {
                 <button className="link" onClick={() => remove.mutate(m.user_id)}>{m.user_id === me?.user.id ? "Leave" : "Remove"}</button>}</td>
             </tr>))}
           </tbody>
-        </table>
+        </table></div>
         {canManage && (
           <form className="row" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
             <input type="email" required placeholder="Email of an existing account" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -62,5 +65,11 @@ export default function SettingsPage({ orgId }: { orgId: string }) {
         <ErrorBox error={add.error || change.error || remove.error} />
       </Card>
     </div>
+    </>
   );
+}
+
+function Meter({ value, max }: { value: number; max: number }) {
+  const pct = max ? Math.min(100, (value / max) * 100) : 0;
+  return <span className="meter" role="img" aria-label={`${Math.round(pct)}% used`}><span style={{ width: `${pct}%` }} /></span>;
 }

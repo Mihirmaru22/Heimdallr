@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { ErrorBox } from "../components/ui";
+import { BrandMark, ErrorBox, Spinner } from "../components/ui";
+import LazyLens from "../components/LazyLens";
+import ThemeSwitch from "../components/ThemeSwitch";
+import { Arrow } from "../components/icons";
 
 export default function LoginPage() {
   const qc = useQueryClient();
@@ -29,23 +32,48 @@ export default function LoginPage() {
 
   return (
     <div className="auth">
-      <h1>WebData AI</h1>
-      <p className="muted">Turn a plain-language request into a reviewed, sourced Excel file.</p>
-      <form onSubmit={submit} className="card">
-        <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                           autoComplete="email" /></label>
-        <label>Password<input type="password" required minLength={mode === "register" ? 10 : 1} value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              autoComplete={mode === "login" ? "current-password" : "new-password"} /></label>
-        {mode === "register" && (
-          <label>Organization name (optional)<input value={org} onChange={(e) => setOrg(e.target.value)} /></label>
-        )}
-        <ErrorBox error={error} />
-        <button className="primary" disabled={busy}>{mode === "login" ? "Sign in" : "Create account"}</button>
-        <button type="button" className="link" onClick={() => setMode(mode === "login" ? "register" : "login")}>
-          {mode === "login" ? "No account? Create one" : "Have an account? Sign in"}
-        </button>
-      </form>
+      <section className="auth-stage" aria-label="About WebData AI">
+        <LazyLens demo />
+        <div className="brand"><BrandMark /> WebData AI</div>
+        <div>
+          <p className="auth-title">Ask the web a question. <em>Keep</em> only what it can prove.</p>
+          <p className="muted" style={{ maxWidth: "44ch", marginTop: 16 }}>
+            Every row in your spreadsheet comes from a page that was read, checked and cited. Free models, open sources.</p>
+        </div>
+        <div className="auth-foot">
+          <span><span className="dot seen" />site read</span>
+          <span><span className="dot kept" />kept, with proof</span>
+          <span><span className="dot dropped" />dropped</span>
+        </div>
+      </section>
+      <main className="auth-panel">
+        <form onSubmit={submit} className="auth-form">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <div className="segmented" role="group" aria-label="Sign in or create an account">
+              <button type="button" aria-pressed={mode === "login"} onClick={() => setMode("login")}>Sign in</button>
+              <button type="button" aria-pressed={mode === "register"} onClick={() => setMode("register")}>Create account</button>
+            </div>
+            <ThemeSwitch />
+          </div>
+          <h1>{mode === "login" ? "Welcome back" : "Start researching"}</h1>
+          <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                             autoComplete="email" placeholder="you@company.com" /></label>
+          <label>Password
+            <input type="password" required minLength={mode === "register" ? 10 : 1} value={password}
+                   onChange={(e) => setPassword(e.target.value)}
+                   autoComplete={mode === "login" ? "current-password" : "new-password"} />
+            {mode === "register" && <span className="field-hint">At least 10 characters.</span>}
+          </label>
+          {mode === "register" && (
+            <label>Organization name <span className="field-hint">optional</span>
+              <input value={org} onChange={(e) => setOrg(e.target.value)} /></label>
+          )}
+          <ErrorBox error={error} />
+          <button className="primary big" disabled={busy}>
+            {busy ? <Spinner /> : null}{mode === "login" ? "Sign in" : "Create account"}
+            {!busy && <span className="ico-go"><Arrow /></span>}</button>
+        </form>
+      </main>
     </div>
   );
 }

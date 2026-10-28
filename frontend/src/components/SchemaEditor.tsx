@@ -75,73 +75,67 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
     onChange({ ...spec, discovery: { ...spec.discovery, ...patch } });
 
   return (
-    <div>
-      <div className="row wrap details">
-        <span className="small">Details to collect:</span>
-        {DETAILS.map((d) => (
-          <label key={d[0]} className="check"><input type="checkbox" checked={spec.fields.some((f) => f.semantic === d[3])}
-            onChange={() => toggleDetail(d)} /> {d[1]}</label>
-        ))}
-      </div>
-      <table className="fields">
-        <thead><tr><th /><th>Name</th><th>Column label</th><th>Type</th><th>Extractor</th>
-          <th title="Record is invalid without it">Required</th><th title="Used to merge duplicates">Dedupe</th><th /></tr></thead>
-        <tbody>
-          {spec.fields.map((f, i) => (
-            <tr key={i}>
-              <td className="nowrap">
-                <button className="icon" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up">↑</button>
-                <button className="icon" disabled={i === spec.fields.length - 1} onClick={() => move(i, 1)} aria-label="Move down">↓</button>
-              </td>
-              <td><input value={f.name} onChange={(e) => rename(i, e.target.value)}
-                title="lowercase letters, digits and _ (applied as you type)" /></td>
-              <td><input value={f.label ?? ""} onChange={(e) => setField(i, { label: e.target.value })} /></td>
-              <td><select value={f.type} onChange={(e) => setField(i, { type: e.target.value })}>
-                {TYPES.map((t) => <option key={t}>{t}</option>)}</select></td>
-              <td><select value={f.semantic ?? "none"} onChange={(e) => setField(i, { semantic: e.target.value })}>
-                {SEMANTICS.map((t) => <option key={t} value={t}>{t === "none" ? "label / rules" : t}</option>)}</select></td>
-              <td className="c"><input type="checkbox" checked={!!f.required} onChange={(e) => setField(i, { required: e.target.checked })} /></td>
-              <td className="c"><input type="checkbox" checked={spec.deduplication_keys.includes(f.name)} onChange={() => toggleKey(f.name)} /></td>
-              <td><button className="icon" onClick={() => onChange({ ...spec, fields: spec.fields.filter((_, j) => j !== i),
-                deduplication_keys: spec.deduplication_keys.filter((k) => k !== f.name) })} aria-label="Remove field">✕</button></td>
-            </tr>
+    <div className="stack">
+      <div>
+        <p className="section-label">Details to collect</p>
+        <div className="chips">
+          {DETAILS.map((d) => (
+            <label key={d[0]} className="chip"><input type="checkbox" checked={spec.fields.some((f) => f.semantic === d[3])}
+              onChange={() => toggleDetail(d)} /> {d[1]}</label>
           ))}
-        </tbody>
-      </table>
-      <button onClick={() => onChange({ ...spec, fields: [...spec.fields, { name: `field_${spec.fields.length + 1}`, type: "string", semantic: "none" }] })}>
-        Add field
-      </button>
-
-      <div className="settings">
-        <label>Start URLs (one per line)
-          <textarea rows={4} value={spec.crawl.start_urls.join("\n")}
-                    onChange={(e) => crawl({ start_urls: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} />
-        </label>
-        <div className="row wrap">
-          <label>Max pages<input type="number" min={1} value={spec.crawl.max_pages} onChange={(e) => crawl({ max_pages: +e.target.value })} /></label>
-          <label>Max depth<input type="number" min={0} value={spec.crawl.max_depth} onChange={(e) => crawl({ max_depth: +e.target.value })} /></label>
-          <label>Pages per site<input type="number" min={1} value={spec.crawl.max_pages_per_site} onChange={(e) => crawl({ max_pages_per_site: +e.target.value })} /></label>
-          <label>One record per<select value={spec.record_scope} onChange={(e) => onChange({ ...spec, record_scope: e.target.value as Spec["record_scope"] })}>
-            <option value="site">website</option><option value="page">page</option></select></label>
-          <label className="check"><input type="checkbox" checked={spec.crawl.use_sitemaps} onChange={(e) => crawl({ use_sitemaps: e.target.checked })} /> Use sitemaps</label>
-          <label className="check"><input type="checkbox" checked={spec.crawl.follow_links} onChange={(e) => crawl({ follow_links: e.target.checked })} /> Follow links</label>
         </div>
-        <div className="row wrap">
-          <span className="small">Find websites with:</span>
+      </div>
+
+      <details className="more">
+        <summary>Columns <span className="muted small">{spec.fields.length} in the spreadsheet</span></summary>
+        <div className="table-wrap">
+          <table className="fields">
+            <thead><tr><th /><th>Name</th><th>Column label</th><th>Type</th><th>Extractor</th>
+              <th className="c" title="Record is invalid without it">Required</th><th className="c" title="Used to merge duplicates">Dedupe</th><th /></tr></thead>
+            <tbody>
+              {spec.fields.map((f, i) => (
+                <tr key={i}>
+                  <td className="nowrap">
+                    <button type="button" className="icon" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up">↑</button>
+                    <button type="button" className="icon" disabled={i === spec.fields.length - 1} onClick={() => move(i, 1)} aria-label="Move down">↓</button>
+                  </td>
+                  <td><input aria-label="Field name" value={f.name} onChange={(e) => rename(i, e.target.value)}
+                    title="lowercase letters, digits and _ (applied as you type)" /></td>
+                  <td><input aria-label="Column label" value={f.label ?? ""} onChange={(e) => setField(i, { label: e.target.value })} /></td>
+                  <td><select aria-label="Type" value={f.type} onChange={(e) => setField(i, { type: e.target.value })}>
+                    {TYPES.map((t) => <option key={t}>{t}</option>)}</select></td>
+                  <td><select aria-label="Extractor" value={f.semantic ?? "none"} onChange={(e) => setField(i, { semantic: e.target.value })}>
+                    {SEMANTICS.map((t) => <option key={t} value={t}>{t === "none" ? "label / rules" : t}</option>)}</select></td>
+                  <td className="c"><input type="checkbox" aria-label="Required" checked={!!f.required} onChange={(e) => setField(i, { required: e.target.checked })} /></td>
+                  <td className="c"><input type="checkbox" aria-label="Dedupe key" checked={spec.deduplication_keys.includes(f.name)} onChange={() => toggleKey(f.name)} /></td>
+                  <td><button type="button" className="icon danger" onClick={() => onChange({ ...spec, fields: spec.fields.filter((_, j) => j !== i),
+                    deduplication_keys: spec.deduplication_keys.filter((k) => k !== f.name) })} aria-label="Remove field">✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button type="button" className="add" onClick={() => onChange({ ...spec, fields: [...spec.fields, { name: `field_${spec.fields.length + 1}`, type: "string", semantic: "none" }] })}>
+          + Add a column
+        </button>
+      </details>
+
+      <details className="more" open>
+        <summary>Where to look</summary>
+        <div className="chips">
           {DISCOVERY.map(([key, label]) => (
-            <label key={key} className="check"><input type="checkbox" checked={spec.discovery.providers.includes(key)}
+            <label key={key} className="chip"><input type="checkbox" checked={spec.discovery.providers.includes(key)}
               onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, providers: e.target.checked
                 ? [...spec.discovery.providers, key] : spec.discovery.providers.filter((p) => p !== key) } })} /> {label}</label>
           ))}
+        </div>
+        <div className="form-grid">
           <label>Industry<input value={spec.discovery.industry ?? ""} placeholder="e.g. pharmaceutical"
             onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, industry: e.target.value || null } })} /></label>
           <label title="Two-letter codes: US, GB, IN, DE...">Countries
             <CountriesInput value={spec.discovery.countries} onChange={(countries) => discovery({ countries })} /></label>
           <label>Region<select value={spec.discovery.region ?? ""} onChange={(e) => discovery({ region: e.target.value || null })}>
             {REGIONS.map((r) => <option key={r} value={r}>{r ? r.replace("_", " ") : "any"}</option>)}</select></label>
-          <label className="check" title="Leave out any company not confirmed to be in these countries">
-            <input type="checkbox" checked={spec.discovery.strict_countries ?? true} disabled={!spec.discovery.countries.length}
-              onChange={(e) => discovery({ strict_countries: e.target.checked })} /> Only these countries</label>
           <label title="Only companies with written proof that they use this: their SEC filings or their own web pages">Uses technology
             <input value={spec.discovery.technology ?? ""} placeholder="e.g. Teamcenter"
               onChange={(e) => discovery({ technology: e.target.value || null })} /></label>
@@ -154,27 +148,55 @@ export default function SchemaEditor({ spec, onChange }: { spec: Spec; onChange:
               onChange={(e) => discovery({ parent_company: e.target.value || null })} /></label>
           <label>Max websites<input type="number" min={1} value={spec.discovery.max_results}
             onChange={(e) => onChange({ ...spec, discovery: { ...spec.discovery, max_results: +e.target.value } })} /></label>
+          <label className="check" title="Leave out any company not confirmed to be in these countries" style={{ minHeight: 40 }}>
+            <input type="checkbox" checked={spec.discovery.strict_countries ?? true} disabled={!spec.discovery.countries.length}
+              onChange={(e) => discovery({ strict_countries: e.target.checked })} /> Only these countries</label>
         </div>
-        <p className="muted small">Discovery: {spec.discovery.providers.join(", ")}
-          {spec.discovery.industry && <> · industry “{spec.discovery.industry}”</>}
-          {spec.discovery.technology && <> · uses “{spec.discovery.technology}”</>}
-          {spec.discovery.parent_company && <> · sites of “{spec.discovery.parent_company}”</>}
-          {spec.discovery.region && <> · region {spec.discovery.region}</>}
-          {spec.discovery.countries.length > 0 && <> · {spec.discovery.countries.join(", ")}
-            {(spec.discovery.strict_countries ?? true) ? " only" : " preferred"}</>}
-          {" "}· up to {spec.discovery.max_results} sites</p>
-      </div>
+        <div className="plan-summary" aria-label="Discovery summary">
+          <span>Sources <b>{spec.discovery.providers.join(", ") || "none"}</b></span>
+          {spec.discovery.industry && <span>Industry <b>{spec.discovery.industry}</b></span>}
+          {spec.discovery.technology && <span>Uses <b>{spec.discovery.technology}</b></span>}
+          {spec.discovery.parent_company && <span>Sites of <b>{spec.discovery.parent_company}</b></span>}
+          {spec.discovery.region && <span>Region <b>{spec.discovery.region.replace("_", " ")}</b></span>}
+          {spec.discovery.countries.length > 0 && <span>Countries <b>{spec.discovery.countries.join(", ")}</b>
+            {(spec.discovery.strict_countries ?? true) ? " only" : " preferred"}</span>}
+          <span>Up to <b>{spec.discovery.max_results}</b> sites</span>
+        </div>
+      </details>
 
-      <button className="link" onClick={() => setShowJson(!showJson)}>{showJson ? "Hide" : "Show"} full JSON</button>
-      {showJson && (
-        <div>
-          <textarea className="mono" rows={18} value={json} onChange={(e) => {
-            setJson(e.target.value);
-            try { onChange(JSON.parse(e.target.value)); setJsonError(null); } catch (err) { setJsonError(String(err)); }
-          }} />
-          {jsonError && <p className="error small">{jsonError}</p>}
+      <details className="more">
+        <summary>Crawl limits and starting websites</summary>
+        <label>Start URLs <span className="field-hint">one per line</span>
+          <textarea rows={3} value={spec.crawl.start_urls.join("\n")}
+                    onChange={(e) => crawl({ start_urls: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} />
+        </label>
+        <div className="form-grid">
+          <label>Max pages<input type="number" min={1} value={spec.crawl.max_pages} onChange={(e) => crawl({ max_pages: +e.target.value })} /></label>
+          <label>Max depth<input type="number" min={0} value={spec.crawl.max_depth} onChange={(e) => crawl({ max_depth: +e.target.value })} /></label>
+          <label>Pages per site<input type="number" min={1} value={spec.crawl.max_pages_per_site} onChange={(e) => crawl({ max_pages_per_site: +e.target.value })} /></label>
+          <label>One record per<select value={spec.record_scope} onChange={(e) => onChange({ ...spec, record_scope: e.target.value as Spec["record_scope"] })}>
+            <option value="site">website</option><option value="page">page</option></select></label>
         </div>
-      )}
+        <div className="row wrap">
+          <label className="switch"><input type="checkbox" checked={spec.crawl.use_sitemaps} onChange={(e) => crawl({ use_sitemaps: e.target.checked })} />
+            <span className="switch-track" aria-hidden /> Use sitemaps</label>
+          <label className="switch"><input type="checkbox" checked={spec.crawl.follow_links} onChange={(e) => crawl({ follow_links: e.target.checked })} />
+            <span className="switch-track" aria-hidden /> Follow links</label>
+        </div>
+      </details>
+
+      <details className="more" onToggle={(e) => setShowJson((e.target as HTMLDetailsElement).open)}>
+        <summary>Full plan as JSON</summary>
+        {showJson && (
+          <div>
+            <textarea className="json" rows={18} spellCheck={false} value={json} onChange={(e) => {
+              setJson(e.target.value);
+              try { onChange(JSON.parse(e.target.value)); setJsonError(null); } catch (err) { setJsonError(String(err)); }
+            }} />
+            {jsonError && <p className="error small">{jsonError}</p>}
+          </div>
+        )}
+      </details>
     </div>
   );
 }

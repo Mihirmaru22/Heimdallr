@@ -16,6 +16,8 @@ function buildSha(): string {
 // In development the API runs on :8000 and Vite proxies /api to it, so cookies stay same-origin.
 export default defineConfig(({ command }) => ({
   plugins: [react()],
+  // three.js (the lens) is one ~530 kB chunk on its own, loaded after the page is up.
+  build: { chunkSizeWarningLimit: 600 },
   define: { __BUILD_SHA__: JSON.stringify(command === "build" ? buildSha() : "dev") },
   server: {
     port: 5173,

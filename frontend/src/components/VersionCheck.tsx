@@ -15,9 +15,9 @@ export function VersionBanner() {
   const report = useVersion();
   if (!report.data || report.data.up_to_date) return null;
   return (
-    <div className="error version-banner" role="alert">
-      <strong>Running old code.</strong> {report.data.problems.join(" ")}{" "}
-      <span className="muted small">Checked out: {short(report.data.expected)}</span>
+    <div className="version-banner" role="alert">
+      <strong>Running old code.</strong> <span>{report.data.problems.join(" ")}</span>
+      <span className="muted mono">checked out {short(report.data.expected)}</span>
     </div>
   );
 }
@@ -26,15 +26,15 @@ export function VersionFooter() {
   const { data } = useVersion();
   if (!data) return null;
   const branch = data.code_on_disk?.branch || data.api.branch;
-  const ok = (sha?: string) => (sha === data.expected ? "✓" : `✗ ${short(sha)}`);
-  const page = data.frontend === "dev" ? "dev server" : ok(data.frontend ?? undefined);
+  const ok = (sha?: string) => (sha === data.expected
+    ? <span className="vf-ok">✓</span> : <span className="vf-bad">✗ {short(sha)}</span>);
   return (
-    <footer className="muted small version-footer"
+    <footer className="version-footer mono"
             title={`API started ${data.api.started_at ?? ""}; commit date ${data.code_on_disk?.committed_at ?? ""}`}>
-      Code: {branch ? `${branch} @ ` : ""}{short(data.expected)}{data.code_on_disk?.dirty ? " (uncommitted changes)" : ""}
-      {" · "}API {ok(data.api.sha)}
-      {" · "}worker {data.workers.length ? data.workers.map((w) => ok(w.sha)).join(" ") : "not running"}
-      {" · "}page {page}
+      <span>Code: {branch ? `${branch} @ ` : ""}{short(data.expected)}{data.code_on_disk?.dirty ? " (uncommitted changes)" : ""}</span>
+      <span>API {ok(data.api.sha)}</span>
+      <span>worker {data.workers.length ? data.workers.map((w, i) => <span key={i}>{ok(w.sha)} </span>) : "not running"}</span>
+      <span>page {data.frontend === "dev" ? "dev server" : ok(data.frontend ?? undefined)}</span>
     </footer>
   );
 }
