@@ -139,6 +139,7 @@ class CaseStudiesProvider:
         self.hub: SearchHub | None = None  # made with the client, in search()
         self.notes: list[str] = []
         self.evidence: list[dict[str, Any]] = []
+        self.facts: list[dict[str, Any]] = []  # what the website lookup established, for the final decision
         self.on_note: Callable[..., None] | None = None
         self.fetch_page: FetchPage | None = None  # set by the crawler: robots.txt respected, network rules checked
         self.dates: dict[str, str] = {}  # url -> date the search source gives, when the page itself gives none
@@ -293,6 +294,9 @@ class CaseStudiesProvider:
                 ev["website"] = site
                 self._say("search" if site else "skipped", f"Website of {ev['company']}: "
                           + (f"{site} ({how})" if site else f"none taken ({how})"), site or None)
+                self.facts.append({"site": registered_domain(site) if site else "", "company": ev["company"],
+                                   "kind": "website", "value": site, "by": "web search", "detail": how,
+                                   "source_url": ev["url"], "quote": ""})
                 domain = registered_domain(site) if site else ""
                 if not domain or domain in seen:
                     continue

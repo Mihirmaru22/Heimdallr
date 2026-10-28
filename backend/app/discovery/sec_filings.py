@@ -106,6 +106,7 @@ class SecFilingsProvider:
         self.retry_waits = RETRY_WAITS if gap else (0.0,) * len(RETRY_WAITS)  # tests pass gap=0: no waiting
         self.notes: list[str] = []
         self.evidence: list[dict[str, Any]] = []  # every piece looked at, kept or rejected
+        self.facts: list[dict[str, Any]] = []  # what the website lookup established, for the final decision
         self.on_note: Callable[..., None] | None = None  # the job's live activity feed, when there is one
         self.fetch_text: FetchText | None = None  # the crawler's own page fetch (robots.txt respected), when run
 
@@ -311,6 +312,9 @@ class SecFilingsProvider:
                 ev["website"] = site
                 self._say("search" if site else "skipped", f"Website of {ev['company']}: "
                           + (f"{site} ({how})" if site else f"none taken ({how})"), site or None)
+                self.facts.append({"site": registered_domain(site) if site else "", "company": ev["company"],
+                                   "kind": "website", "value": site, "by": "web search", "detail": how,
+                                   "source_url": ev.get("url", ""), "quote": ""})
 
 
 def strongest(evidence: list[dict[str, Any]]) -> dict[str, Any] | None:

@@ -71,12 +71,14 @@ class SiteChecker:
         self.wait = wait if wait is not None else (0.0 if get_settings().env == "test" else BUSY_WAIT)
         self.unavailable: str | None = None
 
-    async def check(self, doc: PageDoc, spec: ExtractionSpec) -> tuple[str | None, str]:
-        """(reason to drop the site or None to keep it, who decided: "rules", "model:<id>" or "unchecked: ...")."""
+    async def check(self, doc: PageDoc, spec: ExtractionSpec, subject: str | None = None) -> tuple[str | None, str]:
+        """(reason to drop the site or None to keep it, who decided: "rules", "model:<id>" or "unchecked: ...").
+        `subject` overrides the industry checked against (the question's industry, then its keywords)."""
         reason = listing_reason(doc)
         if reason:
             return reason, "rules"
-        subject = spec.discovery.industry or " ".join(spec.discovery.keywords)
+        if subject is None:
+            subject = spec.discovery.industry or " ".join(spec.discovery.keywords)
         if not subject.strip():
             return None, "unchecked: no industry to check against"
         if self.unavailable:

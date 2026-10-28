@@ -66,7 +66,7 @@ def test_companies_are_kept_only_with_proof_on_their_own_pages(db_clean, crawl_e
         and rows["Acme"].reason.endswith("names Teamcenter; no job board linked from the site")
 
 
-async def _passes(self, doc, spec):
+async def _passes(self, doc, spec, **_kw):
     return None, "rules"
 
 

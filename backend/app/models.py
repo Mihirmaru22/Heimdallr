@@ -393,3 +393,49 @@ TENANT_TABLES = [
     "provider_configurations",
     "usage_records",
 ]
+
+
+class CompanyFact(Base):
+    """One thing a source established about a company in a job, with where it came from: its country (from a
+    registry, the proof's own words or its pages), whether it meets a filter of the question, its website. Sources
+    record facts instead of dropping companies; one decision at the end weighs them (app.services.companies).
+    Proof that a company uses a technology is kept in `evidence`."""
+
+    __tablename__ = "company_facts"
+    id: Mapped[uuid.UUID] = mapped_column(UUIDPK, primary_key=True, default=new_id)
+    org_id: Mapped[uuid.UUID] = org_fk()
+    job_id: Mapped[uuid.UUID] = mapped_column(UUIDPK, ForeignKey("crawl_jobs.id", ondelete="CASCADE"), index=True)
+    site: Mapped[str] = mapped_column(String(300), default="", nullable=False)  # registered domain, or ""
+    company: Mapped[str] = mapped_column(String(300), default="", nullable=False)  # the name a source gave
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)  # country | filter | website
+    value: Mapped[str] = mapped_column(String(300), default="", nullable=False)  # "GB", "met", "not met", a URL
+    by: Mapped[str] = mapped_column(String(120), default="", nullable=False)  # registry:<name> | proof | own pages...
+    detail: Mapped[str] = mapped_column(Text, default="", nullable=False)  # why, in words
+    source_url: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    quote: Mapped[str] = mapped_column(Text, default="", nullable=False)  # verbatim, when a page said it
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class JobCompany(Base):
+    """Every company a job came across, with the one decision made about it and why: delivered, country
+    unconfirmed, elsewhere, filter not met, weak proof or no proof. Nothing a job finds is dropped silently."""
+
+    __tablename__ = "job_companies"
+    __table_args__ = (UniqueConstraint("job_id", "key"),)
+    id: Mapped[uuid.UUID] = mapped_column(UUIDPK, primary_key=True, default=new_id)
+    org_id: Mapped[uuid.UUID] = org_fk()
+    job_id: Mapped[uuid.UUID] = mapped_column(UUIDPK, ForeignKey("crawl_jobs.id", ondelete="CASCADE"), index=True)
+    key: Mapped[str] = mapped_column(String(320), nullable=False)  # registered domain, or "name:<normalised name>"
+    name: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    website: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    reasons: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    proof_verdict: Mapped[str] = mapped_column(String(20), default="", nullable=False)
+    proof_url: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    proof_quote: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    country: Mapped[str] = mapped_column(String(8), default="", nullable=False)
+    country_by: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    sources: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)  # which sources named it
+    record_id: Mapped[uuid.UUID | None] = mapped_column(UUIDPK, ForeignKey("extracted_records.id", ondelete="SET NULL"),
+                                                       nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

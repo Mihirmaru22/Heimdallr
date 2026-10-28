@@ -24,6 +24,7 @@ from app.discovery.providers import DiscoveryError
 from app.models import CrawlJob, DiscoveredUrl, ExtractionSchema, Organization, UrlStatus
 from app.models import JobState as S
 from app.services.common import org_limits, record_usage
+from app.services.companies import build_companies
 from app.services.finalize import finalize_job
 from app.services.state_machine import log_event, transition
 from app.spec.models import validate_spec
@@ -198,19 +199,24 @@ def _run(job_id: uuid.UUID, job: CrawlJob, org: Organization, schema: Extraction
             state = S.validating_results
         if state == S.validating_results:
             stats = finalize_job(job_id, org_id, spec, limits["max_records_per_job"])
+            # Every company the job came across gets one decision, made here from all its facts.
+            outcomes = build_companies(job_id, org_id, spec)
             with session_scope(org_id) as db:
                 job = db.get(CrawlJob, job_id)
                 counters = {**(job.counters or {}), **{f"records_{k}": v for k, v in stats.items() if k != "records"},
-                            "extracted": stats["records"]}
+                            "extracted": stats["records"],
+                            **{f"companies_{k.replace(' ', '_')}": v for k, v in outcomes.items()}}
                 failed_pages = counters.get("failed", 0)
                 complete = stats["records"] > 0 and failed_pages == 0 and stats["invalid"] == 0
-                if stats["records"] == 0:
+                if stats["records"] == 0 and not outcomes:
                     transition(db, job, S.failed, "No records could be extracted", counters=counters,
                                error="No records could be extracted from the fetched pages")
                     return S.failed.value
                 dst = S.completed if complete else S.partially_completed
-                msg = (f"{stats['records']} records ({stats['valid']} complete, {stats['partial']} partial, "
-                       f"{stats['invalid']} missing required fields); {failed_pages} page(s) failed")
+                found = ", ".join(f"{n} {k}" for k, n in sorted(outcomes.items(), key=lambda kv: -kv[1]))
+                msg = (f"{outcomes.get('delivered', 0) if spec.discovery.technology else stats['records']} "
+                       f"delivered; companies: {found or 'none'}; {stats['records']} records "
+                       f"({stats['valid']} complete, {stats['partial']} partial); {failed_pages} page(s) failed")
                 transition(db, job, dst, msg, counters=counters)
                 return dst.value
     except JobCancelled:

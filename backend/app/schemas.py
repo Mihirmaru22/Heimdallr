@@ -150,6 +150,22 @@ class PlanPreview(BaseModel):
 # --- jobs -------------------------------------------------------------------------------------
 
 
+class CompanyOut(ORM):
+    """One company a job came across and the decision about it."""
+    id: uuid.UUID
+    name: str
+    website: str
+    status: str  # delivered | country unconfirmed | elsewhere | filter not met | weak proof | no proof
+    reasons: list[str]
+    proof_verdict: str
+    proof_url: str
+    proof_quote: str
+    country: str
+    country_by: str
+    sources: list[str]
+    record_id: uuid.UUID | None
+
+
 class JobIn(BaseModel):
     schema_id: uuid.UUID
 

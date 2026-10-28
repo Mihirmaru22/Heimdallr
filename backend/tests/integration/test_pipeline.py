@@ -340,7 +340,7 @@ def _wikidata(url, hint, monkeypatch):
         async def discover(self, spec):
             return [DiscoveryResult(url, "wikidata", hint)]
 
-    async def unchecked(self, doc, spec):
+    async def unchecked(self, doc, spec, **_kw):
         return None, "unchecked: no model in tests"
 
     monkeypatch.setattr(runner, "providers_for", lambda spec: [Source()])

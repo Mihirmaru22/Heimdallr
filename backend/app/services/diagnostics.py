@@ -13,7 +13,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 
-from app.models import CrawlJob, CrawlJobEvent, DiscoveredUrl, Evidence, ExtractionSchema
+from app.models import CrawlJob, CrawlJobEvent, DiscoveredUrl, Evidence, ExtractionSchema, JobCompany
 
 PLAN_KEYS = ("providers", "technology", "technology_aliases", "industry", "keywords", "countries", "region",
              "max_results", "evidence_years")
@@ -51,6 +51,10 @@ def run_diagnostics(db, job_id: uuid.UUID) -> list[tuple[str, str, str]]:
         source = data.get("source")
         if e.type == "activity" and source and data.get("kind") in SOURCE_KINDS:
             rows.append((f"Source: {source}", f"{at(e)} {data.get('kind')}", e.message))
+
+    outcomes = db.execute(select(JobCompany.status, func.count()).where(JobCompany.job_id == job_id)
+                          .group_by(JobCompany.status)).all()
+    rows += [("Companies", status, str(n)) for status, n in sorted(outcomes, key=lambda r: -r[1])]
 
     proof = db.execute(select(Evidence.source_type, Evidence.kept, func.count()).where(Evidence.job_id == job_id)
                        .group_by(Evidence.source_type, Evidence.kept)).all()

@@ -193,10 +193,12 @@ def unreadable(doc: PageDoc) -> bool:
     return len(doc.text.split()) < MIN_READABLE_WORDS and not described
 
 
-def off_topic_reason(doc: PageDoc, spec: ExtractionSpec, check_country: bool = True) -> str | None:
-    """Why this search result's homepage is not a match, or None to keep it."""
+def off_topic_reason(doc: PageDoc, spec: ExtractionSpec, check_country: bool = True,
+                     subject: str | None = None) -> str | None:
+    """Why this search result's homepage is not a match, or None to keep it. `subject` overrides what the
+    homepage must be about (the question's industry, then its keywords)."""
     d = spec.discovery
-    subject = d.industry or " ".join(d.keywords)
+    subject = (d.industry or " ".join(d.keywords)) if subject is None else subject
     if subject.strip():
         text = f" {doc.title} {doc.meta.get('description', '')} {doc.meta.get('og:description', '')} " \
                f"{doc.text[:20_000]} ".lower()

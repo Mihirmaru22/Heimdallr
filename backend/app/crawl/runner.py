@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import re
 import time
 import uuid
 from datetime import timedelta
@@ -58,6 +59,7 @@ from app.extract.deterministic import (
 from app.extract.normalize import InvalidValue, normalize_value
 from app.extract.records import CONTACT_HINTS, _has_extractor
 from app.models import (
+    CompanyFact,
     CrawlJob,
     CrawlJobEvent,
     DiscoveredUrl,
@@ -66,6 +68,7 @@ from app.models import (
     FetchedPage,
     UrlStatus,
 )
+from app.services.companies import is_proof_source
 from app.services.state_machine import log_event
 from app.spec.models import ExtractionSpec, Semantic
 
@@ -91,6 +94,16 @@ CANCEL_CHECK_EVERY = 5.0  # seconds between looks at the job's state while a dis
 
 class JobCancelled(Exception):
     pass
+
+
+def country_source(method: str, hint: dict[str, Any], why: str) -> str:
+    """Which kind of evidence a country check used: a registry's own entry (Wikidata, SEC, GLEIF) or the
+    company's own pages. Weighed in that order by the final decision."""
+    if hint.get("country") and f"{method} says" in why and method in REGISTRY_METHODS:
+        return f"registry: {method}"
+    if hint.get("country") and " says " in why:
+        return f"source: {method}"
+    return "own pages"
 
 
 def _page_rank(url: str, keywords: list[str]) -> int:
@@ -135,6 +148,7 @@ class CrawlRunner:
         self.site_found: dict[str, set[str]] = {}
         self.done_sites: set[str] = set()
         self.told_unchecked = False
+        self.facts: list[dict[str, Any]] = []  # what checks established about companies, saved with each page
         self.country_checks: dict[str, int] = {}  # "only these countries": sites per outcome (IN_COUNTRY...)
         self.settings = get_settings()
         self.resolver = resolver
@@ -262,6 +276,7 @@ class CrawlRunner:
                     errors.append(f"{provider.name}: {exc}")
                     self.note("failed", f"{label}: {exc}", source=provider.name)
                 self.save_evidence(provider.name, getattr(provider, "evidence", []))
+                self.save_facts(getattr(provider, "facts", None) or [])
                 self.flush_activity()
                 notes += getattr(provider, "notes", [])
         finally:
@@ -343,6 +358,24 @@ class CrawlRunner:
     async def fetch_text(self, url: str) -> str | None:
         doc = await self.fetch_page(url)
         return f"{doc.title} {doc.text}" if doc else None
+
+    def fact(self, site: str, company: str, kind: str, value: str, detail: str, source_url: str = "",
+             by: str = "", quote: str = "") -> None:
+        """Record what a check established about a company, instead of dropping it (app.services.companies)."""
+        self.facts.append({"site": site or "", "company": company or "", "kind": kind, "value": value or "",
+                           "detail": detail or "", "source_url": source_url or "", "by": by or "", "quote": quote})
+
+    def save_facts(self, facts: list[dict[str, Any]] | None = None) -> None:
+        rows = self.facts if facts is None else facts
+        if not rows:
+            return
+        cols = {c.name: getattr(c.type, "length", None) for c in CompanyFact.__table__.columns
+                if c.name not in ("id", "org_id", "job_id", "created_at")}
+        with session_scope(self.org_id) as db:
+            db.add_all([CompanyFact(org_id=self.org_id, job_id=self.job_id,
+                                    **{k: (v[:cols[k]] if isinstance(v, str) and cols[k] else v)
+                                       for k, v in f.items() if k in cols}) for f in rows])
+        rows.clear()
 
     def save_evidence(self, source: str, evidence: list[dict[str, Any]]) -> None:
         """Every piece of proof a source looked at, kept or rejected, for the Evidence and Rejected sheets."""
@@ -491,7 +524,7 @@ class CrawlRunner:
                 DiscoveredUrl.job_id == self.job_id, DiscoveredUrl.status == UrlStatus.fetched,
                 func.lower(DiscoveredUrl.host).like(f"%{site}"))).scalar_one()
 
-    async def _homepage_reason(self, row, doc, site: str, final: str) -> str | None:
+    async def _homepage_reason(self, row, doc, site: str, final: str) -> tuple[str | None, str]:
         """Why a discovered site is left out before crawling it, or None to keep it.
 
         A search result is only a link, and anyone can tag their own Wikidata item with an industry, so each
@@ -500,24 +533,32 @@ class CrawlRunner:
         """
         if unreadable(doc):
             if row.method == "searxng":  # nothing else vouches for a bare search result
-                return "homepage could not be read (no text: a loader or challenge page), so it was not verified"
+                return "homepage could not be read (no text: a loader or challenge page), so it was not verified", \
+                    "rules"
             self.note("search", f"{site}: homepage could not be read (no text); kept on {row.method}'s facts, "
                               "not verified from the site", final)
-            return None
+            return None, "rules"
+        # A company that a proof source named is checked only against what the question asks of its customers,
+        # its industry: the question's other keywords describe the rows to search for, and once described the
+        # product itself ("HR technology" for Workday HCM), which dropped every Workday customer as a non-vendor.
+        proof_named = is_proof_source(row.method)
+        subject = (self.spec.discovery.industry or "") if proof_named else None
+        if proof_named and not subject:
+            return None, "rules"
         registry_industry = row.method == "wikidata" and bool(row.hint.get("industry"))
         if not registry_industry:  # the registry already matched the industry; a missing word does not undo it
-            reason = off_topic_reason(doc, self.spec, check_country=row.method == "searxng")
+            reason = off_topic_reason(doc, self.spec, check_country=row.method == "searxng", subject=subject)
             if reason:
-                return reason
+                return reason, "rules"
         # Mentioning the industry is not being in it: lists, associations, shops and IT firms do too.
-        reason, by = await self.site_checker.check(doc, self.spec)
+        reason, by = await self.site_checker.check(doc, self.spec, subject=subject)
         if not reason and by.startswith("model:"):
             self.note("search", f"Checked {site} with free model {by[6:]}: in the industry", final)
         elif by.startswith("unchecked") and not self.told_unchecked:
             self.told_unchecked = True
             self.note("skipped", f"Discovered sites are not checked by a model ({by[11:]}); "
                                  "only rules are applied", final)
-        return reason
+        return reason, by
 
     def _room_for(self, site: str) -> bool:
         """True while one more page of this site may be read: within the job's page budget (counting the pages
@@ -664,14 +705,20 @@ class CrawlRunner:
             self.note("skipped", f"Skipped {final}: same content as a page already read", final)
             return
         doc = parse_page(final, result.text)
-        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies", "news"):
-            reason = await self._homepage_reason(row, doc, site, final)
-            if reason:
-                self.allowed_sites.discard(site)
-                self._finish(row.id, UrlStatus.skipped, f"{row.method} result dropped: {reason}")
-                self.note("dropped", f"Dropped {site}: {reason}", final)
-                return
         hint = row.hint or {}
+        company = str(hint.get("company_name") or "")
+        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies", "news"):
+            reason, by = await self._homepage_reason(row, doc, site, final)
+            if reason:
+                self.fact(site, company, "filter", "not met", reason, final, by)
+                if not is_proof_source(row.method):
+                    self.allowed_sites.discard(site)
+                    self._finish(row.id, UrlStatus.skipped, f"{row.method} result dropped: {reason}")
+                    self.note("dropped", f"Dropped {site}: {reason}", final)
+                    self.save_facts()
+                    return
+                # Proof named this company: the failed filter is one of its facts, weighed in the final decision.
+                self.note("kept", f"{site} has proof; recorded for the decision: {reason}", final)
         checked: list[tuple[uuid.UUID, Any, PageDoc]] = []  # pages read to check the country
         if row.depth == 0:
             status, why = country_status(doc, self.spec, row.method, hint)
@@ -679,7 +726,11 @@ class CrawlRunner:
                 status, why, checked = await self._verify_country(doc, site, hint)
             if status != NOT_CHECKED:
                 self.country_checks[status] = self.country_checks.get(status, 0) + 1
-            if status in (OUTSIDE_COUNTRY, COUNTRY_UNKNOWN):  # "only these countries" is on: the site is left out
+                iso = (re.search(r"based in ([A-Z]{2})\b", why) or [None, ""])[1]
+                self.fact(site, company, "country", iso if status in (IN_COUNTRY, OUTSIDE_COUNTRY) else "",
+                          why, final, country_source(row.method, hint, why))
+            if status in (OUTSIDE_COUNTRY, COUNTRY_UNKNOWN):  # "only these countries" is on: not crawled further
+                self.save_facts()
                 self.allowed_sites.discard(site)
                 head = "outside the requested countries" if status == OUTSIDE_COUNTRY else "country not confirmed"
                 self._finish(row.id, UrlStatus.skipped, f"{head}: {why}{_found_by(hint)}")
@@ -725,6 +776,7 @@ class CrawlRunner:
                         "source_url": source if source.startswith(("http://", "https://")) else None})
         await self._proof_checks(doc, result, site, final, candidates)
         self._save_page(row.id, final, result, doc, candidates, hint=hint)
+        self.save_facts()
         self._note_found(final, found, row.depth)
         done = self._site_complete(site, candidates)
         for url_id, page_result, page in checked:  # read to check the country, so kept like any page of the site

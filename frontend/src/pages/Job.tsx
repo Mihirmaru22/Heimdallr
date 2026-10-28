@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, display, type CrawlUrl, type ExportRow, type Job, type JobEvent, type Page, type Progress,
+import { api, display, type CompanyRow, type CrawlUrl, type ExportRow, type Job, type JobEvent, type Page, type Progress,
   type Project, type RecordRow, type Schema } from "../api";
 import { Badge, Card, Crumbs, ErrorBox, Pager, Spinner, when } from "../components/ui";
 import RecordDrawer from "../components/RecordDrawer";
@@ -11,7 +11,7 @@ import { useActivity } from "../useActivity";
 import { Download, Retry, Stop } from "../components/icons";
 
 const URL_STATUSES = ["", "queued", "fetched", "skipped", "blocked_robots", "blocked_policy", "failed", "dead"];
-type Tab = "activity" | "records" | "urls" | "events";
+type Tab = "activity" | "companies" | "records" | "urls" | "events";
 
 export default function JobPage({ orgId }: { orgId: string }) {
   const { jobId } = useParams();
@@ -36,7 +36,8 @@ export default function JobPage({ orgId }: { orgId: string }) {
   const c = progress.data?.counters ?? {};
   const state = progress.data?.state ?? "…";
   const tabs: [Tab, string, number | undefined][] = [
-    ["activity", "Full log", activity.lines.length], ["records", "Records", progress.data?.records],
+    ["activity", "Full log", activity.lines.length], ["companies", "Companies", undefined],
+    ["records", "Records", progress.data?.records],
     ["urls", "Pages", c.discovered], ["events", "Events", undefined]];
 
   const crumbs = <Crumbs items={[["Research", "/"], [project.data?.name ?? "Project", job.data ? `/projects/${job.data.project_id}` : null], ["Run", null]]} />;
@@ -71,6 +72,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
             {label}{n != null && n > 0 && <span className="count">{n.toLocaleString()}</span>}</button>)}
       </div>
       {tab === "activity" && <ActivityFeed lines={activity.lines} live={!terminal} error={activity.error} />}
+      {tab === "companies" && <Companies base={base} jobId={jobId!} terminal={terminal} />}
       {tab === "records" && schema.data && <Records base={base} jobId={jobId!} schema={schema.data} terminal={terminal} />}
       {tab === "urls" && <Urls base={base} jobId={jobId!} />}
       {tab === "events" && <Events base={base} jobId={jobId!} live={!terminal} />}
@@ -129,6 +131,38 @@ function Records({ base, jobId, schema, terminal }: { base: string; jobId: strin
       {records.data && <Pager total={records.data.total} limit={limit} offset={offset} onChange={setOffset} />}
       {records.data?.total === 0 && <p className="empty">{terminal ? "No records match." : "Records appear here as sites are read; they refresh about every 20 seconds."}</p>}
       {open && <RecordDrawer base={base} recordId={open} schema={schema} onClose={() => setOpen(null)} />}
+    </Card>
+  );
+}
+
+// Every company the run came across, with the one decision about it and why (nothing found is dropped silently).
+const OUTCOMES = ["", "delivered", "country unconfirmed", "filter not met", "elsewhere", "weak proof", "no proof"];
+
+function Companies({ base, jobId, terminal }: { base: string; jobId: string; terminal: boolean }) {
+  const [status, setStatus] = useState("");
+  const [offset, setOffset] = useState(0);
+  const limit = 100;
+  const companies = useQuery({
+    queryKey: ["companies", jobId, status, offset, terminal],
+    queryFn: () => api.get<Page<CompanyRow>>(`${base}/jobs/${jobId}/companies?limit=${limit}&offset=${offset}${status ? `&status=${encodeURIComponent(status)}` : ""}`),
+  });
+  return (
+    <Card>
+      <select value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); }} aria-label="Outcome">
+        {OUTCOMES.map((s) => <option key={s} value={s}>{s || "All companies"}</option>)}</select>
+      <div className="table-wrap"><table>
+        <thead><tr><th>Company</th><th>Outcome</th><th>Proof</th><th>Country</th><th>Why</th></tr></thead>
+        <tbody>{companies.data?.items.map((co) => (
+          <tr key={co.id}>
+            <td>{co.name}{co.website && <div className="url small"><a href={co.website} target="_blank" rel="noreferrer noopener">{co.website}</a></div>}</td>
+            <td><Badge value={co.status.replace(/ /g, "_")} /></td>
+            <td className="small">{co.proof_url ? <a href={co.proof_url} target="_blank" rel="noreferrer noopener">{co.proof_verdict || "link"}</a> : co.proof_verdict}</td>
+            <td className="small mono">{co.country}</td>
+            <td className="small muted">{co.reasons.join(" · ")}</td></tr>))}
+        </tbody>
+      </table></div>
+      {companies.data && <Pager total={companies.data.total} limit={limit} offset={offset} onChange={setOffset} />}
+      {companies.data?.total === 0 && <p className="empty">{terminal ? "No companies were found." : "Companies and their outcomes appear when the run ends."}</p>}
     </Card>
   );
 }

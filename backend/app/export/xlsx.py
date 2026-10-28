@@ -47,6 +47,11 @@ EVIDENCE_COLS = [("Company", "company", 30), ("Website", "website", 30), ("Produ
                  ("Verdict", "verdict", 11), ("Relationship", "relationship", 14), ("Quote", "quote", 90),
                  ("Source", "source_type", 22), ("Date", "evidence_date", 11), ("Link", "url", 60),
                  ("Judged by", "judged_by", 26), ("Strength", "strength", 9), ("Note", "reason", 50)]
+# Every company the run came across and the one decision about it (app.services.companies): nothing it found is
+# dropped without a reason.
+COMPANY_COLS = [("Company", "name", 30), ("Website", "website", 30), ("Outcome", "status", 18),
+                ("Proof", "proof_verdict", 11), ("Proof link", "proof_url", 60), ("Country", "country", 9),
+                ("Country from", "country_by", 50), ("Why", "reasons", 100), ("Found by", "sources", 22)]
 REJECTED_COLS = [("Company", "company", 30), ("Product", "product", 18), ("Why rejected", "reason", 60),
                  ("Relationship", "relationship", 14), ("Quote", "quote", 90), ("Source", "source_type", 22),
                  ("Date", "evidence_date", 11), ("Link", "url", 60), ("Judged by", "judged_by", 26)]
@@ -77,7 +82,8 @@ def _write(ws, row: int, col: int, value: Any, fmt=None, url_fmt=None, links: li
 def build_workbook(path: Path, spec: ExtractionSpec, records: Iterable[ExportRecord],
                    summary: dict[str, Any], options: ExportOptions | None = None,
                    evidence: list[dict[str, Any]] | None = None,
-                   diagnostics: list[tuple[str, str, str]] | None = None) -> ExportResult:
+                   diagnostics: list[tuple[str, str, str]] | None = None,
+                   companies: list[dict[str, Any]] | None = None) -> ExportResult:
     options = options or ExportOptions()
     path.parent.mkdir(parents=True, exist_ok=True)
     wb = xlsxwriter.Workbook(str(path), {
@@ -141,6 +147,20 @@ def build_workbook(path: Path, spec: ExtractionSpec, records: Iterable[ExportRec
             for c, v in enumerate(values):
                 _write(ws, r, c, v, wrap, link if c == 4 else None, links)
         ws.autofilter(0, 0, max(len(sources_rows), 1), len(cols) - 1)
+
+    if companies:
+        ws = wb.add_worksheet(safe_sheet_name("Companies", used))
+        for c, (h, _key, w) in enumerate(COMPANY_COLS):
+            ws.set_column(c, c, w)
+            ws.write_string(0, c, h, head)
+        ws.freeze_panes(1, 0)
+        for r, co in enumerate(companies[: MAX_ROWS - 1], start=1):
+            for c, (_h, key, _w) in enumerate(COMPANY_COLS):
+                value = co.get(key)
+                if isinstance(value, list):
+                    value = "; ".join(map(str, value))
+                _write(ws, r, c, value, wrap, link if key in ("proof_url", "website") else None, links)
+        ws.autofilter(0, 0, max(len(companies), 1), len(COMPANY_COLS) - 1)
 
     if evidence:
         for title, cols, rows in (("Evidence", EVIDENCE_COLS, [e for e in evidence if e.get("kept")]),
