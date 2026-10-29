@@ -30,9 +30,10 @@ FIELDS = [
 ]
 
 
-def make_job(start_urls, **spec_extra):
+def make_job(start_urls, crawl=None, **spec_extra):
     spec = ExtractionSpec.model_validate({"entity": "company", "fields": FIELDS,
-                                          "crawl": {"start_urls": start_urls, "max_pages": 30, "max_depth": 2},
+                                          "crawl": {"start_urls": start_urls, "max_pages": 30, "max_depth": 2,
+                                                    **(crawl or {})},
                                           **spec_extra}).model_dump(mode="json")
     with session_scope(bypass=True) as db:
         user = User(email=f"{uuid.uuid4().hex[:8]}@example.test", password_hash="x")
@@ -339,7 +340,7 @@ def _wikidata(url, hint, monkeypatch):
         async def discover(self, spec):
             return [DiscoveryResult(url, "wikidata", hint)]
 
-    async def unchecked(self, doc, spec):
+    async def unchecked(self, doc, spec, **_kw):
         return None, "unchecked: no model in tests"
 
     monkeypatch.setattr(runner, "providers_for", lambda spec: [Source()])
@@ -370,3 +371,166 @@ def test_a_homepage_with_no_text_is_not_judged_on_its_content(db_clean, crawl_en
     pipeline.run_job(job_id, resolver=crawl_env["resolver"])
     assert urls_by_status(job_id, org_id)[url("loader.test")][0] == "fetched"
     assert any("could not be read" in m for _k, m in activity(job_id, org_id))
+
+
+def test_a_second_delivery_of_a_job_a_worker_is_busy_with_does_nothing(db_clean, crawl_env):
+    from app.db import utcnow
+
+    job_id, org_id = make_job([crawl_env["url"]("acme-security.test")])
+    with session_scope(org_id) as db:
+        job = db.get(CrawlJob, job_id)
+        job.state, job.heartbeat_at = "planning", utcnow()
+    assert pipeline.run_job(job_id, resolver=crawl_env["resolver"]) == "running_elsewhere"
+    with session_scope(org_id) as db:
+        assert db.get(CrawlJob, job_id).state == "planning"  # untouched
+
+
+def test_the_heartbeat_is_written_while_a_worker_holds_the_job(db_clean):
+    import time
+
+    job_id, org_id = make_job([])
+    with pipeline._beating(job_id, org_id, every=0.05):
+        time.sleep(0.3)
+    with session_scope(org_id) as db:
+        assert db.get(CrawlJob, job_id).heartbeat_at is not None
+
+
+def _hit(url, provider="tavily", title="", snippet=""):
+    return {"provider": provider, "query": "cybersecurity companies United Kingdom", "url": url, "title": title,
+            "snippet": snippet}
+
+
+def test_only_these_countries_reads_company_pages_when_the_homepage_does_not_say(db_clean, crawl_env, monkeypatch):
+    """Confirmed in the country (from its contact page), confirmed outside it, and not confirmed: each is told
+    apart, the first is kept and the other two stay out, with the reason and what search said about them."""
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+    from app.models import CrawlJobEvent
+
+    url = crawl_env["url"]
+
+    class Search:
+        name = "searxng"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url(h), "searxng", {"_source": url(h), "_search": [_hit(url(h), **kw)]})
+                    for h, kw in (("northwind.test", {}), ("southwind.test", {"provider": "linkup"}),
+                                  ("eastwind.test", {"title": "Eastwind", "snippet": "A UK cyber security firm"}))]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Search()])
+    job_id, org_id = make_job([], discovery={"providers": ["searxng"], "industry": "cybersecurity",
+                                             "countries": ["GB"]})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    seen = urls_by_status(job_id, org_id)
+
+    status, reason = seen[url("southwind.test")]
+    assert status == "skipped" and reason.startswith("outside the requested countries: based in US")
+    assert "structured address on " + url("southwind.test", "/contact.html") in reason
+    status, reason = seen[url("eastwind.test")]
+    # "London" and "UK" in its text, and the snippet's "A UK cyber security firm", are not proof of where it is.
+    assert status == "skipped" and reason.startswith("country not confirmed: could not confirm it is based in GB")
+    assert url("eastwind.test", "/about.html") in reason
+    assert "found by tavily for 'cybersecurity companies United Kingdom'" in reason and "A UK cyber" in reason
+    assert seen[url("northwind.test")][0] == "fetched"
+    with session_scope(org_id) as db:
+        seed = db.execute(select(DiscoveredUrl).where(DiscoveredUrl.url == url("northwind.test"),
+                                                      DiscoveredUrl.job_id == job_id)).scalar_one()
+        assert seed.hint["_country"].startswith("based in GB (2 phone number(s) on ")
+        assert seed.hint["_search"][0]["provider"] == "tavily"  # the hit stays with the site it found
+        notes = db.execute(select(CrawlJobEvent.message).where(CrawlJobEvent.job_id == job_id,
+                                                               CrawlJobEvent.type == "info")).scalars().all()
+    assert ("Country check (only GB): 1 site(s) confirmed in the country, 1 confirmed outside it, "
+            "1 not confirmed either way (left out)") in notes
+    assert [r.data["company_name"] for r in records(job_id, org_id)] == ["Northwind Cyber"]
+
+    # The pages read to check the country are pages fetched: counted, billed, and never read a second time.
+    from app.models import UsageRecord
+
+    contact = url("northwind.test", "/contact.html")
+    assert seen[contact] == ("fetched", "read to check where the company is based")
+    assert seen[url("southwind.test", "/contact.html")][0] == "fetched"  # read, then the site was left out
+    assert crawl_env["requests"].count(("northwind.test", "/contact.html")) == 1
+    with session_scope(org_id) as db:
+        job = db.get(CrawlJob, job_id)
+        billed = sum(db.execute(select(UsageRecord.quantity).where(UsageRecord.job_id == job_id)).scalars())
+        kept_pages = db.execute(select(FetchedPage.final_url).where(FetchedPage.job_id == job_id)).scalars().all()
+    assert job.counters["fetched"] == billed == sum(s == "fetched" for s, _r in seen.values())
+    assert contact in kept_pages and not any("southwind" in u or "eastwind" in u for u in kept_pages)
+
+
+def test_checking_a_country_stays_within_the_page_budget(db_clean, crawl_env, monkeypatch):
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+
+    url = crawl_env["url"]
+
+    class Search:
+        name = "searxng"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url("northwind.test"), "searxng", {})]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Search()])
+    job_id, org_id = make_job([], crawl={"max_pages": 1},
+                              discovery={"providers": ["searxng"], "industry": "cybersecurity", "countries": ["GB"]})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    status, reason = urls_by_status(job_id, org_id)[url("northwind.test")]
+    assert status == "skipped" and reason.endswith("; the page budget stopped the check")
+    assert [p for h, p in crawl_env["requests"] if h == "northwind.test" and p != "/robots.txt"] == ["/"]
+
+
+def test_a_value_from_a_source_is_traced_to_that_source(db_clean, crawl_env, monkeypatch):
+    """A registry's name is selected over the page's own, and is traced to the registry, not to the homepage it
+    was stored with; the page's own name stays as an alternative traced to the page."""
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+    from app.models import FieldValue
+
+    url = crawl_env["url"]
+    item = "http://www.wikidata.org/entity/Q1"
+
+    class Registry:
+        name = "wikidata"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url("acme-security.test"), "wikidata",
+                                    {"company_name": "Acme Security Group", "_source": item}, referrer=item)]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Registry()])
+    job_id, org_id = make_job([], discovery={"providers": ["wikidata"], "industry": "security"})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    (record,) = records(job_id, org_id)
+    with session_scope(org_id) as db:
+        names = db.execute(select(FieldValue).where(FieldValue.record_id == record.id,
+                                                    FieldValue.field_name == "company_name")).scalars().all()
+    (chosen,) = [f for f in names if f.selected]
+    assert (chosen.value, chosen.method, chosen.source_url, chosen.source_page_id) == (
+        "Acme Security Group", "wikidata", item, None)
+    assert any(f.value == "Acme Security Ltd" and f.source_url == url("acme-security.test") for f in names
+               if not f.selected)
+    assert item in record.source_urls
+
+
+def test_a_site_with_addresses_in_two_countries_is_left_out_as_not_confirmed(db_clean, crawl_env, monkeypatch):
+    """A Boston office on the contact page and a Manchester one on the about page: neither is known to be the
+    headquarters, so the site is not confirmed in GB, and not called American either."""
+    from app.crawl import runner
+    from app.discovery.providers import DiscoveryResult
+
+    url = crawl_env["url"]
+
+    class Search:
+        name = "searxng"
+
+        async def discover(self, spec):
+            return [DiscoveryResult(url("westwind.test"), "searxng", {})]
+
+    monkeypatch.setattr(runner, "providers_for", lambda spec: [Search()])
+    job_id, org_id = make_job([], discovery={"providers": ["searxng"], "industry": "cybersecurity",
+                                             "countries": ["GB"]})
+    pipeline.run_job(job_id, resolver=crawl_env["resolver"])
+    status, reason = urls_by_status(job_id, org_id)[url("westwind.test")]
+    assert status == "skipped" and reason == (
+        "country not confirmed: could not confirm it is based in GB: structured addresses in several countries: "
+        f"US on {url('westwind.test', '/contact.html')}; GB on {url('westwind.test', '/about.html')}")
+    assert records(job_id, org_id) == []

@@ -12,7 +12,17 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import session_scope, utcnow
 from app.export.xlsx import ExportOptions, ExportRecord, build_workbook
-from app.models import CrawlJob, CrawlJobEvent, Evidence, Export, ExtractedRecord, ExtractionSchema, FieldValue, Project
+from app.models import (
+    CrawlJob,
+    CrawlJobEvent,
+    Evidence,
+    Export,
+    ExtractedRecord,
+    ExtractionSchema,
+    FieldValue,
+    JobCompany,
+    Project,
+)
 from app.services.common import org_limits, record_usage
 from app.services.diagnostics import run_diagnostics
 from app.spec.models import ExtractionSpec
@@ -55,6 +65,15 @@ def _records(db, export: Export, spec: ExtractionSpec, max_rows: int) -> list[Ex
     return [ExportRecord(str(r.id), r.data, r.status, r.quality_score, r.source_urls, fvs[r.id]) for r in rows]
 
 
+STATUS_ORDER = ["delivered", "country unconfirmed", "filter not met", "elsewhere", "weak proof", "no proof"]
+
+
+def _companies(db, job_id: uuid.UUID) -> list[dict]:
+    rows = db.execute(select(JobCompany).where(JobCompany.job_id == job_id)).scalars().all()
+    rows = sorted(rows, key=lambda c: (STATUS_ORDER.index(c.status) if c.status in STATUS_ORDER else 99, c.name))
+    return [{c.name: getattr(r, c.name) for c in JobCompany.__table__.columns} for r in rows]
+
+
 def _evidence(db, job_id: uuid.UUID) -> list[dict]:
     rows = db.execute(select(Evidence).where(Evidence.job_id == job_id)
                       .order_by(Evidence.kept.desc(), Evidence.strength.desc(), Evidence.company)).scalars().all()
@@ -82,6 +101,7 @@ def build(export_id: uuid.UUID) -> str:
             max_rows = org_limits(org)["max_export_rows"]
             records = _records(db, export, spec, max_rows)
             evidence = _evidence(db, export.job_id)
+            companies = _companies(db, export.job_id)
             diagnostics = run_diagnostics(db, export.job_id)
             problems = db.execute(select(CrawlJobEvent.message).where(
                 CrawlJobEvent.job_id == export.job_id, CrawlJobEvent.type == "warning",
@@ -109,6 +129,10 @@ def build(export_id: uuid.UUID) -> str:
                 "Deduplication keys": ", ".join(spec.deduplication_keys) or "(per site)",
                 "Max pages / depth": f"{spec.crawl.max_pages} / {spec.crawl.max_depth}",
                 "Extraction": "deterministic (no LLM)",
+                **({"Companies": "; ".join(f"{sum(c['status'] == st for c in companies)} {st}" for st in STATUS_ORDER
+                                           if any(c["status"] == st for c in companies))
+                    + " (Companies sheet: every company found, with the reason for its outcome)"}
+                   if companies else {}),
                 **({"Proof": f"{sum(e['kept'] for e in evidence)} kept (Evidence sheet), "
                              f"{sum(not e['kept'] for e in evidence)} rejected with the reason (Rejected sheet). "
                              "Quotes are copied word for word from the linked document."}
@@ -124,7 +148,7 @@ def build(export_id: uuid.UUID) -> str:
                 data_sheet_name=export.options.get("data_sheet_name") or "Data",
             )
         path = export_path(org_id, export_id)
-        result = build_workbook(path, spec, records, summary, options, evidence, diagnostics)
+        result = build_workbook(path, spec, records, summary, options, evidence, diagnostics, companies)
         with session_scope(org_id) as db:
             export = db.get(Export, export_id)
             export.status = "ready"

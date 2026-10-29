@@ -35,11 +35,14 @@ FUNDED_DAILY = 1000  # once 10 credits have ever been bought (it does not depend
 PER_MINUTE = 20
 CATALOG_TTL = 6 * 3600
 MODEL_COOLDOWN = 600  # seconds a failing model is skipped
-MAX_MODELS_PER_CALL = 3
+MAX_MODELS_PER_CALL = 5  # with 3, a few models that always refuse or are busy left no model to answer at all
+# A model that refuses this key outright (403 "only available on agentic harnesses", 404 gone) will refuse again:
+# it is skipped until the next day instead of taking a place among the models tried for every call.
+PERMANENT_STATUSES = (403, 404)
 # Free models built for one narrow job (moderation, code, embeddings) are no use for reading web pages.
 SPECIALIZED_RE = re.compile(r"safety|guard|moderat|code|coder|embed|rerank|tts|audio|ocr", re.I)
 # Room for a reasoning model's thinking before its answer; with too little, the answer comes back empty.
-MIN_TOKENS = 1024
+MIN_TOKENS = 2048  # 1024 still ended reasoning models' replies empty (finish_reason=length)
 
 
 class LLMUnavailable(Exception):
@@ -298,9 +301,18 @@ class OpenRouter:
                                        "reasoning": {"effort": "low", "exclude": True}, "usage": {"include": True}}
             if json_mode:
                 payload["response_format"] = {"type": "json_object"}
+            # Every model call is measured, never cut short: a slow call shows as data ("ok in 2513 s"), so a
+            # missing value can be told apart from one that came late.
+            began, began_at = time.monotonic(), datetime.now(UTC).isoformat(timespec="seconds")
+
+            def measured(outcome: str, model: str = model, began: float = began, began_at: str = began_at) -> None:
+                log.info("model call %s: %s after %.1f s (started %s)", model, outcome, time.monotonic() - began,
+                         began_at)
+
             try:
                 resp = await http.post(f"{API}/chat/completions", headers=self._headers(), json=payload)
             except httpx.HTTPError as exc:
+                measured(f"network error {type(exc).__name__}")
                 state.count_failure(model, "network")
                 state.cool_down(model, 120)
                 problems.append(f"{model}: {type(exc).__name__}")
@@ -314,29 +326,36 @@ class OpenRouter:
             if resp.status_code == 429 or (error and str(error.get("code")) == "429"):
                 message = str((error or {}).get("message", ""))
                 if "per-day" in message or "per day" in message:
+                    measured("daily allowance used up")
                     state.exhaust_today()
                     raise LLMUnavailable("today's free model allowance is used up; it resets at midnight UTC")
+                measured("rate limited")
                 state.count_failure(model, "rate_limited")
                 state.cool_down(model, 120)  # the model's upstream is busy; try another free one
                 problems.append(f"{model}: rate limited")
                 continue
             if resp.status_code == 402:
+                measured("HTTP 402")
                 # Free models can refuse a key whose balance went negative; never top up from here.
                 raise LLMUnavailable("OpenRouter refused the request (402: the account balance is negative)")
             if resp.status_code != 200 or error:
+                measured(f"HTTP {resp.status_code}")
                 state.count_failure(model, f"http_{resp.status_code}")
-                state.cool_down(model)
+                state.cool_down(model, _seconds_to_midnight() if resp.status_code in PERMANENT_STATUSES
+                                else MODEL_COOLDOWN)
                 problems.append(f"{model}: HTTP {resp.status_code} {str((error or {}).get('message', ''))[:120]}")
                 continue
             self._check_reply(model, body)
             choices = body.get("choices") or []
             text = ((choices[0] if choices else {}).get("message") or {}).get("content") or ""
             if not text.strip():
+                measured("empty reply")
                 state.count_failure(model, "empty")
                 state.cool_down(model, 120)
                 finish = (choices[0] if choices else {}).get("finish_reason")
                 problems.append(f"{model}: empty reply (finish_reason={finish})")
                 continue
+            measured("ok")
             usage = body.get("usage") or {}
             return Reply(text, model, int(usage.get("prompt_tokens") or 0), int(usage.get("completion_tokens") or 0),
                          tried)

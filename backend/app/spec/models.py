@@ -152,6 +152,9 @@ class DiscoverySettings(BaseModel):
     parent_company: str | None = Field(default=None, max_length=100)
     # How far back proof may date, in years.
     evidence_years: int = Field(default=3, ge=1, le=20)
+    # Minutes discovery may spend reading for proof before it stops and says so; reading normally stops sooner,
+    # when new pages stop naming new companies.
+    read_budget_minutes: int = Field(default=60, ge=1, le=600)
 
 
 class ExtractionSpec(BaseModel):

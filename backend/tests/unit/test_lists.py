@@ -1,0 +1,162 @@
+"""Company names read off list pages ("Top 10 ... companies"), each kept only once its own website checks out."""
+
+import json
+
+import httpx
+
+from app.discovery.lists import looks_like_list, names_on_list, short_lines
+from app.discovery.providers import SearxngProvider
+from app.evidence.judge import Judge
+from app.extract.deterministic import parse_page
+from app.llm.openrouter import LLMUnavailable, Reply
+from app.search import SearchHub, SearxngBackend, TavilyBackend, Usage
+from app.spec.models import ExtractionSpec
+
+LIST = ("<html><head><title>Top 3 cybersecurity companies in the UK</title></head><body>"
+        "<h1>Top 3 cybersecurity companies in the UK</h1><ol><li>1. Sophos</li><li>2. NCC Group</li>"
+        "<li>3. Egress Software</li></ol><p>This guide is sponsored by Acme Ads. Read our long introduction to "
+        "the cybersecurity market in Britain, which has grown a lot in recent years.</p></body></html>")
+HOMES = {"https://www.sophos.com/": "Sophos | Cybersecurity as a service",
+         "https://www.nccgroup.com/": "NCC Group | Cyber security consultancy"}
+
+
+class Router:
+    def __init__(self, names=None, error=None):
+        self.names, self.error, self.calls = names, error, 0
+
+    async def chat(self, messages, **_kw):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        return Reply(json.dumps({"names": self.names}), "m:free")
+
+    async def aclose(self):
+        pass
+
+
+def test_a_list_page_is_known_by_its_shape_not_its_site():
+    assert looks_like_list("https://news.example/top-uk-cyber", "Top 20 Cybersecurity Companies in the UK", "companies")
+    assert not looks_like_list("https://www.sophos.com/", "Sophos companies", "companies")  # a homepage
+    assert not looks_like_list("https://blog.example/post", "How to choose a firewall", "companies")
+
+
+async def test_the_model_only_points_at_names_written_on_the_page():
+    doc = parse_page("https://news.example/top-uk-cyber", LIST)
+    assert "Sophos" in short_lines(doc) and not any("introduction" in ln for ln in short_lines(doc))
+    names, why = await names_on_list(Judge(Router(["Sophos", "NCC Group", "Darktrace"])), "cyber UK", doc)
+    assert names == ["Sophos", "NCC Group"] and why == ""  # Darktrace is not on the page
+    names, why = await names_on_list(Judge(Router(error=LLMUnavailable("no OpenRouter key is configured"))),
+                                     "cyber UK", doc)
+    assert names == [] and "no OpenRouter key" in why
+
+
+async def test_discovery_reads_list_pages_and_keeps_only_names_whose_website_checks_out(tmp_path, monkeypatch):
+    def handler(request):
+        if request.url.host == "api.tavily.com":
+            return httpx.Response(200, json={"results": [
+                {"url": "https://news.example/top-uk-cyber", "title": "Top 3 cybersecurity companies in the UK"}]})
+        q = request.url.params["q"]
+        site = {"Sophos": "https://www.sophos.com/", "NCC Group": "https://www.nccgroup.com/"}
+        for name, home in site.items():
+            if q.startswith(name):
+                return httpx.Response(200, json={"results": [{"url": home}] * 5})
+        return httpx.Response(200, json={"results": []})  # Egress: search finds nothing
+
+    async def fetch_page(url):
+        if url == "https://news.example/top-uk-cyber":
+            return parse_page(url, LIST)
+        return parse_page(url, f"<html><head><title>{HOMES[url]}</title></head><body>x</body></html>") \
+            if url in HOMES else None
+
+    monkeypatch.setattr(SearchHub, "from_settings", classmethod(lambda cls, c, url=None: cls(
+        c, [TavilyBackend("t-key"), SearxngBackend("http://searx")], Usage(tmp_path / "u.json"))))
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["searxng"], "industry": "cybersecurity", "countries": ["GB"]}})
+    router = Router(["Sophos", "NCC Group", "Egress Software"])
+    p = SearxngProvider(httpx.AsyncClient(transport=httpx.MockTransport(handler)), base_url="",
+                        judge=Judge(router))
+    p.fetch_page = fetch_page
+    found = await p.discover(spec)
+    assert [(r.url, r.hint["company_name"]) for r in found] == [
+        ("https://www.sophos.com/", "Sophos"), ("https://www.nccgroup.com/", "NCC Group")]
+    assert all(r.referrer == "list page: https://news.example/top-uk-cyber" for r in found)
+    assert router.calls == 1  # one model call for the one list page
+
+    monkeypatch.setattr(SearxngProvider, "MAX_PER_LIST", 1)  # one list page cannot fill the list
+    p = SearxngProvider(httpx.AsyncClient(transport=httpx.MockTransport(handler)), base_url="",
+                        judge=Judge(Router(["Sophos", "NCC Group"])))
+    p.fetch_page = fetch_page
+    assert [r.hint["company_name"] for r in await p.discover(spec)] == ["Sophos"]
+
+
+
+async def test_list_pages_do_not_take_the_places_of_direct_results_waiting(tmp_path, monkeypatch):
+    """With the limit reached, a list's names and the direct results still waiting share the room left, instead
+    of the list's names taking all of it."""
+    direct = [f"https://{n}.example/" for n in ("alpha", "bravo", "charlie", "delta")]
+
+    def handler(request):
+        if request.url.host == "api.tavily.com":
+            if json.loads(request.content)["query"] != "cybersecurity companies Britain":
+                return httpx.Response(200, json={"results": []})
+            return httpx.Response(200, json={"results": [
+                {"url": "https://news.example/top-uk-cyber", "title": "Top 3 cybersecurity companies in the UK"},
+                *({"url": u, "title": "A cyber firm"} for u in direct)]})
+        q = request.url.params["q"]
+        site = {"Sophos": "https://www.sophos.com/", "NCC Group": "https://www.nccgroup.com/"}
+        return httpx.Response(200, json={"results": [{"url": h} for n, h in site.items() if q.startswith(n)] * 5})
+
+    async def fetch_page(url):
+        if url == "https://news.example/top-uk-cyber":
+            return parse_page(url, LIST)
+        return parse_page(url, f"<html><head><title>{HOMES[url]}</title></head><body>x</body></html>") \
+            if url in HOMES else None
+
+    monkeypatch.setattr(SearchHub, "from_settings", classmethod(lambda cls, c, url=None: cls(
+        c, [TavilyBackend("t-key"), SearxngBackend("http://searx")], Usage(tmp_path / "u.json"))))
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["searxng"], "industry": "cybersecurity", "countries": ["GB"], "max_results": 4}})
+    p = SearxngProvider(httpx.AsyncClient(transport=httpx.MockTransport(handler)), base_url="",
+                        judge=Judge(Router(["Sophos", "NCC Group"])))
+    p.fetch_page = fetch_page
+    found = [r.url for r in await p.discover(spec)]
+    # Three wordings share 4 places (2 each on the first page); 2 are left, and 2 direct results are waiting.
+    assert found == [direct[0], direct[1], "https://www.sophos.com/", direct[2]]
+
+
+async def test_the_last_place_goes_to_a_direct_result_waiting_not_to_a_list(tmp_path, monkeypatch):
+    direct = [f"https://{n}.example/" for n in ("alpha", "bravo", "charlie")]
+
+    def handler(request):
+        if request.url.host == "api.tavily.com":
+            q = json.loads(request.content)["query"]
+            if q == "largest cybersecurity companies in Britain":
+                return httpx.Response(200, json={"results": [{"url": "https://echo.example/", "title": "Echo"}]})
+            if q != "cybersecurity companies Britain":
+                return httpx.Response(200, json={"results": []})
+            return httpx.Response(200, json={"results": [
+                {"url": "https://news.example/top-uk-cyber", "title": "Top 3 cybersecurity companies in the UK"},
+                *({"url": u, "title": "A cyber firm"} for u in direct)]})
+        q = request.url.params["q"]
+        return httpx.Response(200, json={"results": [{"url": "https://www.sophos.com/"}] * 5 if q.startswith("Sophos")
+                                         else []})
+
+    async def fetch_page(url):
+        if url == "https://news.example/top-uk-cyber":
+            return parse_page(url, LIST)
+        return parse_page(url, f"<html><head><title>{HOMES[url]}</title></head><body>x</body></html>") \
+            if url in HOMES else None
+
+    monkeypatch.setattr(SearchHub, "from_settings", classmethod(lambda cls, c, url=None: cls(
+        c, [TavilyBackend("t-key"), SearxngBackend("http://searx")], Usage(tmp_path / "u.json"))))
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["searxng"], "industry": "cybersecurity", "countries": ["GB"], "max_results": 3}})
+    router = Router(["Sophos"])
+    p = SearxngProvider(httpx.AsyncClient(transport=httpx.MockTransport(handler)), base_url="", judge=Judge(router))
+    p.fetch_page = fetch_page
+    # One place each for three wordings: alpha and echo take two, and the one left goes to bravo, still waiting.
+    assert [r.url for r in await p.discover(spec)] == [direct[0], "https://echo.example/", direct[1]]
+    assert router.calls == 0  # with no room for its names, the list page is not read

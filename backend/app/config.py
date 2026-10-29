@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     crawl_proxy: str | None = None
     # Self-hosted SearXNG for website discovery, e.g. http://searxng:8080 (empty = not available).
     searxng_url: str = ""
+    # Free web-search APIs, combined with SearXNG by app/search (empty key = that API is not used). Keenable's
+    # keyless public endpoint is free but shared; keenable_enabled turns it on, keenable_use_key uses the key.
+    keenable_enabled: bool = True
+    keenable_api_key: SecretStr = SecretStr("")
+    keenable_use_key: bool = False
+    tavily_api_key: SecretStr = SecretStr("")
+    linkup_api_key: SecretStr = SecretStr("")
+    exa_api_key: SecretStr = SecretStr("")
 
     # Free language models through OpenRouter (empty key = no model calls). Only ":free" models with zero
     # prices are ever used; see app/llm/openrouter.py. Optional preferred model ids, best first.

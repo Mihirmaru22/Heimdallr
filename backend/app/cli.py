@@ -154,6 +154,34 @@ def eval_history() -> None:
 CALLS_PER_RUN = 40  # free model requests one benchmark run can take (measured: 404 for 12 runs on 8759531)
 
 
+def search_health() -> str:
+    """One live website lookup before a benchmark: the benchmark does not start when no search engine answers,
+    because every score would then measure the outage."""
+    import asyncio
+
+    import httpx
+
+    from app.config import get_settings
+    from app.search import LOOKUP, SearchError, SearchHub
+
+    async def probe() -> str:
+        async with httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent}) as client:
+            hub = SearchHub.from_settings(client)
+            if not hub.configured:
+                sys.exit("Not started: no web search is configured (a search API key or WEBDATA_SEARXNG_URL).")
+            try:
+                hits = await hub.search("Ford Motor Company official website", kind=LOOKUP)
+            except SearchError as exc:
+                sys.exit(f"Not started: {exc}")
+            if not hits:
+                sys.exit("Not started: web search answered but returned no results for a plain test query.")
+            engines = sorted({h.provider for h in hits})
+            return f"web search healthy: {len(hits)} results from {', '.join(engines)}" + (
+                f"; off: {hub.problems}" if hub.problems else "")
+
+    return asyncio.run(probe())
+
+
 def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False, allow_short: bool = False) -> None:
     """Run every test question again with its latest plan, wait, and score each new run next to the last one.
 
@@ -162,7 +190,7 @@ def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False, allo
     import time
 
     from app.llm.openrouter import FREE_DAILY, State
-    from app.services.evaluation import COLUMNS, load_keys, start_runs, unfinished
+    from app.services.evaluation import COLUMNS, load_keys, start_runs, starts_of, unfinished
     from app.services.scorecard import score_job
     from app.worker import tasks
 
@@ -175,6 +203,7 @@ def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False, allo
         sys.exit(f"Not started: {limit - used_before} of {limit} free model requests are left today and these "
                  f"{repeat * len(keys)} runs can take about {need}. Run it after the daily reset (00:00 UTC), or "
                  "pass --allow-short to run anyway (scores then partly measure rules-only judging).")
+    print(search_health())
     with session_scope(bypass=True) as db:
         # Each question more than once shows how much one question's score moves between identical runs.
         started = [(name, prev.id, job.id) for _ in range(repeat)
@@ -195,7 +224,9 @@ def eval_run(wait_seconds: int, repeat: int, refresh_sources: bool = False, allo
     with session_scope(bypass=True) as db:
         for name, prev, job in started:
             a, b = score_job(db, prev, keys[name]), score_job(db, job, keys[name])
+            starts = starts_of(db, job)
             rows.append({"question": name, "runs": f"{str(prev)[:8]} -> {str(job)[:8]}",
+                         "clean": "yes" if starts == 1 else f"NO: started {starts} times",
                          **{c.replace("key: ", ""): f"{a.get(c, '')} -> {b.get(c, '')}" for c in COLUMNS}})
             for c in b:
                 if c.startswith("key: lost at"):

@@ -7,25 +7,66 @@ the persisted state and continues from there.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
 import logging
+import threading
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.config import get_settings
 from app.crawl.runner import CrawlRunner, JobCancelled
-from app.db import session_scope
+from app.db import session_scope, utcnow
 from app.discovery.providers import DiscoveryError
 from app.models import CrawlJob, DiscoveredUrl, ExtractionSchema, Organization, UrlStatus
 from app.models import JobState as S
 from app.services.common import org_limits, record_usage
+from app.services.companies import build_companies
 from app.services.finalize import finalize_job
 from app.services.state_machine import log_event, transition
 from app.spec.models import validate_spec
 
 log = logging.getLogger("webdata.pipeline")
+
+
+HEARTBEAT_EVERY = 20.0  # seconds between proofs of life while a worker holds a job
+HEARTBEAT_FRESH = timedelta(seconds=90)  # a younger heartbeat means a worker still has the job
+
+
+@contextlib.contextmanager
+def _beating(job_id: uuid.UUID, org_id: uuid.UUID, every: float = HEARTBEAT_EVERY):
+    """Writes the job's heartbeat for as long as this worker holds it, whichever step it is in. Discovery used
+    to run for about fifteen minutes without one, so the stuck-job sweep re-queued the job and a second worker
+    task ran it alongside the first."""
+    stop = threading.Event()
+
+    def beat() -> None:
+        while True:
+            try:
+                with session_scope(org_id) as db:
+                    db.execute(update(CrawlJob).where(CrawlJob.id == job_id).values(heartbeat_at=utcnow()))
+            except Exception:  # noqa: BLE001 - a missed beat must never stop the job
+                log.warning("could not write the heartbeat of job %s", job_id)
+            if stop.wait(every):
+                return
+
+    thread = threading.Thread(target=beat, name=f"heartbeat-{job_id}", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+
+
+def _held_elsewhere(job: CrawlJob) -> bool:
+    """Another worker task is working on this job right now (it wrote a heartbeat moments ago)."""
+    return (job.state in (S.validating.value, S.planning.value, S.queued.value, S.running.value,
+                          S.waiting_quota.value, S.validating_results.value)
+            and job.heartbeat_at is not None and utcnow() - job.heartbeat_at < HEARTBEAT_FRESH)
 
 
 def _load(job_id: uuid.UUID):
@@ -45,6 +86,12 @@ def _move(job_id: uuid.UUID, org_id: uuid.UUID, dst: S, message: str = "", **fie
             return None
         if job.state == dst.value:
             return job
+        if job.state == S.cancel_requested.value and dst != S.cancelled:
+            # The person cancelled while this step ran: the job ends cancelled, whatever the step was moving to.
+            if dst == S.failed:
+                transition(db, job, S.cancelled, "Cancelled by user")
+                return job
+            raise JobCancelled()
         if not transition(db, job, dst, message, **fields):
             return None
         return job
@@ -90,6 +137,15 @@ def run_job(job_id: uuid.UUID, *, resolver=None, redis=None, client_factory=None
     job, org, schema = _load(job_id)
     if job is None or org is None or schema is None:
         return "missing"
+    if _held_elsewhere(job):
+        log.warning("job %s is already being worked on; this duplicate delivery does nothing", job_id)
+        return "running_elsewhere"
+    with _beating(job_id, org.id):
+        return _run(job_id, job, org, schema, resolver, redis, client_factory)
+
+
+def _run(job_id: uuid.UUID, job: CrawlJob, org: Organization, schema: ExtractionSchema, resolver, redis,
+         client_factory) -> str:
     org_id = org.id
     limits = org_limits(org)
     state = S(job.state)
@@ -143,19 +199,24 @@ def run_job(job_id: uuid.UUID, *, resolver=None, redis=None, client_factory=None
             state = S.validating_results
         if state == S.validating_results:
             stats = finalize_job(job_id, org_id, spec, limits["max_records_per_job"])
+            # Every company the job came across gets one decision, made here from all its facts.
+            outcomes = build_companies(job_id, org_id, spec)
             with session_scope(org_id) as db:
                 job = db.get(CrawlJob, job_id)
                 counters = {**(job.counters or {}), **{f"records_{k}": v for k, v in stats.items() if k != "records"},
-                            "extracted": stats["records"]}
+                            "extracted": stats["records"],
+                            **{f"companies_{k.replace(' ', '_')}": v for k, v in outcomes.items()}}
                 failed_pages = counters.get("failed", 0)
                 complete = stats["records"] > 0 and failed_pages == 0 and stats["invalid"] == 0
-                if stats["records"] == 0:
+                if stats["records"] == 0 and not outcomes:
                     transition(db, job, S.failed, "No records could be extracted", counters=counters,
                                error="No records could be extracted from the fetched pages")
                     return S.failed.value
                 dst = S.completed if complete else S.partially_completed
-                msg = (f"{stats['records']} records ({stats['valid']} complete, {stats['partial']} partial, "
-                       f"{stats['invalid']} missing required fields); {failed_pages} page(s) failed")
+                found = ", ".join(f"{n} {k}" for k, n in sorted(outcomes.items(), key=lambda kv: -kv[1]))
+                msg = (f"{outcomes.get('delivered', 0) if spec.discovery.technology else stats['records']} "
+                       f"delivered; companies: {found or 'none'}; {stats['records']} records "
+                       f"({stats['valid']} complete, {stats['partial']} partial); {failed_pages} page(s) failed")
                 transition(db, job, dst, msg, counters=counters)
                 return dst.value
     except JobCancelled:

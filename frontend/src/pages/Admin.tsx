@@ -32,9 +32,10 @@ export default function AdminPage() {
 
   return (
     <div>
+      <div className="page-head"><div><h1>Platform admin</h1><p>Organizations, users and domains that are never crawled.</p></div></div>
       <ErrorBox error={updOrg.error || updUser.error || addPolicy.error || delPolicy.error} />
       <Card title="Organizations">
-        <table><thead><tr><th>Name</th><th>Jobs</th><th>Effective limits</th><th>Status</th><th /></tr></thead>
+        <div className="table-wrap"><table><thead><tr><th>Name</th><th>Jobs</th><th>Effective limits</th><th>Status</th><th /></tr></thead>
           <tbody>{orgs.data?.map((o) => (
             <tr key={o.id}><td>{o.name}<div className="small muted">{o.slug}</div></td><td>{o.jobs}</td>
               <td className="small">{Object.entries(o.limits).map(([k, v]) => `${k}=${v}`).join(", ")}</td>
@@ -42,10 +43,10 @@ export default function AdminPage() {
               <td className="nowrap"><button className="link" onClick={() => editLimits(o)}>Limits</button>
                 <button className="link" onClick={() => updOrg.mutate({ id: o.id, body: { disabled: !o.disabled } })}>
                   {o.disabled ? "Enable" : "Disable"}</button></td></tr>))}
-          </tbody></table>
+          </tbody></table></div>
       </Card>
       <Card title="Users">
-        <table><thead><tr><th>Email</th><th>Admin</th><th>Job limit</th><th>Status</th><th /></tr></thead>
+        <div className="table-wrap"><table><thead><tr><th>Email</th><th>Admin</th><th>Job limit</th><th>Status</th><th /></tr></thead>
           <tbody>{users.data?.map((u) => (
             <tr key={u.id}><td>{u.email}</td><td>{u.is_platform_admin ? "yes" : ""}</td>
               <td><input type="number" min={0} defaultValue={u.max_active_jobs ?? ""} placeholder="org default"
@@ -53,13 +54,13 @@ export default function AdminPage() {
               <td>{u.disabled ? "disabled" : "active"}</td>
               <td><button className="link" onClick={() => updUser.mutate({ id: u.id, body: { disabled: !u.disabled } })}>
                 {u.disabled ? "Enable" : "Disable"}</button></td></tr>))}
-          </tbody></table>
+          </tbody></table></div>
       </Card>
       <Card title="Blocked domains">
         <p className="muted small">Sites on this list are never crawled (for example after an opt-out request).</p>
         <form className="row" onSubmit={(e) => { e.preventDefault(); addPolicy.mutate(); }}>
-          <input placeholder="example.com" value={domain} onChange={(e) => setDomain(e.target.value.toLowerCase())} required />
-          <input placeholder="Reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <input aria-label="Domain" placeholder="example.com" value={domain} onChange={(e) => setDomain(e.target.value.toLowerCase())} required />
+          <input aria-label="Reason" placeholder="Reason" value={reason} onChange={(e) => setReason(e.target.value)} />
           <button className="primary">Block</button>
         </form>
         <ul className="list">{policies.data?.map((p) => (

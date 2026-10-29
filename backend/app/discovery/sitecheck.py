@@ -9,11 +9,13 @@ a model was unreachable.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.config import get_settings
 from app.extract.deterministic import PageDoc
 from app.llm.openrouter import LLMUnavailable, OpenRouter
 from app.spec.models import ExtractionSpec
@@ -59,31 +61,46 @@ def listing_reason(doc: PageDoc) -> str | None:
     return f"a listing or association site (title says {m.group(0)!r})" if m else None
 
 
+BUSY = ("no free model",)
+BUSY_WAIT = 15.0  # seconds before asking again when every free model was busy
+
+
 class SiteChecker:
-    def __init__(self, router: OpenRouter | None = None) -> None:
+    def __init__(self, router: OpenRouter | None = None, wait: float | None = None) -> None:
         self.router = router
+        self.wait = wait if wait is not None else (0.0 if get_settings().env == "test" else BUSY_WAIT)
         self.unavailable: str | None = None
 
-    async def check(self, doc: PageDoc, spec: ExtractionSpec) -> tuple[str | None, str]:
-        """(reason to drop the site or None to keep it, who decided: "rules", "model:<id>" or "unchecked: ...")."""
+    async def check(self, doc: PageDoc, spec: ExtractionSpec, subject: str | None = None) -> tuple[str | None, str]:
+        """(reason to drop the site or None to keep it, who decided: "rules", "model:<id>" or "unchecked: ...").
+        `subject` overrides the industry checked against (the question's industry, then its keywords)."""
         reason = listing_reason(doc)
         if reason:
             return reason, "rules"
-        subject = spec.discovery.industry or " ".join(spec.discovery.keywords)
+        if subject is None:
+            subject = spec.discovery.industry or " ".join(spec.discovery.keywords)
         if not subject.strip():
             return None, "unchecked: no industry to check against"
         if self.unavailable:
             return None, f"unchecked: {self.unavailable}"
         text = f"Title: {doc.title}\nDescription: {doc.meta.get('description', '')}\n\n{doc.text[:1500]}"
+        messages = [{"role": "system", "content": SYSTEM},
+                    {"role": "user", "content": f"Industry: {subject}\nWebsite: {doc.url}\n\n{text}"}]
         try:
             self.router = self.router or OpenRouter()
-            reply = await self.router.chat([
-                {"role": "system", "content": SYSTEM},
-                {"role": "user", "content": f"Industry: {subject}\nWebsite: {doc.url}\n\n{text}"}],
-                json_mode=True, max_tokens=300)
+            try:
+                reply = await self.router.chat(messages, json_mode=True, max_tokens=300)
+            except LLMUnavailable as exc:
+                # Every free model busy for a moment ("no free model answered") is not the end of model use:
+                # it once left a whole run's later sites unchecked, a ministry and an investing app among them.
+                if not str(exc).startswith(BUSY):
+                    raise
+                await asyncio.sleep(self.wait)
+                reply = await self.router.chat(messages, json_mode=True, max_tokens=300)
             verdict = Verdict.model_validate(reply.json())
         except LLMUnavailable as exc:
-            self.unavailable = str(exc)
+            if not str(exc).startswith(BUSY):
+                self.unavailable = str(exc)  # no key, allowance used, switched off: stays off for the run
             return None, f"unchecked: {exc}"
         except (ValueError, ValidationError):
             return None, "unchecked: the model's answer could not be read"

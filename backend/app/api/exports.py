@@ -24,7 +24,9 @@ from app.worker import tasks
 from ._util import client_ip, get_in_org
 
 router = APIRouter(prefix="/orgs/{org_id}", tags=["exports"])
-EXPORTABLE = {S.completed, S.partially_completed}
+# A failed run is exportable too: its Data sheet may be empty, but the proof it found and every reason a company
+# was left out (Evidence, Rejected, Diagnostics) are what the person needs to see.
+EXPORTABLE = {S.completed, S.partially_completed, S.failed}
 
 
 def _out(org_id: uuid.UUID, exp: Export, user_id: uuid.UUID) -> ExportOut:

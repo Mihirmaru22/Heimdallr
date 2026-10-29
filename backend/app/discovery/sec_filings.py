@@ -31,6 +31,7 @@ from app.evidence.judge import KEEP, USE, Judge, score
 from app.evidence.products import Product, product_for
 from app.evidence.quotes import document_text, find_mentions, verify_quote
 from app.models import SecCompany
+from app.search import search_configured
 from app.spec.models import ExtractionSpec
 
 SEARCH = "https://efts.sec.gov/LATEST/search-index"
@@ -105,6 +106,7 @@ class SecFilingsProvider:
         self.retry_waits = RETRY_WAITS if gap else (0.0,) * len(RETRY_WAITS)  # tests pass gap=0: no waiting
         self.notes: list[str] = []
         self.evidence: list[dict[str, Any]] = []  # every piece looked at, kept or rejected
+        self.facts: list[dict[str, Any]] = []  # what the website lookup established, for the final decision
         self.on_note: Callable[..., None] | None = None  # the job's live activity feed, when there is one
         self.fetch_text: FetchText | None = None  # the crawler's own page fetch (robots.txt respected), when run
 
@@ -235,7 +237,7 @@ class SecFilingsProvider:
                     self._record(**base, kept=False, reason="the product's name was not found in the document text")
                     continue
                 j = await self.judge.judge(name, product, quotes, f"{source_type} filed {day}")
-                verdict, strength = score(j.relationship, FILING_STRENGTH, day)
+                verdict, strength = score(j.relationship, FILING_STRENGTH, day, one_reading=j.one_reading)
                 row = {**base, "quote": j.quote, "relationship": j.relationship, "judged_by": j.judged_by,
                        "strength": strength, "verdict": verdict}
                 if j.relationship not in KEEP or not verdict:
@@ -303,13 +305,16 @@ class SecFilingsProvider:
         # Neither the filing, SEC's company data nor Wikidata gave one: look the name up, accepting a domain
         # only when the search agrees on it and its homepage names the company.
         missing = [ev for ev in users.values() if not ev["website"]]
-        if missing and self.fetch_text is not None and get_settings().searxng_url:
+        if missing and self.fetch_text is not None and search_configured():
             finder = WebsiteFinder(client, get_settings().searxng_url, self.fetch_text)
             for ev in missing:
-                site, how = await finder.find(ev["company"])
+                site, how = await finder.find(ev["company"], unverified_ok=True)
                 ev["website"] = site
                 self._say("search" if site else "skipped", f"Website of {ev['company']}: "
                           + (f"{site} ({how})" if site else f"none taken ({how})"), site or None)
+                self.facts.append({"site": registered_domain(site) if site else "", "company": ev["company"],
+                                   "kind": "website", "value": site, "by": "web search", "detail": how,
+                                   "source_url": ev.get("url", ""), "quote": ""})
 
 
 def strongest(evidence: list[dict[str, Any]]) -> dict[str, Any] | None:

@@ -70,11 +70,25 @@ class Judgement:
     quote: str
     judged_by: str  # rules | model:<id> | unreviewed: <why>
     reason: str = ""
+    one_reading: bool = False  # the use rests on one reading (no second could be made, or readings split)
+
+
+def makes_product(company: str, product: Product) -> bool:
+    """The company is the product's maker: the product carries the company's name ("PTC" -> "PTC Windchill",
+    "Oracle Corporation" -> "Oracle NetSuite"), or a known maker of a product named inside it."""
+    from app.discovery.websites import name_words
+
+    words = set(name_words(company))
+    product_words = set(re.findall(r"[a-z0-9]+", product.name.lower()))
+    if words and words <= product_words:
+        return True
+    name = company.lower()
+    typed = f" {' '.join(re.findall(r'[a-z0-9/]+', product.name.lower()))} "
+    return any(v in name for key, makers in VENDORS.items() if f" {key} " in typed for v in makers)
 
 
 def rule_relationship(company: str, product: Product, quote: str) -> tuple[str, str] | None:
-    name = company.lower()
-    if any(v in name for v in VENDORS.get(product.name.lower(), [])):
+    if makes_product(company, product):
         return "vendor", f"{company} makes {product.name}"
     if COMPETE_RE.search(quote):
         return "competitor", "the sentence is about competition"
@@ -92,6 +106,9 @@ TRANSIENT = ("no free model",)
 RETRY_WAIT = 30.0  # seconds
 RETRIES = 2
 MAX_BUSY_IN_A_ROW = 5  # pieces left unreviewed in a row before the judge gives up for the run
+# A use verdict without a second agreeing reading (the free models were busy, or the readings split two to one)
+# still counts, but at most as Likely, never Confirmed. Dropping it outright made the same companies come and go
+# between identical runs, depending only on which free model happened to answer.
 
 
 class Judge:
@@ -140,7 +157,12 @@ class Judge:
                                                 f"Sentences:\n{numbered}"}]
         try:
             reply = await self._ask(messages)
-            answer = Answer.model_validate(reply.json())
+            try:
+                answer = Answer.model_validate(reply.json())
+            except (ValueError, ValidationError):
+                # One free model answering in a broken shape says nothing about the proof: ask another once.
+                reply = await self._ask(messages, avoid=reply.model)
+                answer = Answer.model_validate(reply.json())
         except LLMUnavailable as exc:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {exc}")
         except (ValueError, ValidationError):
@@ -149,19 +171,28 @@ class Judge:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {type(exc).__name__}")
         quote = quotes[min(answer.quote, len(quotes)) - 1]
         if answer.relationship in USE:
-            # The same quote has been read as "uses" in one run and as a customer's system in another. Use counts
-            # only when a second reading, by another free model where one is available, agrees.
+            # The same quote has been read as "uses" in one run and as a customer's system in another, so a use
+            # is read again, by another free model where one is available. Agreement confirms it. Disagreement
+            # is settled by a third reading; no further reading leaves the first, weighted down.
             second = await self._second_reading(messages, reply.model)
-            if second is None or second not in USE:
-                why = "a second reading could not be made" if second is None else f"a second reading says {second}"
-                return Judgement("unreviewed", quote, f"model:{reply.model}", f"{answer.reason}; {why}")
+            if second in USE:
+                return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
+            if second is None:
+                return Judgement(answer.relationship, quote, f"model:{reply.model}",
+                                 f"{answer.reason}; one reading only (a second could not be made)", one_reading=True)
+            third = await self._second_reading(messages, reply.model)
+            if third in USE:
+                return Judgement(answer.relationship, quote, f"model:{reply.model}",
+                                 f"{answer.reason}; readings split two to one ({second} once)", one_reading=True)
+            why = f"a second reading says {second}" + (f", a third {third}" if third else "")
+            return Judgement("unreviewed", quote, f"model:{reply.model}", f"{answer.reason}; {why}")
         return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
 
     async def _second_reading(self, messages: list[dict[str, str]], first_model: str) -> str | None:
         try:
             reply = await self._ask(messages, avoid=first_model)
             return Answer.model_validate(reply.json()).relationship
-        except Exception:  # noqa: BLE001 - no second reading: the use stays unconfirmed, never confirmed
+        except Exception:  # noqa: BLE001 - no further reading: the caller weighs the use down
             return None
 
     async def aclose(self) -> None:
@@ -177,8 +208,17 @@ def age_years(day: str, today: date | None = None) -> float | None:
     return ((today or date.today()) - d).days / 365.25
 
 
-def score(relationship: str, base_strength: float, day: str, today: date | None = None) -> tuple[str, float]:
-    """(verdict, strength) for one piece of proof. Verdicts: Confirmed, Likely, Mentioned; "" means rejected."""
+def score(relationship: str, base_strength: float, day: str, today: date | None = None, *,
+          one_reading: bool = False) -> tuple[str, float]:
+    """(verdict, strength) for one piece of proof. Verdicts: Confirmed, Likely, Mentioned; "" means rejected.
+    A use resting on one reading is at most Likely; it is not weakened further, so it is never dropped for that."""
+    verdict, strength = _score(relationship, base_strength, day, today)
+    if one_reading and relationship in USE and verdict == "Confirmed":
+        return "Likely", min(strength, 0.69)
+    return verdict, strength
+
+
+def _score(relationship: str, base_strength: float, day: str, today: date | None = None) -> tuple[str, float]:
     if relationship not in KEEP:
         return "", 0.0
     age = age_years(day, today)

@@ -16,7 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.evidence.judge import Judge, rule_relationship
+from app.evidence.judge import USE, Judge, rule_relationship
 from app.evidence.products import Product
 from app.llm.openrouter import LLMUnavailable
 
@@ -30,7 +30,9 @@ SYSTEM = f"""You read one web page that names a software product. Reply with JSO
 {{"publisher": one of {list(PUBLISHERS)},
  "customers": [{{"name": the organisation's name exactly as written on the page,
                 "quote": the number of the sentence that shows it,
-                "relationship": one of ["uses", "rolling_out", "evaluating", "moved_away"]}}]}}
+                "relationship": one of ["uses", "rolling_out", "evaluating", "moved_away"],
+                "based_in": the number of a sentence that says in which country the organisation is based or
+                            headquartered, or 0 when no sentence says so}}]}}
 "publisher": "vendor" if the product's maker published the page, "partner" if a firm that implements or resells
 it did, "customer" if the organisation that uses it did, "news" for a news or trade-press site.
 "customers": only organisations the page says use, are implementing, are evaluating or replaced the product
@@ -44,6 +46,7 @@ class Customer(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     quote: int = Field(default=1, ge=1, le=MAX_SENTENCES)
     relationship: Literal["uses", "rolling_out", "evaluating", "moved_away"]
+    based_in: int = Field(default=0, ge=0, le=MAX_SENTENCES)
 
 
 class Reading(BaseModel):
@@ -59,6 +62,47 @@ class Found:
     quote: str
     publisher: str
     judged_by: str
+    country: str = ""  # ISO code a sentence of the page gives for where the customer is based
+    country_quote: str = ""
+    # A second reading by another free model: "agree" (it also says this company uses it), "disagree" (it does
+    # not), or "single" (no second reading could be made). A reading is one fact with its model, not a verdict.
+    agreement: str = "single"
+    second_by: str = ""
+
+
+def countries_named(text: str) -> set[str]:
+    """ISO codes of the countries a sentence names ("UK-headquartered", "India's largest", "in Germany"). Two-letter
+    forms count only in capitals ("UK", "US"): "us" is also a word."""
+    from app.discovery.relevance import COUNTRY_NAMES
+
+    found = set()
+    for name, iso in COUNTRY_NAMES.items():
+        if len(name) <= 3:
+            if re.search(rf"(?<![A-Za-z]){re.escape(name.upper())}(?![A-Za-z])", text):
+                found.add(iso)
+        elif re.search(rf"(?<![a-z]){re.escape(name)}(?![a-z])", text, re.I):
+            found.add(iso)
+    return found
+
+
+# How a sentence says where an organisation is: "UK-headquartered", "Germany-based", "based in India",
+# "headquartered in the United States", "India's largest...". A country merely named nearby ("Roadshow heads to New
+# Zealand") says nothing about where the customer is: that placed an Australian brand in New Zealand (2026-10-29).
+LOCATIVE = (r"(?:based|headquartered|located|registered|incorporated)\s+in\s+(?:the\s+)?{c}",
+            r"{c}[\s-](?:based|headquartered|born|owned)", r"{c}['’]s\b", r"\bin\s+{c}\s*['’]s\b")
+
+
+def countries_stated(text: str) -> set[str]:
+    """ISO codes of the countries a sentence states something is based in (see LOCATIVE)."""
+    from app.discovery.relevance import COUNTRY_NAMES
+
+    found = set()
+    for name, iso in COUNTRY_NAMES.items():
+        c = re.escape(name.upper()) if len(name) <= 3 else re.escape(name)
+        flags = 0 if len(name) <= 3 else re.I
+        if any(re.search(rf"(?<![A-Za-z]){p.format(c=c)}", text, flags) for p in LOCATIVE):
+            found.add(iso)
+    return found
 
 
 def _contains(text: str, name: str) -> bool:
@@ -72,16 +116,22 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
         return [], f"not read: {judge.unavailable}"
     sentences = sentences[:MAX_SENTENCES]
     numbered = "\n".join(f"{i}. {s}" for i, s in enumerate(sentences, start=1))
+    messages = [{"role": "system", "content": SYSTEM},
+                {"role": "user", "content": f"Product: {product.name}\nPage: {url}\nTitle: {title}\n\n"
+                                            f"Sentences:\n{numbered}"}]
     try:
-        reply = await judge._ask([
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": f"Product: {product.name}\nPage: {url}\nTitle: {title}\n\n"
-                                        f"Sentences:\n{numbered}"}])
-        reading = Reading.model_validate(reply.json())
+        reply = await judge._ask(messages)
+        try:
+            reading = Reading.model_validate(reply.json())
+        except (ValueError, ValidationError):
+            # One free model answering in a broken shape says nothing about the page: ask another once, as the
+            # filing judge does. Without this, 12 of 70 pages in one measurement were never read.
+            reply = await judge._ask(messages, avoid=reply.model)
+            reading = Reading.model_validate(reply.json())
     except LLMUnavailable as exc:
         return [], f"not read: {exc}"
     except (ValueError, ValidationError):
-        return [], "not read: the model's answer could not be read"
+        return [], "not read: the model's answer could not be read (two models tried)"
     out: list[Found] = []
     for c in reading.customers[:MAX_CUSTOMERS * 2]:
         name = c.name.strip().strip(".,;:")
@@ -94,7 +144,39 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
             continue  # the product's maker is never its own customer
         if any(f.customer.lower() == name.lower() for f in out):
             continue
-        out.append(Found(name, c.relationship, quote, reading.publisher, f"model:{reply.model}"))
+        country, country_quote = "", ""
+        if c.based_in:
+            said = sentences[min(c.based_in, len(sentences)) - 1]
+            # The model only points: the sentence must name the customer and exactly one country.
+            named = countries_stated(said)
+            if _contains(said, name) and len(named) == 1:
+                country, country_quote = next(iter(named)), said
+        out.append(Found(name, c.relationship, quote, reading.publisher, f"model:{reply.model}", country,
+                         country_quote))
         if len(out) >= MAX_CUSTOMERS:
             break
+    if any(f.relationship in USE for f in out):
+        await _second_reading(judge, messages, reply.model, out)
     return out, "" if out else "the page names no organisation that uses it"
+
+
+def _same(a: str, b: str) -> bool:
+    return a.casefold().strip() == b.casefold().strip() or _contains(a, b) or _contains(b, a)
+
+
+async def _second_reading(judge: Judge, messages: list[dict[str, str]], first: str, found: list[Found]) -> None:
+    """Another free model reads the same sentences. Agreement keeps a use; disagreement leaves it as a mention to
+    look at; no second reading leaves it as one reading (at most Likely). The same page was read as a use by one
+    free model and as nobody by another (Brookhaven, 2026-10-26): one reading alone does not decide."""
+    try:
+        reply = await judge._ask(messages, avoid=first)
+        second = Reading.model_validate(reply.json())
+    except (LLMUnavailable, ValueError, ValidationError):
+        return
+    if reply.model == first:
+        return  # the same model again is not a second reading
+    uses = [c.name for c in second.customers if c.relationship in USE]
+    for f in found:
+        if f.relationship in USE:
+            f.agreement = "agree" if any(_same(f.customer, n) for n in uses) else "disagree"
+            f.second_by = f"model:{reply.model}"

@@ -90,8 +90,10 @@ def assemble_field(spec: FieldSpec, pages: list[PageCandidates]) -> FieldResult:
         alternatives = []
         for _s, v, c, p in scored[1:6]:
             if v != value:
-                alternatives.append({"value": v, "method": c.method, "source_url": p.url})
-        return FieldResult(spec.name, value, "found", cand.method, page.page_id, page.url,
+                alternatives.append({"value": v, "method": c.method, "source_url": c.source_url or p.url})
+        # A value a source brought (Wikidata, a list page) is traced to that source, not to the page it was kept on.
+        page_id = None if cand.source_url and cand.source_url != page.url else page.page_id
+        return FieldResult(spec.name, value, "found", cand.method, page_id, cand.source_url or page.url,
                            cand.evidence[:500], round(min(best_score, 1.0), 2), None, alternatives)
     if errors:
         return FieldResult(spec.name, None, "invalid", "validation", error="; ".join(errors[:3])[:500])

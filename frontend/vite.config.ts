@@ -16,6 +16,8 @@ function buildSha(): string {
 // In development the API runs on :8000 and Vite proxies /api to it, so cookies stay same-origin.
 export default defineConfig(({ command }) => ({
   plugins: [react()],
+  // The globe (three.js, bloom, map data) is one ~680 kB chunk on its own, loaded after the page is up.
+  build: { chunkSizeWarningLimit: 720 },
   define: { __BUILD_SHA__: JSON.stringify(command === "build" ? buildSha() : "dev") },
   server: {
     port: 5173,

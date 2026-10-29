@@ -113,6 +113,18 @@ def with_current_sources(db, schema: ExtractionSchema) -> ExtractionSchema:
     return new
 
 
+def plan_run(db, runs: list[CrawlJob]) -> CrawlJob | None:
+    """The run whose plan a new benchmark run copies: the latest run asking for the most companies. A small
+    capped job run to check the system is up (10 companies instead of 50) must not become the benchmark plan,
+    which it did once and made a whole question's score meaningless."""
+    def asked(job: CrawlJob) -> int:
+        schema = db.get(ExtractionSchema, job.schema_id)
+        return int(((schema.spec or {}).get("discovery") or {}).get("max_results") or 0) if schema else 0
+
+    most = max((asked(j) for j in runs), default=0)
+    return next((j for j in reversed(runs) if asked(j) == most), None)
+
+
 def start_runs(db, keys: dict[str, dict[str, Any]], refresh_sources: bool = False
                ) -> list[tuple[str, CrawlJob | None, CrawlJob]]:
     """A new run of each question with its latest run's plan: (key name, previous run, new run)."""
@@ -120,7 +132,7 @@ def start_runs(db, keys: dict[str, dict[str, Any]], refresh_sources: bool = Fals
 
     out = []
     for name, key in keys.items():
-        previous = (runs_of(db, key["question"]) or [None])[-1]
+        previous = plan_run(db, runs_of(db, key["question"]))
         if previous is None:
             continue  # never asked yet: run it once from the app so it has a plan
         snap = settings_snapshot()
@@ -143,3 +155,11 @@ def start_runs(db, keys: dict[str, dict[str, Any]], refresh_sources: bool = Fals
 def unfinished(db, job_ids: list[uuid.UUID]) -> int:
     return db.execute(select(func.count()).select_from(CrawlJob).where(
         CrawlJob.id.in_(job_ids), CrawlJob.state.not_in((*FINISHED, S.failed, S.cancelled)))).scalar_one()
+
+
+def starts_of(db, job_id: uuid.UUID) -> int:
+    """How many times a worker began this job's discovery. More than one means a duplicate task ran it, so the
+    run's score measures the duplicate, not the code."""
+    return db.execute(select(func.count()).select_from(CrawlJobEvent).where(
+        CrawlJobEvent.job_id == job_id, CrawlJobEvent.type == "transition",
+        CrawlJobEvent.to_state == S.planning.value)).scalar_one()

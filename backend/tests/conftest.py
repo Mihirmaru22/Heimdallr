@@ -17,6 +17,9 @@ os.environ.setdefault("WEBDATA_COOKIE_SECURE", "false")
 # A developer's backend/.env must not reach the tests: no live model calls, no real web search.
 os.environ["WEBDATA_OPENROUTER_API_KEY"] = ""
 os.environ["WEBDATA_SEARXNG_URL"] = ""
+for _name in ("TAVILY", "LINKUP", "EXA", "KEENABLE"):
+    os.environ[f"WEBDATA_{_name}_API_KEY"] = ""
+os.environ["WEBDATA_KEENABLE_ENABLED"] = "false"
 
 import email_validator  # noqa: E402
 import pytest  # noqa: E402
@@ -98,7 +101,8 @@ def crawl_env(sites, monkeypatch):
 
     port = sites["port"]
     hosts = ["acme-security.test", "acme-mirror.test", "globex.test", "blocked.test", "flaky.test", "initech.test",
-             "hooli.test", "acme-old.test", "loader.test"]
+             "hooli.test", "acme-old.test", "loader.test", "northwind.test", "southwind.test", "eastwind.test",
+             "westwind.test"]
     monkeypatch.setattr(get_settings(), "allow_private_targets", [f"{h}:{port}" for h in hosts])
     sites["server"].Handler.requests_seen.clear()
     return {"port": port, "resolver": test_resolver, "requests": sites["server"].Handler.requests_seen,

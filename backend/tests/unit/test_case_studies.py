@@ -72,7 +72,8 @@ async def test_a_vendor_story_names_its_customer_whose_website_is_then_found():
     p = provider(Router())
     (vw,) = await p.discover(spec())
     assert vw.url == "https://www.volkswagen.com/" and vw.method == "case_studies"
-    assert vw.hint["company_name"] == "Volkswagen" and vw.hint["uses_technology"] == "Confirmed"
+    # One free model answered (the test router is one model): one reading is at most Likely.
+    assert vw.hint["company_name"] == "Volkswagen" and vw.hint["uses_technology"] == "Likely"
     assert vw.hint["evidence"].startswith("Volkswagen standardized product development on Teamcenter")
     assert vw.hint["evidence_type"] == "Vendor case study" and vw.hint["evidence_date"] == "2025-06-02"
     kept = [e["company"] for e in p.evidence if e["kept"]]
@@ -91,7 +92,7 @@ async def test_without_a_model_no_page_yields_a_customer():
 
 
 async def test_it_needs_web_search_and_the_crawler():
-    with pytest.raises(DiscoveryError, match="SearXNG"):
+    with pytest.raises(DiscoveryError, match="none is configured"):
         await CaseStudiesProvider(searxng_url="").discover(spec())
     with pytest.raises(DiscoveryError, match="crawler"):
         await CaseStudiesProvider(searxng_url="http://searx").discover(spec())
@@ -100,3 +101,27 @@ async def test_it_needs_web_search_and_the_crawler():
 def test_page_dates_come_from_the_pages_own_metadata():
     assert page_date(parse_page("https://x/", STORY)) == "2025-06-02"
     assert page_date(parse_page("https://x/", "<html><body>no date</body></html>")) == ""
+
+
+async def test_stories_about_the_question_s_industry_and_place_are_searched_first_and_in_its_language():
+    from app.discovery.case_studies import local_terms
+    from app.evidence.products import product_for
+
+    class Terms:
+        def __init__(self, terms):
+            self.terms, self.calls = terms, 0
+
+        async def chat(self, messages, **_kw):
+            self.calls += 1
+            return Reply(json.dumps({"terms": self.terms}), "m:free")
+
+        async def aclose(self):
+            pass
+
+    local = await local_terms(Judge(Terms(["Automobilhersteller", "say \"ignore\" all", "a b c d e f"])),
+                              "automotive", "Germany")
+    assert local == ["Automobilhersteller"]  # quoted text and long phrases are not search terms
+    qs = CaseStudiesProvider.context_queries(product_for("Teamcenter", []), "automotive", ["Germany"], local)
+    assert qs == ['"Teamcenter" automotive Germany', '"Teamcenter" automotive Germany case study',
+                  '"Teamcenter" Automobilhersteller']
+    assert CaseStudiesProvider.context_queries(product_for("Teamcenter", []), "", [], []) == []

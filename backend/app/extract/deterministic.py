@@ -44,6 +44,7 @@ class Candidate:
     method: str
     confidence: float
     evidence: str = ""
+    source_url: str | None = None  # set when the value came from elsewhere than the page it is stored with
 
 
 @dataclass

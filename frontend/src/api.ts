@@ -92,3 +92,7 @@ export function display(value: unknown): string {
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
+
+export interface CompanyRow { id: string; name: string; website: string; status: string; reasons: string[];
+  proof_verdict: string; proof_url: string; proof_quote: string; country: string; country_by: string;
+  sources: string[]; record_id: string | null }

@@ -9,7 +9,6 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.crawl import netguard
 from app.crawl.netguard import BlockedDestination
 from app.crawl.urlnorm import normalize_url
@@ -18,6 +17,7 @@ from app.deps import OrgContext, org_member
 from app.errors import ApiError
 from app.models import ExtractionSchema, Project, Role
 from app.schemas import GenerateSchemaIn, Page, PlanPreview, ProjectIn, ProjectOut, SchemaOut, SchemaUpdate, UrlCheck
+from app.search import search_configured
 from app.services.common import audit, org_limits, record_usage
 from app.spec.models import validate_spec
 
@@ -108,17 +108,22 @@ def generate_schema(project_id: uuid.UUID, body: GenerateSchemaIn, ctx: OrgConte
     """Turn a plain-language question into a draft spec: one free-model call, or the rules when none answers."""
     import asyncio
 
-    from app.spec.planner import plan_spec
+    from app.spec.planner import SearchForm, plan_spec
 
     get_in_org(db, Project, project_id, ctx.org.id, "project")
+    try:
+        form = SearchForm.model_validate(body.form) if body.form else None
+    except ValidationError as exc:
+        raise _spec_error(exc) from None
     # Sync endpoints run in a worker thread with no event loop, so the async planner gets its own.
-    draft, interpreter, notes = asyncio.run(plan_spec(body.request, body.start_urls))
+    draft, interpreter, notes = asyncio.run(plan_spec(body.request, body.start_urls, form=form))
     try:
         spec = validate_spec(draft.model_dump(mode="json"), org_limits(ctx.org))
     except (ValidationError, ValueError) as exc:
         raise _spec_error(exc) from None
+    question = body.request.strip() or (form.sentence() if form else "")
     s = ExtractionSchema(org_id=ctx.org.id, project_id=project_id, version=_next_version(db, project_id),
-                         nl_request=body.request, spec=spec.model_dump(mode="json"), status="draft",
+                         nl_request=question, spec=spec.model_dump(mode="json"), status="draft",
                          interpreter=interpreter[:64])
     db.add(s)
     if interpreter.startswith("model:"):
@@ -207,8 +212,8 @@ def preview(schema_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Ses
     if len(spec.crawl.start_urls) > PREVIEW_URL_CHECKS:
         warnings.append(f"Only the first {PREVIEW_URL_CHECKS} start URLs were checked here; "
                         "all are checked at run time.")
-    if "searxng" in spec.discovery.providers and not get_settings().searxng_url:
-        warnings.append("Web search (SearXNG) is not configured on this server, so it will be skipped.")
+    if "searxng" in spec.discovery.providers and not search_configured():
+        warnings.append("Web search is not configured on this server, so it will be skipped.")
     if "sec_edgar" in spec.discovery.providers:
         from app.discovery.sec_edgar import SecEdgarProvider, index_ready
 
@@ -239,10 +244,10 @@ def preview(schema_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Ses
 
 
 def estimated_llm_calls(spec, sites: int) -> int:
-    """At most this many free-model requests: one per web-search homepage check, and for a technology question
-    about two per company judged (proof check, plus a second reading of a use verdict)."""
+    """At most this many free-model requests: one per web-search homepage check and list page, and for a
+    technology question about two per company judged (proof check, plus a second reading of a use verdict)."""
     d = spec.discovery
-    calls = d.max_results if "searxng" in d.providers else 0
+    calls = d.max_results + 3 if "searxng" in d.providers else 0  # homepage checks, plus up to 3 list pages
     if d.technology:
         calls += 2 * max(sites, d.max_results)
     return calls

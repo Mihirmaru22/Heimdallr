@@ -21,7 +21,8 @@ USES = {"Confirmed", "Likely"}
 
 def _page_candidates(page: FetchedPage) -> PageCandidates:
     cands = {
-        name: [Candidate(c.get("value"), c.get("method", "?"), float(c.get("confidence", 0.5)), c.get("evidence", ""))
+        name: [Candidate(c.get("value"), c.get("method", "?"), float(c.get("confidence", 0.5)), c.get("evidence", ""),
+                         c.get("source_url"))
                for c in items]
         for name, items in (page.candidates or {}).items()
     }

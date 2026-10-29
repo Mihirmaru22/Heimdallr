@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -21,6 +22,7 @@ import httpx
 
 from app.config import get_settings
 from app.crawl.urlnorm import normalize_url, registered_domain
+from app.search import SearchError, SearchHub
 from app.spec.models import ExtractionSpec
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
@@ -333,6 +335,15 @@ class WikidataProvider:
         return out
 
 
+MAX_HITS_KEPT = 5  # search hits remembered per site: which engines found it, for which wording, and what they said
+
+
+def hit_context(hit, query: str) -> dict[str, str]:
+    """What one search hit said about a site, kept with the site so a drop or a record can be traced to it."""
+    return {"provider": hit.provider or "web search", "query": query, "url": hit.url, "title": (hit.title or "")[:200],
+            "snippet": " ".join((hit.snippet or "").split())[:300]}
+
+
 REGION_NAMES = {"europe": "Europe", "north_america": "North America", "asia": "Asia", "africa": "Africa",
                 "south_america": "South America", "oceania": "Australia"}
 # Sites that list or talk about companies rather than being one. A result on these is never a homepage.
@@ -353,10 +364,74 @@ class SearxngProvider:
 
     name = "searxng"
     MAX_PAGES = 5
+    MAX_QUERIES = 6
+    MAX_LIST_PAGES = 3  # list pages read per question (one free model call each)
+    MAX_LIST_LOOKUPS = 30  # names from those pages looked up
+    MAX_PER_LIST = 6  # sites one list page may add: one off-topic list (a jobs board) once crowded out the rest
 
-    def __init__(self, client: httpx.AsyncClient | None = None, base_url: str | None = None) -> None:
+    def __init__(self, client: httpx.AsyncClient | None = None, base_url: str | None = None,
+                 judge=None) -> None:
         self.client = client
         self.base_url = (base_url if base_url is not None else get_settings().searxng_url).rstrip("/")
+        self.judge = judge
+        self.fetch_page = None  # set by the crawler: robots.txt respected, network rules checked
+        self.on_note = None
+        self.notes: list[str] = []
+
+    def _say(self, kind: str, message: str, url: str | None = None) -> None:
+        if self.on_note is not None:
+            self.on_note(kind, message, url, source=self.name)
+
+    async def _from_lists(self, client, hub, question: str, pages: list[str], sites: set[str], room: int
+                          ) -> list[DiscoveryResult]:
+        """Companies named on list pages, each kept only when its own website is found and confirmed."""
+        from app.discovery.lists import names_on_list
+        from app.discovery.websites import WebsiteFinder
+        from app.evidence.judge import Judge
+
+        if self.fetch_page is None or not pages or room <= 0:
+            return []
+        judge = self.judge or Judge()
+
+        async def text(url: str) -> str | None:
+            doc = await self.fetch_page(url)
+            return f"{doc.title} {doc.text}" if doc else None
+
+        finder = WebsiteFinder(client, self.base_url, text, hub=hub)
+        out: list[DiscoveryResult] = []
+        lookups = 0
+        try:
+            for url in pages[:self.MAX_LIST_PAGES]:
+                doc = await self.fetch_page(url)
+                if doc is None:
+                    self._say("skipped", f"List page could not be read: {url}", url)
+                    continue
+                names, why = await names_on_list(judge, question, doc)
+                self._say("read" if names else "skipped", f"List page {url}: "
+                          + (f"{len(names)} name(s)" if names else why), url)
+                if not names and judge.unavailable:
+                    self.notes.append(f"web search: list pages not read ({judge.unavailable})")
+                    break
+                added = 0
+                for name in names:
+                    if len(out) >= room or lookups >= self.MAX_LIST_LOOKUPS:
+                        return out
+                    if added >= self.MAX_PER_LIST:
+                        break
+                    lookups += 1
+                    site, how = await finder.find(name)
+                    domain = registered_domain(site) if site else ""
+                    if not domain or domain in sites:
+                        continue
+                    sites.add(domain)
+                    self._say("search", f"Website of {name} (from a list page): {site} ({how})", site)
+                    out.append(DiscoveryResult(site, "searxng", {"company_name": name, "_source": url},
+                                               referrer=f"list page: {url}"))
+                    added += 1
+        finally:
+            if self.judge is None:
+                await judge.aclose()
+        return out
 
     @staticmethod
     def queries(spec: ExtractionSpec) -> list[str]:
@@ -382,48 +457,136 @@ class SearxngProvider:
         scheme, rest = norm.split("://", 1)
         return f"{scheme}://{rest.split('/', 1)[0]}/"
 
+    @staticmethod
+    def wordings(spec: ExtractionSpec) -> list[str]:
+        """The searches discovery sends: for each place the plain wording, then a list-style and a where-based
+        one (engines answer each differently, so each finds companies the others miss), at most MAX_QUERIES so
+        a many-country question does not spend a month's free searches at once."""
+        from app.spec.interpret import COUNTRIES
+
+        d = spec.discovery
+        noun = "companies" if spec.entity in ("company", "record") else f"{spec.entity}s"
+        names = {iso: name.title() for name, iso in COUNTRIES.items() if len(name) > 3}
+        places = [names.get(c, c) for c in d.countries] or ([REGION_NAMES[d.region]] if d.region else [""])
+        subject = " ".join(x for x in [d.industry or "", *d.keywords[:3]] if x).strip()
+        if not subject:
+            return []
+        out: list[str] = []
+        for place in places:
+            out.append(f"{subject} {noun} {place}".strip())
+            out.append(f"largest {subject} {noun} in {place}" if place else f"largest {subject} {noun}")
+            if place:
+                out.append(f"{subject} {noun} headquartered in {place}")
+        return out[:SearxngProvider.MAX_QUERIES]
+
     async def discover(self, spec: ExtractionSpec) -> list[DiscoveryResult]:
-        if not self.base_url:
-            raise DiscoveryError("SearXNG is not configured (set WEBDATA_SEARXNG_URL); skipped")
-        queries = self.queries(spec)
-        if not queries:
-            raise DiscoveryError("SearXNG discovery needs an industry or keywords")
-        want = spec.discovery.max_results
         client = self.client or httpx.AsyncClient(timeout=30, headers={"User-Agent": get_settings().user_agent})
+        hub = SearchHub.from_settings(client, self.base_url)
+        if not hub.configured:
+            if self.client is None:
+                await client.aclose()
+            raise DiscoveryError("web search is not configured (set a search API key or WEBDATA_SEARXNG_URL); skipped")
+        queries = self.wordings(spec)
+        if not queries:
+            if self.client is None:
+                await client.aclose()
+            raise DiscoveryError("web search discovery needs an industry or keywords")
+        want = spec.discovery.max_results
         out: list[DiscoveryResult] = []
         sites: set[str] = set()
+
+        from app.discovery.lists import looks_like_list
+
+        noun = "companies" if spec.entity in ("company", "record") else f"{spec.entity}s"
+        lists: list[str] = []
+
+        by_site: dict[str, DiscoveryResult] = {}
+
+        def take(hits, query: str, limit: int) -> list:
+            """Adds up to `limit` new company homepages; returns the hits not taken. Every hit is kept with the
+            site it points to, so several engines finding one company stay visible."""
+            left = []
+            count = {"new": 0, "list": 0, "not a company site": 0, "repeat": 0, "held back": 0}
+            for r in hits:
+                if looks_like_list(r.url, r.title, noun):  # a page about many companies is no company's site
+                    count["list"] += 1
+                    if r.url not in lists:
+                        lists.append(r.url)
+                    continue
+                home = self.homepage(r.url)
+                if not home:
+                    count["not a company site"] += 1
+                    continue
+                site = registered_domain(home)
+                if site in sites:
+                    count["repeat"] += 1
+                    seen = by_site.get(site)
+                    if seen is not None and len(seen.hint["_search"]) < MAX_HITS_KEPT:
+                        seen.hint["_search"].append(hit_context(r, query))
+                    continue
+                if len(out) >= want or limit <= 0:
+                    count["held back"] += 1
+                    left.append((r, query))
+                    continue
+                sites.add(site)
+                out.append(DiscoveryResult(home, "searxng", {"_source": r.url, "_search": [hit_context(r, query)]},
+                                           referrer=f"{r.provider}: {query}"))
+                by_site[site] = out[-1]
+                count["new"] += 1
+                limit -= 1
+            if len(hits) > 1:  # a single leftover taken later is not a search of its own
+                engines = Counter(r.provider or "web search" for r in hits)
+                self._say("search", f"Search {query!r}: {len(hits)} result(s) ("
+                          + ", ".join(f"{e} {n}" for e, n in engines.most_common()) + "): "
+                          + ", ".join(f"{n} {k}" for k, n in count.items() if n))
+            return left
+
+        # Every wording gets its share of the first page before any wording's leftovers or later pages, so the
+        # first wording alone no longer fills the list.
+        share = max(1, -(-want // len(queries)))
+        leftovers: list = []
+        exhausted: set[str] = set()
         try:
             for query in queries:
-                for page in range(1, self.MAX_PAGES + 1):
+                try:
+                    hits = await hub.search(query)
+                except SearchError as exc:
+                    if out:
+                        break
+                    raise DiscoveryError(str(exc)) from None
+                if not hits:
+                    exhausted.add(query)
+                leftovers += take(hits, query, share)
+            # Names read off list pages and the leftover search results share what room is left: a ranking that
+            # answers the question is a good lead, but so is a company search found directly, and a list's names
+            # once took every remaining place. Up to half the room, and at least one place, is kept for the
+            # direct results waiting.
+            room = want - len(out)
+            waiting = {registered_domain(self.homepage(r.url)) for r, _q in leftovers} - sites
+            held = min(len(waiting), max(1, room // 2)) if room > 0 else 0
+            out += await self._from_lists(client, hub, queries[0], lists, sites, room - held)
+            for r, query in leftovers:
+                take([r], query, 1)
+            for page in range(2, self.MAX_PAGES + 1):
+                for query in queries:
                     if len(out) >= want:
-                        return out
+                        return out[:want]
+                    if query in exhausted:
+                        continue
                     try:
-                        resp = await client.get(f"{self.base_url}/search", params={
-                            "q": query, "format": "json", "pageno": page, "language": "en", "safesearch": 1})
-                    except httpx.HTTPError as exc:
-                        if out:
-                            return out
-                        raise DiscoveryError(f"SearXNG is not reachable at {self.base_url}: "
-                                             f"{type(exc).__name__}") from None
-                    if resp.status_code == 403:
-                        raise DiscoveryError("SearXNG refused JSON output; enable `json` under search.formats")
-                    if resp.status_code != 200:
-                        break
-                    results = resp.json().get("results", [])
-                    if not results:
-                        break
-                    for r in results:
-                        home = self.homepage(r.get("url", ""))
-                        if home and registered_domain(home) not in sites:
-                            sites.add(registered_domain(home))
-                            out.append(DiscoveryResult(home, "searxng", {"_source": r.get("url", "")},
-                                                       referrer=f"searxng: {query}"))
+                        hits = await hub.search(query, page=page)
+                    except SearchError:
+                        hits = []
+                    if not hits:
+                        exhausted.add(query)
+                    take(hits, query, want)
                     await asyncio.sleep(1.0 if get_settings().env != "test" else 0)
         finally:
             if self.client is None:
                 await client.aclose()
         if not out:
-            raise DiscoveryError("SearXNG found no company websites for this query")
+            raise DiscoveryError(hub.explain() if hub.problems
+                                 else "web search found no company websites for this query")
         return out[:want]
 
 

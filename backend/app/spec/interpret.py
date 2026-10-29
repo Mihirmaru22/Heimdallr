@@ -67,6 +67,51 @@ DOMAIN_RE = re.compile(r"(?<![@\w.-])((?:[a-z0-9-]+\.)+[a-z]{2,24})(?![\w-])", r
 COUNT_RE = re.compile(r"\b(?:up to|at most|max(?:imum)?|top|find|list)\s+(\d{1,5})\b", re.I)
 INDUSTRY_RE = re.compile(r"\b(?:find|list|collect|get)\s+(?:up to\s+\d+\s+|\d+\s+)?([a-z][a-z \-]{1,40}?)\s+"
                          r"(?:companies|company|firms|vendors|startups|businesses)", re.I)
+# "pharmaceutical companies in India that use ...": the same phrase when the question opens with it.
+LEADING_INDUSTRY_RE = re.compile(r"^\s*(?:the\s+|all\s+)?([a-z][a-z \-]{1,40}?)\s+"
+                                 r"(?:companies|firms|vendors|startups|businesses)\b", re.I)
+# What the rows must use, read from the question's grammar ("companies that use X", "firms using X",
+# "customers of X"), never from a list of products. It ends where the question moves on: a comma, "with",
+# "in <place>", "and their...".
+TECHNOLOGY_RE = re.compile(
+    r"\b(?:(?:that|which|who)\s+(?:are\s+|is\s+)?(?:currently\s+)?"
+    r"(?:use|uses|using|run|runs|running|rely on|relies on|deploy|deploys|deployed|implemented|adopted|"
+    r"have implemented|have adopted)|using|running on|users of|customers of)\s+"
+    r"(?:the\s+)?(?P<tech>[A-Za-z0-9][\w./&+'’-]*(?:\s+[\w./&+'’-]+){0,5}?)"
+    r"(?=\s*(?:[,;:()]|\bwith\b|\bin\b|\bacross\b|\bfrom\b|\bbased\b|\band\s+(?:their|its|the)\b|\bfor\b|$))",
+    re.I)
+NOT_A_PRODUCT = {"it", "them", "this", "that", "these", "software", "technology", "technologies", "tools"}
+
+
+FILLER = {"out", "the", "all", "of", "some", "me", "a", "an", "any", "list", "find", "get", "collect"}
+
+
+def industry_phrase(raw: str) -> tuple[str | None, str | None]:
+    """(industry, country) from the words before "companies": "list out the companies" names no industry, and
+    "US companies" names a country, not an industry."""
+    words = raw.strip().split()
+    while words and words[0].lower() in FILLER:
+        words = words[1:]
+    phrase = " ".join(words)
+    if not phrase:
+        return None, None
+    low = phrase.lower()
+    if low in COUNTRIES:
+        return None, COUNTRIES[low]
+    if re.fullmatch(r"u\.?s\.?(?:a\.?)?", low):
+        return None, "US"
+    return phrase, None
+
+
+def technology_in(request: str) -> str | None:
+    """The product a question asks about ("companies in the US that use PTC Windchill" -> "PTC Windchill")."""
+    m = TECHNOLOGY_RE.search(request)
+    if not m:
+        return None
+    tech = m.group("tech").strip(" .'\"’")
+    if not tech or tech.lower() in NOT_A_PRODUCT or len(tech) > 60:
+        return None
+    return tech
 
 
 def is_tech_niche(industry: str | None) -> bool:
@@ -119,8 +164,10 @@ def interpret(request: str, start_urls: list[str] | None = None) -> ExtractionSp
     if US_RE.search(text):  # "us" alone is too common a word ("contact us") to match anywhere
         countries.add("US")
     countries = sorted(countries)
-    industry_match = INDUSTRY_RE.search(request)
-    industry = industry_match.group(1).strip() if industry_match else None
+    industry_match = INDUSTRY_RE.search(request) or LEADING_INDUSTRY_RE.search(request)
+    industry, place = industry_phrase(industry_match.group(1)) if industry_match else (None, None)
+    if place:
+        countries = sorted({*countries, place})
 
     providers: list = ["seeds"] if urls else []
     if not urls and (industry or region or countries):
