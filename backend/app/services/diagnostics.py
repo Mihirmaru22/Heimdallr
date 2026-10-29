@@ -61,6 +61,11 @@ def run_diagnostics(db, job_id: uuid.UUID) -> list[tuple[str, str, str]]:
     for source_type, kept, n in sorted(proof, key=lambda r: (str(r[0]), not r[1])):
         rows.append(("Proof", f"{source_type or 'unknown'} {'kept' if kept else 'rejected'}", str(n)))
 
+    from app.services.common import model_call_lines
+
+    rows += [("Model calls", label.removeprefix("model calls").strip(": ") or "all steps", value)
+             for label, value in model_call_lines(job)]
+
     urls = db.execute(select(DiscoveredUrl.host, DiscoveredUrl.method, DiscoveredUrl.status,
                              DiscoveredUrl.status_reason).where(DiscoveredUrl.job_id == job_id)).all()
     by_method = Counter(m for _h, m, _s, _r in urls)

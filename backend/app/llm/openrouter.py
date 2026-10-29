@@ -9,12 +9,16 @@ Rules this module guarantees, whatever a caller asks for:
   have ever been bought; OpenRouter decides which from the key) and 20 a minute. When the day's
   allowance is used up, calls fail with LLMUnavailable until midnight UTC instead of going further.
 - When one free model is busy or failing, the next free model is tried; never a paid one.
+- Calls are paced on our side under the per-minute limit, by one schedule every process shares in Redis; a 429
+  is waited out (Retry-After) before the next call is made, instead of being answered with another call.
+- Every attempt is logged and counted with the step it served (plan, proof_read, ...) and the job it ran for.
 The API key is never logged (logging_setup redacts sk-or- keys as well).
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import logging
 import re
@@ -33,6 +37,12 @@ API = "https://openrouter.ai/api/v1"
 FREE_DAILY = 50  # requests a day for keys that never bought credits
 FUNDED_DAILY = 1000  # once 10 credits have ever been bought (it does not depend on the balance)
 PER_MINUTE = 20
+# Calls are started at most this often, across every worker: under OpenRouter's 20 a minute, so a busy moment is
+# spread out instead of answered with 429s that each count against the day (40% of one run's calls were 429s or
+# empty replies, 2026-10-29).
+PACE_PER_MINUTE = 18
+RETRY_AFTER_DEFAULT = 20  # seconds waited after a 429 that says nothing about when to come back
+STATS_TTL = 30 * 86400  # how long a job's per-step call counts are kept in Redis (the job also stores them)
 CATALOG_TTL = 6 * 3600
 MODEL_COOLDOWN = 600  # seconds a failing model is skipped
 MAX_MODELS_PER_CALL = 5  # with 3, a few models that always refuse or are busy left no model to answer at all
@@ -43,6 +53,44 @@ PERMANENT_STATUSES = (403, 404)
 SPECIALIZED_RE = re.compile(r"safety|guard|moderat|code|coder|embed|rerank|tts|audio|ocr", re.I)
 # Room for a reasoning model's thinking before its answer; with too little, the answer comes back empty.
 MIN_TOKENS = 2048  # 1024 still ended reasoning models' replies empty (finish_reason=length)
+
+
+# The job a model call is made for (its id) and the step it serves, set by the caller around the work. Steps:
+# plan (understanding the question, writing searches), proof_read (reading a page or filing for proof),
+# second_read (a second opinion when the first answer was unsure), reask (a page asked again at the end),
+# site_check, list_read; "other" when a caller set none.
+JOB = contextvars.ContextVar("llm_job", default="")
+STEP = contextvars.ContextVar("llm_step", default="other")
+
+
+def calls_key(scope: str) -> str:
+    """Where one job's (or one plan's, "schema:<id>") call counts are kept."""
+    return f"{State.PREFIX}calls:{scope}"
+
+
+def retry_after(resp: httpx.Response, now: float | None = None) -> float:
+    """Seconds a 429 asks us to wait: its Retry-After header (seconds or an HTTP date), else OpenRouter's
+    X-RateLimit-Reset (epoch milliseconds), else RETRY_AFTER_DEFAULT."""
+    from email.utils import parsedate_to_datetime
+
+    now = time.time() if now is None else now
+    value = resp.headers.get("retry-after", "").strip()
+    if value:
+        try:
+            return max(0.0, float(value))
+        except ValueError:
+            try:
+                return max(0.0, parsedate_to_datetime(value).timestamp() - now)
+            except (TypeError, ValueError):
+                pass
+    reset = resp.headers.get("x-ratelimit-reset", "").strip()
+    if reset:
+        try:
+            at = float(reset)
+            return max(0.0, (at / 1000 if at > 1e11 else at) - now)
+        except ValueError:
+            pass
+    return float(RETRY_AFTER_DEFAULT)
 
 
 class LLMUnavailable(Exception):
@@ -122,6 +170,50 @@ class State:
         stats = self.PREFIX + f"stats:{_today()}"
         self.r.hincrby(stats, f"{model}|{kind}", 1)
         self.r.expire(stats, 8 * 86400)
+
+    def count_step(self, scope: str, step: str, outcome: str) -> None:
+        """One attempt for a job (or plan) at one step: outcome is "answered" or "failed"."""
+        if not scope:
+            return
+        key = calls_key(scope)
+        self.r.hincrby(key, f"{step}|{outcome}", 1)
+        self.r.expire(key, STATS_TTL)
+
+    def calls(self, scope: str) -> dict[str, dict[str, int]]:
+        """step -> {"answered": n, "failed": n} for one job (or plan)."""
+        out: dict[str, dict[str, int]] = {}
+        for k, v in (self.r.hgetall(calls_key(scope)) or {}).items():
+            k = k.decode() if isinstance(k, bytes) else k
+            step, outcome = k.rsplit("|", 1)
+            out.setdefault(step, {"answered": 0, "failed": 0})[outcome] = int(v)
+        return out
+
+    def move_calls(self, src: str, dst: str) -> None:
+        """File one scope's call counts under another (a plan's, once its schema exists)."""
+        if self.r.exists(calls_key(src)):
+            self.r.rename(calls_key(src), calls_key(dst))
+
+    # The shared schedule: the next moment a call may start, one slot per call, PACE_PER_MINUTE a minute.
+    _SLOT = """local nxt = tonumber(redis.call('get', KEYS[1]) or '0')
+local slot = math.max(tonumber(ARGV[1]), nxt)
+redis.call('set', KEYS[1], tostring(slot + tonumber(ARGV[2])), 'EX', 3600)
+return tostring(slot)"""
+
+    def reserve_slot(self, now: float, interval: float) -> float:
+        """The moment this call may start (now or later), reserved for it atomically across all processes."""
+        key = self.PREFIX + "next_slot"
+        try:
+            return float(self.r.eval(self._SLOT, 1, key, repr(now), repr(interval)))
+        except AttributeError:  # a client without scripting (the tests' stand-in): same rule, not atomic
+            slot = max(now, float(self._get("next_slot") or 0))
+            self.r.set(key, repr(slot + interval), ex=3600)
+            return slot
+
+    def hold_until(self, until: float) -> None:
+        """No call starts before `until` (a 429's Retry-After), in any process."""
+        key = self.PREFIX + "next_slot"
+        if until > float(self._get("next_slot") or 0):
+            self.r.set(key, repr(until), ex=3600)
 
     def this_minute(self) -> int:
         return int(self._get(f"min:{int(time.time() // 60)}") or 0)
@@ -261,8 +353,13 @@ class OpenRouter:
             await self.key_info()
         if state.exhausted() or state.used_today() >= (state.daily_limit() or FREE_DAILY):
             raise LLMUnavailable("today's free model allowance is used up; it resets at midnight UTC")
-        if state.this_minute() >= PER_MINUTE:
-            await self.sleep(61 - time.time() % 60)
+
+    async def _pace(self) -> None:
+        """Wait for this attempt's slot in the shared schedule (PACE_PER_MINUTE starts a minute, all processes)."""
+        now = time.time()
+        slot = self._state().reserve_slot(now, 60.0 / PACE_PER_MINUTE)
+        if slot > now:
+            await self.sleep(slot - now)
 
     def _check_reply(self, requested: str, body: dict[str, Any]) -> None:
         """Switch model use off if this reply was not from the free model we asked for, or cost anything."""
@@ -279,11 +376,14 @@ class OpenRouter:
             raise PaidModelError(problem)
 
     async def chat(self, messages: list[dict[str, str]], *, json_mode: bool = False, max_tokens: int = 1200,
-                   temperature: float = 0.0, avoid: str | None = None) -> Reply:
+                   temperature: float = 0.0, avoid: str | None = None, step: str | None = None) -> Reply:
         """One completion from the best available free model, trying the next free model if one fails.
-        `avoid` puts that model last, for a second opinion from a different one."""
+        `avoid` puts that model last, for a second opinion from a different one. `step` names what the call is
+        for in the logs and the job's counts (else the caller's STEP)."""
         await self._check_allowance()
         state = self._state()
+        step = step or STEP.get()
+        scope = JOB.get()
         candidates = [m for m in await self.free_models() if not state.cooling(m)]
         if avoid in candidates and len(candidates) > 1:
             candidates = [m for m in candidates if m != avoid] + [avoid]
@@ -303,11 +403,13 @@ class OpenRouter:
                 payload["response_format"] = {"type": "json_object"}
             # Every model call is measured, never cut short: a slow call shows as data ("ok in 2513 s"), so a
             # missing value can be told apart from one that came late.
+            await self._pace()
             began, began_at = time.monotonic(), datetime.now(UTC).isoformat(timespec="seconds")
 
             def measured(outcome: str, model: str = model, began: float = began, began_at: str = began_at) -> None:
-                log.info("model call %s: %s after %.1f s (started %s)", model, outcome, time.monotonic() - began,
-                         began_at)
+                log.info("model call %s: %s after %.1f s (started %s) step=%s job=%s", model, outcome,
+                         time.monotonic() - began, began_at, step, scope or "-")
+                state.count_step(scope, step, "answered" if outcome == "ok" else "failed")
 
             try:
                 resp = await http.post(f"{API}/chat/completions", headers=self._headers(), json=payload)
@@ -329,10 +431,15 @@ class OpenRouter:
                     measured("daily allowance used up")
                     state.exhaust_today()
                     raise LLMUnavailable("today's free model allowance is used up; it resets at midnight UTC")
-                measured("rate limited")
+                wait = retry_after(resp)
+                measured(f"rate limited (retry after {wait:.0f} s)")
                 state.count_failure(model, "rate_limited")
-                state.cool_down(model, 120)  # the model's upstream is busy; try another free one
+                state.cool_down(model, 120)  # the model's upstream is busy; the next call goes to another free one
                 problems.append(f"{model}: rate limited")
+                # Wait as the 429 asks, in every process, before the next call: firing another call at once is
+                # what the limit refuses, and each refused call counts against the day.
+                state.hold_until(time.time() + wait)
+                await self.sleep(wait)
                 continue
             if resp.status_code == 402:
                 measured("HTTP 402")

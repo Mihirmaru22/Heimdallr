@@ -1,4 +1,5 @@
-"""Discovery that follows companies: a fixed reading order, each company's own proof search, a coverage stop."""
+"""Discovery over proof pages: a fixed reading order, rules before the model, a country check before reading,
+a coverage stop. No company gets a proof search of its own."""
 
 import json
 
@@ -59,9 +60,8 @@ def test_the_reading_order_comes_from_the_pages_not_the_engines():
     product = product_for("Guidewire")
     p.meta = {"https://b.example/x": ("Guidewire customer story", ""), "https://a.example/y": ("Other news", ""),
               "https://c.example/us": ("Guidewire in the US", "")}
-    p.targeted_urls = {"https://d.example/z"}
-    order = sorted(p.meta.keys() | {"https://d.example/z"}, key=lambda u: p.rank(u, product, ["US"]))
-    assert order == ["https://d.example/z", "https://c.example/us", "https://b.example/x", "https://a.example/y"]
+    order = sorted(p.meta, key=lambda u: p.rank(u, product, ["US"]))
+    assert order == ["https://c.example/us", "https://b.example/x", "https://a.example/y"]
 
 
 async def test_reading_stops_when_pages_stop_naming_new_companies_and_says_so():
@@ -76,36 +76,19 @@ async def test_reading_stops_when_pages_stop_naming_new_companies_and_says_so():
     assert sum(e["reason"].startswith("not read: coverage") for e in p.evidence) == 60 - max(MIN_READ, PLATEAU)
 
 
-async def test_a_named_company_gets_its_own_proof_search_and_those_pages_are_read_first():
+async def test_only_the_general_searches_are_read_no_company_is_searched_for_on_its_own():
     general = [("https://news.example/acme", "Acme selects Guidewire")]
-    own = [("https://vendor.example/acme-goes-live", "Acme goes live on Guidewire"),
-           ("https://vendor.example/other", "Someone else on Guidewire")]
-    pages = {"https://news.example/acme": story("Acme"), "https://vendor.example/acme-goes-live": story("Acme")}
-    p = provider(lambda q: own if q.startswith('"Acme"') else general, pages)
-    users = {}
-    await p._read_loop(p.client, product_for("Guidewire"), spec().discovery, [u for u, _ in general], users)
-    assert "acme" in users
-    assert "https://vendor.example/acme-goes-live" in p.targeted_urls
-    assert "https://vendor.example/other" not in p.targeted_urls  # its title does not name Acme
-    assert p.asked == {"acme"}
-
-
-async def test_listed_companies_are_proven_by_their_own_search_and_only_about_themselves():
-    own = {'"Farmers Insurance"': [("https://vendor.example/farmers-insurance-claimcenter",
-                                    "Farmers Insurance selects Guidewire")],
-           '"Mercury"': [("https://vendor.example/mercury", "Mercury selects Guidewire")]}
-    pages = {"https://vendor.example/farmers-insurance-claimcenter": story("Farmers Insurance"),
-             "https://vendor.example/mercury": story("Acme Mutual")}  # the page is about someone else
+    asked = []
 
     def results(q):
-        return next((v for k, v in own.items() if q.startswith(k)), [])
+        asked.append(q)
+        return general
 
-    p = provider(results, pages)
-    proven = await p.prove(spec(), [("Farmers Insurance", "https://www.farmers.com/"),
-                                    ("Mercury", "https://www.mercuryinsurance.com/")])
-    assert list(proven) == ["Farmers Insurance"]
-    assert proven["Farmers Insurance"]["website"] == "https://www.farmers.com/"
-    assert proven["Farmers Insurance"]["verdict"] in ("Confirmed", "Likely")
+    p = provider(results, {"https://news.example/acme": story("Acme")})
+    users = {}
+    await p._read_loop(p.client, product_for("Guidewire"), spec().discovery, [u for u, _ in general], users)
+    assert "acme" in users and asked == []  # reading a page never starts a search of its own
+    assert not hasattr(p, "prove") and not hasattr(p, "targeted")
 
 
 async def test_a_job_asks_each_search_once():
@@ -130,17 +113,18 @@ async def test_a_job_asks_each_search_once():
     assert len(calls) == 2
 
 
-async def test_a_use_needs_two_readings_to_be_confirmed_and_disagreement_leaves_a_mention():
+async def test_a_page_s_own_sentence_settles_it_and_the_model_reads_a_page_once_unless_unsure():
     from app.evidence.thirdparty import read_page
 
     class Models:
-        def __init__(self, second_says_use):
-            self.second_says_use, self.calls = second_says_use, 0
+        def __init__(self, sure, second_says_use=True):
+            self.sure, self.second_says_use, self.calls = sure, second_says_use, 0
 
         async def chat(self, messages, avoid=None, **_kw):
             self.calls += 1
             if avoid is None:
-                body = {"publisher": "vendor", "customers": [{"name": "Acme", "quote": 1, "relationship": "uses"}]}
+                body = {"publisher": "vendor", "sure": self.sure,
+                        "customers": [{"name": "Acme", "quote": 1, "relationship": "uses"}]}
                 return Reply(json.dumps(body), "first:free")
             customers = [{"name": "Acme", "quote": 1, "relationship": "uses"}] if self.second_says_use else []
             return Reply(json.dumps({"publisher": "vendor", "customers": customers}), "second:free")
@@ -148,44 +132,63 @@ async def test_a_use_needs_two_readings_to_be_confirmed_and_disagreement_leaves_
         async def aclose(self):
             pass
 
-    sentence = "Acme has selected Guidewire ClaimCenter."
-    found, _ = await read_page(Judge(Models(True)), product_for("Guidewire"), "Acme", [sentence], sentence, "u")
-    assert found[0].agreement == "agree" and found[0].second_by == "model:second:free"
-    found, _ = await read_page(Judge(Models(False)), product_for("Guidewire"), "Acme", [sentence], sentence, "u")
+    product = product_for("Guidewire")
+    plain = "Acme has selected Guidewire ClaimCenter."
+    models = Models(sure=True)
+    found, _ = await read_page(Judge(models), product, "Acme", [plain], plain, "https://vendor.example/acme")
+    assert found[0].customer == "Acme" and found[0].agreement == "rules" and models.calls == 0
+    unclear = "Guidewire ClaimCenter powers the claims desk at Acme."  # no adoption verb joins them
+    models = Models(sure=True)
+    found, _ = await read_page(Judge(models), product, "Acme", [unclear], unclear, "u")
+    assert found[0].agreement == "single" and models.calls == 1  # sure: one reading
+    models = Models(sure=False)
+    found, _ = await read_page(Judge(models), product, "Acme", [unclear], unclear, "u")
+    assert found[0].agreement == "agree" and found[0].second_by == "model:second:free" and models.calls == 2
+    found, _ = await read_page(Judge(Models(sure=False, second_says_use=False)), product, "Acme", [unclear],
+                               unclear, "u")
     assert found[0].agreement == "disagree"
 
-    pages = {"https://vendor.example/acme": story("Acme")}
-    for second, verdict in ((True, "Confirmed"), (False, "Mentioned")):
-        p = provider(lambda q: [], pages)
-        p.judge = Judge(Models(second))
-        rows, _ok = await p._read_one("https://vendor.example/acme", product_for("Guidewire"))
-        assert rows[0]["verdict"] == verdict
+    # A rule sentence on the maker's page is first-hand (Confirmed); on someone else's page it is Likely.
+    for url, verdict in (("https://guidewire.com/acme", "Confirmed"), ("https://blog.example/acme", "Likely")):
+        p = provider(lambda q: [], {url: story("Acme")})
+        rows, _ok = await p._read_one(url, product)
+        assert rows[0]["verdict"] == verdict and rows[0]["judged_by"].startswith("rules")
 
 
-async def test_a_company_the_evidence_puts_elsewhere_gets_no_proof_search_of_its_own():
+async def test_a_page_about_a_company_known_to_be_elsewhere_is_not_given_to_the_model():
     from app.discovery.entities import Resolution
 
     class Registry:
         async def resolve(self, company, website=""):
             return Resolution(country="AU", by="registry: wikidata", detail=f"{company} (wikidata Q1)")
 
-    general = [("https://news.example/acme", "Acme selects Guidewire")]
-    p = provider(lambda q: [("https://vendor.example/acme-2", "Acme on Guidewire")] if q.startswith('"Acme"')
-                 else general, {"https://news.example/acme": story("Acme")})
+    class Counting(Reader):
+        calls = 0
+
+        async def chat(self, messages, **kw):
+            Counting.calls += 1
+            return await super().chat(messages, **kw)
+
+    unclear = ("<html><head><title>Acme on Guidewire</title></head><body><p>Guidewire ClaimCenter powers the "
+               "claims desk at Acme.</p></body></html>")
+    pages = {"https://news.example/acme": story("Acme"), "https://vendor.example/acme-on-guidewire": unclear}
+    p = provider(lambda q: [], pages)
+    p.judge = Judge(Counting())
     p.resolver = Registry()
+    p.meta = {"https://news.example/acme": ("Acme selects Guidewire", ""),
+              "https://vendor.example/acme-on-guidewire": ("Acme on Guidewire", "")}
+    p.countries = ["US"]
     users = {}
-    await p._read_loop(p.client, product_for("Guidewire"), spec().discovery, [u for u, _ in general], users)
-    assert "acme" in users and p.asked == set()  # placed in AU: a US question does not chase it
+    await p._read_loop(p.client, product_for("Guidewire"), spec().discovery,
+                       ["https://news.example/acme", "https://vendor.example/acme-on-guidewire"], users)
+    # The first page's own sentence named Acme (no model); the registry places it in AU, so the second page, about
+    # Acme, is not read by the model.
+    assert "acme" in users and Counting.calls == 0
     assert any(f["kind"] == "country" and f["value"] == "AU" for f in p.facts)
-
-
-async def test_a_company_s_other_pages_are_not_read_once_it_has_proof():
-    general = [("https://news.example/acme", "Acme selects Guidewire")]
-    own = [(f"https://vendor.example/acme-{i}", "Acme selects Guidewire") for i in range(3)]
-    pages = {u: story("Acme") for u, _ in general + own}
-    p = provider(lambda q: own if q.startswith('"Acme"') else general, pages)
-    users = {}
-    await p._read_loop(p.client, product_for("Guidewire"), spec(countries=[]).discovery,
-                       [u for u, _ in general], users)
-    assert p.read == 1  # the news page; Acme then had Likely proof, so its own pages were not needed
-    assert sum("already has proof" in e["reason"] for e in p.evidence) == 3
+    why = {e["url"]: e["reason"] for e in p.evidence if not e["kept"]}
+    assert why["https://vendor.example/acme-on-guidewire"].startswith("not read: Acme is in AU")
+    # A company whose country is unknown is still read.
+    p = provider(lambda q: [], {"https://vendor.example/acme-on-guidewire": unclear})
+    p.judge, p.countries = Judge(Counting()), ["US"]
+    await p._read_one("https://vendor.example/acme-on-guidewire", product_for("Guidewire"))
+    assert Counting.calls == 1

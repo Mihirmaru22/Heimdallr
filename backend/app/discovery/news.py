@@ -70,6 +70,7 @@ def seen_date(value: str) -> str:
 class NewsProvider(CaseStudiesProvider):
     name = "news"
     what = "news articles"
+    publisher = "news"
 
     def __init__(self, *args, gdelt_url: str = GDELT_URL, years: int | None = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)

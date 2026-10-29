@@ -167,3 +167,91 @@ async def test_an_empty_answer_moves_on_and_every_failure_is_reported():
     assert "small/model-8b:free: empty reply" in str(exc.value)
     # A reasoning model gets room to think before it answers, and its thinking is not sent back.
     assert sent[0]["max_tokens"] >= 1024 and sent[0]["reasoning"] == {"effort": "low", "exclude": True}
+
+
+async def test_calls_are_paced_on_one_schedule_every_process_shares():
+    from app.llm.openrouter import PACE_PER_MINUTE
+
+    waits = []
+
+    async def sleep(seconds):
+        waits.append(seconds)
+
+    shared = State(FakeRedis())  # two gateways (two workers) on one Redis
+    first, _ = gateway(lambda r: answer("good/model-70b:free"), state=shared)
+    second, _ = gateway(lambda r: answer("good/model-70b:free"), state=shared)
+    first.sleep = second.sleep = sleep
+    for router in (first, second, first):
+        await router.chat([{"role": "user", "content": "hi"}])
+    interval = 60.0 / PACE_PER_MINUTE
+    assert PACE_PER_MINUTE < 20  # under OpenRouter's limit
+    # The first call starts at once; each next one waits for its own slot, whichever process makes it.
+    assert len(waits) == 2 and all(0 < w <= 2 * interval + 0.5 for w in waits)
+
+
+async def test_a_429_is_waited_out_as_it_asks_before_the_next_model_is_tried():
+    from app.llm.openrouter import retry_after
+
+    waits, order = [], []
+
+    async def sleep(seconds):
+        waits.append(seconds)
+        order.append(("wait", round(seconds)))
+
+    def handler(request):
+        model = httpx.Response(200, content=request.content).json()["model"]
+        order.append(("call", model))
+        if model == "good/model-70b:free":
+            return httpx.Response(429, headers={"Retry-After": "7"},
+                                  json={"error": {"code": 429, "message": "upstream rate limited"}})
+        return answer(model)
+
+    router, _ = gateway(handler)
+    router.sleep = sleep
+    reply = await router.chat([{"role": "user", "content": "hi"}])
+    assert reply.model == "small/model-8b:free"
+    calls = [i for i, (kind, _v) in enumerate(order) if kind == "call"]
+    assert ("wait", 7) in order[calls[0]:calls[1]]  # the 7 s were waited between the two calls
+    # Without Retry-After, OpenRouter's reset time; without either, a fixed pause.
+    assert retry_after(httpx.Response(429, headers={"X-RateLimit-Reset": "1700000012000"}), now=1700000000) == 12
+    assert retry_after(httpx.Response(429), now=0) > 0
+
+
+async def test_an_empty_reply_or_a_refusal_moves_to_the_next_model_and_not_back_to_it():
+    seen = []
+
+    def handler(request):
+        model = httpx.Response(200, content=request.content).json()["model"]
+        seen.append(model)
+        if model == "good/model-70b:free":
+            return httpx.Response(403, json={"error": {"code": 403, "message": "only on agentic harnesses"}})
+        return answer(model)
+
+    router, _ = gateway(handler)
+    for _ in range(2):
+        assert (await router.chat([{"role": "user", "content": "hi"}])).model == "small/model-8b:free"
+    assert seen == ["good/model-70b:free", "small/model-8b:free", "small/model-8b:free"]  # refused once, then skipped
+    assert router.state.cooling("good/model-70b:free")
+
+
+async def test_every_attempt_is_counted_for_its_job_and_step():
+    from app.llm.openrouter import JOB, STEP
+
+    def handler(request):
+        model = httpx.Response(200, content=request.content).json()["model"]
+        if model == "good/model-70b:free":
+            return httpx.Response(200, json={"model": model, "usage": {"cost": 0},
+                                             "choices": [{"message": {"content": ""}}]})
+        return answer(model)
+
+    router, _ = gateway(handler)
+    token, step = JOB.set("job-1"), STEP.set("proof_read")
+    try:
+        await router.chat([{"role": "user", "content": "hi"}])
+        await router.chat([{"role": "user", "content": "hi"}], step="plan")
+    finally:
+        JOB.reset(token), STEP.reset(step)
+    calls = router.state.calls("job-1")
+    assert calls["proof_read"] == {"answered": 1, "failed": 1}  # an empty reply, then the next model answered
+    assert calls["plan"] == {"answered": 1, "failed": 0}  # the empty model is cooling: not asked again
+    assert router.state.calls("job-2") == {}

@@ -1,7 +1,8 @@
 """What a quote says about a company and a product: does the company use it, or does it sell, resell,
 compete with or connect to it? Clear cases are settled by rules; the rest by one free model call, which can
-only pick a relationship and one of the quotes we give it, never write text of its own. Without a model the
-proof is kept as "unreviewed" and counts as a weak mention, never as confirmed use.
+only pick a relationship and one of the quotes we give it, never write text of its own. A second model reads it
+only when the first says it is unsure. Without a model the proof is kept as "unreviewed" and counts as a weak
+mention, never as confirmed use.
 """
 
 from __future__ import annotations
@@ -46,7 +47,8 @@ SYSTEM = f"""You read sentences from one company's own document (a filing, its w
 company's relationship to a software product. Reply with JSON only:
 {{"relationship": one of {list(RELATIONSHIPS)},
  "quote": the number of the sentence that best shows it,
- "reason": at most 15 words}}
+ "reason": at most 15 words,
+ "sure": false when the sentences leave the relationship unclear, else true}}
 "uses": the company runs the product in its own business today. "rolling_out": it is implementing or upgrading
 to it. "evaluating": it plans or considers it. "moved_away": it replaced or stopped using it. "vendor": it makes
 the product. "partner_or_reseller": it sells, implements, supports or consults on it for others.
@@ -62,6 +64,7 @@ class Answer(BaseModel):
                           "competitor", "integrates_with", "other_mention"]
     quote: int = Field(default=1, ge=1, le=10)
     reason: str = Field(default="", max_length=300)
+    sure: bool = True
 
 
 @dataclass
@@ -106,9 +109,9 @@ TRANSIENT = ("no free model",)
 RETRY_WAIT = 30.0  # seconds
 RETRIES = 2
 MAX_BUSY_IN_A_ROW = 5  # pieces left unreviewed in a row before the judge gives up for the run
-# A use verdict without a second agreeing reading (the free models were busy, or the readings split two to one)
-# still counts, but at most as Likely, never Confirmed. Dropping it outright made the same companies come and go
-# between identical runs, depending only on which free model happened to answer.
+# A use the first model was unsure about, with no second reading to settle it, counts, but at most as Likely,
+# never Confirmed. Dropping it outright made the same companies come and go between identical runs, depending
+# only on which free model happened to answer.
 
 
 class Judge:
@@ -118,12 +121,13 @@ class Judge:
         self.unavailable: str | None = None
         self.busy_in_a_row = 0
 
-    async def _ask(self, messages: list[dict[str, str]], avoid: str | None = None):
-        """One reply, waiting out a moment when every free model is busy. Raises LLMUnavailable."""
+    async def _ask(self, messages: list[dict[str, str]], avoid: str | None = None, step: str | None = None):
+        """One reply, waiting out a moment when every free model is busy. Raises LLMUnavailable. `step` tags the
+        call in the logs and the job's counts (else the caller's)."""
         for attempt in range(RETRIES + 1):
             try:
                 self.router = self.router or OpenRouter()
-                kw = {"avoid": avoid} if avoid else {}
+                kw = {k: v for k, v in (("avoid", avoid), ("step", step)) if v}
                 reply = await self.router.chat(messages, json_mode=True, max_tokens=300, **kw)
                 self.busy_in_a_row = 0
                 return reply
@@ -156,13 +160,8 @@ class Judge:
                     {"role": "user", "content": f"Company: {company}\nProduct: {product.name}\nDocument: {source}\n\n"
                                                 f"Sentences:\n{numbered}"}]
         try:
-            reply = await self._ask(messages)
-            try:
-                answer = Answer.model_validate(reply.json())
-            except (ValueError, ValidationError):
-                # One free model answering in a broken shape says nothing about the proof: ask another once.
-                reply = await self._ask(messages, avoid=reply.model)
-                answer = Answer.model_validate(reply.json())
+            reply = await self._ask(messages, step="proof_read")
+            answer = Answer.model_validate(reply.json())  # asked once: a broken answer is not asked again
         except LLMUnavailable as exc:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {exc}")
         except (ValueError, ValidationError):
@@ -170,27 +169,32 @@ class Judge:
         except Exception as exc:  # noqa: BLE001 - a failed check keeps the proof as unreviewed
             return Judgement("unreviewed", quotes[0], f"unreviewed: {type(exc).__name__}")
         quote = quotes[min(answer.quote, len(quotes)) - 1]
-        if answer.relationship in USE:
-            # The same quote has been read as "uses" in one run and as a customer's system in another, so a use
-            # is read again, by another free model where one is available. Agreement confirms it. Disagreement
-            # is settled by a third reading; no further reading leaves the first, weighted down.
-            second = await self._second_reading(messages, reply.model)
-            if second in USE:
-                return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
-            if second is None:
-                return Judgement(answer.relationship, quote, f"model:{reply.model}",
-                                 f"{answer.reason}; one reading only (a second could not be made)", one_reading=True)
-            third = await self._second_reading(messages, reply.model)
-            if third in USE:
-                return Judgement(answer.relationship, quote, f"model:{reply.model}",
-                                 f"{answer.reason}; readings split two to one ({second} once)", one_reading=True)
-            why = f"a second reading says {second}" + (f", a third {third}" if third else "")
-            return Judgement("unreviewed", quote, f"model:{reply.model}", f"{answer.reason}; {why}")
-        return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
+        if answer.sure:
+            # The judge reads the company's own document (its filing, its website, its job ad): first-hand, so one
+            # sure reading keeps the proof's strength.
+            return Judgement(answer.relationship, quote, f"model:{reply.model}", answer.reason)
+        # The model said it is unsure: another free model reads the same sentences. Agreement settles it (a use
+        # keeps its strength); disagreement about a use leaves a mention to look at; no second reading leaves the
+        # first, a use at most Likely.
+        second = await self._second_reading(messages, reply.model)
+        if second is None:
+            return Judgement(answer.relationship, quote, f"model:{reply.model}",
+                             f"{answer.reason}; unsure, and no second reading could be made",
+                             one_reading=answer.relationship in USE)
+        if second == answer.relationship or (second in USE and answer.relationship in USE):
+            return Judgement(answer.relationship, quote, f"model:{reply.model}",
+                             f"{answer.reason}; unsure, a second reading agrees")
+        if second in USE or answer.relationship in USE:
+            return Judgement("unreviewed", quote, f"model:{reply.model}",
+                             f"{answer.reason}; unsure, a second reading says {second}")
+        return Judgement(answer.relationship, quote, f"model:{reply.model}",
+                         f"{answer.reason}; unsure, a second reading says {second}")
 
     async def _second_reading(self, messages: list[dict[str, str]], first_model: str) -> str | None:
         try:
-            reply = await self._ask(messages, avoid=first_model)
+            reply = await self._ask(messages, avoid=first_model, step="second_read")
+            if reply.model == first_model:
+                return None  # the same model again is not a second reading
             return Answer.model_validate(reply.json()).relationship
         except Exception:  # noqa: BLE001 - no further reading: the caller weighs the use down
             return None

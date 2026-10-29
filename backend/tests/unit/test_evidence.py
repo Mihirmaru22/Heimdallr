@@ -76,40 +76,49 @@ async def test_the_model_only_picks_a_relationship_and_one_of_our_quotes():
     assert j.quote == quotes[1]  # out of range: the last one given
 
 
-async def test_use_counts_only_when_a_second_reading_by_another_model_agrees():
-    quotes = ["SAP S/4HANA is a risk.", "A manufacturer switched to our product during its S/4HANA migration."]
-    router = Router({"relationship": "rolling_out", "quote": 2, "reason": "migrating"},
-                    {"relationship": "other_mention", "quote": 2, "reason": "a customer's migration"},
-                    {"relationship": "other_mention", "quote": 2, "reason": "a customer's migration"})
-    j = await Judge(router).judge("Vertex", product_for("SAP"), quotes, "10-K")
-    assert j.relationship == "unreviewed" and "second reading says other_mention, a third other_mention" in j.reason
-    assert router.calls == 3
+class Models(Router):
+    """Each call answered by a different free model, so a second reading is a second opinion."""
+
+    async def chat(self, messages, **kw):
+        reply = await super().chat(messages, **kw)
+        return Reply(reply.text, f"model-{self.calls}:free")
 
 
-async def test_split_readings_are_settled_by_a_third_and_count_for_less():
-    router = Router({"relationship": "uses", "quote": 1, "reason": "in use"},
-                    {"relationship": "other_mention", "quote": 1, "reason": "unclear"},
+async def test_a_sure_reading_is_taken_as_it_is_with_no_second_reading():
+    router = Models({"relationship": "uses", "quote": 1, "reason": "in use", "sure": True})
+    j = await Judge(router).judge("Coty", product_for("SAP S/4HANA"), ["S/4HANA went live at Coty plants."], "10-K")
+    # The company's own filing, read once by a sure model: first-hand, so it keeps its strength.
+    assert j.relationship == "uses" and not j.one_reading and router.calls == 1
+
+
+async def test_an_unsure_reading_gets_a_second_and_disagreement_about_a_use_leaves_a_mention():
+    quote = ["A manufacturer switched to our product during its S/4HANA migration."]
+    router = Models({"relationship": "rolling_out", "quote": 1, "reason": "migrating", "sure": False},
+                    {"relationship": "other_mention", "quote": 1, "reason": "a customer's migration"})
+    j = await Judge(router).judge("Vertex", product_for("SAP"), quote, "10-K")
+    assert j.relationship == "unreviewed" and "second reading says other_mention" in j.reason and router.calls == 2
+    router = Models({"relationship": "uses", "quote": 1, "reason": "in use", "sure": False},
                     {"relationship": "uses", "quote": 1, "reason": "in use"})
     j = await Judge(router).judge("Coty", product_for("SAP S/4HANA"), ["S/4HANA went live at Coty plants."], "10-K")
-    assert j.relationship == "uses" and j.one_reading and "split two to one" in j.reason
-    assert score(j.relationship, 0.85, "2026-02-01", TODAY, one_reading=True) == ("Likely", 0.69)
-    # An older filing is weighed by its age only: one reading caps it, never pushes it out.
-    assert score(j.relationship, 0.85, "2023-02-01", TODAY, one_reading=True) == \
-        score(j.relationship, 0.85, "2023-02-01", TODAY) == ("Likely", 0.42)
+    assert j.relationship == "uses" and not j.one_reading and "agrees" in j.reason
 
 
-async def test_a_use_with_no_second_reading_possible_counts_for_less_instead_of_vanishing():
-    class OneAnswer(Router):
+async def test_an_unsure_use_with_no_second_reading_possible_counts_for_less_instead_of_vanishing():
+    class OneAnswer(Models):
         async def chat(self, messages, **kw):
             if self.calls:
                 self.calls += 1
                 raise LLMUnavailable("no free model answered")
             return await super().chat(messages, **kw)
 
-    router = OneAnswer({"relationship": "uses", "quote": 1, "reason": "in use"})
+    router = OneAnswer({"relationship": "uses", "quote": 1, "reason": "in use", "sure": False})
     j = await Judge(router, wait=0).judge("Davey", product_for("SAP S/4HANA"), ["S/4HANA runs Davey's finance."],
                                           "10-K")
-    assert j.relationship == "uses" and j.one_reading and "one reading only" in j.reason
+    assert j.relationship == "uses" and j.one_reading and "no second reading could be made" in j.reason
+    assert score(j.relationship, 0.85, "2026-02-01", TODAY, one_reading=True) == ("Likely", 0.69)
+    # An older filing is weighed by its age only: one reading caps it, never pushes it out.
+    assert score(j.relationship, 0.85, "2023-02-01", TODAY, one_reading=True) == \
+        score(j.relationship, 0.85, "2023-02-01", TODAY) == ("Likely", 0.42)
 
 
 async def test_without_a_model_proof_stays_unreviewed_and_the_model_is_not_asked_again():
@@ -212,7 +221,7 @@ def test_a_site_is_not_done_on_values_the_record_would_reject():
     assert not runner._usable("phone", "12") and not runner._usable("contact_email", "not an email")
 
 
-async def test_an_answer_in_a_broken_shape_is_asked_of_another_model_once():
+async def test_an_answer_in_a_broken_shape_is_not_asked_again():
     router = Router("not json", {"relationship": "evaluating", "quote": 1, "reason": "plans it"})
     j = await Judge(router).judge("Marzetti", product_for("SAP S/4HANA"), ["S/4HANA is planned for 2027."], "10-K")
-    assert j.relationship == "evaluating" and router.calls == 2
+    assert j.relationship == "unreviewed" and "could not be read" in j.judged_by and router.calls == 1

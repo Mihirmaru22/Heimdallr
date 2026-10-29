@@ -1,11 +1,13 @@
 """Proof on someone else's page: a vendor's customer story, a partner's case study, a news article.
 
-Such a page names the product and, somewhere, the organisation that uses it. Which organisation is a reading
-task, so one free model call reads the page's title and its sentences naming the product, and answers who
-published the page and which organisations it says use the product. The model can only point: every
-customer name it gives must appear word for word on the page, and the quote it picks must name the product
-and the customer (or the page's title must name the customer). Without a model nothing is read: a page never
-yields a customer by guesswork.
+Such a page names the product and, somewhere, the organisation that uses it. A sentence that says so outright
+("DARING Foods has chosen Oracle NetSuite") is taken by rule, with no model (app.evidence.adoption). Otherwise
+which organisation is a reading task, so one free model call reads the page's title and its sentences naming
+the product, and answers who published the page and which organisations it says use the product. The model can
+only point: every customer name it gives must appear word for word on the page, and the quote it picks must name
+the product and the customer (or the page's title must name the customer). A second model reads the page only
+when the first says it is unsure or contradicts itself. Without a rule sentence or a model nothing is read: a
+page never yields a customer by guesswork.
 """
 
 from __future__ import annotations
@@ -16,18 +18,24 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.evidence.judge import USE, Judge, rule_relationship
+from app.crawl.urlnorm import registered_domain
+from app.evidence.adoption import rule_uses
+from app.evidence.judge import USE, Judge, makes_product, rule_relationship
 from app.evidence.products import Product
 from app.llm.openrouter import LLMUnavailable
 
 PUBLISHERS = ("vendor", "partner", "customer", "news", "other")
 # How much one page counts, by who published it: the maker naming its customer is first-hand.
 STRENGTH = {"vendor": 0.9, "customer": 0.8, "partner": 0.7, "news": 0.5, "other": 0.3}
+# A rule sentence on any other page ("X has chosen Y" in a news item, on a partner's blog) is Likely: the sentence
+# itself says it, but nobody first-hand published it.
+RULE_STRENGTH = 0.5
 MAX_SENTENCES = 10
 MAX_CUSTOMERS = 5
 
 SYSTEM = f"""You read one web page that names a software product. Reply with JSON only:
 {{"publisher": one of {list(PUBLISHERS)},
+ "sure": false when the page leaves unclear who uses the product, else true,
  "customers": [{{"name": the organisation's name exactly as written on the page,
                 "quote": the number of the sentence that shows it,
                 "relationship": one of ["uses", "rolling_out", "evaluating", "moved_away"],
@@ -52,7 +60,17 @@ class Customer(BaseModel):
 class Reading(BaseModel):
     model_config = ConfigDict(extra="ignore")
     publisher: Literal["vendor", "partner", "customer", "news", "other"] = "other"
+    sure: bool = True
     customers: list[Customer] = Field(default_factory=list, max_length=20)
+
+    def contradicts_itself(self) -> bool:
+        """The same organisation given two different relationships."""
+        seen: dict[str, str] = {}
+        for c in self.customers:
+            k = c.name.casefold().strip()
+            if seen.setdefault(k, c.relationship) != c.relationship:
+                return True
+        return False
 
 
 @dataclass
@@ -64,8 +82,8 @@ class Found:
     judged_by: str
     country: str = ""  # ISO code a sentence of the page gives for where the customer is based
     country_quote: str = ""
-    # A second reading by another free model: "agree" (it also says this company uses it), "disagree" (it does
-    # not), or "single" (no second reading could be made). A reading is one fact with its model, not a verdict.
+    # "rules" (a sentence says so; no model), or a model's reading: "single" (one reading), "agree" / "disagree"
+    # (a second free model, asked because the first was unsure, also says / does not say this company uses it).
     agreement: str = "single"
     second_by: str = ""
 
@@ -109,29 +127,64 @@ def _contains(text: str, name: str) -> bool:
     return bool(re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text, re.I))
 
 
+def publisher_by_site(url: str, organisation: str, product: Product, default: str = "other") -> str:
+    """Who published a page, from its address alone: the product's maker ("netsuite.com", "ptc.com"), the
+    organisation itself (its own domain), or `default` (what the source says its pages are: news, or other)."""
+    from app.discovery.websites import domain_fits
+
+    site = registered_domain(url) or ""
+    if site and makes_product(site.split(".")[0], product):
+        return "vendor"
+    if site and organisation and domain_fits(site, organisation):
+        return "customer"
+    return default
+
+
+def rule_reading(product: Product, sentences: list[str], text: str, url: str,
+                 default_publisher: str = "other") -> list[Found]:
+    """Customers the page's own sentences say use the product (app.evidence.adoption), no model involved."""
+    out: list[Found] = []
+    for use in rule_uses(product, sentences):
+        if not _contains(text, use.organisation):
+            continue
+        rule = rule_relationship(use.organisation, product, "")
+        if rule and rule[0] == "vendor":
+            continue  # the product's maker is never its own customer
+        named = countries_stated(use.quote)
+        country = next(iter(named)) if len(named) == 1 and _contains(use.quote, use.organisation) else ""
+        out.append(Found(use.organisation, "uses", use.quote,
+                         publisher_by_site(url, use.organisation, product, default_publisher),
+                         f"rules: {use.pattern} sentence", country, use.quote if country else "", "rules"))
+        if len(out) >= MAX_CUSTOMERS:
+            break
+    return out
+
+
 async def read_page(judge: Judge, product: Product, title: str, sentences: list[str], text: str,
-                    url: str) -> tuple[list[Found], str]:
-    """(customers the page shows using the product, a note when nothing could be read)."""
+                    url: str, skip_model: str = "", step: str = "proof_read",
+                    default_publisher: str = "other") -> tuple[list[Found], str]:
+    """(customers the page shows using the product, a note when nothing could be read). A sentence that says so
+    outright settles the page with no model call; otherwise one model reads it, unless `skip_model` gives a
+    reason not to (the page is about a company the question cannot deliver)."""
+    sentences = sentences[:MAX_SENTENCES]
+    ruled = rule_reading(product, sentences, text, url, default_publisher)
+    if ruled:
+        return ruled, ""
+    if skip_model:
+        return [], f"not read: {skip_model}"
     if judge.unavailable:
         return [], f"not read: {judge.unavailable}"
-    sentences = sentences[:MAX_SENTENCES]
     numbered = "\n".join(f"{i}. {s}" for i, s in enumerate(sentences, start=1))
     messages = [{"role": "system", "content": SYSTEM},
                 {"role": "user", "content": f"Product: {product.name}\nPage: {url}\nTitle: {title}\n\n"
                                             f"Sentences:\n{numbered}"}]
     try:
-        reply = await judge._ask(messages)
-        try:
-            reading = Reading.model_validate(reply.json())
-        except (ValueError, ValidationError):
-            # One free model answering in a broken shape says nothing about the page: ask another once, as the
-            # filing judge does. Without this, 12 of 70 pages in one measurement were never read.
-            reply = await judge._ask(messages, avoid=reply.model)
-            reading = Reading.model_validate(reply.json())
+        reply = await judge._ask(messages, step=step)
+        reading = Reading.model_validate(reply.json())  # asked once: a broken answer is not asked again
     except LLMUnavailable as exc:
         return [], f"not read: {exc}"
     except (ValueError, ValidationError):
-        return [], "not read: the model's answer could not be read (two models tried)"
+        return [], "not read: the model's answer could not be read"
     out: list[Found] = []
     for c in reading.customers[:MAX_CUSTOMERS * 2]:
         name = c.name.strip().strip(".,;:")
@@ -155,7 +208,7 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
                          country_quote))
         if len(out) >= MAX_CUSTOMERS:
             break
-    if any(f.relationship in USE for f in out):
+    if any(f.relationship in USE for f in out) and (not reading.sure or reading.contradicts_itself()):
         await _second_reading(judge, messages, reply.model, out)
     return out, "" if out else "the page names no organisation that uses it"
 
@@ -165,11 +218,11 @@ def _same(a: str, b: str) -> bool:
 
 
 async def _second_reading(judge: Judge, messages: list[dict[str, str]], first: str, found: list[Found]) -> None:
-    """Another free model reads the same sentences. Agreement keeps a use; disagreement leaves it as a mention to
-    look at; no second reading leaves it as one reading (at most Likely). The same page was read as a use by one
-    free model and as nobody by another (Brookhaven, 2026-10-26): one reading alone does not decide."""
+    """Another free model reads the same sentences, when the first said it was unsure or contradicted itself.
+    Agreement keeps a use; disagreement leaves it as a mention to look at; no second reading leaves it as one
+    reading (at most Likely)."""
     try:
-        reply = await judge._ask(messages, avoid=first)
+        reply = await judge._ask(messages, avoid=first, step="second_read")
         second = Reading.model_validate(reply.json())
     except (LLMUnavailable, ValueError, ValidationError):
         return

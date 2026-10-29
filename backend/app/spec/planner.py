@@ -306,7 +306,8 @@ async def product_aliases(router: OpenRouter, product: str) -> list[str]:
     """Other names of the product, from one model call; [] when no model answers (the typed name still works)."""
     try:
         reply = await router.chat([{"role": "system", "content": ALIASES},
-                                   {"role": "user", "content": f"Product: {product}"}], json_mode=True, max_tokens=300)
+                                   {"role": "user", "content": f"Product: {product}"}], json_mode=True, max_tokens=300,
+                                  step="plan")
         return Plan(technology=product, technology_aliases=Aliases.model_validate(reply.json()).aliases
                     ).technology_aliases
     except Exception:  # noqa: BLE001 - aliases are a help, never a reason to fail the form
@@ -373,7 +374,7 @@ async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | N
         messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question[:4000]}]
         for attempt in range(len(retry_waits) + 1):
             try:
-                reply = await router.chat(messages, json_mode=True, max_tokens=800)
+                reply = await router.chat(messages, json_mode=True, max_tokens=800, step="plan")
                 break
             except LLMUnavailable as exc:
                 if attempt == len(retry_waits) or not str(exc).startswith(BUSY):

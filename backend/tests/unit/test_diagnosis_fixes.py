@@ -104,25 +104,26 @@ def test_filings_without_line_breaks_are_quoted_as_before():
     assert find_mentions(text, product_for("SAP S/4HANA")) == ["We completed our migration to SAP S/4HANA in 2024."]
 
 
-async def test_an_unreadable_proof_answer_is_asked_of_another_model():
-    class BrokenThenFine:
+async def test_an_unreadable_proof_answer_is_not_asked_again_and_a_plain_sentence_needs_no_model():
+    class Broken:
         def __init__(self):
-            self.avoided = []
+            self.calls = 0
 
         async def chat(self, messages, avoid=None, **_kw):
-            self.avoided.append(avoid)
-            if avoid is None:
-                return Reply("Sure, here is what I found:", "broken:free")
-            return Reply(json.dumps({"publisher": "news", "customers": [
-                {"name": "Komatsu America", "quote": 1, "relationship": "uses"}]}), "good:free")
+            self.calls += 1
+            return Reply("Sure, here is what I found:", "broken:free")
 
         async def aclose(self):
             pass
 
-    router = BrokenThenFine()
-    sentence = "PTC today announced that Komatsu America Corp. has chosen Windchill."
-    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [sentence], sentence, "u")
-    assert [f.customer for f in found] == ["Komatsu America"] and router.avoided[:2] == [None, "broken:free"]
+    router = Broken()
+    hedged = "PTC said Komatsu America Corp. may move to Windchill next year."
+    found, why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [hedged], hedged, "u")
+    assert found == [] and "could not be read" in why and router.calls == 1  # asked once
+    plain = "PTC today announced that Komatsu America Corp. has chosen Windchill."
+    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [plain], plain, "u")
+    assert [f.customer for f in found] == ["Komatsu America Corp."] and found[0].agreement == "rules"
+    assert router.calls == 1  # the sentence says it: no model call
 
 
 def test_the_maker_is_recognised_from_the_product_s_name():

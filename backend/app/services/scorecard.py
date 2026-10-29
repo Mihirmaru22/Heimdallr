@@ -133,6 +133,11 @@ def score_job(db, job_id: uuid.UUID, key: dict[str, Any] | None = None) -> dict[
         hit = [site for site, s in per_site.items() if s["pages"] >= budget]
         out["sites that used the whole page budget"] = _pct(len(hit), len(per_site))
 
+    # --- model calls -----------------------------------------------------------------------------------
+    from app.services.common import model_call_lines
+
+    out.update(dict(model_call_lines(job)))
+
     # --- answer key ------------------------------------------------------------------------------------
     if key:
         out.update(_against_key(included, key))

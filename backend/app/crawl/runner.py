@@ -294,7 +294,6 @@ class CrawlRunner:
                 self.flush_activity()
                 notes += getattr(provider, "notes", [])
             per_provider.append(await self._resolve_entities(per_provider, notes))
-            await self._prove_listed(per_provider, notes)
         finally:
             flusher.cancel()
             JOB_CACHE.reset(cache_token)
@@ -393,45 +392,6 @@ class CrawlRunner:
             notes.append("registries: lookups failed (" + "; ".join(resolver.problems) + ")")
         self.flush_activity()
         return added
-
-    async def _prove_listed(self, per_provider: list[list[Any]], notes: list[str]) -> None:
-        """Companies a list or registry source found get their own proof search, before their sites are crawled,
-        so a vendor's announcement about a listed company is read. Companies a registry places outside the
-        requested countries are not searched (they would be "elsewhere" whatever the proof)."""
-        from app.discovery.case_studies import CaseStudiesProvider
-
-        d = self.spec.discovery
-        if not d.technology or "case_studies" not in d.providers:
-            return
-        with session_scope(self.org_id) as db:
-            proven = {n.casefold() for n in db.execute(select(Evidence.company).where(
-                Evidence.job_id == self.job_id, Evidence.kept.is_(True))).scalars()}
-        listed: dict[str, Any] = {}
-        for group in per_provider:
-            for r in group:
-                name = str(r.hint.get("company_name") or "")
-                if (not name or is_proof_source(r.method) or r.method == "seed" or name.casefold() in proven
-                        or (d.countries and r.hint.get("country") and r.hint["country"] not in d.countries)):
-                    continue
-                listed.setdefault(name.casefold(), r)
-        if not listed:
-            return
-        self.note("search", f"Searching each of {len(listed)} listed companies for its own proof of using "
-                            f"{d.technology}", source="case_studies")
-        prover = CaseStudiesProvider()
-        prover.fetch_page, prover.on_note, prover.deadline = self.fetch_page, self.note, self.read_deadline
-        prover.resolver = self.entity_resolver
-        found = await prover.prove(self.spec, [(str(r.hint["company_name"]), r.url) for r in listed.values()])
-        for name, row in found.items():
-            r = listed[name.casefold()]
-            r.hint.update({k: v for k, v in {
-                "uses_technology": row["verdict"], "evidence": row["quote"], "evidence_url": row["url"],
-                "evidence_date": row["evidence_date"], "evidence_type": row["source_type"]}.items() if v})
-            r.hint["_strength"] = row["strength"]
-        self.save_evidence("case_studies", prover.evidence)
-        self.save_facts(prover.facts)
-        notes += prover.notes
-        self.flush_activity()
 
     def _cancel_requested(self) -> bool:
         with session_scope(self.org_id) as db:

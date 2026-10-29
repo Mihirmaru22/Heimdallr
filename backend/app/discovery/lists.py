@@ -64,7 +64,7 @@ async def names_on_list(judge: Judge, question: str, doc: PageDoc) -> tuple[list
         reply = await judge._ask([
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": f"Question: {question}\nPage: {doc.url}\nTitle: {doc.title}\n\nLines:\n"
-                                        + "\n".join(lines)}])
+                                        + "\n".join(lines)}], step="list_read")
         reading = Names.model_validate(reply.json())
     except LLMUnavailable as exc:
         return [], f"not read: {exc}"

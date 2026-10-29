@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -115,8 +116,16 @@ def generate_schema(project_id: uuid.UUID, body: GenerateSchemaIn, ctx: OrgConte
         form = SearchForm.model_validate(body.form) if body.form else None
     except ValidationError as exc:
         raise _spec_error(exc) from None
-    # Sync endpoints run in a worker thread with no event loop, so the async planner gets its own.
-    draft, interpreter, notes = asyncio.run(plan_spec(body.request, body.start_urls, form=form))
+    # Sync endpoints run in a worker thread with no event loop, so the async planner gets its own. Its model
+    # calls are counted under a scope of their own, kept with the schema once it has an id.
+    from app.llm.openrouter import JOB
+
+    scope = f"plan:{uuid.uuid4()}"
+    token = JOB.set(scope)
+    try:
+        draft, interpreter, notes = asyncio.run(plan_spec(body.request, body.start_urls, form=form))
+    finally:
+        JOB.reset(token)
     try:
         spec = validate_spec(draft.model_dump(mode="json"), org_limits(ctx.org))
     except (ValidationError, ValueError) as exc:
@@ -130,9 +139,20 @@ def generate_schema(project_id: uuid.UUID, body: GenerateSchemaIn, ctx: OrgConte
         record_usage(db, ctx.org.id, "llm_request", 1, user_id=ctx.user.id,
                      detail={"model": interpreter[6:], "purpose": "plan"})
     db.commit()
+    _keep_plan_calls(scope, s.id)
     out = SchemaOut.model_validate(s)
     out.notes = notes
     return out
+
+
+def _keep_plan_calls(scope: str, schema_id: uuid.UUID) -> None:
+    """The planner's model calls, filed under the schema they produced (a job reports its plan's calls)."""
+    from app.llm.openrouter import State
+
+    try:
+        State().move_calls(scope, f"schema:{schema_id}")
+    except Exception:  # noqa: BLE001 - counts are a report, never a reason to fail planning
+        logging.getLogger("webdata.api").warning("could not keep the plan's model call counts")
 
 
 @router.post("/projects/{project_id}/schemas", response_model=SchemaOut, status_code=201)
