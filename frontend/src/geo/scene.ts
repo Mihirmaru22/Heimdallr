@@ -193,7 +193,8 @@ export class GlobeScene {
     this.horizon = opts.horizon ?? null;
     this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio));
+    // The horizon globe on the public pages is decoration: a lower pixel ratio keeps them light.
+    this.renderer.setPixelRatio(Math.min(this.horizon != null ? 1.25 : 1.5, window.devicePixelRatio));
     // The composer's targets skip colour management on clear, so hand it the linear value.
     this.renderer.setClearColor(new THREE.Color(STAGE.bg).convertSRGBToLinear(), 1);
     this.renderer.domElement.setAttribute("aria-hidden", "true");
