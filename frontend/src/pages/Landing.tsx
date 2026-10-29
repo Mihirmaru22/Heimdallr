@@ -235,7 +235,7 @@ export default function LandingPage() {
       <section className="land-hero">
         <div className="land-globe" aria-hidden><LazyGlobe demo labels={false} horizon={0.5} /></div>
         <div className="land-hero-scrim" aria-hidden />
-        <Reveal className="land-hero-copy">
+        <div className="land-hero-copy">
           <span className="eyebrow-pill"><span className="pulse" aria-hidden /> Research engine on free models and open data</span>
           <h1>Ask the web a question.<br /><em>Keep only what it can prove.</em></h1>
           <p>WebData AI searches open sources, reads the pages, checks every claim and hands you a spreadsheet where each
@@ -244,7 +244,7 @@ export default function LandingPage() {
             <Link to="/login?mode=register" className="btn primary big-btn">Start researching <span className="ico-go"><Arrow /></span></Link>
             <a href="#how" className="btn ghost-btn big-btn">See how it works</a>
           </div>
-        </Reveal>
+        </div>
         <Reveal className="land-hero-ticker" delay={0.25}><Ticker rows={5} /></Reveal>
         <Reveal className="land-hero-row" delay={0.4}>
           <div className="row-card" aria-label="Example result row">

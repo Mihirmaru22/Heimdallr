@@ -921,3 +921,8 @@ button.wide { width: 100%; }
   .dash-stat:nth-child(-n + 2) { border-top: none; }
   .dash-stat:last-child:nth-child(odd) { grid-column: 1 / -1; border-left: none; }
 }
+
+.page-loading { min-height: 60vh; }
+.land-hero-copy { animation: rise .8s cubic-bezier(.2, .75, .15, 1) both; }
+@keyframes rise { from { transform: translateY(18px); } }
+@media (prefers-reduced-motion: reduce) { .land-hero-copy { animation: none; } }

@@ -1,25 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { animate, AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { Activity } from "../api";
 import LazyGlobe from "./LazyGlobe";
 import { KIND, hue } from "./ActivityFeed";
 import { duration } from "./ui";
+import { AnimatedNumber } from "./AnimatedNumber";
+
+export { AnimatedNumber };
 
 // The run screen's stage: the globe full width, with the live state laid over it. Everything here comes
 // from the job's activity lines and progress; nothing is simulated.
-
-export function AnimatedNumber({ value }: { value: number }) {
-  const reduce = useReducedMotion();
-  const [shown, setShown] = useState(value);
-  const from = useRef(value);
-  useEffect(() => {
-    if (reduce) { setShown(value); from.current = value; return; }
-    const ctl = animate(from.current, value, { duration: 0.8, ease: [0.2, 0.75, 0.15, 1], onUpdate: (v) => setShown(Math.round(v)) });
-    from.current = value;
-    return () => ctl.stop();
-  }, [value, reduce]);
-  return <>{shown.toLocaleString()}</>;
-}
 
 // The clock and the "on this step for Ns" counter tick on their own, so the rest of the screen only
 // re-renders when new activity arrives.

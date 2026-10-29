@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, type Job, type Page, type Project, type Usage } from "../api";
 import { ago, Badge, ErrorBox, Spinner } from "../components/ui";
 import LazyGlobe from "../components/LazyGlobe";
-import { AnimatedNumber } from "../components/Mission";
+import { AnimatedNumber } from "../components/AnimatedNumber";
 import { Arrow, Folder, Plus } from "../components/icons";
 
 const LIVE = new Set(["created", "validating", "planning", "queued", "running", "waiting_quota", "validating_results", "exporting"]);
