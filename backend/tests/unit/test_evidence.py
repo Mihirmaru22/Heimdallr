@@ -221,7 +221,10 @@ def test_a_site_is_not_done_on_values_the_record_would_reject():
     assert not runner._usable("phone", "12") and not runner._usable("contact_email", "not an email")
 
 
-async def test_an_answer_in_a_broken_shape_is_not_asked_again():
+async def test_an_answer_in_a_broken_shape_is_asked_of_another_model_once():
     router = Router("not json", {"relationship": "evaluating", "quote": 1, "reason": "plans it"})
     j = await Judge(router).judge("Marzetti", product_for("SAP S/4HANA"), ["S/4HANA is planned for 2027."], "10-K")
-    assert j.relationship == "unreviewed" and "could not be read" in j.judged_by and router.calls == 1
+    assert j.relationship == "evaluating" and router.calls == 2
+    router = Router("not json", "still not json")
+    j = await Judge(router).judge("Marzetti", product_for("SAP S/4HANA"), ["S/4HANA is planned for 2027."], "10-K")
+    assert j.relationship == "unreviewed" and "could not be read" in j.judged_by and router.calls == 2

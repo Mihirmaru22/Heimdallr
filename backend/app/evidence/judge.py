@@ -161,7 +161,12 @@ class Judge:
                                                 f"Sentences:\n{numbered}"}]
         try:
             reply = await self._ask(messages, step="proof_read")
-            answer = Answer.model_validate(reply.json())  # asked once: a broken answer is not asked again
+            try:
+                answer = Answer.model_validate(reply.json())
+            except (ValueError, ValidationError):
+                # One model answering in a broken shape says nothing about the proof: another is asked once.
+                reply = await self._ask(messages, avoid=reply.model, step="reask")
+                answer = Answer.model_validate(reply.json())
         except LLMUnavailable as exc:
             return Judgement("unreviewed", quotes[0], f"unreviewed: {exc}")
         except (ValueError, ValidationError):

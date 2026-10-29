@@ -20,7 +20,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.crawl.urlnorm import registered_domain
-from app.evidence.adoption import fullest_name, organisations_named, rule_uses
+from app.evidence.adoption import fullest_name, organisations_named, rule_uses, title_organisation
 from app.evidence.judge import USE, Judge, makes_product, rule_relationship
 from app.evidence.products import Product
 from app.llm.openrouter import LLMUnavailable
@@ -31,8 +31,13 @@ STRENGTH = {"vendor": 0.9, "customer": 0.8, "partner": 0.7, "news": 0.5, "other"
 # A rule sentence on any other page ("X has chosen Y" in a news item, on a partner's blog) is Likely: the sentence
 # itself says it, but nobody first-hand published it.
 RULE_STRENGTH = 0.5
-MAX_SENTENCES = 10
+MAX_SENTENCES = 10  # sentences a model reads from one page
 MAX_CUSTOMERS = 5
+# A page listing customers ("Case studies": a dozen stories, each one line) is read by rule in full, up to these
+# ceilings; the Eureka case-study list gave 3 of its customers when only its first 10 sentences were read.
+PAGE_SENTENCES = 60
+LIST_CUSTOMERS = 30
+LIST_NAMES = 3  # organisations named on a page that make it a list
 
 SYSTEM = f"""You read one web page that names a software product. Reply with JSON only:
 {{"publisher": one of {list(PUBLISHERS)},
@@ -157,7 +162,7 @@ def not_a_customer(url: str, product: Product) -> Callable[[str], bool]:
 
 
 def rule_reading(product: Product, sentences: list[str], text: str, url: str,
-                 default_publisher: str = "other", title: str = "") -> list[Found]:
+                 default_publisher: str = "other", title: str = "", max_customers: int = MAX_CUSTOMERS) -> list[Found]:
     """Customers the page's own sentences (and title) say use the product (app.evidence.adoption), no model
     involved. Each name is taken in the fullest form the page writes it ("Wharton" -> "Wharton Electronics")."""
     out: list[Found] = []
@@ -178,9 +183,15 @@ def rule_reading(product: Product, sentences: list[str], text: str, url: str,
         country = next(iter(named)) if len(named) == 1 and _contains(use.quote, use.organisation) else ""
         out.append(Found(name, "uses", use.quote, publisher, f"rules: {use.pattern} sentence", country,
                          use.quote if country else "", "rules"))
-        if len(out) >= MAX_CUSTOMERS:
+        if len(out) >= max_customers:
             break
     return out
+
+
+def is_customer_list(product: Product, sentences: list[str], url: str) -> bool:
+    """The page names several organisations next to the product: a list of customers or case studies."""
+    other = not_a_customer(url, product)
+    return len([n for n in organisations_named(product, sentences) if not other(n)]) >= LIST_NAMES
 
 
 def names_no_customer(product: Product, title: str, sentences: list[str], url: str) -> bool:
@@ -192,31 +203,47 @@ def names_no_customer(product: Product, title: str, sentences: list[str], url: s
 
 async def read_page(judge: Judge, product: Product, title: str, sentences: list[str], text: str,
                     url: str, skip_model: str = "", step: str = "proof_read",
-                    default_publisher: str = "other") -> tuple[list[Found], str]:
-    """(customers the page shows using the product, a note when nothing could be read). A sentence that says so
-    outright settles the page with no model call; otherwise one model reads it, unless `skip_model` gives a
-    reason not to (the page is about a company the question cannot deliver)."""
-    sentences = sentences[:MAX_SENTENCES]
-    ruled = rule_reading(product, sentences, text, url, default_publisher, title)
-    if ruled:
+                    default_publisher: str = "other", boilerplate: set[str] = frozenset()) -> tuple[list[Found], str]:
+    """(customers the page shows using the product, a note when nothing could be read).
+
+    A sentence that says so outright settles the page with no model call, but only for what the page is about:
+    sentences the site repeats on other pages (`boilerplate`, its navigation) are not this page's evidence, and a
+    page whose title names an organisation the rules did not find is read by the model too. A page listing
+    customers is read by rule in full. Otherwise one model reads it, unless `skip_model` gives a reason not to
+    (the page is about a company the question cannot deliver); an answer that cannot be read is asked of another
+    model once."""
+    own = [q for q in sentences if " ".join(q.split()).casefold() not in boilerplate][:PAGE_SENTENCES]
+    if not own:
+        return [], "the product is named only in the site's navigation, repeated on its other pages"
+    listing = is_customer_list(product, own, url)
+    ruled = rule_reading(product, own if listing else own[:MAX_SENTENCES], text, url, default_publisher, title,
+                         LIST_CUSTOMERS if listing else MAX_CUSTOMERS)
+    about = title_organisation(title, product, not_a_customer(url, product))
+    if ruled and (listing or not about or any(_same(f.customer, about) for f in ruled)):
         return ruled, ""
-    if names_no_customer(product, title, sentences, url):
+    sentences = own[:MAX_SENTENCES]
+    if not ruled and names_no_customer(product, title, sentences, url):
         return [], "the page names no organisation but the product, its maker and the site's owner"
     if skip_model:
-        return [], f"not read: {skip_model}"
+        return ruled, "" if ruled else f"not read: {skip_model}"
     if judge.unavailable:
-        return [], f"not read: {judge.unavailable}"
+        return ruled, "" if ruled else f"not read: {judge.unavailable}"
     numbered = "\n".join(f"{i}. {s}" for i, s in enumerate(sentences, start=1))
     messages = [{"role": "system", "content": SYSTEM},
                 {"role": "user", "content": f"Product: {product.name}\nPage: {url}\nTitle: {title}\n\n"
                                             f"Sentences:\n{numbered}"}]
     try:
         reply = await judge._ask(messages, step=step)
-        reading = Reading.model_validate(reply.json())  # asked once: a broken answer is not asked again
+        try:
+            reading = Reading.model_validate(reply.json())
+        except (ValueError, ValidationError):
+            # One model answering in a broken shape says nothing about the page: another model is asked once.
+            reply = await judge._ask(messages, avoid=reply.model, step="reask")
+            reading = Reading.model_validate(reply.json())
     except LLMUnavailable as exc:
-        return [], f"not read: {exc}"
+        return ruled, "" if ruled else f"not read: {exc}"
     except (ValueError, ValidationError):
-        return [], "not read: the model's answer could not be read"
+        return ruled, "" if ruled else "not read: the model's answer could not be read (two models tried)"
     out: list[Found] = []
     for c in reading.customers[:MAX_CUSTOMERS * 2]:
         name = c.name.strip().strip(".,;:")
@@ -242,6 +269,7 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
             break
     if any(f.relationship in USE for f in out) and (not reading.sure or reading.contradicts_itself()):
         await _second_reading(judge, messages, reply.model, out)
+    out += [f for f in ruled if not any(_same(f.customer, o.customer) for o in out)]
     return out, "" if out else "the page names no organisation that uses it"
 
 

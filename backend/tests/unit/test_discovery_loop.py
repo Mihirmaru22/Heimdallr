@@ -192,3 +192,48 @@ async def test_a_page_about_a_company_known_to_be_elsewhere_is_not_given_to_the_
     p.judge, p.countries = Judge(Counting()), ["US"]
     await p._read_one("https://vendor.example/acme-on-guidewire", product_for("Guidewire"))
     assert Counting.calls == 1
+
+
+async def test_a_sentence_a_site_repeats_on_its_pages_is_navigation_and_settles_none_of_them():
+    sidebar = "<p>Harrow Vale FC Transforms Financial Operations with Guidewire ClaimCenter.</p>"
+
+    def case(company, body):
+        return (f"<html><head><title>Guidewire Case Study - {company} - Partner Review</title></head><body>"
+                f"<p>{body}</p>{sidebar}</body></html>")
+
+    pages = {"https://partner.example/case-studies/harrow": case("Harrow Vale FC", "Claims went live in March."),
+             "https://partner.example/case-studies/kestrel": case("Kestrel Mutual",
+                                                                  "Kestrel Mutual's claims run on Guidewire.")}
+
+    class Counting(Reader):
+        calls = 0
+
+        async def chat(self, messages, **kw):
+            Counting.calls += 1
+            body = {"publisher": "partner", "customers": [{"name": "Kestrel Mutual", "quote": 1,
+                                                            "relationship": "uses"}]}
+            return Reply(json.dumps(body), "m:free")
+
+    p = provider(lambda q: [], pages)
+    p.judge = Judge(Counting())
+    first, _ = await p._read_one("https://partner.example/case-studies/harrow", product_for("Guidewire"))
+    assert [r["company"] for r in first] == ["Harrow Vale FC"]  # its own page: the sentence is its subject
+    second, _ = await p._read_one("https://partner.example/case-studies/kestrel", product_for("Guidewire"))
+    # On the next page of the site the same sentence is navigation: Kestrel's own page is read for Kestrel.
+    assert [r["company"] for r in second] == ["Kestrel Mutual"] and Counting.calls == 1
+
+
+async def test_a_page_listing_customers_is_read_in_full_without_the_five_customer_cap():
+    from app.evidence.thirdparty import MAX_SENTENCES, read_page
+
+    names = [f"Company{c} Holdings" for c in "ABCDEFGHIJKLMN"]
+    sentences = [f"{n} achieves faster closes with Guidewire ClaimCenter." for n in names]
+    text = " ".join(sentences)
+
+    class NoModel(Reader):
+        async def chat(self, messages, **kw):
+            raise AssertionError("a list read by rule needs no model")
+
+    found, _ = await read_page(Judge(NoModel()), product_for("Guidewire"), "Case studies", sentences, text,
+                               "https://partner.example/case-studies/")
+    assert len(sentences) > MAX_SENTENCES and [f.customer for f in found] == names  # all 14, not 5

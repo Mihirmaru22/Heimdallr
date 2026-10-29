@@ -104,26 +104,31 @@ def test_filings_without_line_breaks_are_quoted_as_before():
     assert find_mentions(text, product_for("SAP S/4HANA")) == ["We completed our migration to SAP S/4HANA in 2024."]
 
 
-async def test_an_unreadable_proof_answer_is_not_asked_again_and_a_plain_sentence_needs_no_model():
-    class Broken:
+async def test_an_unreadable_proof_answer_is_asked_of_another_model_once_and_a_plain_sentence_needs_no_model():
+    class BrokenThenFine:
         def __init__(self):
-            self.calls = 0
+            self.avoided, self.steps = [], []
 
-        async def chat(self, messages, avoid=None, **_kw):
-            self.calls += 1
-            return Reply("Sure, here is what I found:", "broken:free")
+        async def chat(self, messages, avoid=None, step=None, **_kw):
+            self.avoided.append(avoid)
+            self.steps.append(step)
+            if avoid is None:
+                return Reply("Sure, here is what I found:", "broken:free")
+            return Reply(json.dumps({"publisher": "news", "customers": [
+                {"name": "Komatsu America", "quote": 1, "relationship": "uses"}]}), "good:free")
 
         async def aclose(self):
             pass
 
-    router = Broken()
+    router = BrokenThenFine()
     hedged = "PTC said Komatsu America Corp. may move to Windchill next year."
-    found, why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [hedged], hedged, "u")
-    assert found == [] and "could not be read" in why and router.calls == 1  # asked once
+    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [hedged], hedged, "u")
+    assert [f.customer for f in found] == ["Komatsu America"]
+    assert router.avoided == [None, "broken:free"] and router.steps == ["proof_read", "reask"]
     plain = "PTC today announced that Komatsu America Corp. has chosen Windchill."
     found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [plain], plain, "u")
     assert [f.customer for f in found] == ["Komatsu America Corp."] and found[0].agreement == "rules"
-    assert router.calls == 1  # the sentence says it: no model call
+    assert len(router.avoided) == 2  # the sentence says it: no model call
 
 
 def test_the_maker_is_recognised_from_the_product_s_name():
@@ -241,19 +246,14 @@ async def test_a_refusing_site_is_passed_over_and_unread_pages_stay_visible():
     assert not any(e["url"] == "https://www.partner.example/acme/" for e in p.evidence)  # a copy, not read
 
 
-async def test_adoption_searches_keep_the_product_name_and_the_place():
-    class Words:
-        async def chat(self, *_a, **_kw):
-            return Reply(json.dumps({"queries": ['"Windchill" selects PLM United States', "no product here",
-                                                 '"Windchill" site:ptc.com', '"Windchill" Konzern führt ein']}),
-                         "m:free")
-
-        async def aclose(self):
-            pass
-
-    out = await adoption_queries(Judge(Words()), "Windchill", "United States")
-    assert out == ['"Windchill" selects PLM United States', '"Windchill" Konzern führt ein']
-    assert await adoption_queries(Judge(NoModel()), "Windchill", "United States") == []
+async def test_adoption_searches_are_fixed_templates_so_the_same_question_asks_the_same_searches():
+    first = adoption_queries("Windchill", "United States", "US")
+    assert first == adoption_queries("Windchill", "United States", "US")  # every run the same
+    assert first == ['"Windchill" United States implemented', '"Windchill" United States "went live"',
+                     '"Windchill" United States selects', '"Windchill" United States customer']
+    assert all('"Windchill"' in q for q in adoption_queries("Windchill", "Japan", "JP"))
+    assert '"Windchill" 導入事例' in adoption_queries("Windchill", "Japan", "JP")  # the place's own words
+    assert adoption_queries("Windchill", "", "") == []
     q = CaseStudiesProvider.queries(product_for("Teamcenter"), "Germany")
     assert q[0] == '"Teamcenter" "case study" Germany'
 
