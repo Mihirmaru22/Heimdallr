@@ -189,32 +189,88 @@ async def test_calls_are_paced_on_one_schedule_every_process_shares():
     assert len(waits) == 2 and all(0 < w <= 2 * interval + 0.5 for w in waits)
 
 
-async def test_a_429_is_waited_out_as_it_asks_before_the_next_model_is_tried():
+async def test_our_own_limit_is_waited_out_but_a_busy_model_s_provider_is_not():
     from app.llm.openrouter import retry_after
 
-    waits, order = [], []
+    def run(limited):
+        waits, order = [], []
 
-    async def sleep(seconds):
-        waits.append(seconds)
-        order.append(("wait", round(seconds)))
+        async def sleep(seconds):
+            waits.append(seconds)
+            order.append(("wait", round(seconds)))
 
-    def handler(request):
-        model = httpx.Response(200, content=request.content).json()["model"]
-        order.append(("call", model))
-        if model == "good/model-70b:free":
-            return httpx.Response(429, headers={"Retry-After": "7"},
-                                  json={"error": {"code": 429, "message": "upstream rate limited"}})
-        return answer(model)
+        def handler(request):
+            model = httpx.Response(200, content=request.content).json()["model"]
+            order.append(("call", model))
+            if model == "good/model-70b:free":
+                return limited
+            return answer(model)
 
-    router, _ = gateway(handler)
-    router.sleep = sleep
-    reply = await router.chat([{"role": "user", "content": "hi"}])
-    assert reply.model == "small/model-8b:free"
+        router, _ = gateway(handler)
+        router.sleep = sleep
+        return router, order
+
+    # OpenRouter's per-minute limit for our key, with a Retry-After: waited between the two calls.
+    ours = httpx.Response(429, headers={"Retry-After": "7"},
+                          json={"error": {"code": 429, "message": "Rate limit exceeded: free-models-per-min"}})
+    router, order = run(ours)
+    assert (await router.chat([{"role": "user", "content": "hi"}])).model == "small/model-8b:free"
     calls = [i for i, (kind, _v) in enumerate(order) if kind == "call"]
-    assert ("wait", 7) in order[calls[0]:calls[1]]  # the 7 s were waited between the two calls
+    assert ("wait", 7) in order[calls[0]:calls[1]]
+    # One model's provider busy, nothing said about when: the next model is asked at once.
+    upstream = httpx.Response(429, json={"error": {"code": 429, "message": "temporarily rate-limited upstream"}})
+    router, order = run(upstream)
+    assert (await router.chat([{"role": "user", "content": "hi"}])).model == "small/model-8b:free"
+    calls = [i for i, (kind, _v) in enumerate(order) if kind == "call"]
+    from app.llm.openrouter import PACE_PER_MINUTE
+
+    # Only the pacing slot between two calls, never a rate-limit pause.
+    assert all(v <= 60 / PACE_PER_MINUTE + 1 for kind, v in order[calls[0]:calls[1]] if kind == "wait")
     # Without Retry-After, OpenRouter's reset time; without either, a fixed pause.
     assert retry_after(httpx.Response(429, headers={"X-RateLimit-Reset": "1700000012000"}), now=1700000000) == 12
     assert retry_after(httpx.Response(429), now=0) > 0
+
+
+async def test_a_model_refused_three_times_in_a_row_rests_for_an_hour():
+    from app.llm.openrouter import RATE_LIMIT_STREAK, STREAK_REST
+
+    rests = {}
+
+    class Recording(State):
+        def cool_down(self, model, seconds=600):
+            rests[model] = seconds
+            super().cool_down(model, seconds)
+
+        def cooling(self, model):
+            return False  # every call offers the busy model first again, to count its run of 429s
+
+    def handler(request):
+        model = httpx.Response(200, content=request.content).json()["model"]
+        if model == "good/model-70b:free":
+            return httpx.Response(429, json={"error": {"code": 429, "message": "rate-limited upstream"}})
+        return answer(model)
+
+    router, _ = gateway(handler, state=Recording(FakeRedis()))
+    for i in range(RATE_LIMIT_STREAK):
+        await router.chat([{"role": "user", "content": "hi"}], avoid="small/model-8b:free")
+        assert rests["good/model-70b:free"] == (STREAK_REST if i + 1 == RATE_LIMIT_STREAK else 120)
+
+
+async def test_models_are_tried_best_first_by_today_s_answer_rate():
+    seen = []
+
+    def handler(request):
+        model = httpx.Response(200, content=request.content).json()["model"]
+        seen.append(model)
+        return answer(model)
+
+    state = State(FakeRedis())
+    for _ in range(6):  # today the catalogue's first model mostly failed, the second always answered
+        state.count_request("good/model-70b:free", False)
+        state.count_request("small/model-8b:free", True)
+    router, _ = gateway(handler, state=state)
+    assert (await router.chat([{"role": "user", "content": "hi"}])).model == "small/model-8b:free"
+    assert seen == ["small/model-8b:free"]
 
 
 async def test_an_empty_reply_or_a_refusal_moves_to_the_next_model_and_not_back_to_it():

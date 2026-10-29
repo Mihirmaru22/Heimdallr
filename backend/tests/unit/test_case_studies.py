@@ -72,23 +72,25 @@ async def test_a_vendor_story_names_its_customer_whose_website_is_then_found():
     p = provider(Router())
     (vw,) = await p.discover(spec())
     assert vw.url == "https://www.volkswagen.com/" and vw.method == "case_studies"
-    # The maker's own case study, recent, read once by a sure model: first-hand, so Confirmed.
+    # The maker's own case study, recent, saying it outright: first-hand, so Confirmed.
     assert vw.hint["company_name"] == "Volkswagen" and vw.hint["uses_technology"] == "Confirmed"
-    assert vw.hint["evidence"].startswith("Volkswagen standardized product development on Teamcenter")
+    # The title says it in so many words ("Volkswagen standardizes on Teamcenter"): settled by rule, quoted.
+    assert vw.hint["evidence"].startswith("Volkswagen standardizes on Teamcenter")
     assert vw.hint["evidence_type"] == "Vendor case study" and vw.hint["evidence_date"] == "2025-06-02"
     kept = [e["company"] for e in p.evidence if e["kept"]]
     assert kept == ["Volkswagen"]  # Porsche is not on the page, Siemens makes the product
     why = {e["url"]: e["reason"] for e in p.evidence if not e["kept"]}
-    assert why["https://blog.example.com/teamcenter-tips"] == "the page names no organisation that uses it"
+    # Nobody but the product is named on the tips page: no model is asked about it.
+    assert why["https://blog.example.com/teamcenter-tips"].startswith("the page names no organisation but")
     assert not any("wikipedia" in e["url"] for e in p.evidence)
 
 
-async def test_without_a_model_no_page_yields_a_customer():
-    p = provider(Router(error=LLMUnavailable("no OpenRouter key is configured")))
-    with pytest.raises(DiscoveryError):
-        await p.discover(spec())
-    assert not any(e["kept"] for e in p.evidence)
-    assert any("no OpenRouter key" in n for n in p.notes)
+async def test_without_a_model_only_a_page_s_own_words_yield_a_customer():
+    router = Router(error=LLMUnavailable("no OpenRouter key is configured"))
+    p = provider(router)
+    (vw,) = await p.discover(spec())  # the story's title says it outright: no model needed
+    assert vw.hint["company_name"] == "Volkswagen" and [e["company"] for e in p.evidence if e["kept"]] == ["Volkswagen"]
+    assert router.calls == 0  # the tips page names nobody, so it was not given to the (missing) model either
 
 
 async def test_it_needs_web_search_and_the_crawler():

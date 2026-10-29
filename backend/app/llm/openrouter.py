@@ -9,8 +9,10 @@ Rules this module guarantees, whatever a caller asks for:
   have ever been bought; OpenRouter decides which from the key) and 20 a minute. When the day's
   allowance is used up, calls fail with LLMUnavailable until midnight UTC instead of going further.
 - When one free model is busy or failing, the next free model is tried; never a paid one.
-- Calls are paced on our side under the per-minute limit, by one schedule every process shares in Redis; a 429
-  is waited out (Retry-After) before the next call is made, instead of being answered with another call.
+- Calls are paced on our side under the per-minute limit, by one schedule every process shares in Redis. A 429
+  for our key's own limit (or one saying when to come back) is waited out before the next call; a 429 from one
+  model's provider moves straight to the next model, and a model refused three times in a row rests an hour.
+- Models are tried best first by today's measured answer rate, then the catalogue order.
 - Every attempt is logged and counted with the step it served (plan, proof_read, ...) and the job it ran for.
 The API key is never logged (logging_setup redacts sk-or- keys as well).
 """
@@ -41,7 +43,11 @@ PER_MINUTE = 20
 # spread out instead of answered with 429s that each count against the day (40% of one run's calls were 429s or
 # empty replies, 2026-10-29).
 PACE_PER_MINUTE = 18
-RETRY_AFTER_DEFAULT = 20  # seconds waited after a 429 that says nothing about when to come back
+RETRY_AFTER_DEFAULT = 20  # seconds waited after our key's own 429 when it says nothing about when to come back
+# One model's provider refusing it again and again (both gemma-4 models: 21 of 22 calls, 2026-10-29) is not a
+# busy moment: after this many 429s in a row the model rests for an hour instead of two minutes.
+RATE_LIMIT_STREAK = 3
+STREAK_REST = 3600
 STATS_TTL = 30 * 86400  # how long a job's per-step call counts are kept in Redis (the job also stores them)
 CATALOG_TTL = 6 * 3600
 MODEL_COOLDOWN = 600  # seconds a failing model is skipped
@@ -66,6 +72,12 @@ STEP = contextvars.ContextVar("llm_step", default="other")
 def calls_key(scope: str) -> str:
     """Where one job's (or one plan's, "schema:<id>") call counts are kept."""
     return f"{State.PREFIX}calls:{scope}"
+
+
+def own_limit(resp: httpx.Response, message: str) -> bool:
+    """A 429 for our key's own limit (OpenRouter's per-minute allowance, or any 429 that says when to come back),
+    as opposed to one model's provider being busy, which another model is not."""
+    return bool(re.search(r"per[- ]min", message, re.I) or resp.headers.get("retry-after"))
 
 
 def retry_after(resp: httpx.Response, now: float | None = None) -> float:
@@ -239,6 +251,27 @@ return tostring(slot)"""
     def exhausted(self) -> bool:
         return bool(self._get(f"exhausted:{_today()}"))
 
+    def rate_limited_again(self, model: str) -> int:
+        """One more 429 in a row for this model; returns how many in a row."""
+        key = self.PREFIX + f"streak:{model}"
+        n = int(self.r.incr(key) or self._get(f"streak:{model}") or 1)
+        self.r.expire(key, STREAK_REST)
+        return n
+
+    def answered_again(self, model: str) -> None:
+        """Anything but a 429 ends the model's run of 429s."""
+        self.r.delete(self.PREFIX + f"streak:{model}")
+
+    def answer_rates(self) -> dict[str, float]:
+        """Today's share of calls each model answered, (answered + 1) / (calls + 2) so an untried model starts in
+        the middle. A 200 with an empty reply counts as a call, not an answer."""
+        rates = {}
+        for model, c in self.stats().items():
+            calls = c.get("ok", 0) + c.get("failed", 0) + c.get("network", 0)
+            answered = max(0, c.get("ok", 0) - c.get("empty", 0))
+            rates[model] = (answered + 1) / (calls + 2)
+        return rates
+
     def cool_down(self, model: str, seconds: int = MODEL_COOLDOWN) -> None:
         self.r.set(self.PREFIX + f"cooldown:{model}", "1", ex=seconds)
 
@@ -384,7 +417,10 @@ class OpenRouter:
         state = self._state()
         step = step or STEP.get()
         scope = JOB.get()
-        candidates = [m for m in await self.free_models() if not state.cooling(m)]
+        catalogue = [m for m in await self.free_models() if not state.cooling(m)]
+        rates = state.answer_rates()
+        # Best first by what today measured; the admin's preference and the catalogue order break ties.
+        candidates = sorted(catalogue, key=lambda m: (-rates.get(m, 0.5), catalogue.index(m)))
         if avoid in candidates and len(candidates) > 1:
             candidates = [m for m in candidates if m != avoid] + [avoid]
         if not candidates:
@@ -431,16 +467,20 @@ class OpenRouter:
                     measured("daily allowance used up")
                     state.exhaust_today()
                     raise LLMUnavailable("today's free model allowance is used up; it resets at midnight UTC")
-                wait = retry_after(resp)
-                measured(f"rate limited (retry after {wait:.0f} s)")
+                ours = own_limit(resp, message)
+                wait = retry_after(resp) if ours else 0.0
+                measured(f"rate limited (our limit, retry after {wait:.0f} s)" if ours else "rate limited (upstream)")
                 state.count_failure(model, "rate_limited")
-                state.cool_down(model, 120)  # the model's upstream is busy; the next call goes to another free one
+                streak = state.rate_limited_again(model)
+                state.cool_down(model, STREAK_REST if streak >= RATE_LIMIT_STREAK else 120)
                 problems.append(f"{model}: rate limited")
-                # Wait as the 429 asks, in every process, before the next call: firing another call at once is
-                # what the limit refuses, and each refused call counts against the day.
-                state.hold_until(time.time() + wait)
-                await self.sleep(wait)
-                continue
+                if ours:
+                    # Our key's limit: every model would refuse now, and each refused call counts against the day,
+                    # so every process waits as asked before the next call.
+                    state.hold_until(time.time() + wait)
+                    await self.sleep(wait)
+                continue  # one model's provider is busy: the next model is asked at once
+            state.answered_again(model)
             if resp.status_code == 402:
                 measured("HTTP 402")
                 # Free models can refuse a key whose balance went negative; never top up from here.

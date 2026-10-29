@@ -13,13 +13,14 @@ page never yields a customer by guesswork.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.crawl.urlnorm import registered_domain
-from app.evidence.adoption import rule_uses
+from app.evidence.adoption import fullest_name, organisations_named, rule_uses
 from app.evidence.judge import USE, Judge, makes_product, rule_relationship
 from app.evidence.products import Product
 from app.llm.openrouter import LLMUnavailable
@@ -140,24 +141,53 @@ def publisher_by_site(url: str, organisation: str, product: Product, default: st
     return default
 
 
+# A page on an organisation's own site that is about its customers: a partner's success stories, a reseller's case
+# studies. There "we implemented NetSuite" is the partner's work for a client, not its own use.
+ABOUT_CLIENTS_PATH = re.compile(r"success|case[-_]?stud|customer|client|portfolio|our[-_]?work|projects|"
+                                r"testimonial|references", re.I)
+ABOUT_CLIENTS_WORDS = re.compile(r"\b(?:customers?|clients?)\b", re.I)
+
+
+def not_a_customer(url: str, product: Product) -> Callable[[str], bool]:
+    """Names that are never the customer a page is about: the product's maker, and the site's own owner."""
+    from app.discovery.websites import domain_fits
+
+    site = registered_domain(url) or ""
+    return lambda name: makes_product(name, product) or bool(site and domain_fits(site, name))
+
+
 def rule_reading(product: Product, sentences: list[str], text: str, url: str,
-                 default_publisher: str = "other") -> list[Found]:
-    """Customers the page's own sentences say use the product (app.evidence.adoption), no model involved."""
+                 default_publisher: str = "other", title: str = "") -> list[Found]:
+    """Customers the page's own sentences (and title) say use the product (app.evidence.adoption), no model
+    involved. Each name is taken in the fullest form the page writes it ("Wharton" -> "Wharton Electronics")."""
     out: list[Found] = []
-    for use in rule_uses(product, sentences):
-        if not _contains(text, use.organisation):
+    for use in rule_uses(product, sentences, title, not_a_customer(url, product)):
+        # The fullest form the page's own text writes (not its title: a title's capitals mark every word).
+        body = text[len(title):] if title and text.startswith(title) else text
+        name = fullest_name(use.organisation, [body], product)
+        if not _contains(text, name):
             continue
-        rule = rule_relationship(use.organisation, product, "")
+        rule = rule_relationship(name, product, "")
         if rule and rule[0] == "vendor":
             continue  # the product's maker is never its own customer
+        publisher = publisher_by_site(url, name, product, default_publisher)
+        if publisher == "customer" and (ABOUT_CLIENTS_PATH.search(url.split("://", 1)[-1].split("/", 1)[-1])
+                                        or ABOUT_CLIENTS_WORDS.search(use.quote)):
+            continue  # on its own site, next to its customers: a partner's work for them, left to the model
         named = countries_stated(use.quote)
         country = next(iter(named)) if len(named) == 1 and _contains(use.quote, use.organisation) else ""
-        out.append(Found(use.organisation, "uses", use.quote,
-                         publisher_by_site(url, use.organisation, product, default_publisher),
-                         f"rules: {use.pattern} sentence", country, use.quote if country else "", "rules"))
+        out.append(Found(name, "uses", use.quote, publisher, f"rules: {use.pattern} sentence", country,
+                         use.quote if country else "", "rules"))
         if len(out) >= MAX_CUSTOMERS:
             break
     return out
+
+
+def names_no_customer(product: Product, title: str, sentences: list[str], url: str) -> bool:
+    """The page's title and product sentences name no organisation but the product, its maker and the site's own
+    owner (a partner's service page, the vendor's newsroom, a product review): nobody there to be a customer."""
+    other = not_a_customer(url, product)
+    return not [n for n in organisations_named(product, [title, *sentences]) if not other(n)]
 
 
 async def read_page(judge: Judge, product: Product, title: str, sentences: list[str], text: str,
@@ -167,9 +197,11 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
     outright settles the page with no model call; otherwise one model reads it, unless `skip_model` gives a
     reason not to (the page is about a company the question cannot deliver)."""
     sentences = sentences[:MAX_SENTENCES]
-    ruled = rule_reading(product, sentences, text, url, default_publisher)
+    ruled = rule_reading(product, sentences, text, url, default_publisher, title)
     if ruled:
         return ruled, ""
+    if names_no_customer(product, title, sentences, url):
+        return [], "the page names no organisation but the product, its maker and the site's owner"
     if skip_model:
         return [], f"not read: {skip_model}"
     if judge.unavailable:
