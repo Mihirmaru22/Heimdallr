@@ -45,6 +45,16 @@ NOISE = re.compile(r"\b(inc|incorporated|ltd|limited|llc|llp|lp|plc|pvt|private|
 BUSINESS_PROPERTIES = ("P452", "P1278", "P414", "P1128", "P2139", "P159", "P1454", "P749")
 WIKIDATA_CANDIDATES = 7
 WIKIDATA_RETRY_WAIT = 5.0
+# A registry that times out or answers 5xx is asked again after these pauses (seconds): a busy moment lost GLEIF
+# matches for several companies in one run (NetSuite UK, 2026-10-29), and each became "country unconfirmed".
+REGISTRY_RETRY_WAITS = (2.0, 8.0)
+
+
+def transient(exc: BaseException) -> bool:
+    """A failure that a later request may not have: a timeout, a dropped connection, a server error."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    return isinstance(exc, httpx.TransportError)
 GLEIF_CANDIDATES = 10
 
 
@@ -122,9 +132,11 @@ def settle(company: str, website: str, candidates: list[Candidate]) -> Resolutio
 
 
 class EntityResolver:
-    def __init__(self, client: httpx.AsyncClient, gleif_gap: float = GLEIF_GAP) -> None:
+    def __init__(self, client: httpx.AsyncClient, gleif_gap: float = GLEIF_GAP,
+                 retry_waits: tuple[float, ...] = REGISTRY_RETRY_WAITS) -> None:
         self.client = client
         self.gleif_gap = gleif_gap
+        self.retry_waits = retry_waits
         self.cache: dict[str, Resolution] = {}  # per job: one lookup per name
         self.wd = WikidataProvider(client)
         self.problems: list[str] = []
@@ -134,14 +146,29 @@ class EntityResolver:
         if key in self.cache:
             return self.cache[key]
         candidates: list[Candidate] = []
+        failed: list[str] = []
         for source in (self._wikidata, self._gleif, self._sec):
-            try:
-                candidates += await source(company)
-            except (httpx.HTTPError, ValueError, KeyError, BlockedDestination) as exc:
-                problem = f"{source.__name__.strip('_')}: {type(exc).__name__}"
-                if problem not in self.problems:
-                    self.problems.append(problem)
-        result = self.cache[key] = settle(company, website, candidates)
+            for wait in (*self.retry_waits, None):
+                try:
+                    candidates += await source(company)
+                    break
+                except (httpx.HTTPError, ValueError, KeyError, BlockedDestination) as exc:
+                    if wait is not None and transient(exc):
+                        await asyncio.sleep(wait)  # a busy moment: asked again, not given up on
+                        continue
+                    name = source.__name__.strip("_")
+                    problem = f"{name}: {type(exc).__name__}"
+                    if problem not in self.problems:
+                        self.problems.append(problem)
+                    failed.append(name)
+                    break
+        result = settle(company, website, candidates)
+        if failed and not result.country:
+            # Not "no entity matches": a registry could not be asked. Kept out of the job's record of answers, so
+            # the next step that needs this name asks again.
+            result.detail = f"registry lookup failed ({', '.join(failed)}); {result.detail}"
+            return result
+        self.cache[key] = result
         return result
 
     async def _wikidata(self, company: str) -> list[Candidate]:

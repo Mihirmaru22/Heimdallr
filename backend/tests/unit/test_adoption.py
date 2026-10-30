@@ -134,3 +134,75 @@ def test_a_page_naming_no_one_but_the_product_its_maker_and_its_owner_needs_no_m
                              "https://threadwellconsulting.com/")
     assert not names_no_customer(NETSUITE, "Kestrel Networks on NetSuite", ["Kestrel Networks runs NetSuite."],
                                  "https://news.example/kestrel")
+
+
+@pytest.mark.parametrize("raw", [
+    "Don't", "We've", "I’ve", "You're",  # contractions
+    "A Global CRM Leader", "Leading Senior Living Organisation", "Global Food Distributor",  # descriptions
+    "Microsoft Customers", "Hospitality Leaders",  # phrases about many
+    "Hospitality Leaders In The UK Are", "Questions CFOs Should Ask Before Switching",  # a headline's words
+    "Success Stories & Client Projects",  # page furniture
+    "However", "UK and Ireland", "Vancouver’s Largest Guided Tour Company",  # an adverb, places, a description
+])
+def test_what_is_written_where_a_name_would_be_but_is_none(raw):
+    assert clean_name(raw) == ""
+
+
+def test_real_names_keep_their_words_and_lose_only_page_furniture():
+    assert clean_name("Millwall Case Study") == "Millwall"
+    assert clean_name("Tomatin’s") == "Tomatin"
+    for name in ("Western Global", "Rail Delivery Group", "Heart of Midlothian FC", "M&C Saatchi"):
+        assert clean_name(name) == name
+
+
+def test_the_subject_of_a_page_is_the_title_s_name_its_address_also_names():
+    from app.evidence.adoption import title_organisation
+
+    title = "NetSuite for Football Clubs - Millwall NetSuite Case Study"
+    assert title_organisation(title, NETSUITE, url="https://partner.example/case-studies/millwall") == "Millwall"
+    # Without the address, the title's names are "Football Clubs" and an opening word: no one subject is sure.
+    assert title_organisation(title, NETSUITE, url="https://partner.example/case-studies/") != "Millwall"
+
+
+def test_a_case_study_page_is_read_for_its_subject_not_a_sidebar_or_its_menus():
+    # The same page with no sentence about its subject goes to the model, not to the sidebar line.
+    import asyncio
+
+    from app.evidence.judge import Judge
+    from app.evidence.thirdparty import read_page
+    from app.llm.openrouter import Reply
+
+    sentences = ["NetSuite Overview", "NetSuite Functionality", "Achieving Real-Time Financial Control with NetSuite",
+                 "Harrow Vale FC Transforms Financial Operations with NetSuite &...",
+                 "The club chose NetSuite to replace spreadsheets."]
+
+    class Model:
+        calls = 0
+
+        async def chat(self, messages, **_kw):
+            Model.calls += 1
+            return Reply('{"publisher": "partner", "customers": [{"name": "Millwall", "quote": 5, '
+                         '"relationship": "uses"}]}', "m:free")
+
+        async def aclose(self):
+            pass
+
+    plain = sentences[:4]
+    found, _ = asyncio.run(read_page(Judge(Model()), NETSUITE,
+                                     "NetSuite for Football Clubs - Millwall NetSuite Case Study", plain,
+                                     " ".join(plain) + " Millwall", "https://partner.example/case-studies/millwall"))
+    assert Model.calls == 1 and "Millwall" in [f.customer for f in found]
+    found, _ = asyncio.run(read_page(Judge(Model()), NETSUITE,
+                                     "NetSuite for Football Clubs - Millwall NetSuite Case Study", sentences,
+                                     " ".join(sentences) + " Millwall", "https://partner.example/case-studies/millwall"))
+    # Not a list (the menus and headings are not organisations said to use it); "the club chose NetSuite" points
+    # to the page's subject, Millwall, so the page is Millwall's, not the sidebar's.
+    assert "Millwall" in [f.customer for f in found]
+
+
+def test_the_last_item_of_a_list_and_two_names_joined_by_and_are_not_one_subject():
+    assert rule_uses(NETSUITE, ["See how firms across IT, Media, Healthcare, and Senior Living transformed their "
+                                "operations with NetSuite."]) == []
+    text = ("Charlotte Tilbury and Lovesac both appear here. Charlotte Tilbury implemented NetSuite's advanced "
+            "financials.")
+    assert fullest_name("Charlotte Tilbury", [text], NETSUITE) == "Charlotte Tilbury"

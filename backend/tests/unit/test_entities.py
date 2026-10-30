@@ -85,3 +85,47 @@ def test_countries_a_sentence_names_and_states():
     assert countries_named("Kemwell BioPharma, India's largest biologics CDMO") == {"IN"}
     assert countries_named("it helps us grow") == set()  # "us" the word is not the US
     assert countries_named("offices in the US and Germany") == {"US", "DE"}
+
+
+async def test_a_registry_that_times_out_is_asked_again_and_a_failure_is_not_kept_as_no_match():
+    calls = {"gleif": 0}
+
+    def handler(request):
+        if "wikidata" in request.url.host:
+            return httpx.Response(200, json={"search": []})
+        calls["gleif"] += 1
+        if calls["gleif"] == 1:
+            raise httpx.ReadTimeout("busy")  # a busy moment, then an answer
+        return httpx.Response(200, json={"data": [{"id": "L1", "attributes": {"lei": "L1", "entity": {
+            "legalName": {"name": "GREENSILL CAPITAL (UK) LIMITED"}, "status": "ACTIVE",
+            "legalAddress": {"country": "GB", "city": "Warrington"},
+            "headquartersAddress": {"country": "GB", "city": "Warrington"}}}}]})
+
+    async def no_sec(_company):
+        return []
+
+    resolver = EntityResolver(httpx.AsyncClient(transport=httpx.MockTransport(handler)), gleif_gap=0,
+                              retry_waits=(0.0, 0.0))
+    resolver._sec = no_sec
+    res = await resolver.resolve("Greensill Capital")
+    assert res.country == "GB" and calls["gleif"] == 2
+
+    def down(request):
+        if "wikidata" in request.url.host:
+            return httpx.Response(200, json={"search": []})
+        return httpx.Response(503)
+
+    resolver = EntityResolver(httpx.AsyncClient(transport=httpx.MockTransport(down)), gleif_gap=0,
+                              retry_waits=(0.0, 0.0))
+    resolver._sec = no_sec
+    res = await resolver.resolve("Greensill Capital")
+    assert res.country == "" and res.detail.startswith("registry lookup failed (gleif)")
+    assert not resolver.cache  # not kept: the next step that needs the name asks again
+
+
+def test_each_source_reading_pages_gets_an_equal_share_of_the_budget_left():
+    from app.crawl.runner import reading_share
+
+    assert reading_share(0.0, 3600.0, 2) == 1800.0  # case studies, then news: half each
+    assert reading_share(600.0, 3600.0, 1) == 3600.0  # the last source gets all that is left, early finish included
+    assert reading_share(4000.0, 3600.0, 1) == 4000.0  # past the deadline: no time

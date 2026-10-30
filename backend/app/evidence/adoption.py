@@ -77,7 +77,9 @@ LEADING = {
     "so", "also", "as", "like", "such", "if", "although", "because", "once", "until", "over", "under", "from",
     "to", "of", "last", "next", "year", "january", "february", "march", "april", "june", "july",
     "august", "september", "october", "november", "december", "choosing", "explore", "browse", "build",
-    "meet", "join", "contact", "request", "book", "try", "start", "view", "more",
+    "meet", "join", "contact", "request", "book", "try", "start", "view", "more", "however", "meanwhile",
+    "additionally", "moreover", "furthermore", "finally", "recently", "similarly", "instead", "therefore", "still",
+    "yet", "indeed", "notably", "previously", "currently",
 }
 # The generic nouns and adjectives of a sentence about many organisations ("Companies using...", "Many leading
 # retailers...") and the words of a page's own furniture ("Case Study", "Implementation Partner", "Review"): a name
@@ -98,6 +100,27 @@ GENERIC = {
     "products", "product", "features", "feature", "capabilities", "benefits", "faq", "faqs", "resources",
     "work", "projects", "testimonials", "industries", "industry", "europe", "world", "worldwide",
 }
+
+
+# Words that end a page's furniture, not a name: "Millwall Case Study", "Tomatin Review".
+FURNITURE = {"case", "study", "studies", "story", "stories", "review", "reviews", "guide", "overview", "blog",
+             "webinar", "report", "article", "news", "press", "release", "update", "updates", "success"}
+# A description written where a name would be ("A Global CRM Leader", "Leading Senior Living Organisation"),
+# which anonymised case studies use: a scale word and a kind of organisation, not a name anyone is registered as.
+SCALE = {"global", "leading", "largest", "fast-growth", "fast-growing", "growing", "major", "top", "international",
+         "national", "regional", "multinational", "independent", "specialist", "premier", "large", "mid-sized",
+         "midsize", "mid-market"}
+KINDS = {"company", "maker", "manufacturer", "provider", "distributor", "dealer", "retailer", "organisation",
+         "organization", "consultancy", "leader", "platform", "firm", "business", "brand", "wholesaler", "group",
+         "supplier", "producer", "operator", "agency", "chain", "network", "institution"}
+# Plural nouns that end a phrase about many ("Microsoft Customers", "Hospitality Leaders"), never one name.
+PLURAL_KINDS = {"customers", "users", "clients", "companies", "organisations", "organizations", "businesses",
+                "brands", "retailers", "manufacturers", "partners", "leaders", "managers", "teams", "firms",
+                "enterprises", "professionals", "owners", "buyers", "sellers", "merchants", "industries"}
+# Words of a sentence, capitalised by a headline, that a name never has inside it ("Leaders In The UK Are").
+NOT_IN_NAMES = {"in", "the", "are", "is", "was", "were", "be", "been", "should", "ask", "can", "will", "why",
+                "how", "what", "when", "before", "after", "to", "for", "with", "your", "our", "their", "its"}
+CONTRACTION = re.compile(r"[’']\s*(?:t|ve|re|ll|d|m)$", re.I)
 
 
 @dataclass(frozen=True)
@@ -142,22 +165,42 @@ def done_for_someone(rest: str, product: Product) -> bool:
 
 
 def _is_country(name: str) -> bool:
+    """A country, or countries joined ("UK and Ireland"): a place, not an organisation."""
     from app.discovery.relevance import COUNTRY_NAMES
 
-    return name.lower().strip(".") in COUNTRY_NAMES
+    parts = [p.strip(" .") for p in re.split(r"\s*(?:,|&|\band\b)\s*", name.lower()) if p.strip(" .")]
+    return bool(parts) and all(p in COUNTRY_NAMES for p in parts)
 
 
 def clean_name(raw: str) -> str:
     """The name without the words that open a sentence or a clause ("In 2019 CONMED Corporation" -> "CONMED
-    Corporation"), or "" when nothing name-like is left ("Many Retailers", "The Companies", "UK")."""
+    Corporation") or end a page's furniture ("Millwall Case Study" -> "Millwall"), or "" when what is left is no
+    name: nothing name-like ("Many Retailers", "The Companies", "UK"), a contraction ("Don't", "We've"), a
+    description ("A Global CRM Leader", "Leading Senior Living Organisation"), a phrase about many ("Microsoft
+    Customers") or a headline's words ("Hospitality Leaders In The UK Are")."""
     words = raw.strip(" ,;:-").split()
+    if words and words[0] in ("A", "An"):
+        return ""  # "a Global Food Distributor": a description, not a name
     while words and (words[0].lower().strip(".,") in LEADING or re.fullmatch(r"[0-9]{2,4}[,.]?", words[0])):
         words.pop(0)
+    while len(words) > 1 and words[-1].lower().strip(".,") in FURNITURE:
+        words.pop()
+    if words:
+        words[-1] = re.sub(r"[’']s$", "", words[-1])  # "Tomatin’s" -> "Tomatin"
     name = " ".join(words).strip(" ,;:")
     if len(name) < 2 or not re.match(r"[A-Z0-9]", name) or not re.search(r"[A-Za-z]", name):
         return ""
-    if all(w.lower().strip(".,") in GENERIC | LEADING for w in words) or _is_country(name):
+    lower = [w.lower().strip(".,") for w in words]
+    if any(CONTRACTION.search(w) for w in words) or _is_country(name):
         return ""
+    if all(w in GENERIC | LEADING or not re.search(r"[a-z0-9]", w) for w in lower):
+        return ""
+    if lower[-1] in PLURAL_KINDS or (len(words) > 1 and lower[0] in SCALE and lower[-1] in KINDS):
+        return ""
+    if any(w[:1].isupper() and w.lower() in NOT_IN_NAMES for w in words[1:]):
+        return ""
+    if any(re.search(r"[’']s$", a) and re.search(r"(?i)est$", b) for a, b in zip(words, words[1:], strict=False)):
+        return ""  # "Vancouver’s Largest Guided Tour Company": a description of someone, not their name
     return name
 
 
@@ -168,10 +211,10 @@ def _not_the_product(name: str, product: Product) -> str:
     return clean_name(" ".join(name.split()))
 
 
-def organisations_named(product: Product, texts: list[str]) -> list[str]:
+def organisations_named(product: Product, texts: list[str], openers: bool = False) -> list[str]:
     """The proper names of organisations the texts write, other than the product's own: candidates, not proof.
     A single capitalised word that only opens a sentence ("Purpose-built ...", "Three things ...") is a sentence's
-    first word, not a name, unless it is written that way elsewhere too."""
+    first word, not a name, unless it is written that way elsewhere too (or `openers` keeps such words)."""
     out: list[str] = []
     for text in texts:
         flat = " ".join(text.split())
@@ -181,7 +224,7 @@ def organisations_named(product: Product, texts: list[str]) -> list[str]:
             if not name:
                 continue
             opens = m.start() == 0 or re.search(r"[.!?:|,–—-]\s*$", flat[:m.start()])
-            if plain_word(name) and (opens or headline(flat)) and not any(
+            if not openers and plain_word(name) and (opens or headline(flat)) and not any(
                     re.search(rf"\b{re.escape(name)}\b", t) for t in texts if t is not text):
                 continue
             if name.casefold() not in {o.casefold() for o in out}:
@@ -193,10 +236,23 @@ def _never(_name: str) -> bool:
     return False
 
 
-def title_organisation(title: str, product: Product, other: Callable[[str], bool] = _never) -> str:
-    """The one organisation a page's title names ("NetSuite Case Study - Tomatin Distillery - NetSuite Review" ->
-    "Tomatin Distillery"), "" when it names none or several. Names `other` says yes to do not count (the product's
-    maker, the site's owner)."""
+def slug_words(url: str) -> set[str]:
+    """The words of a page's address after its site ("/case-studies/millwall" -> {"case", "studies", "millwall"})."""
+    path = url.split("://", 1)[-1].split("/", 1)[1] if "/" in url.split("://", 1)[-1] else ""
+    return {w for w in re.findall(r"[a-z0-9]+", path.split("?", 1)[0].lower()) if len(w) > 1}
+
+
+def title_organisation(title: str, product: Product, other: Callable[[str], bool] = _never, url: str = "") -> str:
+    """The one organisation a page is about: the one its title names ("NetSuite Case Study - Tomatin Distillery -
+    NetSuite Review" -> "Tomatin Distillery"), or, when the title names several, the one its address names too
+    ("NetSuite for Football Clubs - Millwall NetSuite Case Study" at /case-studies/millwall -> "Millwall"); ""
+    otherwise. Names `other` says yes to do not count (the product's maker, the site's owner)."""
+    slug = slug_words(url)
+    # The address names the subject: that settles it, even for a one-word name a title opens a part with.
+    named = [n for n in organisations_named(product, [title], openers=True)
+             if slug and _words(n) and _words(n) <= slug and not other(n)]
+    if len(named) == 1:
+        return named[0]
     names = [n for n in organisations_named(product, [title]) if not other(n)]
     return names[0] if len(names) == 1 else ""
 
@@ -210,7 +266,9 @@ def fullest_name(name: str, texts: list[str], product: Product) -> str:
     best = name
     for text in texts:
         flat = " ".join(text.split())
-        for m in re.finditer(rf"(?<![\w-]){re.escape(name)}((?:\s+(?:(?:&|and|of|de|the)\s+)?{NAME_WORD}){{1,4}})",
+        if headline(flat, stop):
+            continue  # a headline's capitals mark every word, not the name's
+        for m in re.finditer(rf"(?<![\w-]){re.escape(name)}((?:\s+(?:(?:of|de|the)\s+)?{NAME_WORD}){{1,4}})",
                              flat):
             words = []
             for w in m.group(1).split():
@@ -221,7 +279,7 @@ def fullest_name(name: str, texts: list[str], product: Product) -> str:
                 words.append(w)
                 if w != bare:  # "Wharton Electronics." ends the name with the sentence
                     break
-            while words and words[-1].rstrip(".,;:").lower() in {"&", "and", "of", "de", "the"}:
+            while words and words[-1].rstrip(".,;:").lower() in {"of", "de", "the"}:
                 words.pop()
             longer = f"{name} {' '.join(words)}".rstrip(".,;: ") if words else name
             if len(longer) > len(best):
@@ -229,8 +287,8 @@ def fullest_name(name: str, texts: list[str], product: Product) -> str:
     return best
 
 
-def rule_uses(product: Product, sentences: list[str], title: str = "", other: Callable[[str], bool] = _never
-              ) -> list[RuleUse]:
+def rule_uses(product: Product, sentences: list[str], title: str = "", other: Callable[[str], bool] = _never,
+              url: str = "") -> list[RuleUse]:
     """Organisations the sentences (and the page's title, read as one more sentence) say use the product, by the
     patterns above. Each sentence is judged on its own; a hedged, negated or "moved away" sentence yields nothing
     from that match (the model reads pages with no accepted sentence). A pointer ("the company", "it") stands for
@@ -250,7 +308,7 @@ def rule_uses(product: Product, sentences: list[str], title: str = "", other: Ca
                                rf"(?:\s*,?\s*(?:and\s+)?(?i:{NOUNS}))*\s+of\s+(?:the\s+)?{prod}")),
     )
     product_words = _words(" ".join(product.names))
-    page_org = title_organisation(title, product, other) if title else ""
+    page_org = title_organisation(title, product, other, url) if title else ""
     out: list[RuleUse] = []
     for sentence in [*sentences, *([title] if title else [])]:
         flat = " ".join(sentence.split())
@@ -270,6 +328,8 @@ def rule_uses(product: Product, sentences: list[str], title: str = "", other: Ca
                     joint, before = flat[m.start():m.end()], flat[:m.start()].rsplit(",", 1)[-1][-40:]
                 if HEDGE.search(joint) or HEDGE.search(before):
                     continue
+                if re.search(r"(?i)\b(?:and|or|including|such\s+as|like|as\s+well\s+as)\s*$", before):
+                    continue  # "... Healthcare, and Senior Living transformed ...": the last item of a list
                 # "Emerald Technology implemented NetSuite for Heart of Midlothian": the subject did it for
                 # someone else, who is the user. Which of the two is a reading task, left to the model.
                 if kind not in ("passive", "product subject") and done_for_someone(flat[m.end():], product):

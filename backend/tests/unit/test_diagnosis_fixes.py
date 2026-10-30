@@ -285,3 +285,15 @@ async def test_a_busy_moment_does_not_switch_the_site_check_off_for_the_run():
     always_busy = SiteChecker(NoModel("no free model answered: a: rate limited"), wait=0)
     assert (await always_busy.check(_page("https://x.example/", "pharma"), spec))[1].startswith("unchecked")
     assert always_busy.unavailable is None  # the next site is asked again
+
+
+async def test_searches_name_each_country_by_its_standard_name():
+    p = CaseStudiesProvider(searxng_url="http://searx")
+    from app.spec.models import ExtractionSpec
+
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["case_studies"], "technology": "Oracle NetSuite", "countries": ["GB"]}})
+    qs = await p._context(product_for("Oracle NetSuite"), spec.discovery)
+    assert p.place == "United Kingdom" and '"Oracle NetSuite" United Kingdom implemented' in qs
+    assert not any("Britain" in q for q in qs)

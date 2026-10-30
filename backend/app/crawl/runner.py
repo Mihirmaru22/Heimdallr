@@ -132,6 +132,12 @@ def _found_by(hint: dict[str, Any]) -> str:
     return f"; found by {hit['provider']} for {hit['query']!r}" + (f": {said[:200]}" if said else "")
 
 
+def reading_share(now: float, deadline: float, readers_left: int) -> float:
+    """When the source whose turn it is must stop reading: an equal share of the budget left, among the sources
+    still to read (this one included)."""
+    return now + max(0.0, deadline - now) / max(1, readers_left)
+
+
 class CrawlRunner:
     def __init__(self, job_id: uuid.UUID, org_id: uuid.UUID, spec: ExtractionSpec, *, resolver=None,
                  redis=None, client=None, max_records: int | None = None) -> None:
@@ -258,14 +264,20 @@ class CrawlRunner:
         per_provider: list[list[Any]] = []
         flusher = asyncio.create_task(self._flush_every_second())  # sources that read documents report live
         cache_token = JOB_CACHE.set({})  # this job's searches, reused within the job only
-        from app.discovery.entities import GLEIF_GAP, EntityResolver
+        from app.discovery.entities import GLEIF_GAP, REGISTRY_RETRY_WAITS, EntityResolver
 
         # One registry matcher for the job: each name is looked up once, by whichever step needs it first.
-        self.entity_resolver = EntityResolver(self.client, gleif_gap=0.0 if self.settings.env == "test"
-                                              else GLEIF_GAP)
+        testing = self.settings.env == "test"
+        self.entity_resolver = EntityResolver(self.client, gleif_gap=0.0 if testing else GLEIF_GAP,
+                                              retry_waits=(0.0, 0.0) if testing else REGISTRY_RETRY_WAITS)
         self.read_deadline = time.monotonic() + self.spec.discovery.read_budget_minutes * 60
         try:
-            for provider in providers_for(self.spec):
+            providers = providers_for(self.spec)
+            # The reading budget is shared: each source that reads proof pages gets an equal share of what is left
+            # when its turn comes, so one source cannot spend it all (case studies read for the whole hour once and
+            # no news article was read); time a source does not need passes to the next.
+            readers_left = sum(hasattr(p, "deadline") for p in providers)
+            for provider in providers:
                 label = SOURCE_NAMES.get(provider.name, provider.name)
                 if provider.name != "seeds":
                     self.note("search", self._discovery_line(provider.name), source=provider.name)
@@ -277,7 +289,8 @@ class CrawlRunner:
                 if hasattr(provider, "fetch_page"):
                     provider.fetch_page = self.fetch_page
                 if hasattr(provider, "deadline"):
-                    provider.deadline = self.read_deadline
+                    provider.deadline = reading_share(time.monotonic(), self.read_deadline, readers_left)
+                    readers_left -= 1
                 if hasattr(provider, "resolver"):
                     provider.resolver = self.entity_resolver
                 try:

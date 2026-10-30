@@ -478,10 +478,11 @@ class CaseStudiesProvider:
                                   judged_by="", strength=0.0, verdict="", kept=False, reason=why))
 
     async def _context(self, product: Product, d) -> list[str]:
-        from app.spec.interpret import COUNTRIES
+        from app.discovery.providers import COUNTRY_QIDS
 
-        names = {iso: name.title() for name, iso in COUNTRIES.items() if len(name) > 3}
-        places = [names.get(c, c) for c in d.countries]
+        # Each country's standard name from the country table ("United Kingdom"), not whichever spelling the
+        # question parser last lists for it ("Britain" was searched for GB, a weak term).
+        places = [COUNTRY_QIDS.get(c, ("", c))[1] for c in d.countries]
         industry = (d.industry or "").strip()
         self.place = places[0] if len(places) == 1 else ""
         name = ([n for n in product.names if len(n) > 4] or product.names)[0]

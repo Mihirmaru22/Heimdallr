@@ -166,7 +166,7 @@ def rule_reading(product: Product, sentences: list[str], text: str, url: str,
     """Customers the page's own sentences (and title) say use the product (app.evidence.adoption), no model
     involved. Each name is taken in the fullest form the page writes it ("Wharton" -> "Wharton Electronics")."""
     out: list[Found] = []
-    for use in rule_uses(product, sentences, title, not_a_customer(url, product)):
+    for use in rule_uses(product, sentences, title, not_a_customer(url, product), url):
         # The fullest form the page's own text writes (not its title: a title's capitals mark every word).
         body = text[len(title):] if title and text.startswith(title) else text
         name = fullest_name(use.organisation, [body], product)
@@ -188,10 +188,10 @@ def rule_reading(product: Product, sentences: list[str], text: str, url: str,
     return out
 
 
-def is_customer_list(product: Product, sentences: list[str], url: str) -> bool:
-    """The page names several organisations next to the product: a list of customers or case studies."""
-    other = not_a_customer(url, product)
-    return len([n for n in organisations_named(product, sentences) if not other(n)]) >= LIST_NAMES
+def is_customer_list(found: list[Found]) -> bool:
+    """The page's own sentences say several organisations use the product: a list of customers or case studies.
+    Counted from accepted rule sentences, not from capitalised words (a page's menus and headings name plenty)."""
+    return len({f.customer.casefold() for f in found}) >= LIST_NAMES
 
 
 def names_no_customer(product: Product, title: str, sentences: list[str], url: str) -> bool:
@@ -215,10 +215,11 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
     own = [q for q in sentences if " ".join(q.split()).casefold() not in boilerplate][:PAGE_SENTENCES]
     if not own:
         return [], "the product is named only in the site's navigation, repeated on its other pages"
-    listing = is_customer_list(product, own, url)
-    ruled = rule_reading(product, own if listing else own[:MAX_SENTENCES], text, url, default_publisher, title,
-                         LIST_CUSTOMERS if listing else MAX_CUSTOMERS)
-    about = title_organisation(title, product, not_a_customer(url, product))
+    everything = rule_reading(product, own, text, url, default_publisher, title, LIST_CUSTOMERS)
+    listing = is_customer_list(everything)
+    ruled = everything if listing else rule_reading(product, own[:MAX_SENTENCES], text, url, default_publisher,
+                                                    title, MAX_CUSTOMERS)
+    about = title_organisation(title, product, not_a_customer(url, product), url)
     if ruled and (listing or not about or any(_same(f.customer, about) for f in ruled)):
         return ruled, ""
     sentences = own[:MAX_SENTENCES]
