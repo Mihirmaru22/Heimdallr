@@ -440,14 +440,17 @@ class CrawlRunner:
 
     async def _fetch_doc(self, url: str) -> tuple[Any, PageDoc] | None:
         """(fetch result, parsed page) under robots.txt and the network rules; None when nothing was fetched."""
-        decision = await self.robots.check(url)
-        if not decision.allowed:
-            return None
         try:
+            decision = await self.robots.check(url)
+            if not decision.allowed:
+                return None
             result = await self.doc_fetcher.fetch(url)
+            return result, parse_page(normalize_url(result.final_url) or url, result.html())
         except FetchError:
             return None
-        return result, parse_page(normalize_url(result.final_url) or url, result.html())
+        except Exception as exc:  # noqa: BLE001 - one page that cannot be read or parsed is that page's problem
+            log.warning("page %s could not be read: %s: %s", url, type(exc).__name__, str(exc)[:200])
+            return None
 
     async def fetch_text(self, url: str) -> str | None:
         doc = await self.fetch_page(url)
