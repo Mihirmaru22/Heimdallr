@@ -3,7 +3,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { buildEarth, focusDots, siteDot, type Earth } from "./earth";
+import { buildEarth, earthLines, focusDots, siteDot, type Earth } from "./earth";
 
 // The research globe (see DESIGN.md). Everything the worker does lands on it:
 //   search  -> the source's satellite flashes and fires beams at the ground, a scan ring sweeps the globe
@@ -165,6 +165,12 @@ export class GlobeScene {
   private zoom = 1;
   private zoomNow = 1;
   private userUntil = 0;
+  // A kept site pulls the camera in close for a moment, then it eases back out (to the target countries
+  // when the run has them).
+  private punchUntil = 0;
+  private focusAim: { rx: number; ry: number } | null = null;
+  private borderMat!: THREE.LineBasicMaterial;
+  private coastMat!: THREE.LineBasicMaterial;
   // Adaptive quality: bloom and pixel ratio step down when frames run slow.
   // Horizon framing: the globe is drawn much larger than the view with its top edge at this fraction of the
   // height, like a planet rising, while the canvas stays the size of the view.
@@ -265,12 +271,25 @@ export class GlobeScene {
     dotGeo.setAttribute("position", new THREE.BufferAttribute(this.earth.positions, 3));
     this.dotColor = new THREE.BufferAttribute(new Float32Array(n * 3), 3);
     const dotSize = new Float32Array(n);
-    for (let i = 0; i < n; i++) dotSize[i] = this.earth.country[i] >= 0 ? 3.3 : 1.0;
+    for (let i = 0; i < n; i++) dotSize[i] = this.earth.country[i] >= 0 ? 2.2 : 0.65;
     dotGeo.setAttribute("aColor", this.dotColor);
     dotGeo.setAttribute("aSize", new THREE.BufferAttribute(dotSize, 1));
     dotGeo.setAttribute("aBorn", new THREE.BufferAttribute(new Float32Array(n).fill(-1), 1));
     this.earthGroup.add(new THREE.Points(dotGeo, pointMat()));
     this.paintDots();
+
+    // Coastlines and country borders: faint from afar, clearer when the camera moves in. The opaque core
+    // hides the far side.
+    const lines = earthLines(1.003);
+    const lineObj = (pos: Float32Array, mat: THREE.LineBasicMaterial) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      this.earthGroup.add(new THREE.LineSegments(g, mat));
+    };
+    this.coastMat = new THREE.LineBasicMaterial({ color: 0x9fbbe0, transparent: true, opacity: 0.2, depthWrite: false });
+    this.borderMat = new THREE.LineBasicMaterial({ color: 0xc8d6ea, transparent: true, opacity: 0.1, depthWrite: false });
+    lineObj(lines.coast, this.coastMat);
+    lineObj(lines.borders, this.borderMat);
 
     // Sites and pillars.
     this.siteGeo = new THREE.BufferGeometry();
@@ -377,11 +396,11 @@ export class GlobeScene {
       let spread = 0;
       const angles = this.focusList.map((i) => this.dotLocal(i).angleTo(c)).sort((a, b) => a - b);
       spread = angles[Math.floor(angles.length * 0.9)] ?? 0;
-      this.aim = this.rotationFacing(c);
+      this.aim = this.focusAim = this.rotationFacing(c);
       this.zoom = Math.max(0.6, Math.min(1, 0.5 + spread * 1.2));
       this.drag.vx = this.drag.vy = 0;
     } else {
-      this.aim = null;
+      this.aim = this.focusAim = null;
       this.zoom = 1;
     }
     this.replaceSites();
@@ -451,7 +470,11 @@ export class GlobeScene {
     const local = this.dotLocal(s.dot);
     // No target countries: swing round to each hit. A kept site always wins; reads at most every 1.6 s.
     const t = this.uniforms.uTime.value;
-    if (!this.focus.size && (sig.kind === "kept" || t - this.aimAt > 1.6)) {
+    if (sig.kind === "kept" && this.horizon == null) {
+      this.aim = this.rotationFacing(local);
+      this.aimAt = t;
+      this.punchUntil = t + 2.6;
+    } else if (!this.focus.size && t > this.punchUntil && t - this.aimAt > 1.6) {
       this.aim = this.rotationFacing(local);
       this.aimAt = t;
     }
@@ -670,18 +693,27 @@ export class GlobeScene {
     // Camera intro, then a slow drift; dragging takes over rotation with inertia.
     this.intro = Math.min(1, this.intro + dt / 1.8);
     const e = 1 - Math.pow(1 - this.intro, 3);
-    this.zoomNow += (this.zoom - this.zoomNow) * (1 - Math.exp(-dt * 1.6));
+    const punching = t < this.punchUntil;
+    if (!punching && this.punchUntil > 0) {
+      this.punchUntil = 0;
+      if (this.focusAim) this.aim = this.focusAim;
+    }
+    const zoomTo = punching ? Math.min(this.zoom, 0.5) : this.zoom;
+    this.zoomNow += (zoomTo - this.zoomNow) * (1 - Math.exp(-dt * (punching ? 2.2 : 1.3)));
+    const close = Math.max(0, Math.min(1, (1 - this.zoomNow) / 0.5));
+    this.coastMat.opacity = 0.2 + 0.3 * close;
+    this.borderMat.opacity = 0.1 + 0.35 * close;
     const dist = this.distance * this.zoomNow * (1.45 - 0.45 * e);
     this.camera.position.set(0, 0.25 * this.zoomNow, dist);
     this.camera.lookAt(0, 0.08 * this.zoomNow, 0);
     if (!this.drag.on) {
       if (this.aim && t > this.userUntil) {
-        const k = 1 - Math.exp(-dt * (this.focus.size ? 1.8 : 3.4));
+        const k = 1 - Math.exp(-dt * (punching ? 3.4 : this.focus.size ? 1.8 : 3.4));
         this.drag.rx += (this.aim.rx - this.drag.rx) * k;
         this.drag.ry += (this.aim.ry - this.drag.ry) * k;
         this.drag.vx = this.drag.vy = 0;
         // Without target countries, let go once the hit faces the camera and drift until the next one.
-        if (!this.focus.size && Math.abs(this.aim.ry - this.drag.ry) < 0.01 && Math.abs(this.aim.rx - this.drag.rx) < 0.01) this.aim = null;
+        if (!this.focus.size && !punching && Math.abs(this.aim.ry - this.drag.ry) < 0.01 && Math.abs(this.aim.rx - this.drag.rx) < 0.01) this.aim = null;
       } else {
         this.drag.ry += dt * (this.focus.size ? 0 : 0.06) + this.drag.vy;
         this.drag.rx += this.drag.vx;

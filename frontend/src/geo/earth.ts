@@ -1,4 +1,4 @@
-import { COUNT, DOTS, IDS } from "./earth-data";
+import { BORDERS, COAST, COUNT, DOTS, IDS } from "./earth-data";
 import { TLD_TO_ISO } from "./cc";
 
 // The globe's dots: an even Fibonacci sphere, each dot tagged with the country it falls in (or ocean).
@@ -17,6 +17,34 @@ export function latLonToXYZ(lat: number, lon: number, r = 1): [number, number, n
   const phi = ((90 - lat) * Math.PI) / 180;
   const theta = ((lon + 180) * Math.PI) / 180;
   return [-r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta)];
+}
+
+// Border or coast lines as segment pairs (xyz, xyz) on a sphere of radius r, decoded from the
+// delta format written by scripts/build-earth.mjs.
+function decodeLines(b64: string, r: number): Float32Array {
+  const b = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const i8 = (v: number) => (v > 127 ? v - 256 : v);
+  const out: number[] = [];
+  let lat = 0, lon = 0, prev: [number, number, number] | null = null;
+  for (let i = 0; i < b.length;) {
+    if (b[i] === 128) {
+      lat = (b[i + 1] | (b[i + 2] << 8)) << 16 >> 16;
+      lon = (b[i + 3] | (b[i + 4] << 8)) << 16 >> 16;
+      i += 5;
+      prev = latLonToXYZ(lat / 10, lon / 10, r);
+      continue;
+    }
+    lat += i8(b[i]); lon += i8(b[i + 1]);
+    i += 2;
+    const p = latLonToXYZ(lat / 10, lon / 10, r);
+    if (prev) out.push(...prev, ...p);
+    prev = p;
+  }
+  return new Float32Array(out);
+}
+
+export function earthLines(r: number) {
+  return { borders: decodeLines(BORDERS, r), coast: decodeLines(COAST, r) };
 }
 
 let cached: Earth | null = null;
