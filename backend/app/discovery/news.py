@@ -26,7 +26,7 @@ from app.evidence.products import Product
 GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 WINDOW = timedelta(days=90)  # GDELT lists at most 3 months per search
 PER_WINDOW = 75  # articles asked for per window
-WANT = 60  # articles gathered before reading; reading then stops on coverage (case_studies.PLATEAU)
+WANT = 60  # articles gathered before reading; reading then stops on coverage (case_studies.finds_dried_up)
 PAUSE = 5.0  # seconds between requests, as GDELT asks
 WINDOW_TRIES = 3  # requests per 3-month window when GDELT says "limit requests to one every 5 seconds"
 TURN_KEY = "webdata:gdelt:turn"

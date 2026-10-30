@@ -5,7 +5,7 @@ import json
 
 import httpx
 
-from app.discovery.case_studies import MIN_READ, PLATEAU, CaseStudiesProvider
+from app.discovery.case_studies import MIN_READ, QUIET, CaseStudiesProvider, finds_dried_up
 from app.evidence.judge import Judge
 from app.evidence.products import product_for
 from app.extract.deterministic import parse_page
@@ -71,9 +71,19 @@ async def test_reading_stops_when_pages_stop_naming_new_companies_and_says_so():
     p = provider(lambda q: noise, pages)
     users = {}
     stop = await p._read_loop(p.client, product_for("Guidewire"), spec().discovery, [u for u, _ in noise], users)
-    # Never fewer than MIN_READ pages, then a run of PLATEAU empty ones: here both end at MIN_READ.
-    assert stop.startswith("coverage") and p.read == max(MIN_READ, PLATEAU)
-    assert sum(e["reason"].startswith("not read: coverage") for e in p.evidence) == 60 - max(MIN_READ, PLATEAU)
+    # Never fewer than MIN_READ pages; with no company at all, reading ends after QUIET empty pages.
+    assert stop.startswith("coverage") and p.read == max(MIN_READ, QUIET)
+    assert sum(e["reason"].startswith("not read: coverage") for e in p.evidence) == 60 - max(MIN_READ, QUIET)
+
+
+def test_a_chance_run_of_empty_pages_does_not_stop_reading_while_companies_still_arrive():
+    # Windchill US run b (2026-10-30): new companies at these pages, then 20 empty ones; the old rule stopped at 79,
+    # while the same question's run a found 21 more companies past that point.
+    finds = [1, 2, 4, 4, 7, 8, 15, 23, 23, 40, 43, 44, 45, 46, 50, 59]
+    assert not finds_dried_up(79, finds)
+    assert not finds_dried_up(120, finds)  # 2 finds still in the last 80 pages
+    assert finds_dried_up(140, finds)  # nothing in 40 pages and at most one in 80: they have stopped arriving
+    assert not finds_dried_up(20, [])  # never before MIN_READ
 
 
 async def test_only_the_general_searches_are_read_no_company_is_searched_for_on_its_own():

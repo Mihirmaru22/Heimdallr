@@ -38,12 +38,25 @@ from app.search import EVIDENCE, SearchError, SearchHub, search_configured
 from app.spec.models import ExtractionSpec
 
 PHRASES = ("case study", "customer story", "success story")
-# Reading stops when coverage stops growing, not at a fixed number of pages: at least MIN_READ pages are read,
-# then reading goes on until PLATEAU pages in a row from the general searches named no new company that could be
-# delivered, or the job's reading budget is spent. Only about 1 page in 6 names a company at all, so a short run of
-# empty pages is chance, not coverage: with PLATEAU = 10 the first redesigned run stopped after 22 pages.
+# Reading stops when new companies stop arriving, judged by their rate, not by one run of empty pages: at least
+# MIN_READ pages are read, then reading goes on until no new company the question could deliver came in the last
+# QUIET pages and at most MAX_IN_WINDOW in the last WINDOW, or the job's reading budget is spent. Measured
+# (2026-10-30): new companies keep arriving at about 1 per 3-6 pages for 200+ pages, so "20 empty pages in a row"
+# fired on a chance gap (Windchill US stopped at page 79 in one run; the same question went on to 228 pages and 21
+# more companies in another).
 MIN_READ = 30
-PLATEAU = 20
+QUIET = 40
+WINDOW = 80
+MAX_IN_WINDOW = 1
+
+
+def finds_dried_up(read: int, finds: list[int]) -> bool:
+    """Whether new companies have stopped arriving: `finds` are the page counts at which a new deliverable company
+    came in, `read` the pages read so far."""
+    if read < MIN_READ:
+        return False
+    recent = [f for f in finds if f > read - WINDOW]
+    return read - (finds[-1] if finds else 0) >= QUIET and len(recent) <= MAX_IN_WINDOW
 SEARCH_PAGES = 2  # result pages per query
 HOST_FAILURES = 2  # pages of one site that could not be read before its other candidates are passed over
 CCTLD = {iso: tld for tld, iso in CCTLD_TO_ISO.items()}  # "GB" -> "uk"
@@ -297,8 +310,8 @@ class CaseStudiesProvider:
             self.context = await self._context(product, d)
             urls = await self.search(client, product)
             self.hub = self.hub or SearchHub.from_settings(client, self.searxng_url)
-            self._say("search", f"{len(urls)} page(s) found among {product.name} {self.what}; reading until "
-                                f"{PLATEAU} pages in a row name no new company (at least {MIN_READ})")
+            self._say("search", f"{len(urls)} page(s) found among {product.name} {self.what}; reading until new "
+                                f"companies stop arriving (none in {QUIET} pages; at least {MIN_READ} pages)")
             pending = list(dict.fromkeys(urls))
             stop = await self._read_loop(client, product, d, pending, users)
             self.notes.append(f"{self.name}: {len(urls)} candidate page(s); {self.read} read; stopped: {stop}")
@@ -416,19 +429,20 @@ class CaseStudiesProvider:
 
     async def _read_loop(self, client: httpx.AsyncClient, product: Product, d, pending: list[str],
                          users: dict[str, dict[str, Any]]) -> str:
-        """Read candidates best first; reading stops when PLATEAU pages in a row named no new company the question
-        could deliver, or at the reading budget. Returns why it stopped. Pages left unread are listed on the
+        """Read candidates best first; reading stops when new companies the question could deliver stop arriving
+        (finds_dried_up), or at the reading budget. Returns why it stopped. Pages left unread are listed on the
         Rejected sheet with that reason."""
         failures: Counter = Counter()
         seen_keys: set[str] = set()
-        since_new, stop = 0, "every candidate page was read"
+        finds: list[int] = []  # pages read when a new deliverable company came in
+        stop = "every candidate page was read"
         while pending:
             if self._over_budget():
                 stop = "the reading budget was reached"
                 break
-            if self.read >= MIN_READ and since_new >= PLATEAU:
-                stop = (f"coverage: the last {PLATEAU} pages read from the general searches named no new company "
-                        "that could be delivered")
+            if finds_dried_up(self.read, finds):
+                stop = (f"coverage: no new company that could be delivered in the last {QUIET} pages read, and at most "
+                        f"{MAX_IN_WINDOW} in the last {WINDOW}")
                 break
             if self.judge.unavailable:
                 stop = f"no model to read pages ({self.judge.unavailable})"
@@ -454,7 +468,8 @@ class CaseStudiesProvider:
                     users[k] = row
             deliverable = [r for r in new if await self._could_deliver(client, r, d)]
             # Coverage is measured on companies the question could deliver: a company elsewhere does not answer it.
-            since_new = 0 if deliverable else since_new + 1
+            if deliverable:
+                finds.append(self.read)
         # Pages no free model answered are asked once more, now that the busy moment has likely passed.
         retry, self.unanswered = self.unanswered, []
         for url in retry:
