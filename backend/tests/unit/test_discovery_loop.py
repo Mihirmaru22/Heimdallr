@@ -247,3 +247,25 @@ async def test_a_page_listing_customers_is_read_in_full_without_the_five_custome
     found, _ = await read_page(Judge(NoModel()), product_for("Guidewire"), "Case studies", sentences, text,
                                "https://partner.example/case-studies/")
     assert len(sentences) > MAX_SENTENCES and [f.customer for f in found] == names  # all 14, not 5
+
+
+async def test_one_fact_gets_one_weight_whoever_read_it():
+    """A sure model reading of a generic page counts like a rule sentence on it (Likely), not less."""
+
+    class Sure(Reader):
+        async def chat(self, messages, **kw):
+            body = {"publisher": "other", "sure": True,
+                    "customers": [{"name": "Acme", "quote": 1, "relationship": "uses"}]}
+            return Reply(json.dumps(body), "m:free")
+
+    unclear = ("<html><head><title>Acme on Guidewire</title><meta property='article:published_time' "
+               "content='2026-09-01'></head><body><p>Guidewire ClaimCenter powers the claims desk at Acme.</p>"
+               "</body></html>")
+    rule = ("<html><head><title>Acme selects Guidewire</title><meta property='article:published_time' "
+            "content='2026-09-01'></head><body><p>Acme has selected Guidewire ClaimCenter.</p></body></html>")
+    pages = {"https://blog.example/a": unclear, "https://blog.example/b": rule}
+    p = provider(lambda q: [], pages)
+    p.judge = Judge(Sure())
+    by_model, _ = await p._read_one("https://blog.example/a", product_for("Guidewire"))
+    by_rule, _ = await p._read_one("https://blog.example/b", product_for("Guidewire"))
+    assert by_model[0]["verdict"] == by_rule[0]["verdict"] == "Likely"

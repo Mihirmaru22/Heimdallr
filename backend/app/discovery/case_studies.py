@@ -400,12 +400,15 @@ class CaseStudiesProvider:
             # disagree leave a mention, kept and visible, never a use.
             relationship = "unreviewed" if f.agreement == "disagree" else f.relationship
             first_hand = f.publisher in ("vendor", "customer")
+            # One fact, one weight, whoever read it: a rule sentence and a sure model reading of the same kind of
+            # page count the same. A model's single reading of a generic page once counted 0.3 (Mentioned) where a
+            # rule sentence on it counted Likely (12 companies held back that way, 2026-10-30).
+            weight = STRENGTH[f.publisher] if first_hand else max(STRENGTH[f.publisher], RULE_STRENGTH)
             if f.agreement == "rules":
-                verdict, strength = score(relationship, STRENGTH[f.publisher] if first_hand
-                                          else max(STRENGTH[f.publisher], RULE_STRENGTH), day)
+                verdict, strength = score(relationship, weight, day)
                 judged = f.judged_by
             else:
-                verdict, strength = score(relationship, STRENGTH[f.publisher], day,
+                verdict, strength = score(relationship, weight, day,
                                           one_reading=f.agreement == "single" and not first_hand)
                 second = "agrees" if f.agreement == "agree" else "disagrees"
                 judged = f.judged_by + (f"; second reading {f.second_by} {second}" if f.second_by
