@@ -132,6 +132,13 @@ def _found_by(hint: dict[str, Any]) -> str:
     return f"; found by {hit['provider']} for {hit['query']!r}" + (f": {said[:200]}" if said else "")
 
 
+def reading_order(providers: list) -> list:
+    """Sources in the plan's order, except that those reading an open-ended set of candidates go last: they take
+    whatever reading time the bounded ones leave, including all of a source's share that could not be reached
+    (GDELT was down once, and its half of the hour went unused while case studies had stopped at theirs)."""
+    return sorted(providers, key=lambda p: bool(getattr(p, "open_ended", False)))
+
+
 def reading_share(now: float, deadline: float, readers_left: int) -> float:
     """When the source whose turn it is must stop reading: an equal share of the budget left, among the sources
     still to read (this one included)."""
@@ -272,7 +279,7 @@ class CrawlRunner:
                                               retry_waits=(0.0, 0.0) if testing else REGISTRY_RETRY_WAITS)
         self.read_deadline = time.monotonic() + self.spec.discovery.read_budget_minutes * 60
         try:
-            providers = providers_for(self.spec)
+            providers = reading_order(providers_for(self.spec))
             # The reading budget is shared: each source that reads proof pages gets an equal share of what is left
             # when its turn comes, so one source cannot spend it all (case studies read for the whole hour once and
             # no news article was read); time a source does not need passes to the next.

@@ -71,6 +71,7 @@ class NewsProvider(CaseStudiesProvider):
     name = "news"
     what = "news articles"
     publisher = "news"
+    open_ended = False  # at most WANT articles are gathered: it needs a bounded share, then hands the rest on
 
     def __init__(self, *args, gdelt_url: str = GDELT_URL, years: int | None = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)

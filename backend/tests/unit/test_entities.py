@@ -129,3 +129,17 @@ def test_each_source_reading_pages_gets_an_equal_share_of_the_budget_left():
     assert reading_share(0.0, 3600.0, 2) == 1800.0  # case studies, then news: half each
     assert reading_share(600.0, 3600.0, 1) == 3600.0  # the last source gets all that is left, early finish included
     assert reading_share(4000.0, 3600.0, 1) == 4000.0  # past the deadline: no time
+
+
+def test_sources_with_open_ended_candidates_read_last_and_take_the_time_left():
+    from types import SimpleNamespace
+
+    from app.crawl.runner import reading_order, reading_share
+
+    cases = SimpleNamespace(name="case_studies", deadline=None, open_ended=True)
+    news = SimpleNamespace(name="news", deadline=None, open_ended=False)
+    filings = SimpleNamespace(name="sec_filings")
+    assert [p.name for p in reading_order([filings, cases, news])] == ["sec_filings", "news", "case_studies"]
+    # News is unreachable and ends at once: case studies, last, get the whole hour that is left, not half.
+    assert reading_share(0.0, 3600.0, 2) == 1800.0
+    assert reading_share(5.0, 3600.0, 1) == 3600.0

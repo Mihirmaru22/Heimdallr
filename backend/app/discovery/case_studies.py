@@ -109,6 +109,9 @@ class CaseStudiesProvider:
     name = "case_studies"
     what = "case studies and customer stories"  # what the pages are, in notes and the live feed
     publisher = "other"  # who publishes this source's pages, when nothing on the page says otherwise
+    # Its candidates are open-ended (web search gives hundreds): it reads until coverage or the budget stops it,
+    # so it reads after the sources whose candidates are bounded and takes whatever time they leave.
+    open_ended = True
 
     def __init__(self, client: httpx.AsyncClient | None = None, judge: Judge | None = None,
                  searxng_url: str | None = None) -> None:
