@@ -8,8 +8,9 @@ import { AnimatedNumber } from "./AnimatedNumber";
 
 export { AnimatedNumber };
 
-// The run screen's stage: the globe full width, with the live state laid over it. Everything here comes
-// from the job's activity lines and progress; nothing is simulated.
+// The run screen's stage: the globe full width, with the live state laid over it. The globe, reading
+// column and wire come from the job's activity lines; the numbers come from the job's own counters, so
+// they are the same totals the export uses.
 
 // The clock and the "on this step for Ns" counter tick on their own, so the rest of the screen only
 // re-renders when new activity arrives.
@@ -66,36 +67,19 @@ function Decode({ text }: { text: string }) {
   return <>{out}</>;
 }
 
-export default function Mission({ lines, live, state, title, question, elapsed, createdAt, focus, actions, crumbs }: {
+// One number on the run screen: its label, value, colour class and a plain explanation on hover.
+export type MissionStat = { label: string; value: number; cls?: string; hint?: string };
+
+export default function Mission({ lines, live, state, title, question, elapsed, createdAt, focus, stats, summary, actions, crumbs }: {
   lines: Activity[]; live: boolean; state: string; title: string; question?: string; elapsed: number | null;
-  createdAt: string | null; focus: string[]; actions: ReactNode; crumbs: ReactNode;
+  createdAt: string | null; focus: string[]; stats: MissionStat[]; summary?: string; actions: ReactNode; crumbs: ReactNode;
 }) {
   const signals = useMemo(() => lines.map((l) => ({ id: l.id, kind: l.data.kind, site: l.data.site,
     source: (l.data.source as string | undefined) ?? null, at: l.created_at })), [lines]);
-  const counts = useMemo(() => {
-    const c: Record<string, number> = {};
-    const sources = new Set<string>();
-    const kept = new Set<string>();
-    for (const l of lines) {
-      c[l.data.kind] = (c[l.data.kind] ?? 0) + 1;
-      if (l.data.kind === "search" && l.data.source) sources.add(String(l.data.source));
-      if (l.data.kind === "kept" && l.data.site) kept.add(l.data.site);
-    }
-    return { ...c, sources: sources.size, keptSites: kept.size } as Record<string, number>;
-  }, [lines]);
   const current = lines.at(-1);
   const reading = lines.filter((l) => l.data.kind === "read" && l.data.url).slice(-9);
   const wire = lines.filter((l) => l.data.kind !== "read").slice(-8);
   const k = current ? KIND[current.data.kind] ?? KIND.read : null;
-
-  const stats: [string, number, string][] = [
-    ["sources searched", counts.sources || counts.search || 0, "info"],
-    ["pages read", counts.read ?? 0, ""],
-    ["sites kept", counts.keptSites, "accent"],
-    ["details found", counts.found ?? 0, "ok"],
-    ["dropped", (counts.dropped ?? 0) + (counts.skipped ?? 0), "muted"],
-    ["blocked or failed", (counts.blocked ?? 0) + (counts.failed ?? 0), "bad"],
-  ];
 
   return (
     <section className="mission force-dark" aria-label="Live research">
@@ -122,10 +106,10 @@ export default function Mission({ lines, live, state, title, question, elapsed, 
           <div className="hud-now-body">
             <span className="hud-now-kind">{live ? (k ? k.label : state.replace(/_/g, " ")) : "Finished"}{live && current && <Since at={current.created_at} />}</span>
             <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span key={current?.id ?? "none"} className="hud-now-text"
+              <motion.span key={live ? current?.id ?? "none" : "done"} className="hud-now-text"
                 initial={{ opacity: 0, y: 14, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                 exit={{ opacity: 0, y: -14, filter: "blur(6px)" }} transition={{ duration: 0.35, ease: [0.2, 0.75, 0.15, 1] }}>
-                {current ? current.message : live ? WAITING[state] ?? "Getting the plan ready…" : "No steps were recorded."}
+                {live ? current?.message ?? WAITING[state] ?? "Getting the plan ready…" : summary ?? current?.message ?? "No steps were recorded."}
               </motion.span>
             </AnimatePresence>
           </div>
@@ -166,9 +150,9 @@ export default function Mission({ lines, live, state, title, question, elapsed, 
         </aside>
 
         <footer className="hud-stats">
-          {stats.map(([label, n, cls]) => (
-            <div key={label} className={`hud-stat ${cls}`}>
-              <b className="mono"><AnimatedNumber value={n} /></b>
+          {stats.map(({ label, value, cls = "", hint }) => (
+            <div key={label} className={`hud-stat ${cls}`} title={hint}>
+              <b className="mono"><AnimatedNumber value={value} /></b>
               <span>{label}</span>
             </div>
           ))}

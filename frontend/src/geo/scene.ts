@@ -153,8 +153,6 @@ export class GlobeScene {
   private sparkGeo: THREE.BufferGeometry;
   private satellites = new Map<string, Satellite>();
   private vault: THREE.Group;
-  private vaultLabel: HTMLDivElement;
-  private vaultCount = 0;
   private vaultFlash = 0;
   private labels: Label[] = [];
   private lastRead: number | null = null;
@@ -343,7 +341,8 @@ export class GlobeScene {
     this.earthGroup.add(sparks);
     for (let i = 0; i < BURSTS; i++) this.bursts.push({ origin: new THREE.Vector3(), vel: Array.from({ length: SPARKS }, () => new THREE.Vector3()), t: 0, live: false });
 
-    // The vault: where kept sites go (your spreadsheet).
+    // The vault: where kept sites go (your spreadsheet). It has no counter of its own; the run screen's
+    // numbers are the one place totals are shown.
     this.vault = new THREE.Group();
     this.vault.position.set(1.62, 0.92, 0.1);
     const vRing = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.008, 12, 64), new THREE.MeshBasicMaterial({ color: STAGE.kept }));
@@ -351,7 +350,6 @@ export class GlobeScene {
     const vCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), new THREE.MeshBasicMaterial({ color: 0xffe2cf, wireframe: true }));
     this.vault.add(vRing, vCore);
     this.scene.add(this.vault);
-    this.vaultLabel = this.makeLabel("vault", "Sites kept");
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -423,8 +421,7 @@ export class GlobeScene {
   }
 
   private bumpVault() {
-    this.vaultCount++;
-    this.vaultLabel.querySelector("b")!.textContent = String(this.vaultCount);
+    this.vaultFlash = 1;
   }
 
   feed(sig: GlobeSignal, animate: boolean) {
@@ -450,7 +447,7 @@ export class GlobeScene {
     if (!state || !sig.site) return;
     const s = this.light(sig.site, state, fx);
     if (!s) return;
-    if (!fx) { if (sig.kind === "kept") this.bumpVault(); return; }
+    if (!fx) return;
     const local = this.dotLocal(s.dot);
     // No target countries: swing round to each hit. A kept site always wins; reads at most every 1.6 s.
     const t = this.uniforms.uTime.value;
@@ -598,8 +595,8 @@ export class GlobeScene {
   private makeLabel(cls: string, text: string) {
     const el = document.createElement("div");
     el.className = `globe-label ${cls}`;
-    el.innerHTML = cls === "vault" ? `<span>${text}</span> <b>0</b>` : `<span></span>`;
-    if (cls !== "vault") el.querySelector("span")!.textContent = text;
+    el.innerHTML = `<span></span>`;
+    el.querySelector("span")!.textContent = text;
     this.labelsLayer.appendChild(el);
     return el;
   }
@@ -649,7 +646,6 @@ export class GlobeScene {
       const behind = wp.clone().normalize().dot(camDir) < -0.2 && wp.length() < 2;
       put(sat.label, wp, !behind, 0.9);
     }
-    put(this.vaultLabel, this.vault.getWorldPosition(new THREE.Vector3()), true);
     const now = this.uniforms.uTime.value;
     this.labels = this.labels.filter((l) => {
       const age = now - l.born;

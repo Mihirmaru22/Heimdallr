@@ -400,9 +400,6 @@ button:hover:not(:disabled) .ico-go, .btn:hover .ico-go { transform: translateX(
 .globe-label span, .globe-label b { position: relative; }
 .globe-label.sat { margin: -26px 0 0 10px; color: #9cc7ff; }
 .globe-label.sat::before { content: ""; position: absolute; left: -10px; top: 50%; width: 8px; height: 1px; background: currentColor; opacity: .6; }
-.globe-label.vault { margin: -44px 0 0 -46px; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255, 122, 69, .55); background: rgba(20, 10, 6, .7);
-  color: #ffd2bd; }
-.globe-label.vault b { color: #ff9466; margin-left: 4px; }
 .globe-label.site { margin: -12px 0 0 12px; padding: 3px 8px; border-radius: 6px; background: rgba(255, 122, 69, .16); border: 1px solid rgba(255, 122, 69, .5);
   color: #ffe0d1; box-shadow: 0 0 18px rgba(255, 122, 69, .35); }
 .globe-label.site::before { content: "kept "; color: #ff9466; }
@@ -451,8 +448,8 @@ button:hover:not(:disabled) .ico-go, .btn:hover .ico-go { transform: translateX(
 .wire-line.k-ok { background: rgba(255, 122, 69, .08); }
 .wire-msg { line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .wire-line.k-muted .wire-msg { color: var(--muted); }
-.hud-stats { grid-area: stats; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); padding-top: 14px; }
-.hud-stat { display: flex; flex-direction: column; padding-right: 12px; }
+.hud-stats { grid-area: stats; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0; border-top: 1px solid var(--line); padding-top: 14px; }
+.hud-stat { display: flex; flex-direction: column; padding-right: 12px; cursor: help; }
 .hud-stat b { font-size: clamp(1.5rem, 1rem + 2vw, 2.9rem); font-weight: 400; letter-spacing: -.05em; line-height: 1.05; color: var(--ink); }
 .hud-stat span { font-size: .74rem; color: var(--muted); margin-top: 2px; }
 .hud-stat.accent b { color: var(--accent); text-shadow: 0 0 24px rgba(255, 122, 69, .45); }

@@ -88,10 +88,13 @@ def progress(job_id: uuid.UUID, ctx: OrgContext = Depends(org_member), db: Sessi
     job = get_in_org(db, CrawlJob, job_id, ctx.org.id, "job")
     counts = dict(db.execute(select(ExtractedRecord.status, func.count()).where(
         ExtractedRecord.job_id == job.id).group_by(ExtractedRecord.status)).all())
+    # Counted from when the run was created, so planning time is included and the clock never restarts
+    # when crawling begins (started_at is only set then).
+    start = job.created_at or job.started_at
     elapsed = None
-    if job.started_at:
+    if start:
         end = job.finished_at if S(job.state) in TERMINAL and job.finished_at else utcnow()
-        elapsed = max(0.0, (end - job.started_at).total_seconds())
+        elapsed = max(0.0, (end - start).total_seconds())
     return JobProgress(id=job.id, state=job.state, counters=job.counters, records=sum(counts.values()),
                        valid_records=counts.get("valid", 0), elapsed_seconds=elapsed, error=job.error,
                        terminal=S(job.state) in TERMINAL)
