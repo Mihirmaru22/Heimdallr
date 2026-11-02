@@ -269,3 +269,28 @@ async def test_one_fact_gets_one_weight_whoever_read_it():
     by_model, _ = await p._read_one("https://blog.example/a", product_for("Guidewire"))
     by_rule, _ = await p._read_one("https://blog.example/b", product_for("Guidewire"))
     assert by_model[0]["verdict"] == by_rule[0]["verdict"] == "Likely"
+
+
+async def test_a_page_a_site_refuses_is_read_from_a_copy_elsewhere_and_the_site_is_not_asked_again():
+    refused = "https://vendor.example/stories/acme-mutual-modernises-claims"
+    copy = "https://news.example/2026/acme-mutual-modernises-claims-with-guidewire"
+    title = "Acme Mutual modernises claims handling with Guidewire ClaimCenter"
+    asked = []
+
+    def results(q):
+        return [(copy, title)] if "acme" in q.lower() and "modernises" in q.lower() else []
+
+    p = provider(results, {copy: story("Acme Mutual")})
+    inner = p.fetch_page
+
+    async def fetch(url):
+        asked.append(url)
+        return None if url.startswith("https://vendor.example/") else await inner(url)
+
+    p.fetch_page = fetch
+    p.hub = SearchHub.from_settings(p.client, "http://searx")
+    p.meta[refused] = (title, "")
+    users = {}
+    await p._read_loop(p.client, product_for("Guidewire"), spec().discovery, [refused], users)
+    assert "acme mutual" in users and users["acme mutual"]["url"] == copy  # proof from the copy
+    assert asked.count(refused) == 1 and p.copy_of[copy] == refused  # the refusing site was asked once

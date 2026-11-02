@@ -34,7 +34,7 @@ from app.evidence.products import Product, product_for
 from app.evidence.quotes import find_mentions, verify_quote
 from app.evidence.thirdparty import PAGE_SENTENCES, RULE_STRENGTH, STRENGTH, countries_named, read_page
 from app.extract.deterministic import PageDoc
-from app.search import EVIDENCE, SearchError, SearchHub, search_configured
+from app.search import EVIDENCE, LOOKUP, SearchError, SearchHub, search_configured
 from app.spec.models import ExtractionSpec
 
 PHRASES = ("case study", "customer story", "success story")
@@ -59,6 +59,12 @@ def finds_dried_up(read: int, finds: list[int]) -> bool:
     return read - (finds[-1] if finds else 0) >= QUIET and len(recent) <= MAX_IN_WINDOW
 SEARCH_PAGES = 2  # result pages per query
 HOST_FAILURES = 2  # pages of one site that could not be read before its other candidates are passed over
+# A page a site refuses (403, robots.txt) is not asked for again, under any identity; its story is looked for
+# elsewhere: one search for its title, on the free engines, and up to COPIES_PER_PAGE copies on other sites read.
+# Measured 2026-10-30: 7 of 8 pages ptc.com and oracle.com refused had a copy elsewhere naming the same customer.
+COPIES_PER_PAGE = 2
+MAX_COPY_SEARCHES = 40  # per job
+TITLE_OVERLAP = 0.5  # share of the refused page's title words a copy's title or snippet must carry
 CCTLD = {iso: tld for tld, iso in CCTLD_TO_ISO.items()}  # "GB" -> "uk"
 MAX_ADOPTION_QUERIES = 4
 SOURCE_TYPES = {"vendor": "Vendor case study", "partner": "Partner case study", "customer": "Customer's own page",
@@ -147,6 +153,8 @@ class CaseStudiesProvider:
         # site -> product sentence -> pages of that site it was on, this job only: a sentence on several pages of
         # one site is its navigation (a sidebar of other case studies), not what any one page says.
         self.site_sentences: dict[str, dict[str, set[str]]] = {}
+        self.copy_searches = 0  # searches made for copies of refused pages, this job
+        self.copy_of: dict[str, str] = {}  # copy url -> the refused page it stands in for
         self.deadline: float | None = None  # monotonic time the job's reading budget ends (set by the crawler)
         self.read = 0  # pages read
         self.unanswered: list[str] = []  # pages no free model answered, asked again at the end
@@ -228,6 +236,47 @@ class CaseStudiesProvider:
             if pages - {url}:
                 out.add(key)
             pages.add(url)
+        return out
+
+    async def _copies(self, url: str, product: Product) -> list[str]:
+        """Pages on other sites carrying the story of a page its own site refused: one search for its title (or its
+        address's words when search gave no title), on the free engines. The refusing site is never asked again."""
+        if self.copy_searches >= MAX_COPY_SEARCHES or self.hub is None:
+            return []
+        title = self.meta.get(url, ("", ""))[0]
+        if not title:
+            path = url.split("://", 1)[-1].split("/", 1)[-1].split("?", 1)[0]
+            title = " ".join(re.findall(r"[A-Za-z0-9]+", path.replace("-", " ")))
+        stop = {w.lower() for n in product.names for w in re.findall(r"[A-Za-z0-9]+", n)}
+        words = {w.lower() for w in re.findall(r"[A-Za-z0-9]{4,}", title)} - stop
+        if len(words) < 2:
+            return []  # too little to recognise the same story by
+        self.copy_searches += 1
+        name = ([n for n in product.names if len(n) > 4] or product.names)[0]
+        try:
+            # The product's name with the story's own words: what the earlier measurement asked (7 of 8 found).
+            hits = await self.hub.search(f'"{name}" ' + " ".join(sorted(words, key=title.lower().find)[:12]),
+                                         kind=LOOKUP)
+        except SearchError:
+            return []
+        own = registered_domain(url)
+        out = []
+        for hit in hits:
+            copy = normalize_url(hit.url)
+            site = registered_domain(copy) if copy else ""
+            if not copy or not site or site == own or site in NOT_COMPANY_SITES or copy in self.copy_of:
+                continue
+            said = f"{hit.title} {hit.snippet} {copy.replace('-', ' ')}"
+            seen = {w.lower() for w in re.findall(r"[A-Za-z0-9]{4,}", said)}
+            if product.mentioned_in(said) and len(words & seen) >= TITLE_OVERLAP * len(words):
+                self.meta.setdefault(copy, (hit.title or "", hit.snippet or ""))
+                self.order.setdefault(copy, len(self.order))
+                self.copy_of[copy] = url
+                out.append(copy)
+            if len(out) >= COPIES_PER_PAGE:
+                break
+        if out:
+            self._say("search", f"{own} refused {url}; reading {len(out)} copy/copies of its story elsewhere", url)
         return out
 
     def _elsewhere(self, company: str) -> str:
@@ -459,10 +508,12 @@ class CaseStudiesProvider:
             seen_keys.add(key)
             if failures[host] >= HOST_FAILURES:
                 self._unread(url, product, f"not read: {host} refused or gave no text {HOST_FAILURES} times")
+                pending += [c for c in await self._copies(url, product) if c not in pending]
                 continue
             kept_rows, fetched = await self._read_one(url, product)
             if not fetched:
                 failures[host] += 1
+                pending += [c for c in await self._copies(url, product) if c not in pending]
                 continue
             new = [r for r in kept_rows if r["company"].casefold() not in users]
             for row in kept_rows:
