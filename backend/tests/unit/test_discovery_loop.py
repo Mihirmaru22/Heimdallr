@@ -61,7 +61,8 @@ def test_the_reading_order_comes_from_the_pages_not_the_engines():
     p.meta = {"https://b.example/x": ("Guidewire customer story", ""), "https://a.example/y": ("Other news", ""),
               "https://c.example/us": ("Guidewire in the US", "")}
     order = sorted(p.meta, key=lambda u: p.rank(u, product, ["US"]))
-    assert order == ["https://c.example/us", "https://b.example/x", "https://a.example/y"]
+    # A customer story first (its kind gives proof most often), then the page about the place, then the rest.
+    assert order == ["https://b.example/x", "https://c.example/us", "https://a.example/y"]
 
 
 async def test_reading_stops_when_pages_stop_naming_new_companies_and_says_so():

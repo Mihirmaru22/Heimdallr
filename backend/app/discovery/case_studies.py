@@ -26,6 +26,7 @@ import httpx
 
 from app.config import get_settings
 from app.crawl.urlnorm import normalize_url, registered_domain
+from app.discovery.page_yield import Yields, page_kind
 from app.discovery.providers import NOT_COMPANY_SITES, DiscoveryError, DiscoveryResult
 from app.discovery.relevance import CCTLD_TO_ISO
 from app.discovery.websites import WebsiteFinder, names_company
@@ -153,6 +154,7 @@ class CaseStudiesProvider:
         # site -> product sentence -> pages of that site it was on, this job only: a sentence on several pages of
         # one site is its navigation (a sidebar of other case studies), not what any one page says.
         self.site_sentences: dict[str, dict[str, set[str]]] = {}
+        self.yields: Yields | None = None  # how often each kind of page gives proof (loaded on first use)
         self.copy_searches = 0  # searches made for copies of refused pages, this job
         self.copy_of: dict[str, str] = {}  # copy url -> the refused page it stands in for
         self.deadline: float | None = None  # monotonic time the job's reading budget ends (set by the crawler)
@@ -211,14 +213,15 @@ class CaseStudiesProvider:
         return urls
 
     def rank(self, url: str, product: Product, countries: list[str]) -> tuple:
-        """A page's place in the reading order, from what search said about it: pages whose title, snippet or
-        domain is about the place asked for first, then pages naming the product; within one score, the order
-        search found them in (the place-specific searches are asked first, and each engine ranks its own
-        results), which a job keeps fixed. Breaking ties by address instead read domains alphabetically and lost
-        the engines' relevance (2026-10-29)."""
+        """A page's place in the reading order, from what search said about it: first by how often its kind of page
+        gives proof (measured: customer stories about half the time, service and product pages hardly ever; see
+        app.discovery.page_yield), then pages whose title, snippet or domain is about the place asked for, then
+        pages naming the product; within one score, the order search found them in, which a job keeps fixed.
+        Breaking ties by address instead read domains alphabetically and lost the engines' relevance (2026-10-29)."""
         title, snippet = self.meta.get(url, ("", ""))
         text = f"{title} {snippet}"
-        score = product.mentioned_in(text)
+        self.yields = self.yields or Yields()
+        score = 10 * self.yields.rate(page_kind(url, title)) + product.mentioned_in(text)
         if countries:
             site = registered_domain(url) or ""
             tlds = {CCTLD.get(c, c.lower()) for c in countries}
@@ -363,6 +366,8 @@ class CaseStudiesProvider:
                                 f"companies stop arriving (none in {QUIET} pages; at least {MIN_READ} pages)")
             pending = list(dict.fromkeys(urls))
             stop = await self._read_loop(client, product, d, pending, users)
+            if self.yields is not None and get_settings().env != "test":
+                self.yields.save()  # this run's outcomes join the measured yields for the next runs
             self.notes.append(f"{self.name}: {len(urls)} candidate page(s); {self.read} read; stopped: {stop}")
             finder = WebsiteFinder(client, self.searxng_url, self._text, hub=self.hub)
             results: list[DiscoveryResult] = []
@@ -511,6 +516,8 @@ class CaseStudiesProvider:
                 pending += [c for c in await self._copies(url, product) if c not in pending]
                 continue
             kept_rows, fetched = await self._read_one(url, product)
+            if fetched and self.yields is not None:
+                self.yields.record(page_kind(url, self.meta.get(url, ("", ""))[0]), bool(kept_rows))
             if not fetched:
                 failures[host] += 1
                 pending += [c for c in await self._copies(url, product) if c not in pending]
