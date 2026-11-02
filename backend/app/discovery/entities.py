@@ -55,6 +55,8 @@ def transient(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
         return exc.response.status_code >= 500
     return isinstance(exc, httpx.TransportError)
+
+
 GLEIF_CANDIDATES = 10
 
 
@@ -105,17 +107,37 @@ class Resolution:
     candidates: list[Candidate] = field(default_factory=list)
 
 
+def one_word(company: str) -> bool:
+    """A name of one word or an acronym ("AUSA", "Wharton"): many organisations share it, so the name alone does
+    not say which one is meant."""
+    return len(words(company)) <= 1
+
+
 def settle(company: str, website: str, candidates: list[Candidate]) -> Resolution:
     """The strongest matches decide: an entity whose official website is the company's, else exact name matches,
-    else word matches; within the strongest kind every entity must agree on the country."""
+    else word matches; within the strongest kind every entity must agree on the country.
+
+    A name is one signal; a registry match needs a second that does not contradict it. An entity whose official
+    website is another site than the company's is another organisation, whatever its name ("AUSA": the Spanish
+    maker at ausa.com is not the US army association at ausa.org, 2026-10-30). And a one-word or acronym name
+    matched by name alone, with no website to compare, settles nothing."""
     site = registered_domain(website) if website else ""
     for c in candidates:
-        c.how = "website" if site and c.website and registered_domain(c.website) == site else name_match(company,
-                                                                                                         c.name)
+        theirs = registered_domain(c.website) if c.website else ""
+        if site and theirs and theirs == site:
+            c.how = "website"
+        elif site and theirs:
+            c.how = ""  # the same name on another organisation's site: not this company
+        else:
+            c.how = name_match(company, c.name)
     for kind in ("website", "exact"):
         group = [c for c in candidates if c.how == kind and c.country]
         if not group:
             continue
+        if kind == "exact" and one_word(company) and not site:
+            names = "; ".join(f"{c.name} ({c.registry} {c.ident}, {c.country})" for c in group[:4])
+            return Resolution(detail=f"only the name matches, and a one-word name is shared by many organisations; "
+                                     f"no website to tell them apart: {names}", candidates=candidates)
         countries = {c.country for c in group}
         names = "; ".join(f"{c.name} ({c.registry} {c.ident}, {c.country})" for c in group[:4])
         if len(countries) > 1:

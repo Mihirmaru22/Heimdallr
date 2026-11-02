@@ -143,3 +143,19 @@ def test_sources_with_open_ended_candidates_read_last_and_take_the_time_left():
     # News is unreachable and ends at once: case studies, last, get the whole hour that is left, not half.
     assert reading_share(0.0, 3600.0, 2) == 1800.0
     assert reading_share(5.0, 3600.0, 1) == 3600.0
+
+
+def test_a_name_needs_a_second_signal_that_does_not_contradict_it():
+    army = Candidate("wikidata", "Q4810147", "AUSA", "US", website="https://www.ausa.org/")
+    # The Spanish maker's own site is ausa.com: the association at ausa.org is another organisation.
+    assert settle("AUSA", "https://ausa.com/", [army]).country == ""
+    # A one-word name matched by name alone, with no website to compare, settles nothing.
+    school = Candidate("wikidata", "Q1329269", "Wharton", "US", website="https://www.wharton.upenn.edu/")
+    res = settle("Wharton", "", [school])
+    assert res.country == "" and "one-word name" in res.detail
+    # The same entity with the company's own website agreeing settles it, one word or not.
+    dell = Candidate("wikidata", "Q30873", "Dell", "US", website="https://www.dell.com/")
+    assert settle("Dell", "https://www.dell.com/en-us", [dell]).country == "US"
+    # A name of several words matched exactly still settles without a website.
+    hs = Candidate("wikidata", "Q8961925", "Folio Society", "GB")
+    assert settle("The Folio Society", "", [hs]).country == "GB"
