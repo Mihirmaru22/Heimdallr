@@ -20,7 +20,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.crawl.urlnorm import registered_domain
-from app.evidence.adoption import fullest_name, organisations_named, rule_uses, title_organisation
+from app.evidence.adoption import clean_name, fullest_name, organisations_named, rule_uses, title_organisation
 from app.evidence.judge import USE, Judge, makes_product, rule_relationship
 from app.evidence.products import Product
 from app.llm.openrouter import LLMUnavailable
@@ -248,6 +248,8 @@ async def read_page(judge: Judge, product: Product, title: str, sentences: list[
     out: list[Found] = []
     for c in reading.customers[:MAX_CUSTOMERS * 2]:
         name = c.name.strip().strip(".,;:")
+        if not clean_name(name):
+            continue
         quote = sentences[min(c.quote, len(sentences)) - 1]
         # The model only points: the name must be on the page, and the quote (or the title) must name it.
         if not _contains(text, name) or not (_contains(quote, name) or _contains(title, name)):

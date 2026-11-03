@@ -33,8 +33,8 @@ VENDORS = {
 }
 COMPETE_RE = re.compile(r"\bcompet(e|es|ed|ing|itor|itors|ition)\b", re.I)
 PARTNER_RE = re.compile(r"\b(reseller|resell|implementation partner|we implement|implementation services|"
-                        r"consulting services|certified partner|partner of|partnership with|third[- ]party support)\b",
-                        re.I)
+                        r"consulting services|certified partner|partner of|partnership with|third[- ]party support|"
+                        r"systems? integrator)\b", re.I)
 # "We completed our migration to SAP S/4HANA", "our engineers use Teamcenter": the company saying in its own
 # words that it runs the product. Anything hedged or about other people's systems is left to the model.
 OWN_USE_RE = re.compile(r"\b(we|our)\b[^.;]{0,80}?\b(implemented|completed|migrated|deployed|went live|"

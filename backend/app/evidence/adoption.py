@@ -112,7 +112,18 @@ SCALE = {"global", "leading", "largest", "fast-growth", "fast-growing", "growing
          "midsize", "mid-market"}
 KINDS = {"company", "maker", "manufacturer", "provider", "distributor", "dealer", "retailer", "organisation",
          "organization", "consultancy", "leader", "platform", "firm", "business", "brand", "wholesaler", "group",
-         "supplier", "producer", "operator", "agency", "chain", "network", "institution"}
+         "supplier", "producer", "operator", "agency", "chain", "network", "institution", "council", "authority",
+         "enterprise", "corporation", "conglomerate", "cooperative", "association", "foundation", "trust"}
+DESC_ADJ = {"chemical", "industrial", "financial", "digital", "online", "pharmaceutical", "automotive", "medical",
+            "healthcare", "technology", "software", "food", "beverage", "energy", "construction", "logistics",
+            "engineering", "agricultural", "textile", "electronics", "hospitality", "insurance", "banking",
+            "telecom", "telecommunications", "aerospace", "defense", "defence", "mining", "oil", "gas", "steel",
+            "cement", "plastic", "packaging", "printing", "publishing", "media", "advertising", "marketing",
+            "travel", "tourism", "shipping", "freight", "transport", "transportation", "real", "estate",
+            "property", "retail", "wholesale", "municipal", "city", "county", "state", "local", "government",
+            "public", "private", "nonprofit", "non-profit", "charitable", "commercial", "domestic", "foreign",
+            "european", "american", "asian", "african", "indian", "chinese", "japanese", "german", "french",
+            "british", "uk", "us", "senior", "living"}
 # Plural nouns that end a phrase about many ("Microsoft Customers", "Hospitality Leaders"), never one name.
 PLURAL_KINDS = {"customers", "users", "clients", "companies", "organisations", "organizations", "businesses",
                 "brands", "retailers", "manufacturers", "partners", "leaders", "managers", "teams", "firms",
@@ -195,7 +206,9 @@ def clean_name(raw: str) -> str:
         return ""
     if all(w in GENERIC | LEADING or not re.search(r"[a-z0-9]", w) for w in lower):
         return ""
-    if lower[-1] in PLURAL_KINDS or (len(words) > 1 and lower[0] in SCALE and lower[-1] in KINDS):
+    if lower[-1] in PLURAL_KINDS:
+        return ""
+    if len(words) > 1 and lower[-1] in KINDS and all(w in SCALE | DESC_ADJ | KINDS for w in lower):
         return ""
     if any(w[:1].isupper() and w.lower() in NOT_IN_NAMES for w in words[1:]):
         return ""

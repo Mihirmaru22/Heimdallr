@@ -46,7 +46,9 @@ NOISE = re.compile(r"\b(inc|incorporated|ltd|limited|llc|llp|lp|plc|pvt|private|
 
 
 def name_key(name: str) -> str:
-    """"Kemwell BioPharma Pvt. Ltd." and "kemwell biopharma" are one company."""
+    """"Kemwell BioPharma Pvt. Ltd." and "kemwell biopharma" are one company;
+    "Bharat Serums Limited (BSV)" and "Bharat Serums Limited" are too."""
+    name = re.sub(r"\([^)]*\)", " ", name)
     return "name:" + re.sub(r"[^a-z0-9]+", "", NOISE.sub(" ", name.casefold()))
 
 
