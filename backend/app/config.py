@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     tavily_api_key: SecretStr = SecretStr("")
     linkup_api_key: SecretStr = SecretStr("")
     exa_api_key: SecretStr = SecretStr("")
+    # After the sources, one free search per company the question could deliver that has no proof yet ("<company>"
+    # "<product>", app/discovery/company_search.py); with no industry to list companies by, the country's most-linked
+    # Wikidata organisations are the list (company_search_largest).
+    company_search: bool = True
+    company_search_largest: bool = True
 
     # Free language models through OpenRouter (empty key = no model calls). Only ":free" models with zero
     # prices are ever used; see app/llm/openrouter.py. Optional preferred model ids, best first.

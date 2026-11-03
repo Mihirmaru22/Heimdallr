@@ -80,12 +80,14 @@ REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year"
 # Proof columns: one piece of proof fills all of them, and the strongest piece wins (see proof_confidence).
 PROOF_KEYS = ("uses_technology", "evidence", "evidence_url", "evidence_date", "evidence_type")
 REGISTRY_METHODS = ("wikidata", "sec_edgar", "gleif", "sec_filings")
-PROOF_METHODS = ("case_studies", "news")  # sources whose page named the company and the product together
+# Sources whose page named the company and the product together.
+PROOF_METHODS = ("case_studies", "news", "company_search")
 PROOF_NAME_CONFIDENCE = 0.96  # above a page's JSON-LD name (0.95)
 LEASE = timedelta(minutes=5)
 SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
                 "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings",
-                "case_studies": "case studies and customer stories", "news": "news articles (GDELT)"}
+                "case_studies": "case studies and customer stories", "news": "news articles (GDELT)",
+                "company_search": "a search for each listed company by name"}
 RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
 # A site whose homepage does not say where it is: this many of its own contact or about pages are read to find out.
 COUNTRY_PAGES = 3
@@ -283,7 +285,7 @@ class CrawlRunner:
             # The reading budget is shared: each source that reads proof pages gets an equal share of what is left
             # when its turn comes, so one source cannot spend it all (case studies read for the whole hour once and
             # no news article was read); time a source does not need passes to the next.
-            readers_left = sum(hasattr(p, "deadline") for p in providers)
+            readers_left = sum(hasattr(p, "deadline") for p in providers) + self._company_search_due()
             for provider in providers:
                 label = SOURCE_NAMES.get(provider.name, provider.name)
                 if provider.name != "seeds":
@@ -314,6 +316,8 @@ class CrawlRunner:
                 self.flush_activity()
                 notes += getattr(provider, "notes", [])
             per_provider.append(await self._resolve_entities(per_provider, notes))
+            if self._company_search_due():
+                await self._company_search(per_provider, notes)
         finally:
             flusher.cancel()
             JOB_CACHE.reset(cache_token)
@@ -412,6 +416,39 @@ class CrawlRunner:
             notes.append("registries: lookups failed (" + "; ".join(resolver.problems) + ")")
         self.flush_activity()
         return added
+
+    def _company_search_due(self) -> bool:
+        """A technology question about companies in named countries searches each listed company by name."""
+        d = self.spec.discovery
+        return bool(self.settings.company_search and d.technology and d.countries and "case_studies" in d.providers)
+
+    async def _company_search(self, per_provider: list[list[Any]], notes: list[str]) -> None:
+        """After every source: one search per listed company in the countries asked for that has no proof yet
+        (app.discovery.company_search), within what is left of the reading budget. A company proven this way
+        replaces its listing, keeping the listing's facts, and is queued first."""
+        from app.discovery.company_search import CompanySearch
+
+        searcher = CompanySearch()
+        searcher.on_note, searcher.fetch_page = self.note, self.fetch_page
+        searcher.resolver, searcher.deadline = self.entity_resolver, self.read_deadline
+        searcher.listed = per_provider
+        self.note("search", "Searching each listed company by name for proof", source=searcher.name)
+        self.flush_activity()
+        try:
+            proven = await self._discover_or_cancel(searcher)
+        except DiscoveryError as exc:
+            proven = []
+            notes.append(f"{searcher.name}: {exc}")
+        if searcher.yields is not None and self.settings.env != "test":
+            searcher.yields.save()
+        self.save_evidence(searcher.name, searcher.evidence)
+        self.save_facts(searcher.facts or [])
+        notes += searcher.notes
+        sites = {registered_domain(r.url) for r in proven}
+        for group in per_provider:
+            group[:] = [r for r in group if r.method == "seed" or registered_domain(r.url) not in sites]
+        per_provider.insert(0, proven)
+        self.flush_activity()
 
     def _cancel_requested(self) -> bool:
         with session_scope(self.org_id) as db:
@@ -804,7 +841,7 @@ class CrawlRunner:
         doc = parse_page(final, result.text)
         hint = row.hint or {}
         company = str(hint.get("company_name") or "")
-        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies", "news"):
+        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies", "news", "company_search"):
             reason, by = await self._homepage_reason(row, doc, site, final)
             if reason:
                 self.fact(site, company, "filter", "not met", reason, final, by)

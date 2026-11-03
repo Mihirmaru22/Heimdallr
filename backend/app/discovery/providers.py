@@ -176,12 +176,13 @@ class WikidataProvider:
         return resp.json()["results"]["bindings"]
 
     @staticmethod
-    def search_query(industry_ids: list[str], countries: list[str], region: str | None) -> str:
-        """A CirrusSearch query: items with one of the industries, in one of the countries."""
+    def search_query(industry_ids: list[str], countries: list[str], region: str | None,
+                     classes: list[str] | None = None) -> str:
+        """A CirrusSearch query: items with one of the industries (else of the classes), in one of the countries."""
         parts = []
         inds = [q for q in industry_ids if QID_RE.match(q)]
         parts.append("haswbstatement:" + "|".join(f"P452={q}" for q in inds) if inds
-                     else "haswbstatement:" + "|".join(f"P31={q}" for q in ORG_CLASSES))
+                     else "haswbstatement:" + "|".join(f"P31={q}" for q in classes or ORG_CLASSES))
         isos = [c for c in countries if c in COUNTRY_QIDS] or REGION_COUNTRIES.get(region or "", [])
         while isos:
             # Wikidata rejects search queries over 300 characters; the country lists are largest economy first.
@@ -215,10 +216,10 @@ class WikidataProvider:
         return found
 
     async def _via_search(
-        self, client: httpx.AsyncClient, ids: list[str], spec: ExtractionSpec
+        self, client: httpx.AsyncClient, ids: list[str], spec: ExtractionSpec, classes: list[str] | None = None
     ) -> list[DiscoveryResult]:
         d = spec.discovery
-        query = self.search_query(ids, d.countries, d.region)
+        query = self.search_query(ids, d.countries, d.region, classes)
         out: list[DiscoveryResult] = []
         seen: set[str] = set()
         country_names = {qid: name for qid, name in COUNTRY_QIDS.values()}
