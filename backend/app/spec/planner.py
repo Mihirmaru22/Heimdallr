@@ -173,13 +173,15 @@ def choose_providers(d: Any, technology: bool) -> list[str]:
         if d.industry:
             providers.insert(-1, "gleif")
     if technology:
-        providers[:0] = ["case_studies", "news"]  # organisations a vendor, partner or news page shows using it
+        # Organisations the maker, a partner or a news page shows using it.
+        providers[:0] = ["vendor_archive", "case_studies", "news"]
     if technology and covers_us(d):
         providers.insert(0, "sec_filings")  # companies whose own filings name it
     return providers or ["seeds"]
 
 
-PROOF_SOURCES = {"sec_filings", "case_studies", "news"}  # sources that bring their own proof, not a list to check
+# Sources that bring their own proof, not a list to check.
+PROOF_SOURCES = {"sec_filings", "vendor_archive", "case_studies", "news"}
 
 
 def covers_us(d: Any) -> bool:
@@ -193,6 +195,8 @@ def technology_notes(spec: ExtractionSpec) -> list[str]:
         sources.append(f"US-listed companies' own SEC filings (last {d.evidence_years} years)")
     # Sites to check for proof: the person's own start URLs, or a list source. "seeds" alone with no start URLs
     # is nothing to search, and the notes must not promise otherwise.
+    if "vendor_archive" in d.providers:
+        sources.append("the product maker's own customer stories and press releases, listed from its sitemaps")
     if "case_studies" in d.providers:
         sources.append("vendor and partner case studies and customer stories found by web search")
     if "news" in d.providers:
@@ -306,7 +310,8 @@ async def product_aliases(router: OpenRouter, product: str) -> list[str]:
     """Other names of the product, from one model call; [] when no model answers (the typed name still works)."""
     try:
         reply = await router.chat([{"role": "system", "content": ALIASES},
-                                   {"role": "user", "content": f"Product: {product}"}], json_mode=True, max_tokens=300)
+                                   {"role": "user", "content": f"Product: {product}"}], json_mode=True, max_tokens=300,
+                                  step="plan")
         return Plan(technology=product, technology_aliases=Aliases.model_validate(reply.json()).aliases
                     ).technology_aliases
     except Exception:  # noqa: BLE001 - aliases are a help, never a reason to fail the form
@@ -373,7 +378,7 @@ async def plan_spec(question: str, start_urls: list[str], router: OpenRouter | N
         messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question[:4000]}]
         for attempt in range(len(retry_waits) + 1):
             try:
-                reply = await router.chat(messages, json_mode=True, max_tokens=800)
+                reply = await router.chat(messages, json_mode=True, max_tokens=800, step="plan")
                 break
             except LLMUnavailable as exc:
                 if attempt == len(retry_waits) or not str(exc).startswith(BUSY):

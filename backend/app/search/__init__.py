@@ -32,9 +32,6 @@ log = logging.getLogger(__name__)
 
 # Which kinds of question a backend is asked. "lookup" (one company's website) stays on free, uncapped engines.
 GENERAL, EVIDENCE, LOOKUP = "general", "evidence", "lookup"
-# Proof searches for one named company ("Farmers Insurance" "Guidewire"): many per job, so only the engines
-# without a monthly cap are asked.
-TARGETED = "targeted"
 FAILS_BEFORE_OFF = 5
 COOLDOWN_SECONDS = 60.0
 MAX_HITS = 30
@@ -85,7 +82,7 @@ class SearxngBackend(Backend):
     """Self-hosted, so free, but it scrapes engines that block it after a busy day: it only tops up."""
 
     name = "searxng"
-    kinds = (GENERAL, EVIDENCE, LOOKUP, TARGETED)
+    kinds = (GENERAL, EVIDENCE, LOOKUP)
     pages = 5
     fallback = True
 
@@ -106,7 +103,7 @@ class KeenableBackend(Backend):
     """The keyless public endpoint (no credits; the shared pool allows 1,000 calls an hour per address)."""
 
     name = "keenable"
-    kinds = (GENERAL, EVIDENCE, LOOKUP, TARGETED)
+    kinds = (GENERAL, EVIDENCE, LOOKUP)
 
     def __init__(self, api_key: str = "") -> None:
         self.api_key = api_key

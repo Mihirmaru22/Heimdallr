@@ -159,6 +159,14 @@ class Fetcher:
                 # the connection leaves no trace at all.
                 log.info("fetch failed (%s: %s): %s", type(exc).__name__, str(exc)[:200], current)
                 raise FetchError("network", type(exc).__name__, retryable=True) from None
+            except FetchError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - one page's failure is that page's, never the job's
+                # Anything else the request could not survive (a header the HTTP library will not encode, a
+                # malformed answer) makes this page unreadable; a UnicodeEncodeError on one news page once failed
+                # a whole job (2026-10-30).
+                log.warning("fetch failed (%s: %s): %s", type(exc).__name__, str(exc)[:200], current)
+                raise FetchError("request", type(exc).__name__, retryable=False) from None
         raise FetchError("redirect", "too many redirects", retryable=False)
 
     async def fetch(self, url: str, attempts: int | None = None) -> FetchResult:

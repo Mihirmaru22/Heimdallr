@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import errors, logging_setup
-from app.api import admin, auth, exports, health, jobs, orgs, projects, records
+from app.api import admin, auth, catalog, exports, health, jobs, orgs, projects, records
 from app.config import get_settings
 
 log = logging.getLogger("webdata.http")
@@ -51,7 +51,7 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(health.router)
-    for module in (auth, orgs, projects, jobs, records, exports, admin):
+    for module in (auth, orgs, projects, jobs, records, catalog, exports, admin):
         app.include_router(module.router, prefix="/api/v1")
     return app
 

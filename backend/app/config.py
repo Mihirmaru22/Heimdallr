@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     tavily_api_key: SecretStr = SecretStr("")
     linkup_api_key: SecretStr = SecretStr("")
     exa_api_key: SecretStr = SecretStr("")
+    # Optional Companies House API key. Keep it in the runtime environment, never in source control.
+    companies_house_api_key: SecretStr = SecretStr("")
 
     # Free language models through OpenRouter (empty key = no model calls). Only ":free" models with zero
     # prices are ever used; see app/llm/openrouter.py. Optional preferred model ids, best first.

@@ -15,6 +15,7 @@ dependencies = [
     "celery[redis]",
     "redis",
     "httpx",
+    "requests",
     "selectolax",
     "extruct",
     "protego",
@@ -32,6 +33,7 @@ dev = [
     "pytest-asyncio",
     "ruff",
     "openpyxl",
+    "playwright",
 ]
 
 [build-system]

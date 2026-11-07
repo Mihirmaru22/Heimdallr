@@ -596,10 +596,12 @@ def providers_for(spec: ExtractionSpec) -> list[DiscoveryProvider]:
     from app.discovery.news import NewsProvider
     from app.discovery.sec_edgar import SecEdgarProvider
     from app.discovery.sec_filings import SecFilingsProvider
+    from app.discovery.vendor_archive import VendorArchiveProvider
 
     registry: dict[str, DiscoveryProvider] = {"seeds": SeedProvider(), "wikidata": WikidataProvider(),
                                               "searxng": SearxngProvider(), "sec_edgar": SecEdgarProvider(),
                                               "gleif": GleifProvider(), "sec_filings": SecFilingsProvider(),
                                               "case_studies": CaseStudiesProvider(),
+                                              "vendor_archive": VendorArchiveProvider(),
                                               "news": NewsProvider()}
     return [registry[name] for name in spec.discovery.providers if name in registry]

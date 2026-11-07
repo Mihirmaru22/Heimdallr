@@ -1,0 +1,24 @@
+{
+  "question": "US companies that use PTC Windchill",
+  "notes": "Set 1 benchmark from benchmark-set1-39-rows.md. Expected labels/evidence come from the supplied diagnosis, confirmed across six repeat runs. The source notes include proof/crawl loss reasons, not URLs. Stage 1-4 reference: 11/39 overall, zero wrong rows.",
+  "benchmark_source": "benchmark-set1-39-rows.md, Q1",
+  "must_include": [
+    {"company":"Boston Scientific","country":"US","evidence_status":"expected","evidence":"Proof found (Confirmed); lost at country check — site lists multiple countries."},
+    {"company":"NVIDIA","country":"US","evidence_status":"likely","evidence":"Proof found (Likely); site lookup failed; title search recovered a PTC copy."},
+    {"company":"SRAM","country":"US","evidence_status":"expected","evidence":"Proof found; sram.com was fetched as http and returned 404."},
+    {"company":"EnerSys","country":"US","evidence_status":"expected","evidence":"Proof found (Confirmed); lost at country check; title search recovered it."},
+    {"company":"Komatsu America","country":"US","evidence_status":"expected","evidence":"Found on page; lost at proof reading because menu text mixed into the quote."},
+    {"company":"STRATTEC","country":"US","evidence_status":"expected","evidence":"Page read three times; model answer could not be parsed and was not retried."},
+    {"company":"Welbilt","country":"US","evidence_status":"expected","evidence":"Candidate found; PTC proof page was blocked."},
+    {"company":"HP","country":"US","evidence_status":"expected","evidence":"Candidate at rank 38, beyond the page cap; title search recovered it."},
+    {"company":"Cummins","country":"US","evidence_status":"expected","evidence":"Not discovered among 223 search results."},
+    {"company":"Raytheon","country":"US","evidence_status":"expected","evidence":"Not discovered; the diagnosis says a PTC investor proof page exists."},
+    {"company":"Lockheed Martin","country":"US","evidence_status":"expected","evidence":"Not discovered among 223 search results."},
+    {"company":"Polaris","country":"US","evidence_status":"expected","evidence":"Not discovered; title search of a blocked PTC page recovered it."}
+  ],
+  "must_exclude": [
+    {"company":"PTC","why":"Software vendor"},
+    {"company":"Siemens","why":"Competitor, not a customer row for this query"},
+    {"company":"Dassault Systemes","why":"Competitor, not a customer row for this query"}
+  ]
+}

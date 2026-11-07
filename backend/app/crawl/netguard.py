@@ -10,6 +10,7 @@ time, and each hop goes through the same check.
 
 from __future__ import annotations
 
+import http.cookiejar
 import ipaddress
 import socket
 import ssl
@@ -214,6 +215,17 @@ class PinnedTransport(httpx.AsyncHTTPTransport):
         )
 
 
+class NoCookies(http.cookiejar.CookieJar):
+    """A cookie jar that keeps nothing: the crawler reads public pages and needs no session, and a cookie one site
+    set with a non-ASCII value once broke the next request to it (2026-10-30)."""
+
+    def set_cookie(self, cookie) -> None:  # noqa: ANN001 - the standard library's signature
+        return None
+
+    def extract_cookies(self, response, request) -> None:  # noqa: ANN001
+        return None
+
+
 def make_client(resolver=resolve, proxy: str | None = None) -> httpx.AsyncClient:
     settings = get_settings()
     timeout = httpx.Timeout(settings.read_timeout, connect=settings.connect_timeout)
@@ -228,5 +240,5 @@ def make_client(resolver=resolve, proxy: str | None = None) -> httpx.AsyncClient
         transport: httpx.AsyncBaseTransport = httpx.AsyncHTTPTransport(proxy=proxy)
     else:
         transport = PinnedTransport(resolver=resolver)
-    return httpx.AsyncClient(transport=transport, timeout=timeout, headers=headers,
+    return httpx.AsyncClient(transport=transport, timeout=timeout, headers=headers, cookies=NoCookies(),
                              follow_redirects=False, trust_env=False)
