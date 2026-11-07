@@ -142,6 +142,10 @@ def score_job(db, job_id: uuid.UUID, key: dict[str, Any] | None = None) -> dict[
     if key:
         out.update(_against_key(included, key))
         out.update(_where_lost(db, job_id, recs, ev, key, out))
+        # Before any page is read: did each expected company reach a source's list at all (app.services.candidates).
+        from app.services.candidates import candidate_recall, scorecard_rows
+
+        out.update(scorecard_rows(candidate_recall(db, job_id, key)))
     return out
 
 

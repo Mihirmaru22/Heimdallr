@@ -106,7 +106,8 @@ def score(job_ids: list[str], key_path: str | None) -> None:
     with session_scope(bypass=True) as db:
         cards = [score_job(db, uuid.UUID(j), key) for j in job_ids]
     names = list(dict.fromkeys(k for c in cards for k in c))
-    long = {n for n in names if n == "key: missing" or n.startswith("key: lost at")}  # printed under the table
+    long = {n for n in names if n == "key: missing" or n.startswith(("key: lost at", "key: candidate stage",
+                                                                     "company search note"))}  # under the table
     names = [n for n in names if n not in long]
     width = max(len(n) for n in names)
     print(" " * width + "  " + "  ".join(j[:8].ljust(22) for j in job_ids))
@@ -116,6 +117,28 @@ def score(job_ids: list[str], key_path: str | None) -> None:
         for j, c in zip(job_ids, cards, strict=True):
             if n in c:
                 print(f"{n} ({j[:8]}): {c[n]}")
+
+
+def candidates(job_id: str, key_path: str) -> None:
+    """For every company in the answer key: did any source name it, was its country known, and who named it.
+    Read from the finished job; no search or model call is made."""
+    import uuid
+
+    from app.services.candidates import ORDER, candidate_recall, scorecard_rows
+    from app.services.scorecard import load_key
+
+    key = load_key(key_path)
+    with session_scope(bypass=True) as db:
+        result = candidate_recall(db, uuid.UUID(job_id), key)
+    width = max([len(r["company"]) for r in result["rows"]] + [7])
+    print(f"Countries asked: {', '.join(result['countries']) or 'any'}")
+    for stage in ORDER:
+        for r in (r for r in result["rows"] if r["stage"] == stage):
+            print(f"  {r['company'].ljust(width)}  {stage:42}  {', '.join(r['named by']) or '-'}")
+    print()
+    for name, value in scorecard_rows(result).items():
+        if not name.startswith("key: candidate stage"):
+            print(f"{name}: {value}")
 
 
 def _table(rows: list[dict[str, str]]) -> None:
@@ -318,6 +341,9 @@ def main() -> None:
     p = sub.add_parser("score", help="print the scorecard of one or more jobs side by side")
     p.add_argument("job_ids", nargs="+")
     p.add_argument("--key", help="answer key JSON: must_include / must_exclude companies")
+    p = sub.add_parser("candidates", help="for each answer-key company: did a source name it, with its country")
+    p.add_argument("job_id")
+    p.add_argument("--key", required=True)
     sub.add_parser("eval-history", help="score every finished run of the test questions in eval/keys")
     p = sub.add_parser("eval-run", help="run every test question again with its latest plan and score it")
     p.add_argument("--wait", type=int, default=3600, help="seconds to wait for the runs (default 3600)")
@@ -350,6 +376,8 @@ def main() -> None:
         return score(args.job_ids, args.key)
     if args.cmd == "sec-check":
         return sec_check(args.product, args.aliases)
+    if args.cmd == "candidates":
+        return candidates(args.job_id, args.key)
     if args.cmd == "eval-history":
         return eval_history()
     if args.cmd == "eval-run":
