@@ -80,12 +80,14 @@ REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year"
 # Proof columns: one piece of proof fills all of them, and the strongest piece wins (see proof_confidence).
 PROOF_KEYS = ("uses_technology", "evidence", "evidence_url", "evidence_date", "evidence_type")
 REGISTRY_METHODS = ("wikidata", "sec_edgar", "gleif", "sec_filings")
-PROOF_METHODS = ("case_studies", "news")  # sources whose page named the company and the product together
+# Sources whose page named the company and the product together.
+PROOF_METHODS = ("vendor_archive", "case_studies", "news")
 PROOF_NAME_CONFIDENCE = 0.96  # above a page's JSON-LD name (0.95)
 LEASE = timedelta(minutes=5)
 SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
                 "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings",
-                "case_studies": "case studies and customer stories", "news": "news articles (GDELT)"}
+                "case_studies": "case studies and customer stories", "news": "news articles (GDELT)",
+                "vendor_archive": "the maker's own customer stories and press releases"}
 RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
 # A site whose homepage does not say where it is: this many of its own contact or about pages are read to find out.
 COUNTRY_PAGES = 3
@@ -295,6 +297,8 @@ class CrawlRunner:
                     provider.fetch_text = self.fetch_text
                 if hasattr(provider, "fetch_page"):
                     provider.fetch_page = self.fetch_page
+                if hasattr(provider, "fetch_xml"):
+                    provider.fetch_xml, provider.sitemaps_of = self.fetch_xml, self.sitemaps_of
                 if hasattr(provider, "deadline"):
                     provider.deadline = reading_share(time.monotonic(), self.read_deadline, readers_left)
                     readers_left -= 1
@@ -451,6 +455,29 @@ class CrawlRunner:
         except Exception as exc:  # noqa: BLE001 - one page that cannot be read or parsed is that page's problem
             log.warning("page %s could not be read: %s: %s", url, type(exc).__name__, str(exc)[:200])
             return None
+
+    async def fetch_xml(self, url: str) -> str | None:
+        """A sitemap file's text for a discovery source: robots.txt respected, network rules checked; None when it
+        cannot be fetched."""
+        try:
+            if not (await self.robots.check(url)).allowed:
+                return None
+            fetcher = Fetcher(self.client, self.politeness, self.resolver,
+                              allowed_types=("application/xml", "text/xml", "text/plain", ""))
+            return (await fetcher.fetch(url, attempts=1)).text
+        except FetchError:
+            return None
+        except Exception as exc:  # noqa: BLE001 - one sitemap that cannot be read is that sitemap's problem
+            log.warning("sitemap %s could not be read: %s", url, type(exc).__name__)
+            return None
+
+    async def sitemaps_of(self, origin: str) -> list[str]:
+        """The sitemaps a host's robots.txt names (empty when it names none or cannot be read)."""
+        try:
+            await self.robots.check(origin + "/")
+        except Exception:  # noqa: BLE001 - no robots.txt answer means no named sitemaps
+            return []
+        return self.robots.sitemaps(origin + "/")
 
     async def fetch_text(self, url: str) -> str | None:
         doc = await self.fetch_page(url)
@@ -804,7 +831,7 @@ class CrawlRunner:
         doc = parse_page(final, result.text)
         hint = row.hint or {}
         company = str(hint.get("company_name") or "")
-        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies", "news"):
+        if row.depth == 0 and row.method in ("searxng", "wikidata", "vendor_archive", "case_studies", "news"):
             reason, by = await self._homepage_reason(row, doc, site, final)
             if reason:
                 self.fact(site, company, "filter", "not met", reason, final, by)

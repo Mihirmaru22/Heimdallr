@@ -54,7 +54,7 @@ async def test_a_technology_question_read_by_the_rules_keeps_its_technology_and_
                                       "name, website and the link proving they use it", [], NoModel())
     d = spec.discovery
     assert by == "rules" and d.technology == "Veeva Vault" and d.industry == "pharmaceutical"
-    assert d.countries == ["IN"] and d.providers[:2] == ["case_studies", "news"]
+    assert d.countries == ["IN"] and d.providers[:3] == ["vendor_archive", "case_studies", "news"]
     assert "uses_technology" in [f.name for f in spec.fields] and "evidence_url" in [f.name for f in spec.fields]
     assert any("Veeva Vault" in n for n in notes)
 

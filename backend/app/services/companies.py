@@ -39,7 +39,8 @@ USES = {"Confirmed", "Likely"}
 # Which evidence of a company's country counts first (Ronak, 2026-10-28): a registry entry, then a clear statement
 # in the proof text, then the company's own pages. The first kind that settles it decides.
 COUNTRY_ORDER = ("registry", "proof", "own pages")
-PROOF_SOURCES = {"case_studies", "news", "sec_filings"}  # discovery sources that bring proof with the company
+# Discovery sources that bring proof with the company.
+PROOF_SOURCES = {"vendor_archive", "case_studies", "news", "sec_filings"}
 # Legal forms and filler that are not part of the name ("Kemwell Biopharma Pvt. Ltd." is Kemwell Biopharma).
 NOISE = re.compile(r"\b(inc|incorporated|ltd|limited|llc|llp|lp|plc|pvt|private|gmbh|ag|se|sa|sas|srl|spa|nv|bv|"
                    r"oy|ab|as|kk|corp|corporation|co|company|group|holdings?|the)\b\.?", re.I)
