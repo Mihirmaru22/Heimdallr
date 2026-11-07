@@ -270,6 +270,38 @@ def sec_check(product_name: str, aliases: list[str]) -> None:
               f"{src.get('file_date')} states={src.get('biz_states')}")
 
 
+def catalog_companies_house(org_id: str, name: str) -> None:
+    import uuid
+
+    from app.catalog_sources.companies_house import ingest_company
+
+    with session_scope(uuid.UUID(org_id)) as db:
+        result = ingest_company(db, uuid.UUID(org_id), name)
+    print(f"Companies House: {result['companies']} company, {result['claims']} claims")
+
+
+def catalog_usaspending(org_id: str, name: str, limit: int) -> None:
+    import uuid
+
+    from app.catalog_sources.usaspending import ingest_awards
+
+    with session_scope(uuid.UUID(org_id)) as db:
+        result = ingest_awards(db, uuid.UUID(org_id), name, limit=limit)
+    print(f"USAspending: {result['companies']} exact recipient matches, {result['claims']} award claims")
+
+
+def catalog_overture(org_id: str, path: str, bbox: list[float], release: str) -> None:
+    import uuid
+    from pathlib import Path
+
+    from app.catalog_sources.overture import ingest_extract
+
+    with session_scope(uuid.UUID(org_id)) as db:
+        result = ingest_extract(db, uuid.UUID(org_id), Path(path), bbox=tuple(bbox), release=release)
+    print(f"Overture Places: {result['records_read']} rows read, {result['companies']} candidate companies, "
+          f"{result['claims']} claims placed in review")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -297,6 +329,20 @@ def main() -> None:
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
     p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
+    p = sub.add_parser("catalog-companies-house", help="import exact-match UK legal facts from Companies House")
+    p.add_argument("org_id")
+    p.add_argument("company_name")
+    p = sub.add_parser("catalog-usaspending", help="import exact federal award-recipient signals by company name")
+    p.add_argument("org_id")
+    p.add_argument("company_name")
+    p.add_argument("--limit", type=int, default=20)
+    p = sub.add_parser(
+        "catalog-overture", help="import a bounded Overture Places extract as review-only location claims"
+    )
+    p.add_argument("org_id")
+    p.add_argument("geojson")
+    p.add_argument("--bbox", nargs=4, required=True, type=float, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p.add_argument("--release", default="latest")
     args = parser.parse_args()
     if args.cmd == "job-report":
         return job_report(args.job_id)
@@ -314,6 +360,12 @@ def main() -> None:
         refresh_sec(args.limit)
     elif args.cmd == "create-admin":
         create_admin(args.email.lower(), sys.stdin.readline().strip() if args.password_stdin else None)
+    elif args.cmd == "catalog-companies-house":
+        return catalog_companies_house(args.org_id, args.company_name)
+    elif args.cmd == "catalog-usaspending":
+        return catalog_usaspending(args.org_id, args.company_name, args.limit)
+    elif args.cmd == "catalog-overture":
+        return catalog_overture(args.org_id, args.geojson, args.bbox, args.release)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,27 @@
+{
+  "question": "Pharmaceutical companies in India that use Veeva Vault",
+  "notes": "Set 1 benchmark from benchmark-set1-39-rows.md, Q3. Three include labels were marked confirmed by the supplied notes; seven are explicitly guesses and remain separately visible in scorecards. The diagnosis says all ten were lost at planning because the product was dropped.",
+  "benchmark_source": "benchmark-set1-39-rows.md, Q3",
+  "must_include": [
+    {"company":"Bharat Serums and Vaccines","country":"India","evidence_status":"confirmed","evidence":"Confirmed Veeva user; lost at planning before proof checks."},
+    {"company":"Anthem Biosciences","country":"India","evidence_status":"confirmed","evidence":"Confirmed Veeva user; lost at planning before proof checks."},
+    {"company":"Kemwell Biopharma","country":"India","evidence_status":"confirmed","evidence":"Confirmed Veeva user; lost at planning before proof checks."},
+    {"company":"Sun Pharma","country":"India","evidence_status":"guess","evidence":"Unverified guess; lost at planning."},
+    {"company":"Cipla","country":"India","evidence_status":"guess","evidence":"Unverified guess; lost at planning."},
+    {"company":"Dr. Reddy's","country":"India","evidence_status":"guess","evidence":"Unverified guess; lost at planning."},
+    {"company":"Lupin","country":"India","evidence_status":"guess","evidence":"Unverified guess; lost at planning."},
+    {"company":"Zydus Lifesciences","country":"India","evidence_status":"guess","evidence":"Unverified guess; lost at planning."},
+    {"company":"Glenmark","country":"India","evidence_status":"guess","evidence":"Unverified guess; lost at planning."},
+    {"company":"Biocon","country":"India","evidence_status":"guess","evidence":"Unverified guess; lost at planning."}
+  ],
+  "must_exclude": [
+    {"company":"IndiaMART","why":"Marketplace"},
+    {"company":"CDSCO","why":"Regulator"},
+    {"company":"Pharmabiz","why":"News outlet"},
+    {"company":"Groww","why":"Fintech"},
+    {"company":"Department of Pharmaceuticals","why":"Government department"},
+    {"company":"Indian Pharma Post","why":"News outlet"},
+    {"company":"Tech Serve Solutions","why":"IT services company"},
+    {"company":"Ankit Pulps & Boards","why":"Paper company, incorrectly tagged pharma in Wikidata"}
+  ]
+}

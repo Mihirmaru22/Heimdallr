@@ -166,6 +166,59 @@ class CompanyOut(ORM):
     record_id: uuid.UUID | None
 
 
+class CatalogCompanyOut(ORM):
+    id: uuid.UUID
+    name: str
+    website: str
+    domain: str
+    location: str
+    verified_claims: int
+    review_claims: int
+    last_seen_at: datetime
+    updated_at: datetime
+
+
+class CatalogClaimOut(ORM):
+    id: uuid.UUID
+    field_key: str
+    value: Any
+    raw_value: Any
+    display_value: str
+    verification_status: str
+    verification_method: str
+    confidence: float | None
+    source_url: str
+    source_origin: str
+    source_group: str
+    source_record_id: str
+    source_license: str
+    retrieved_at: datetime | None
+    quote: str
+    source_type: str
+    source_date: str
+    relationship: str
+    source_job_id: uuid.UUID | None
+    verified_by: uuid.UUID | None
+    verified_at: datetime | None
+    first_seen_at: datetime
+    last_seen_at: datetime
+    created_at: datetime
+
+
+class CatalogCompanyDetail(CatalogCompanyOut):
+    claims: list[CatalogClaimOut]
+
+
+class CatalogClaimReviewIn(BaseModel):
+    decision: Literal["verify", "reject", "reopen"]
+
+
+class CatalogRebuildOut(BaseModel):
+    jobs_scanned: int
+    companies: int
+    claims: int
+
+
 class JobIn(BaseModel):
     schema_id: uuid.UUID
 

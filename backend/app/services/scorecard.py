@@ -176,6 +176,13 @@ def _against_key(included: list[ExtractedRecord], key: dict[str, Any]) -> dict[s
     hits = [(e, r) for e, r in found if r is not None]
     out = {"key: must-have companies found": _pct(len(hits), len(must)),
            "key: missing": ", ".join(e["company"] for e, r in found if r is None) or "-"}
+    provisional = [e for e in must if e.get("evidence_status") == "guess"]
+    unresolved = [e for e in must if e.get("evidence_status") == "unresolved"]
+    if provisional:
+        provisional_hits = sum(any(_match(r, e) for r in included) for e in provisional)
+        out["key: provisional benchmark labels found"] = _pct(provisional_hits, len(provisional))
+    if unresolved:
+        out["key: unresolved benchmark labels"] = str(len(unresolved))
     wrong = [r for r in included if any(_match(r, e) for e in must_not)]
     out["key: rows that must not be there"] = str(len(wrong))
     with_site = [(e, r) for e, r in hits if e.get("website")]

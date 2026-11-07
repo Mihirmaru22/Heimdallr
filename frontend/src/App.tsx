@@ -9,6 +9,7 @@ import ProjectPage from "./pages/Project";
 import JobPage from "./pages/Job";
 import SettingsPage from "./pages/Settings";
 import AdminPage from "./pages/Admin";
+import DatabasePage from "./pages/Database";
 import { VersionBanner, VersionFooter } from "./components/VersionCheck";
 import { BrandMark } from "./components/ui";
 import { Out } from "./components/icons";
@@ -47,6 +48,7 @@ export default function App() {
         <Link to="/" className="brand" aria-label="WebData AI home"><BrandMark /> <span className="brand-name">WebData AI</span> <small>free models</small></Link>
         <nav className="topnav" aria-label="Main">
           <NavLink to="/" end>Research</NavLink>
+          <NavLink to="/database">Company database</NavLink>
           <NavLink to="/settings">Organization</NavLink>
           {me.user.is_platform_admin && <NavLink to="/admin">Admin</NavLink>}
         </nav>
@@ -70,6 +72,7 @@ export default function App() {
           {!orgId ? <p>You are not a member of any organization.</p> : (
             <Routes>
               <Route path="/" element={<ProjectsPage orgId={orgId} />} />
+              <Route path="/database" element={<DatabasePage orgId={orgId} />} />
               <Route path="/projects/:projectId" element={<ProjectPage orgId={orgId} />} />
               <Route path="/jobs/:jobId" element={<JobPage orgId={orgId} />} />
               <Route path="/settings" element={<SettingsPage orgId={orgId} />} />
