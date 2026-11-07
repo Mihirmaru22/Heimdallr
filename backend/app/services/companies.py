@@ -30,6 +30,7 @@ from app.crawl.urlnorm import homepage, registered_domain
 from app.db import session_scope
 from app.evidence.judge import VERDICT_RANK
 from app.models import CompanyFact, DiscoveredUrl, Evidence, ExtractedRecord, JobCompany
+from app.services.catalog_store import accumulate_job_catalog
 from app.spec.models import ExtractionSpec
 
 DELIVERED, UNCONFIRMED, ELSEWHERE, FILTER, WEAK, NO_PROOF = (
@@ -236,6 +237,10 @@ def build_companies(job_id: uuid.UUID, org_id: uuid.UUID, spec: ExtractionSpec) 
             db.add(JobCompany(org_id=org_id, job_id=job_id, key=c.key[:320], name=c.name[:300], website=c.website,
                               status=status, reasons=reasons, sources=c.sources, record_id=c.record.id if c.record
                               else None, **details))
+        # Persist strict, source-backed claims for searching across future runs. Catalog provenance is copied so
+        # deleting an old run does not erase the fact or its source excerpt.
+        db.flush()
+        accumulate_job_catalog(db, job_id, org_id)
         return counts
 
 

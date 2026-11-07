@@ -159,3 +159,16 @@ def test_a_name_needs_a_second_signal_that_does_not_contradict_it():
     # A name of several words matched exactly still settles without a website.
     hs = Candidate("wikidata", "Q8961925", "Folio Society", "GB")
     assert settle("The Folio Society", "", [hs]).country == "GB"
+
+
+def test_a_registry_country_fact_links_the_official_record_that_settled_it():
+    cands = [Candidate("wikidata", "Q1", "EnerSys", "US", website="https://www.enersys.com/")]
+    res = settle("EnerSys", "https://www.enersys.com/", cands)
+    (country, website) = resolution_facts("EnerSys", "enersys.com", res)
+    assert country["source_url"] == "https://www.wikidata.org/wiki/Q1"
+    assert website["source_url"] == "https://www.wikidata.org/wiki/Q1"
+
+    lei = "529900ABCDEFGHIJ1234"
+    res = settle("Kemwell BioPharma", "", [Candidate("gleif", lei, "KEMWELL BIOPHARMA PRIVATE LIMITED", "IN")])
+    (country,) = resolution_facts("Kemwell BioPharma", "", res)
+    assert country["source_url"] == f"https://api.gleif.org/api/v1/lei-records/{lei}"

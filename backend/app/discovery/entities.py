@@ -21,6 +21,7 @@ import asyncio
 import re
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from sqlalchemy import select
@@ -256,9 +257,29 @@ class EntityResolver:
 
 def resolution_facts(company: str, site: str, res: Resolution) -> list[dict[str, Any]]:
     """The facts a resolution establishes, for company_facts."""
+    source_url = _registry_source_url(res)
     facts = [{"site": site, "company": company, "kind": "country", "value": res.country, "by": res.by or "registry",
-              "detail": res.detail, "source_url": "", "quote": ""}]
+              "detail": res.detail, "source_url": source_url, "quote": ""}]
     if res.website:
         facts.append({"site": registered_domain(res.website) or site, "company": company, "kind": "website",
-                      "value": res.website, "by": res.by, "detail": res.detail, "source_url": "", "quote": ""})
+                      "value": res.website, "by": res.by, "detail": res.detail,
+                      "source_url": source_url, "quote": ""})
     return facts
+
+
+def _registry_source_url(res: Resolution) -> str:
+    """Return the official record for the entity that settled the country match."""
+    registry = res.by.removeprefix("registry:").strip().casefold()
+    candidate = next((item for item in res.candidates
+                      if item.registry == registry and item.country == res.country
+                      and item.how in ("website", "exact")), None)
+    if candidate is None:
+        return ""
+    ident = candidate.ident
+    if registry == "wikidata" and re.fullmatch(r"Q\d+", ident):
+        return f"https://www.wikidata.org/wiki/{ident}"
+    if registry == "gleif" and re.fullmatch(r"[A-Z0-9]{20}", ident):
+        return f"https://api.gleif.org/api/v1/lei-records/{quote(ident, safe='')}"
+    if registry == "sec" and ident.isdigit():
+        return f"https://www.sec.gov/edgar/browse/?CIK={int(ident)}"
+    return ""
