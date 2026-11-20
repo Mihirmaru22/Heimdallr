@@ -43,6 +43,7 @@ def test_load_swaps_in_and_refuses_a_truncated_file(tmp_path, dsn):
     pdl.load(_file(tmp_path / "full.csv", 100), dsn)
     assert _count(dsn, "SELECT count(*) FROM kb.pdl_company") == 100
     assert _count(dsn, "SELECT count(*) FROM kb.pdl_company WHERE sector = 'Technology' AND iso2 = 'DE'") == 100
+    assert _count(dsn, "SELECT max(domain_rows) FROM kb.pdl_company") == 1
 
     with pytest.raises(ValueError, match="refused"):
         pdl.load(_file(tmp_path / "short.csv", 50), dsn)

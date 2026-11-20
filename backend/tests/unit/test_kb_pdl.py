@@ -82,3 +82,10 @@ def test_mapping_tables_cover_every_pdl_value():
     regions = pdl.country_regions()
     assert len(regions) == 249
     assert all(iso2 and region and sub for iso2, region, sub in regions.values())
+
+
+def test_shared_hosts_keep_the_company_subdomain():
+    assert pdl._website_domain("girlhoodimpact.wixsite.com/girlhood-impact") == "girlhoodimpact.wixsite.com"
+    assert pdl._website_domain("https://acme.github.io") == "acme.github.io"
+    assert pdl._website_domain("www.example.co.uk:8080/x?y=1") == "example.co.uk"
+    assert pdl._website_domain("not a website") == ""

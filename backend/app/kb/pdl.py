@@ -32,7 +32,7 @@ from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 
-from app.crawl.urlnorm import registered_domain
+import tldextract
 
 DATA = Path(__file__).parent / "data"
 TABLE = "pdl_company"
@@ -40,6 +40,9 @@ COLUMNS = (
     "pdl_id", "name", "website", "domain", "linkedin_url", "industry", "sector", "size", "founded",
     "country", "iso2", "region", "sub_region", "state", "city",
 )
+# The public suffix list including its private section, so a site on a shared host keeps its own
+# key ("acme.wixsite.com", "acme.github.io") instead of collapsing into the host's domain.
+_extract = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True)
 # A new file must hold at least this share of the rows already loaded, or the swap is refused:
 # a truncated download must never replace a good table.
 MIN_SHARE_OF_PREVIOUS = 0.9
@@ -100,8 +103,10 @@ def read_rows(path: Path) -> Iterator[dict[str, str]]:
 def _website_domain(website: str) -> str:
     if not website:
         return ""
-    url = website if "://" in website else f"http://{website}"
-    domain = registered_domain(url).lower()
+    host = website.split("://", 1)[-1].split("/", 1)[0].split("?", 1)[0].split(":", 1)[0].strip(".").lower()
+    if not host or " " in host:
+        return ""
+    domain = _extract(host).top_domain_under_public_suffix
     return "" if domain in ("linkedin.com", "facebook.com") else domain
 
 
@@ -178,6 +183,10 @@ class Coverage:
         lines += ["", f"Distinct domains: {len(self.domains):,} (claimed by more than one row: "
                       f"{self.shared_domains():,})", "", "Rows by sector:"]
         lines += [f"  {s:<32} {n:>12,}  {pct(n)}" for s, n in self.by_sector.most_common()]
+        shared = [(d, n) for d, n in self.domains.most_common(top) if n > 1]
+        if shared:
+            lines += ["", "Domains claimed by the most rows (hosting platforms, groups, bad data):"]
+            lines += [f"  {d:<32} {n:>12,}" for d, n in shared]
         lines += ["", f"Top {top} countries:"]
         lines += [f"  {c:<32} {n:>12,}  {pct(n)}" for c, n in self.by_country.most_common(top)]
         for title, counter in (("Industries with no sector", self.unknown_industries),
@@ -272,6 +281,14 @@ def load(path: Path, dsn: str | None = None, force: bool = False,
                 conn.rollback()
                 raise ValueError(f"refused: the file has {coverage.rows:,} rows, the current table "
                                  f"{previous:,}; pass force to load it anyway")
+            # How many rows share each domain: 1 is a company's own site; hundreds is a hosting
+            # platform or directory, which later steps must not treat as one company's website.
+            cur.execute(f"ALTER TABLE kb.{TABLE}_load ADD COLUMN domain_rows integer")
+            cur.execute(f"""
+                UPDATE kb.{TABLE}_load t SET domain_rows = d.n
+                FROM (SELECT domain, count(*) AS n FROM kb.{TABLE}_load
+                      WHERE domain IS NOT NULL GROUP BY domain) d
+                WHERE t.domain = d.domain""")  # noqa: S608 - TABLE is a constant
             _index(cur, f"{TABLE}_load")
             cur.execute(f"DROP TABLE IF EXISTS kb.{TABLE}")
             cur.execute(f"ALTER TABLE kb.{TABLE}_load RENAME TO {TABLE}")
