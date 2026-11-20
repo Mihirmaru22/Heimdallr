@@ -11,6 +11,8 @@ class Settings(BaseSettings):
 
     env: str = "development"
     database_url: str = "postgresql+psycopg://webdata:webdata@localhost:5432/webdata"
+    # The company database (app/kb). Empty = the same Postgres as the app, in its own "kb" schema.
+    kb_database_url: str = ""
     redis_url: str = "redis://localhost:6379/0"
     secret_key: str = "change-me-in-.env"  # noqa: S105 - signs export links; must be overridden outside dev
     cookie_secure: bool = False  # True when served over HTTPS

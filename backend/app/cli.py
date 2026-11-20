@@ -1,7 +1,8 @@
 """Command-line helpers: `python -m app.cli create-admin EMAIL` (prompts for a password) and
 `python -m app.cli refresh-sec` (downloads SEC EDGAR's company list for the sec_edgar source) and
 `python -m app.cli llm-status | llm-test | llm-enable` (the free OpenRouter models) and
-`python -m app.cli job-report JOB_ID` / `sec-check PRODUCT` (what a run planned and what each source answered)."""
+`python -m app.cli job-report JOB_ID` / `sec-check PRODUCT` (what a run planned and what each source answered) and
+`python -m app.cli kb-load-pdl FILE` (loads the PDL free company dataset into the company database)."""
 
 from __future__ import annotations
 
@@ -270,6 +271,29 @@ def sec_check(product_name: str, aliases: list[str]) -> None:
               f"{src.get('file_date')} states={src.get('biz_states')}")
 
 
+def kb_load_pdl(path: str, report_only: bool, force: bool) -> None:
+    from pathlib import Path
+
+    from app.kb import pdl
+
+    file = Path(path)
+    if not file.is_file():
+        sys.exit(f"No such file: {file}")
+
+    def progress(rows: int) -> None:
+        print(f"  {rows:,} rows read", flush=True)
+
+    if report_only:
+        coverage = pdl.scan(pdl.read_rows(file), progress=progress)
+    else:
+        print(f"Loading {file.name} into kb.{pdl.TABLE}...", flush=True)
+        try:
+            coverage = pdl.load(file, force=force, progress=progress)
+        except ValueError as exc:
+            sys.exit(str(exc))
+    print(coverage.report())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -297,7 +321,13 @@ def main() -> None:
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
     p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
+    p = sub.add_parser("kb-load-pdl", help="load the PDL free company dataset into kb.pdl_company and report coverage")
+    p.add_argument("file", help="the downloaded file: CSV, pipe-delimited or JSON lines; .gz or .zip is fine")
+    p.add_argument("--report-only", action="store_true", help="read the file and print coverage, load nothing")
+    p.add_argument("--force", action="store_true", help="load even if the file has far fewer rows than the table")
     args = parser.parse_args()
+    if args.cmd == "kb-load-pdl":
+        return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":
         return job_report(args.job_id)
     if args.cmd == "score":
