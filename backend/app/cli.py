@@ -1,7 +1,10 @@
 """Command-line helpers: `python -m app.cli create-admin EMAIL` (prompts for a password) and
 `python -m app.cli refresh-sec` (downloads SEC EDGAR's company list for the sec_edgar source) and
 `python -m app.cli llm-status | llm-test | llm-enable` (the free OpenRouter models) and
-`python -m app.cli job-report JOB_ID` / `sec-check PRODUCT` (what a run planned and what each source answered)."""
+`python -m app.cli job-report JOB_ID` / `sec-check PRODUCT` (what a run planned and what each source answered) and
+`python -m app.cli kb-load-pdl FILE` (loads the PDL free company dataset into the company database) and
+`python -m app.cli kb-homepages --limit N` (reads company homepages from Common Crawl into kb.homepage) and
+`python -m app.cli kb-load-companies-house FILE` (loads the UK register snapshot into kb.uk_company)."""
 
 from __future__ import annotations
 
@@ -270,6 +273,83 @@ def sec_check(product_name: str, aliases: list[str]) -> None:
               f"{src.get('file_date')} states={src.get('biz_states')}")
 
 
+def kb_load_pdl(path: str, report_only: bool, force: bool) -> None:
+    from pathlib import Path
+
+    from app.kb import pdl
+
+    file = Path(path)
+    if not file.is_file():
+        sys.exit(f"No such file: {file}")
+
+    def progress(rows: int) -> None:
+        print(f"  {rows:,} rows read", flush=True)
+
+    if report_only:
+        coverage = pdl.scan(pdl.read_rows(file), progress=progress)
+    else:
+        print(f"Loading {file.name} into kb.{pdl.TABLE}...", flush=True)
+        try:
+            coverage = pdl.load(file, force=force, progress=progress)
+        except ValueError as exc:
+            sys.exit(str(exc))
+    print(coverage.report())
+
+
+def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
+    from pathlib import Path
+
+    from app.kb import companies_house, pdl
+
+    file = Path(path)
+    if not file.is_file():
+        sys.exit(f"No such file: {file}")
+
+    def progress(rows: int) -> None:
+        print(f"  {rows:,} rows read", flush=True)
+
+    if report_only:
+        coverage = companies_house.scan(pdl.read_rows(file), progress=progress)
+    else:
+        print(f"Loading {file.name} into kb.{companies_house.TABLE}...", flush=True)
+        try:
+            coverage = companies_house.load(file, force=force, progress=progress)
+        except ValueError as exc:
+            sys.exit(str(exc))
+    print(coverage.report())
+
+
+def kb_homepages(limit: int | None, iso2: str | None, crawl: str | None, concurrency: int, sample: bool) -> None:
+    import asyncio
+    import time
+
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import homepages
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        conn.execute(homepages.SCHEMA_SQL)
+        domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample)
+        print(f"Reading {len(domains):,} homepages from Common Crawl, {concurrency} at a time...", flush=True)
+        summary = homepages.Summary()
+        started = time.monotonic()
+
+        def on_page(page) -> None:
+            homepages.save(conn, page)
+            summary.add(page)
+            if summary.domains % 500 == 0:
+                rate = summary.domains / max(1.0, time.monotonic() - started)
+                print(f"  {summary.domains:,} done, {summary.found:,} found, {rate:.1f} sites/s", flush=True)
+
+        used = asyncio.run(homepages.collect(domains, crawl, on_page, concurrency,
+                                             user_agent=get_settings().user_agent))
+        seconds = time.monotonic() - started
+    print(f"\nCrawl {used}, {seconds / 60:.1f} minutes, {summary.domains / max(1.0, seconds):.2f} sites/s")
+    print(summary.report())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -297,7 +377,27 @@ def main() -> None:
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
     p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
+    p = sub.add_parser("kb-load-pdl", help="load the PDL free company dataset into kb.pdl_company and report coverage")
+    p.add_argument("file", help="the downloaded file: CSV, pipe-delimited or JSON lines; .gz or .zip is fine")
+    p.add_argument("--report-only", action="store_true", help="read the file and print coverage, load nothing")
+    p.add_argument("--force", action="store_true", help="load even if the file has far fewer rows than the table")
+    p = sub.add_parser("kb-load-companies-house", help="load the UK Companies House snapshot into kb.uk_company")
+    p.add_argument("file", help="BasicCompanyDataAsOneFile-YYYY-MM-DD.zip (or the CSV inside it)")
+    p.add_argument("--report-only", action="store_true", help="read the file and print coverage, load nothing")
+    p.add_argument("--force", action="store_true", help="load even if the file has far fewer rows than the table")
+    p = sub.add_parser("kb-homepages", help="read company homepages from Common Crawl into kb.homepage")
+    p.add_argument("--limit", type=int, default=None, help="at most this many domains")
+    p.add_argument("--country", default=None, help="only companies in this country (ISO code, e.g. IN)")
+    p.add_argument("--crawl", default=None, help="Common Crawl crawl id (default: the newest)")
+    p.add_argument("--concurrency", type=int, default=4, help="requests at a time (default 4; be gentle)")
+    p.add_argument("--sample", action="store_true", help="a random sample of domains (for trials)")
     args = parser.parse_args()
+    if args.cmd == "kb-load-companies-house":
+        return kb_load_companies_house(args.file, args.report_only, args.force)
+    if args.cmd == "kb-homepages":
+        return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample)
+    if args.cmd == "kb-load-pdl":
+        return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":
         return job_report(args.job_id)
     if args.cmd == "score":
