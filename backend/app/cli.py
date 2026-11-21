@@ -5,7 +5,7 @@
 `python -m app.cli kb-load-pdl FILE` (loads the PDL free company dataset into the company database) and
 `python -m app.cli kb-homepages --limit N` (reads company homepages from Common Crawl into kb.homepage) and
 `python -m app.cli kb-load-companies-house FILE` (loads the UK register snapshot into kb.uk_company) and
-`python -m app.cli kb-classify` (micro-sector and product-or-service labels from the homepages, local model)."""
+`python -m app.cli kb-teach | kb-train | kb-classify` (homepage labels: teacher model, training, labelling)."""
 
 from __future__ import annotations
 
@@ -384,14 +384,87 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
     print(summary.report())
 
 
-def kb_classify(limit: int | None, again: bool, export_sample: int, export_path: str | None,
-                min_score: float | None) -> None:
+def _label_model_path():
+    from pathlib import Path
+
+    from app.config import get_settings
+
+    return Path(get_settings().data_dir) / "kb" / "label_model.npz"
+
+
+def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None) -> None:
+    import time
+    from pathlib import Path
+
+    import httpx
+    import psycopg
+
+    from app.kb import teach
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        conn.execute(teach.SCHEMA_SQL)
+        if export_sample:
+            path = Path(export_path or "teach_sample.csv")
+            print(f"Wrote {teach.export_sample(conn, path, export_sample):,} teacher labels to {path}.")
+            return
+        rows = teach.select_pages(conn, limit)
+        if not rows:
+            print("No unlabelled homepages (kb-homepages fills kb.homepage).")
+            return
+        with httpx.Client(timeout=600) as client:
+            try:
+                client.get(f"{teach.OLLAMA_URL}/api/tags").raise_for_status()
+            except httpx.HTTPError as exc:
+                sys.exit(f"Ollama is not answering at {teach.OLLAMA_URL} ({exc}). Start it with: ollama serve")
+            print(f"Labelling {len(rows):,} homepages with {model} (one at a time; Ctrl-C is safe, "
+                  "labels so far are kept and a rerun continues)...", flush=True)
+            started = time.monotonic()
+
+            def progress(summary) -> None:
+                if summary.rows % 25 == 0:
+                    left = (len(rows) - summary.rows) * summary.seconds / summary.rows
+                    print(f"  {summary.rows:,} done, {summary.seconds / summary.rows:.1f} s per page, "
+                          f"about {left / 3600:.1f} h left", flush=True)
+
+            summary = teach.run(conn, client, model, rows, progress)
+    print(f"\n{(time.monotonic() - started) / 60:.1f} minutes")
+    print(summary.report())
+
+
+def kb_train() -> None:
+    import psycopg
+
+    from app.kb import classify, train
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn()) as conn:
+        rows = conn.execute(
+            """SELECT h.title, h.description, h.text, t.real_page, t.tech_company, t.micro_sector, t.offering
+               FROM kb.teach_label t JOIN kb.homepage h USING (domain) WHERE t.error IS NULL"""
+        ).fetchall()
+    rows = [r for r in rows if classify.page_text(r[0], r[1], r[2])]
+    if len(rows) < 100:
+        sys.exit(f"Only {len(rows)} teacher labels; run kb-teach first (a few thousand pages).")
+    print(f"Embedding {len(rows):,} labelled homepages with {classify.MODEL}...", flush=True)
+    embedder = classify.Embedder()
+    vectors = embedder([classify.page_text(r[0], r[1], r[2]) for r in rows])
+    labels = [{"real_page": r[3], "tech_company": r[4], "micro_sector": r[5], "offering": r[6]} for r in rows]
+    model = train.train(list(zip(vectors, labels, strict=True)), embedder.name)
+    path = _label_model_path()
+    model.save(path)
+    print(f"Saved {path}\n")
+    for report in model.reports:
+        print("\n".join(report.lines()) + "\n")
+
+
+def kb_classify(limit: int | None, again: bool, export_sample: int, export_path: str | None) -> None:
     import time
     from pathlib import Path
 
     import psycopg
 
-    from app.kb import classify
+    from app.kb import classify, train
     from app.kb.pdl import kb_dsn
 
     with psycopg.connect(kb_dsn(), autocommit=True) as conn:
@@ -399,9 +472,12 @@ def kb_classify(limit: int | None, again: bool, export_sample: int, export_path:
         if export_sample:
             path = Path(export_path or "label_sample.csv")
             n = classify.export_sample(conn, path, export_sample)
-            print(f"Wrote {n:,} labelled homepages to {path}. Fill correct_micro_sector (or 'none') and "
-                  "correct_offering (product, service or both) on each row and send the file back.")
+            print(f"Wrote {n:,} labelled homepages to {path}.")
             return
+        model_path = _label_model_path()
+        if not model_path.is_file():
+            sys.exit(f"No trained model at {model_path}: run kb-teach, then kb-train.")
+        model = train.LabelModel.load(model_path)
         where = "h.found" + ("" if again else " AND l.domain IS NULL")
         rows = conn.execute(
             f"""SELECT h.domain, h.url, h.title, h.description, h.text FROM kb.homepage h
@@ -411,9 +487,9 @@ def kb_classify(limit: int | None, again: bool, export_sample: int, export_path:
         if not rows:
             print("No homepages to label (kb-homepages fills kb.homepage; --again relabels).")
             return
-        print(f"Loading the model {classify.MODEL} (downloaded once, about 250 MB)...", flush=True)
-        embedder = classify.Embedder()
-        labeller = classify.Classifier(embedder, **({"min_score": min_score} if min_score is not None else {}))
+        print(f"Loading the model {model.embed_model} (downloaded once, about 250 MB)...", flush=True)
+        embedder = classify.Embedder(model.embed_model)
+        labeller = classify.Classifier(embedder, model)
         print(f"Labelling {len(rows):,} homepages...", flush=True)
         summary = classify.Summary()
         started = time.monotonic()
@@ -423,7 +499,7 @@ def kb_classify(limit: int | None, again: bool, export_sample: int, export_path:
             labels = labeller.label([r[0] for r in chunk], [classify.page_text(r[2], r[3], r[4]) for r in chunk])
             with conn.transaction():
                 for row, label in zip(chunk, labels, strict=True):
-                    classify.save(conn, label, embedder.name, row[1])
+                    classify.save(conn, label, f"{embedder.name}+{model_path.name}", row[1])
                     summary.add(label)
             rate = summary.rows / max(1.0, time.monotonic() - started)
             print(f"  {summary.rows:,} labelled, {rate:.0f} pages/s", flush=True)
@@ -478,16 +554,26 @@ def main() -> None:
     p.add_argument("--again", action="store_true", help="re-read the domains already in kb.homepage")
     p.add_argument("--own-fetch", action="store_true",
                    help="for homepages Common Crawl lacks: DNS check, then one robots-respecting fetch of the site")
-    p = sub.add_parser("kb-classify", help="label homepages in kb.homepage: micro-sector, product or service")
+    p = sub.add_parser("kb-teach", help="teacher labels for kb-train from a local open model (Ollama)")
+    p.add_argument("--model", default="qwen2.5:7b", help="Ollama model (default qwen2.5:7b)")
+    p.add_argument("--limit", type=int, default=200, help="homepages to label this run (default 200)")
+    p.add_argument("--export-sample", type=int, default=0, metavar="N",
+                   help="write N random teacher labels to a CSV for checking by hand, label nothing")
+    p.add_argument("--out", default=None, help="the CSV for --export-sample (default teach_sample.csv)")
+    sub.add_parser("kb-train", help="train the homepage classifier on the teacher labels and report its quality")
+    p = sub.add_parser("kb-classify", help="label homepages with the trained classifier")
     p.add_argument("--limit", type=int, default=None, help="at most this many homepages")
     p.add_argument("--again", action="store_true", help="relabel homepages that already have a label")
-    p.add_argument("--min-score", type=float, default=None, help="similarity a micro-sector needs (default 0.35)")
     p.add_argument("--export-sample", type=int, default=0, metavar="N",
                    help="write N random labelled homepages to a CSV for checking by hand, label nothing")
     p.add_argument("--out", default=None, help="the CSV for --export-sample (default label_sample.csv)")
     args = parser.parse_args()
+    if args.cmd == "kb-teach":
+        return kb_teach(args.model, args.limit, args.export_sample, args.out)
+    if args.cmd == "kb-train":
+        return kb_train()
     if args.cmd == "kb-classify":
-        return kb_classify(args.limit, args.again, args.export_sample, args.out, args.min_score)
+        return kb_classify(args.limit, args.again, args.export_sample, args.out)
     if args.cmd == "kb-load-companies-house":
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":
