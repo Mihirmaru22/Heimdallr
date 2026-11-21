@@ -24,6 +24,7 @@ dependencies = [
     "xlsxwriter",
     "python-multipart",
     "pypdf>=6.21.2",
+    "fastembed>=0.9.1",
 ]
 
 [dependency-groups]
