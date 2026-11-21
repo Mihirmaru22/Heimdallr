@@ -319,7 +319,8 @@ def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
     print(coverage.report())
 
 
-def kb_homepages(limit: int | None, iso2: str | None, crawl: str | None, concurrency: int, sample: bool) -> None:
+def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, concurrency: int, sample: bool,
+                 crawl_count: int, again: bool) -> None:
     import asyncio
     import time
     from pathlib import Path
@@ -333,7 +334,11 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: str | None, concurr
 
     with psycopg.connect(kb_dsn(), autocommit=True) as conn:
         conn.execute(homepages.SCHEMA_SQL)
-        domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample)
+        if again:  # the same domains as the last run, to compare like with like
+            domains = [r[0] for r in conn.execute("SELECT domain FROM kb.homepage ORDER BY domain").fetchall()]
+            domains = domains[:limit] if limit else domains
+        else:
+            domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample)
         print(f"Reading {len(domains):,} homepages from Common Crawl, {concurrency} at a time...", flush=True)
         summary = homepages.Summary()
         started = time.monotonic()
@@ -352,12 +357,12 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: str | None, concurr
         try:
             used = asyncio.run(homepages.collect(
                 domains, crawl, on_page, Path(get_settings().data_dir), concurrency,
-                user_agent=get_settings().user_agent, on_crawl=on_crawl))
+                user_agent=get_settings().user_agent, on_crawl=on_crawl, crawl_count=crawl_count))
         except httpx.HTTPError as exc:
             sys.exit(f"Common Crawl did not answer ({exc}). If index.commoncrawl.org is down, pass the crawl id, "
                      "e.g. --crawl CC-MAIN-2026-44 (the newest is listed at commoncrawl.org/latest-crawl).")
         seconds = time.monotonic() - started
-    print(f"\nCrawl {used}, {seconds / 60:.1f} minutes, {summary.domains / max(1.0, seconds):.2f} sites/s")
+    print(f"\nCrawls {', '.join(used)}, {seconds / 60:.1f} minutes, {summary.domains / max(1.0, seconds):.2f} sites/s")
     print(summary.report())
 
 
@@ -399,14 +404,19 @@ def main() -> None:
     p = sub.add_parser("kb-homepages", help="read company homepages from Common Crawl into kb.homepage")
     p.add_argument("--limit", type=int, default=None, help="at most this many domains")
     p.add_argument("--country", default=None, help="only companies in this country (ISO code, e.g. IN)")
-    p.add_argument("--crawl", default=None, help="Common Crawl crawl id (default: the newest)")
+    p.add_argument("--crawl", action="append", default=None,
+                   help="Common Crawl crawl id; repeat for several (default: the newest --crawls)")
+    p.add_argument("--crawls", type=int, default=3,
+                   help="look in the newest N crawls, newest first, until one has the homepage (default 3)")
     p.add_argument("--concurrency", type=int, default=4, help="requests at a time (default 4; be gentle)")
     p.add_argument("--sample", action="store_true", help="a random sample of domains (for trials)")
+    p.add_argument("--again", action="store_true", help="re-read the domains already in kb.homepage")
     args = parser.parse_args()
     if args.cmd == "kb-load-companies-house":
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":
-        return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample)
+        return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample, args.crawls,
+                            args.again)
     if args.cmd == "kb-load-pdl":
         return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":

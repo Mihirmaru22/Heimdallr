@@ -34,6 +34,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -68,6 +69,8 @@ class Homepage:
     emails: list[dict] = field(default_factory=list)
     addresses: list[dict] = field(default_factory=list)
     error: str = ""
+    miss: str = ""  # why no homepage was found: no_capture, redirect_unfollowed, error_status, not_html
+    redirected_to: str = ""  # the homepage moved here (another path or another domain)
 
 
 def select_domains(conn, limit: int | None = None, iso2: str | None = None, sample: bool = False) -> list[str]:
@@ -83,20 +86,20 @@ def select_domains(conn, limit: int | None = None, iso2: str | None = None, samp
     return [r[0] for r in conn.execute(sql, params).fetchall()]
 
 
-async def latest_crawl(client: httpx.AsyncClient) -> str:
-    """The newest crawl id, from the index server's list or, when that server is down, the crawl list
-    on data.commoncrawl.org."""
+async def latest_crawls(client: httpx.AsyncClient, count: int = 1) -> list[str]:
+    """The newest `count` crawl ids, newest first, from the index server's list or, when that server
+    is down, the crawl list on data.commoncrawl.org."""
     try:
         response = await _get(client, f"{INDEX}/collinfo.json", tries=2)
         response.raise_for_status()
-        return response.json()[0]["id"]  # newest first
-    except (httpx.HTTPError, ValueError, KeyError, IndexError):
+        ids = [c["id"] for c in response.json()]  # newest first
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
         response = await _get(client, f"{DATA}/crawl-data/index.html")
         response.raise_for_status()
-        ids = re.findall(r"CC-MAIN-\d{4}-\d{2}", response.text)
-        if not ids:
-            raise ValueError("no crawl ids on the crawl list page") from None
-        return max(ids)
+        ids = sorted(set(re.findall(r"CC-MAIN-\d{4}-\d{2}", response.text)), reverse=True)
+    if not ids:
+        raise ValueError("no crawl ids found")
+    return ids[:count]
 
 
 async def _get(client: httpx.AsyncClient, url: str, headers: dict | None = None, tries: int = 5) -> httpx.Response:
@@ -117,6 +120,14 @@ async def _get(client: httpx.AsyncClient, url: str, headers: dict | None = None,
 def surt_key(domain: str) -> str:
     """Common Crawl's sort key for a site's homepage: www.acme.co.uk/ -> uk,co,acme)/"""
     return ",".join(reversed(domain.lower().strip(".").split("."))) + ")/"
+
+
+def url_key(url: str) -> str:
+    """Common Crawl's sort key for any URL: https://www.acme.com/En/?a=1 -> com,acme)/en/?a=1"""
+    parts = urlsplit(url if "://" in url else f"http://{url}")
+    host = re.sub(r"^www\d*\.", "", (parts.hostname or "").lower().strip("."))
+    key = ",".join(reversed(host.split("."))) + ")" + ((parts.path or "/").lower())
+    return key + (f"?{parts.query.lower()}" if parts.query else "")
 
 
 class ClusterIndex:
@@ -188,23 +199,62 @@ class IndexReader:
                 future.set_exception(exc)
         return await self.blocks[block]
 
-    async def lookup(self, domain: str) -> dict | None:
-        """The best homepage capture of `domain`: a 200 HTML page, https before http."""
-        key = surt_key(domain)
-        rows = []
+    async def _records(self, key: str, host_prefix: str) -> tuple[list[dict], list[dict]]:
+        """(captures of exactly `key`, captures of other pages on the same host) in the blocks for `key`."""
+        exact, same_host = [], []
         for block in self.index.blocks_for(key):
             for line in await self._block(block):
                 surt, _, rest = line.partition(" ")
-                if surt != key:
+                if surt != key and not surt.startswith(host_prefix):
                     continue
-                record = json.loads(rest.partition(" ")[2])
-                mime = record.get("mime-detected") or record.get("mime") or ""
-                small = int(record.get("length", 0)) <= MAX_RECORD_BYTES
-                if record.get("status") == "200" and "html" in mime and small:
-                    rows.append(record)
-        if not rows:
-            return None
-        return max(rows, key=lambda r: (r["url"].startswith("https://"), r.get("timestamp", "")))
+                try:
+                    record = json.loads(rest.partition(" ")[2])
+                except ValueError:
+                    continue
+                (exact if surt == key else same_host).append(record)
+        return exact, same_host
+
+    @staticmethod
+    def _good(record: dict) -> bool:
+        mime = record.get("mime-detected") or record.get("mime") or ""
+        return (record.get("status") == "200" and "html" in mime
+                and int(record.get("length", 0)) <= MAX_RECORD_BYTES)
+
+    @staticmethod
+    def _best(records: list[dict]) -> dict:
+        return max(records, key=lambda r: (r["url"].startswith("https://"), r.get("timestamp", "")))
+
+    async def lookup(self, domain: str) -> tuple[dict | None, str, str]:
+        """(best homepage capture, why none was found, where the homepage redirected to).
+
+        A homepage that redirects (/ -> /en/, or to a new domain) is followed for up to two hops.
+        With no usable capture of the homepage itself, the shortest page captured on the same host
+        (/index.html, /home) stands in for it."""
+        key = surt_key(domain)
+        redirected_to = ""
+        for _hop in range(3):
+            host_prefix = key.split(")", 1)[0] + ")"
+            exact, same_host = await self._records(key, host_prefix)
+            good = [r for r in exact if self._good(r)]
+            if good:
+                return self._best(good), "", redirected_to
+            moves = [r for r in exact if str(r.get("status", "")).startswith("3") and r.get("redirect")]
+            if moves:
+                move = self._best(moves)
+                redirected_to = urljoin(move["url"], move["redirect"])
+                key = url_key(redirected_to)
+                continue
+            stand_in = [r for r in same_host if self._good(r) and urlsplit(r["url"]).path.count("/") <= 1]
+            if stand_in:
+                return min(stand_in, key=lambda r: len(r["url"])), "", redirected_to
+            if not exact and not same_host:
+                return None, "no_capture", redirected_to
+            if any(str(r.get("status", "")).startswith("3") for r in exact):
+                return None, "redirect_unfollowed", redirected_to
+            if any(r.get("status") == "200" for r in exact):
+                return None, "not_html", redirected_to
+            return None, "error_status", redirected_to
+        return None, "redirect_unfollowed", redirected_to
 
 
 def parse_warc(data: bytes) -> tuple[dict[str, str], str]:
@@ -242,20 +292,31 @@ def extract(domain: str, crawl: str, url: str, fetched_at: str, html: str) -> Ho
     )
 
 
-async def read_homepage(client: httpx.AsyncClient, reader: IndexReader, domain: str) -> Homepage:
-    crawl = reader.crawl
-    try:
-        capture = await reader.lookup(domain)
-        if capture is None:
-            return Homepage(domain, found=False, crawl=crawl)
-        start = int(capture["offset"])
-        end = start + int(capture["length"]) - 1
-        response = await _get(client, f"{DATA}/{capture['filename']}", headers={"Range": f"bytes={start}-{end}"})
-        response.raise_for_status()
-        headers, html = parse_warc(response.content)
-        return extract(domain, crawl, capture["url"], headers.get("warc-date", capture.get("timestamp", "")), html)
-    except (httpx.HTTPError, OSError, ValueError, KeyError, EOFError) as exc:
-        return Homepage(domain, found=False, crawl=crawl, error=f"{type(exc).__name__}: {exc}"[:300])
+async def read_homepage(client: httpx.AsyncClient, readers: list[IndexReader], domain: str) -> Homepage:
+    """Try the newest crawl first, then older ones, until one has the homepage."""
+    misses: list[str] = []
+    redirected_to = ""
+    for reader in readers:
+        try:
+            capture, miss, moved = await reader.lookup(domain)
+            redirected_to = redirected_to or moved
+            if capture is None:
+                misses.append(miss)
+                continue
+            start = int(capture["offset"])
+            end = start + int(capture["length"]) - 1
+            response = await _get(client, f"{DATA}/{capture['filename']}", headers={"Range": f"bytes={start}-{end}"})
+            response.raise_for_status()
+            headers, html = parse_warc(response.content)
+            page = extract(domain, reader.crawl, capture["url"],
+                           headers.get("warc-date", capture.get("timestamp", "")), html)
+            page.redirected_to = redirected_to
+            return page
+        except (httpx.HTTPError, OSError, ValueError, KeyError, EOFError) as exc:
+            return Homepage(domain, found=False, crawl=reader.crawl, error=f"{type(exc).__name__}: {exc}"[:300])
+    # The most telling reason: any crawl that saw the site beats "never captured".
+    miss = next((m for m in misses if m != "no_capture"), "no_capture")
+    return Homepage(domain, found=False, crawl=readers[0].crawl, miss=miss, redirected_to=redirected_to)
 
 
 @dataclass
@@ -263,6 +324,9 @@ class Summary:
     domains: int = 0
     found: int = 0
     errors: Counter = field(default_factory=Counter)
+    misses: Counter = field(default_factory=Counter)
+    by_crawl: Counter = field(default_factory=Counter)
+    redirected: int = 0
     with_description: int = 0
     with_text: int = 0
     with_email: int = 0
@@ -272,9 +336,13 @@ class Summary:
         self.domains += 1
         if page.error:
             self.errors[page.error.split(":")[0]] += 1
+        if page.miss:
+            self.misses[page.miss] += 1
         if not page.found:
             return
         self.found += 1
+        self.by_crawl[page.crawl] += 1
+        self.redirected += bool(page.redirected_to)
         self.with_description += bool(page.description)
         self.with_text += len(page.text) >= 200
         self.with_email += bool(page.emails)
@@ -292,6 +360,13 @@ class Summary:
             f"  with a company mailbox:     {pct(self.with_email, self.found)}",
             f"  with a postal address:      {pct(self.with_address, self.found)}",
         ]
+        if self.by_crawl:
+            lines += ["Found in crawl:"] + [f"  {c}: {n:,}" for c, n in sorted(self.by_crawl.items(), reverse=True)]
+        if self.redirected:
+            lines += [f"Found after following a redirect: {self.redirected:,}"]
+        if self.misses:
+            lines += ["Why the rest were not found:"] + [f"  {k}: {pct(n, self.domains)}"
+                                                        for k, n in self.misses.most_common()]
         if self.errors:
             lines += ["Errors:"] + [f"  {k}: {n:,}" for k, n in self.errors.most_common()]
         return "\n".join(lines)
@@ -313,46 +388,54 @@ CREATE TABLE IF NOT EXISTS kb.homepage (
     error text,
     collected_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE kb.homepage ADD COLUMN IF NOT EXISTS miss text;
+ALTER TABLE kb.homepage ADD COLUMN IF NOT EXISTS redirected_to text;
 """
 
 
 def save(conn, page: Homepage) -> None:
     conn.execute(
         """INSERT INTO kb.homepage (domain, found, crawl, url, fetched_at, title, description, text, emails,
-                                    addresses, error, collected_at)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    addresses, error, collected_at, miss, redirected_to)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (domain) DO UPDATE SET found = EXCLUDED.found, crawl = EXCLUDED.crawl, url = EXCLUDED.url,
                fetched_at = EXCLUDED.fetched_at, title = EXCLUDED.title, description = EXCLUDED.description,
                text = EXCLUDED.text, emails = EXCLUDED.emails, addresses = EXCLUDED.addresses,
-               error = EXCLUDED.error, collected_at = EXCLUDED.collected_at""",
+               error = EXCLUDED.error, collected_at = EXCLUDED.collected_at, miss = EXCLUDED.miss,
+               redirected_to = EXCLUDED.redirected_to""",
         (page.domain, page.found, page.crawl, page.url or None, page.fetched_at or None, page.title or None,
          page.description or None, (page.text or None) and page.text.replace("\x00", ""),
-         json.dumps(page.emails), json.dumps(page.addresses), page.error or None, datetime.now(UTC)),
+         json.dumps(page.emails), json.dumps(page.addresses), page.error or None, datetime.now(UTC),
+         page.miss or None, page.redirected_to or None),
     )
 
 
-async def collect(domains: list[str], crawl: str | None, on_page: Callable[[Homepage], None],
+async def collect(domains: list[str], crawls: list[str] | None, on_page: Callable[[Homepage], None],
                   data_dir: Path, concurrency: int = 4, client: httpx.AsyncClient | None = None,
-                  user_agent: str = "heimdallr-kb", on_crawl: Callable[[str], None] | None = None) -> str:
-    """Read every domain's homepage, `concurrency` at a time, handing each result to `on_page`."""
+                  user_agent: str = "heimdallr-kb", on_crawl: Callable[[str], None] | None = None,
+                  crawl_count: int = 1) -> list[str]:
+    """Read every domain's homepage, `concurrency` at a time, handing each result to `on_page`.
+    Each domain is looked up in the given crawls (or the newest `crawl_count`), newest first."""
     own = client is None
     client = client or httpx.AsyncClient(timeout=httpx.Timeout(60, connect=20), headers={"User-Agent": user_agent},
                                          follow_redirects=True)
     try:
-        crawl = crawl or await latest_crawl(client)
-        if on_crawl:
-            on_crawl(crawl)
-        reader = IndexReader(client, crawl, await cluster_index(client, crawl, data_dir))
+        crawls = crawls or await latest_crawls(client, crawl_count)
+        readers = []
+        for crawl in crawls:
+            if on_crawl:
+                on_crawl(crawl)
+            readers.append(IndexReader(client, crawl, await cluster_index(client, crawl, data_dir)))
         queue: asyncio.Queue[str] = asyncio.Queue()
         for d in sorted(domains, key=surt_key):  # index order: neighbours share index blocks
             queue.put_nowait(d)
 
         async def worker() -> None:
             while not queue.empty():
-                on_page(await read_homepage(client, reader, queue.get_nowait()))
+                on_page(await read_homepage(client, readers, queue.get_nowait()))
 
         await asyncio.gather(*(worker() for _ in range(concurrency)))
-        return crawl
+        return crawls
     finally:
         if own:
             await client.aclose()

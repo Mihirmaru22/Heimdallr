@@ -75,9 +75,10 @@ def test_reads_the_homepage_record_and_keeps_company_fields(tmp_path):
     seen: list[httpx.Request] = []
     pages: list[homepages.Homepage] = []
     client = httpx.AsyncClient(transport=_transport(_warc(HTML), seen))
-    crawl = asyncio.run(homepages.collect(["acmepay.com", "missing.com"], None, pages.append, tmp_path, 2,
-                                          client=client))
-    assert crawl == "CC-MAIN-2026-44"  # the newest crawl
+    crawls = asyncio.run(homepages.collect(["acmepay.com", "missing.com"], None, pages.append, tmp_path, 2,
+                                           client=client))
+    assert crawls == ["CC-MAIN-2026-44"]  # the newest crawl
+    crawl = crawls[0]
     assert (tmp_path / "commoncrawl" / crawl / "cluster.idx").exists()
     by = {p.domain: p for p in pages}
     acme = by["acmepay.com"]
@@ -90,6 +91,7 @@ def test_reads_the_homepage_record_and_keeps_company_fields(tmp_path):
     assert [e["email"] for e in acme.emails] == ["sales@acmepay.com"]
     assert acme.addresses and "12 MG Road" in acme.addresses[0]["address"]
     assert not by["missing.com"].found and not by["missing.com"].error
+    assert by["missing.com"].miss == "no_capture"
     assert all(r.url.host in ("index.commoncrawl.org", "data.commoncrawl.org") for r in seen)
     # Both domains sit in the first block: it was fetched once.
     assert sum(r.url.path.endswith("cdx-00000.gz") for r in seen) == 1
@@ -148,4 +150,47 @@ def test_latest_crawl_falls_back_when_the_index_server_is_down(monkeypatch):
         return httpx.Response(200, text="<a>CC-MAIN-2026-40</a><a>CC-MAIN-2026-44</a><a>CC-MAIN-2025-51</a>")
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    assert asyncio.run(homepages.latest_crawl(client)) == "CC-MAIN-2026-44"
+    assert asyncio.run(homepages.latest_crawls(client, 2)) == ["CC-MAIN-2026-44", "CC-MAIN-2026-40"]
+
+
+class _FakeReader(homepages.IndexReader):
+    def __init__(self, crawl, lines):
+        self.crawl = crawl
+        self.index = homepages.ClusterIndex(["a)/ 1\tcdx.gz\t0\t1\t1"])
+        self.lines = sorted(lines)
+        self.blocks = {}
+
+    async def _block(self, block):
+        return self.lines
+
+
+def test_lookup_follows_redirects_and_explains_misses():
+    lines = [
+        _cdx_line("com,moved)/", "https://moved.com/", "f", 0, 1, status="301"),
+        _cdx_line("com,moved)/en/", "https://moved.com/en/", "f", 5, 1),
+        _cdx_line("com,gone)/", "https://gone.com/", "f", 0, 1, status="404"),
+        _cdx_line("com,stand)/", "https://stand.com/", "f", 0, 1, status="500"),
+        _cdx_line("com,stand)/index.html", "https://stand.com/index.html", "f", 9, 1),
+        _cdx_line("com,pdf)/", "https://pdf.com/", "f", 0, 1, mime="application/pdf"),
+    ]
+    lines = [ln.replace('"status": "301"', '"status": "301", "redirect": "/en/"') for ln in lines]
+    reader = _FakeReader("CC-MAIN-2026-44", lines)
+    capture, miss, moved = asyncio.run(reader.lookup("moved.com"))
+    assert capture["url"] == "https://moved.com/en/" and moved == "https://moved.com/en/" and not miss
+    assert asyncio.run(reader.lookup("gone.com"))[:2] == (None, "error_status")
+    assert asyncio.run(reader.lookup("stand.com"))[0]["url"] == "https://stand.com/index.html"
+    assert asyncio.run(reader.lookup("pdf.com"))[:2] == (None, "not_html")
+    assert asyncio.run(reader.lookup("never.com"))[:2] == (None, "no_capture")
+    assert homepages.url_key("https://www.Acme.com/En/?a=1") == "com,acme)/en/?a=1"
+
+
+def test_older_crawl_is_tried_when_the_newest_lacks_the_homepage():
+    new = _FakeReader("CC-MAIN-2026-44", [])
+    old = _FakeReader("CC-MAIN-2026-40", [_cdx_line("com,acmepay)/", "https://acmepay.com/", "x/home.warc.gz",
+                                                     100, len(_warc(HTML)))])
+    seen = []
+    client = httpx.AsyncClient(transport=_transport(_warc(HTML), seen))
+    page = asyncio.run(homepages.read_homepage(client, [new, old], "acmepay.com"))
+    assert page.found and page.crawl == "CC-MAIN-2026-40"
+    miss = asyncio.run(homepages.read_homepage(client, [new, old], "nobody.com"))
+    assert not miss.found and miss.miss == "no_capture" and miss.crawl == "CC-MAIN-2026-44"
