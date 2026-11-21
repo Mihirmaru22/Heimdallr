@@ -1,23 +1,23 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, display, type CompanyRow, type CrawlUrl, type ExportRow, type Job, type JobEvent, type Page, type Progress,
+import { api, display, type CompanyRow, type CrawlUrl, type ExportRow, type Job, type Page, type Progress,
   type Project, type RecordRow, type Schema } from "../api";
 import { Badge, Card, Crumbs, ErrorBox, Pager, Spinner, when } from "../components/ui";
 import RecordDrawer from "../components/RecordDrawer";
 import ActivityFeed from "../components/ActivityFeed";
-import Mission from "../components/Mission";
+import Mission, { type MissionStat } from "../components/Mission";
 import { useActivity } from "../useActivity";
 import { Download, Retry, Stop } from "../components/icons";
 
 const URL_STATUSES = ["", "queued", "fetched", "skipped", "blocked_robots", "blocked_policy", "failed", "dead"];
-type Tab = "activity" | "companies" | "records" | "urls" | "events";
+type Tab = "records" | "companies" | "activity" | "urls";
 
 export default function JobPage({ orgId }: { orgId: string }) {
   const { jobId } = useParams();
   const base = `/orgs/${orgId}`;
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>("activity");
+  const [tab, setTab] = useState<Tab>("records");
 
   const progress = useQuery({
     queryKey: ["progress", jobId], queryFn: () => api.get<Progress>(`${base}/jobs/${jobId}/progress`),
@@ -35,10 +35,21 @@ export default function JobPage({ orgId }: { orgId: string }) {
   const retry = useMutation({ mutationFn: () => api.post(`${base}/jobs/${jobId}/retry`), onSuccess: () => qc.invalidateQueries() });
   const c = progress.data?.counters ?? {};
   const state = progress.data?.state ?? "…";
+  const rows = progress.data?.records ?? 0;
+  const notRead = (c.skipped ?? 0) + (c.blocked ?? 0) + (c.failed ?? 0);
+  // The run's numbers, shown once. They come from the job's counters, the same totals the export uses.
+  const stats: MissionStat[] = [
+    ...(!terminal ? [{ label: "pages waiting", value: c.queued ?? 0, cls: "info", hint: "Pages lined up to be read next." }] : []),
+    { label: "pages read", value: c.fetched ?? 0, hint: "Pages downloaded and read." },
+    { label: "pages not read", value: notRead, cls: "muted",
+      hint: `${c.skipped ?? 0} outside the plan or not needed, ${c.blocked ?? 0} refused by the site, ${c.failed ?? 0} failed to load.` },
+    { label: "rows", value: rows, cls: "accent", hint: "One row per company or entity found. These go in your spreadsheet." },
+    { label: "rows with every field", value: progress.data?.valid_records ?? 0, cls: "ok",
+      hint: "Rows where every required column was filled." },
+  ];
   const tabs: [Tab, string, number | undefined][] = [
-    ["activity", "Full log", activity.lines.length], ["companies", "Companies", undefined],
-    ["records", "Records", progress.data?.records],
-    ["urls", "Pages", c.discovered], ["events", "Events", undefined]];
+    ["records", "Rows", rows], ["companies", "Companies", undefined],
+    ["activity", "Decisions log", undefined], ["urls", "Pages", c.discovered]];
 
   const crumbs = <Crumbs items={[["Research", "/"], [project.data?.name ?? "Project", job.data ? `/projects/${job.data.project_id}` : null], ["Run", null]]} />;
   const actions = <>
@@ -52,17 +63,10 @@ export default function JobPage({ orgId }: { orgId: string }) {
     <div>
       <Mission lines={activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
         title={schema.data?.spec.title || project.data?.name || "Research run"} question={schema.data?.nl_request}
-        elapsed={progress.data?.elapsed_seconds ?? null} createdAt={job.data?.created_at ?? null} focus={schema.data?.spec.discovery.countries ?? []} />
+        elapsed={progress.data?.elapsed_seconds ?? null} createdAt={job.data?.created_at ?? null} focus={schema.data?.spec.discovery.countries ?? []}
+        stats={stats} summary={`${rows.toLocaleString()} row${rows === 1 ? "" : "s"}, ${(progress.data?.valid_records ?? 0).toLocaleString()} with every field, from ${(c.fetched ?? 0).toLocaleString()} pages read.`} />
       {progress.data?.error && <div className="error" role="alert"><strong>{progress.data.error}</strong></div>}
       <ErrorBox error={cancel.error || retry.error} />
-
-      <div className="stats">
-        <Stat label="Sites found" value={c.discovered} /><Stat label="Pages fetched" value={c.fetched} />
-        <Stat label="Queued" value={c.queued} /><Stat label="Skipped" value={c.skipped} />
-        <Stat label="Blocked" value={c.blocked} /><Stat label="Failed" value={c.failed} />
-        <Stat label="Records" value={progress.data?.records} /><Stat label="Complete records" value={progress.data?.valid_records} />
-        <Stat label="Duplicates merged" value={c.records_duplicates} />
-      </div>
 
       {terminal && job.data && <Exports base={base} jobId={jobId!} state={job.data.state} />}
 
@@ -75,13 +79,8 @@ export default function JobPage({ orgId }: { orgId: string }) {
       {tab === "companies" && <Companies base={base} jobId={jobId!} terminal={terminal} />}
       {tab === "records" && schema.data && <Records base={base} jobId={jobId!} schema={schema.data} terminal={terminal} />}
       {tab === "urls" && <Urls base={base} jobId={jobId!} />}
-      {tab === "events" && <Events base={base} jobId={jobId!} live={!terminal} />}
     </div>
   );
-}
-
-function Stat({ label, value }: { label: string; value: number | string | undefined }) {
-  return <div className="stat"><div className="v">{typeof value === "number" ? value.toLocaleString() : value ?? 0}</div><div className="l">{label}</div></div>;
 }
 
 function Records({ base, jobId, schema, terminal }: { base: string; jobId: string; schema: Schema; terminal: boolean }) {
@@ -108,10 +107,10 @@ function Records({ base, jobId, schema, terminal }: { base: string; jobId: strin
       <div className="row wrap">
         <input aria-label="Search values" placeholder="Search values" value={q} onChange={(e) => { setQ(e.target.value); setOffset(0); }} />
         <select value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); }} aria-label="Status">
-          <option value="">All statuses</option><option value="valid">Complete</option>
-          <option value="partial">Partial</option><option value="invalid">Missing required</option></select>
+          <option value="">All statuses</option><option value="valid">Every field</option>
+          <option value="partial">Some fields</option><option value="invalid">Missing required fields</option></select>
         <select value={excluded} onChange={(e) => { setExcluded(e.target.value as typeof excluded); setOffset(0); }} aria-label="Excluded">
-          <option value="false">Included</option><option value="true">Excluded</option><option value="">All</option></select>
+          <option value="false">In the sheet</option><option value="true">Excluded</option><option value="">All rows</option></select>
         <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort">
           <option value="quality">Best quality first</option><option value="-quality">Worst quality first</option>
           <option value="created">Oldest first</option><option value="updated">Recently edited</option></select>
@@ -129,7 +128,7 @@ function Records({ base, jobId, schema, terminal }: { base: string; jobId: strin
         </table>
       </div>
       {records.data && <Pager total={records.data.total} limit={limit} offset={offset} onChange={setOffset} />}
-      {records.data?.total === 0 && <p className="empty">{terminal ? "No records match." : "Records appear here as sites are read; they refresh about every 20 seconds."}</p>}
+      {records.data?.total === 0 && <p className="empty">{terminal ? "No rows match." : "Rows appear here as sites are read; they refresh about every 20 seconds."}</p>}
       {open && <RecordDrawer base={base} recordId={open} schema={schema} onClose={() => setOpen(null)} />}
     </Card>
   );
@@ -191,20 +190,6 @@ function Urls({ base, jobId }: { base: string; jobId: string }) {
   );
 }
 
-function Events({ base, jobId, live }: { base: string; jobId: string; live: boolean }) {
-  const events = useQuery({ queryKey: ["events", jobId], queryFn: () => api.get<JobEvent[]>(`${base}/jobs/${jobId}/events`),
-    refetchInterval: live ? 3000 : false });
-  return (
-    <Card>
-      <ul className="events">{events.data?.map((e) => (
-        <li key={e.id}><span className="muted mono">{when(e.created_at)}</span>
-          {e.to_state ? <Badge value={e.to_state} /> : <Badge value={e.type} />} {e.message}</li>))}
-      </ul>
-      {events.data?.length === 0 && <p className="empty">No events yet.</p>}
-    </Card>
-  );
-}
-
 function Exports({ base, jobId, state }: { base: string; jobId: string; state: string }) {
   const qc = useQueryClient();
   const [partial, setPartial] = useState(true);
@@ -229,10 +214,10 @@ function Exports({ base, jobId, state }: { base: string; jobId: string; state: s
           <h2>Your spreadsheet</h2>
           <p className="muted small" style={{ marginTop: 6 }}>An .xlsx with one sheet of rows plus Evidence, Rejected and Diagnostics sheets.</p>
           <div className="chips" style={{ marginTop: 12 }}>
-            <label className="chip"><input type="checkbox" checked disabled /> Complete records</label>
-            <label className="chip"><input type="checkbox" checked={partial} onChange={(e) => setPartial(e.target.checked)} /> Partial records</label>
-            <label className="chip"><input type="checkbox" checked={invalid} onChange={(e) => setInvalid(e.target.checked)} /> Missing required fields</label>
-            <label className="chip"><input type="checkbox" checked={withExcluded} onChange={(e) => setWithExcluded(e.target.checked)} /> Excluded records</label>
+            <label className="chip"><input type="checkbox" checked disabled /> Rows with every field</label>
+            <label className="chip"><input type="checkbox" checked={partial} onChange={(e) => setPartial(e.target.checked)} /> Rows with some fields</label>
+            <label className="chip"><input type="checkbox" checked={invalid} onChange={(e) => setInvalid(e.target.checked)} /> Rows missing required fields</label>
+            <label className="chip"><input type="checkbox" checked={withExcluded} onChange={(e) => setWithExcluded(e.target.checked)} /> Excluded rows</label>
           </div>
         </div>
         <div className="page-actions">

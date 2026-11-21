@@ -1044,7 +1044,7 @@ class CrawlRunner:
         stats = finalize_job(self.job_id, self.org_id, self.spec, self.max_records)
         if (stats["records"], stats["valid"]) != self.last_records:
             self.last_records = (stats["records"], stats["valid"])
-            self.note("records", f"{stats['records']} record(s) so far ({stats['valid']} complete)",
+            self.note("records", f"{stats['records']} row(s) so far, {stats['valid']} with every field",
                       records=stats["records"])
 
     # --- the loop ---------------------------------------------------------------------------

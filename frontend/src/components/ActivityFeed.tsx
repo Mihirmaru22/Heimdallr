@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Activity } from "../api";
 import { External } from "./icons";
 
-// The live research feed: every line is a step the worker really took (searched a source, read a page,
-// kept or dropped a site, found a detail), shown within about a second of it happening.
+// The decisions log: every search, keep, drop, find and problem in the run, in order. Page reads and
+// queued links are hidden by default, since the run screen's reading column and the Pages tab show those.
 
 export const KIND: Record<string, { icon: string; cls: string; label: string }> = {
   search: { icon: "⌕", cls: "info", label: "Search" },
@@ -18,6 +18,8 @@ export const KIND: Record<string, { icon: string; cls: string; label: string }> 
   blocked: { icon: "⊘", cls: "warn", label: "Blocked" },
   failed: { icon: "!", cls: "bad", label: "Problem" },
 };
+// Housekeeping lines: which page is being read and which links were queued.
+const ROUTINE = new Set(["read", "queued", "links"]);
 const FILTERS: Record<string, (k: string) => boolean> = {
   All: () => true,
   Finds: (k) => k === "found" || k === "kept" || k === "records",
@@ -40,7 +42,7 @@ const LATEST = 300;
 
 export default function ActivityFeed({ lines, live, error }: { lines: Activity[]; live: boolean; error: string | null }) {
   const [filter, setFilter] = useState("All");
-  const [showReads, setShowReads] = useState(true);
+  const [showReads, setShowReads] = useState(false);
   const [follow, setFollow] = useState(true);
   const [all, setAll] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -49,13 +51,13 @@ export default function ActivityFeed({ lines, live, error }: { lines: Activity[]
     if (follow && box.current) box.current.scrollTop = box.current.scrollHeight;
   }, [lines, follow, filter, showReads]);
 
-  const matching = lines.filter((l) => FILTERS[filter](l.data.kind) && (showReads || l.data.kind !== "read"));
+  const matching = lines.filter((l) => FILTERS[filter](l.data.kind) && (showReads || !ROUTINE.has(l.data.kind)));
   // Long runs have thousands of lines; drawing only the latest keeps the page quick until asked for more.
   const hidden = all ? 0 : Math.max(0, matching.length - LATEST);
   const shown = hidden ? matching.slice(hidden) : matching;
 
   return (
-    <section className="feed-panel" aria-label="Live research feed">
+    <section className="feed-panel" aria-label="Decisions log">
       <div className="feed-controls">
         <div className="segmented" role="group" aria-label="Show">
           {Object.keys(FILTERS).map((f) =>
@@ -63,7 +65,7 @@ export default function ActivityFeed({ lines, live, error }: { lines: Activity[]
         </div>
         <label className="switch">
           <input type="checkbox" checked={showReads} onChange={(e) => setShowReads(e.target.checked)} />
-          <span className="switch-track" aria-hidden /> Every page read</label>
+          <span className="switch-track" aria-hidden /> Include page reads</label>
       </div>
       <div className="feed" ref={box} role="log" aria-live="off" tabIndex={0}
         onScroll={(e) => {
