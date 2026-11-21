@@ -393,14 +393,15 @@ class Summary:
 
         lines = [
             f"Domains tried:                {self.domains:>10,}",
-            f"Homepage in Common Crawl:     {pct(self.found, self.domains)}",
+            f"Homepage found:               {pct(self.found, self.domains)}",
             f"  with a meta description:    {pct(self.with_description, self.found)}",
             f"  with 200+ chars of text:    {pct(self.with_text, self.found)}",
             f"  with a company mailbox:     {pct(self.with_email, self.found)}",
             f"  with a postal address:      {pct(self.with_address, self.found)}",
         ]
         if self.by_crawl:
-            lines += ["Found in crawl:"] + [f"  {c}: {n:,}" for c, n in sorted(self.by_crawl.items(), reverse=True)]
+            lines += ["Found in (own = our own fetch of the site):"]
+            lines += [f"  {c}: {n:,}" for c, n in sorted(self.by_crawl.items(), reverse=True)]
         if self.redirected:
             lines += [f"Found after following a redirect: {self.redirected:,}"]
         if self.misses:

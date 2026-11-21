@@ -141,7 +141,7 @@ def test_summary_report():
     s.add(homepages.Homepage("a.com", True, text="x" * 300, emails=[{"email": "info@a.com"}]))
     s.add(homepages.Homepage("b.com", False, error="ConnectError: boom"))
     report = s.report()
-    assert "Homepage in Common Crawl:              1   50.0%" in report
+    assert "Homepage found:                        1   50.0%" in report
     assert "ConnectError: 1" in report
 
 

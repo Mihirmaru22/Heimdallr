@@ -4,7 +4,8 @@
 `python -m app.cli job-report JOB_ID` / `sec-check PRODUCT` (what a run planned and what each source answered) and
 `python -m app.cli kb-load-pdl FILE` (loads the PDL free company dataset into the company database) and
 `python -m app.cli kb-homepages --limit N` (reads company homepages from Common Crawl into kb.homepage) and
-`python -m app.cli kb-load-companies-house FILE` (loads the UK register snapshot into kb.uk_company)."""
+`python -m app.cli kb-load-companies-house FILE` (loads the UK register snapshot into kb.uk_company) and
+`python -m app.cli kb-classify` (micro-sector and product-or-service labels from the homepages, local model)."""
 
 from __future__ import annotations
 
@@ -383,6 +384,53 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
     print(summary.report())
 
 
+def kb_classify(limit: int | None, again: bool, export_sample: int, export_path: str | None,
+                min_score: float | None) -> None:
+    import time
+    from pathlib import Path
+
+    import psycopg
+
+    from app.kb import classify
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        conn.execute(classify.SCHEMA_SQL)
+        if export_sample:
+            path = Path(export_path or "label_sample.csv")
+            n = classify.export_sample(conn, path, export_sample)
+            print(f"Wrote {n:,} labelled homepages to {path}. Fill correct_micro_sector (or 'none') and "
+                  "correct_offering (product, service or both) on each row and send the file back.")
+            return
+        where = "h.found" + ("" if again else " AND l.domain IS NULL")
+        rows = conn.execute(
+            f"""SELECT h.domain, h.url, h.title, h.description, h.text FROM kb.homepage h
+                LEFT JOIN kb.company_label l USING (domain) WHERE {where} ORDER BY h.domain"""  # noqa: S608
+            + (" LIMIT %s" if limit else ""), (limit,) if limit else ()).fetchall()
+        rows = [r for r in rows if classify.page_text(r[2], r[3], r[4])]
+        if not rows:
+            print("No homepages to label (kb-homepages fills kb.homepage; --again relabels).")
+            return
+        print(f"Loading the model {classify.MODEL} (downloaded once, about 250 MB)...", flush=True)
+        embedder = classify.Embedder()
+        labeller = classify.Classifier(embedder, **({"min_score": min_score} if min_score is not None else {}))
+        print(f"Labelling {len(rows):,} homepages...", flush=True)
+        summary = classify.Summary()
+        started = time.monotonic()
+        batch = 256
+        for i in range(0, len(rows), batch):
+            chunk = rows[i:i + batch]
+            labels = labeller.label([r[0] for r in chunk], [classify.page_text(r[2], r[3], r[4]) for r in chunk])
+            with conn.transaction():
+                for row, label in zip(chunk, labels, strict=True):
+                    classify.save(conn, label, embedder.name, row[1])
+                    summary.add(label)
+            rate = summary.rows / max(1.0, time.monotonic() - started)
+            print(f"  {summary.rows:,} labelled, {rate:.0f} pages/s", flush=True)
+    print(f"\n{(time.monotonic() - started) / 60:.1f} minutes")
+    print(summary.report())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -430,7 +478,16 @@ def main() -> None:
     p.add_argument("--again", action="store_true", help="re-read the domains already in kb.homepage")
     p.add_argument("--own-fetch", action="store_true",
                    help="for homepages Common Crawl lacks: DNS check, then one robots-respecting fetch of the site")
+    p = sub.add_parser("kb-classify", help="label homepages in kb.homepage: micro-sector, product or service")
+    p.add_argument("--limit", type=int, default=None, help="at most this many homepages")
+    p.add_argument("--again", action="store_true", help="relabel homepages that already have a label")
+    p.add_argument("--min-score", type=float, default=None, help="similarity a micro-sector needs (default 0.35)")
+    p.add_argument("--export-sample", type=int, default=0, metavar="N",
+                   help="write N random labelled homepages to a CSV for checking by hand, label nothing")
+    p.add_argument("--out", default=None, help="the CSV for --export-sample (default label_sample.csv)")
     args = parser.parse_args()
+    if args.cmd == "kb-classify":
+        return kb_classify(args.limit, args.again, args.export_sample, args.out, args.min_score)
     if args.cmd == "kb-load-companies-house":
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":
