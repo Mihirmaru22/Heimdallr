@@ -253,6 +253,7 @@ def _index(cur, name: str) -> None:
     cur.execute(f"CREATE INDEX ON kb.{name} (domain)")
     cur.execute(f"CREATE INDEX ON kb.{name} (iso2, sector)")
     cur.execute(f"CREATE INDEX ON kb.{name} (pdl_id)")
+    cur.execute(f"CREATE INDEX ON kb.{name} (domain_rows)")
     cur.execute("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")
     if cur.fetchone():  # fuzzy name search; the extension needs a superuser to install once
         cur.execute(f"CREATE INDEX ON kb.{name} USING gin (lower(name) gin_trgm_ops)")
