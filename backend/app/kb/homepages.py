@@ -1,8 +1,8 @@
 """Company homepages from Common Crawl, for the fields PDL does not have.
 
-For each company website in kb.pdl_company this looks the homepage up in Common Crawl's URL index,
-reads that one record from Common Crawl's archive (a byte-range request, so no traffic reaches
-the company's site) and keeps what the page says about the company:
+For each company website in kb.pdl_company this finds the homepage in Common Crawl's URL index
+and reads that one record from Common Crawl's archive (byte-range requests, so no traffic reaches
+the company's site), then keeps what the page says about the company:
 
 - title, meta description and the start of the visible text: input for the micro-sector and
   product-or-service labels;
@@ -12,6 +12,11 @@ the company's site) and keeps what the page says about the company:
 
 Every row keeps the page URL, the date Common Crawl fetched it and the crawl it came from.
 
+The index is read from Common Crawl's own files, not its index server (index.commoncrawl.org,
+which is often overloaded): the small cluster.idx file is downloaded once per crawl and searched
+locally, and only the index block holding a domain is fetched, by byte range, from
+data.commoncrawl.org. Domains are processed in index order, so neighbours share a block.
+
 Domains shared by many PDL rows (business.site, instagram.com, linktr.ee...) are hosting
 platforms or directories, not one company's site, so they are skipped: see SHARED_DOMAIN_LIMIT.
 """
@@ -19,6 +24,7 @@ platforms or directories, not one company's site, so they are skipped: see SHARE
 from __future__ import annotations
 
 import asyncio
+import bisect
 import gzip
 import json
 import random
@@ -27,6 +33,7 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 
@@ -77,33 +84,127 @@ def select_domains(conn, limit: int | None = None, iso2: str | None = None, samp
 
 
 async def latest_crawl(client: httpx.AsyncClient) -> str:
-    response = await client.get(f"{INDEX}/collinfo.json")
-    response.raise_for_status()
-    return response.json()[0]["id"]  # newest first
+    """The newest crawl id, from the index server's list or, when that server is down, the crawl list
+    on data.commoncrawl.org."""
+    try:
+        response = await _get(client, f"{INDEX}/collinfo.json", tries=2)
+        response.raise_for_status()
+        return response.json()[0]["id"]  # newest first
+    except (httpx.HTTPError, ValueError, KeyError, IndexError):
+        response = await _get(client, f"{DATA}/crawl-data/index.html")
+        response.raise_for_status()
+        ids = re.findall(r"CC-MAIN-\d{4}-\d{2}", response.text)
+        if not ids:
+            raise ValueError("no crawl ids on the crawl list page") from None
+        return max(ids)
 
 
 async def _get(client: httpx.AsyncClient, url: str, headers: dict | None = None, tries: int = 5) -> httpx.Response:
-    """Common Crawl asks clients to back off on 503 and 429 rather than retry at once."""
+    """Back off on 429, 502, 503, 504 and timeouts rather than retry at once, as Common Crawl asks."""
     for attempt in range(tries):
-        response = await client.get(url, headers=headers)
-        if response.status_code not in (429, 503) or attempt == tries - 1:
-            return response
+        try:
+            response = await client.get(url, headers=headers)
+        except httpx.TimeoutException:
+            if attempt == tries - 1:
+                raise
+        else:
+            if response.status_code not in (429, 502, 503, 504) or attempt == tries - 1:
+                return response
         await asyncio.sleep(min(60, 2 ** attempt + random.random()))  # noqa: S311 - jitter, not security
     return response
 
 
-async def lookup(client: httpx.AsyncClient, crawl: str, domain: str) -> dict | None:
-    """The best homepage capture of `domain` in one crawl: a 200 HTML page with the shortest URL."""
-    response = await _get(
-        client, f"{INDEX}/{crawl}-index?url={domain}/&output=json&filter=status:200&filter=mime:text/html&limit=20")
-    if response.status_code == 404:  # "No Captures found"
-        return None
-    response.raise_for_status()
-    rows = [json.loads(line) for line in response.text.splitlines() if line.strip()]
-    rows = [r for r in rows if int(r.get("length", 0)) <= MAX_RECORD_BYTES]
-    if not rows:
-        return None
-    return min(rows, key=lambda r: (len(r["url"]), r["url"].startswith("http://"), r["url"]))
+def surt_key(domain: str) -> str:
+    """Common Crawl's sort key for a site's homepage: www.acme.co.uk/ -> uk,co,acme)/"""
+    return ",".join(reversed(domain.lower().strip(".").split("."))) + ")/"
+
+
+class ClusterIndex:
+    """cluster.idx: one line per block of about 3,000 index lines, giving the first key of the block
+    and where the block sits (file, offset, length). Searching it locally tells which block to read."""
+
+    def __init__(self, lines: list[str]):
+        self.keys: list[str] = []
+        self.blocks: list[tuple[str, int, int]] = []
+        for line in lines:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 4:
+                continue
+            self.keys.append(parts[0].split(" ")[0])
+            self.blocks.append((parts[1], int(parts[2]), int(parts[3])))
+
+    @classmethod
+    def from_file(cls, path: Path) -> ClusterIndex:
+        with open(path, encoding="utf-8") as f:
+            return cls(f.readlines())
+
+    def blocks_for(self, key: str) -> list[tuple[str, int, int]]:
+        i = bisect.bisect_left(self.keys, key) - 1  # the block whose first key is before ours
+        i = max(i, 0)
+        out = [self.blocks[i]]
+        j = i + 1  # captures of one URL can run on into the next blocks
+        while j < len(self.keys) and self.keys[j] <= key:
+            out.append(self.blocks[j])
+            j += 1
+        return out
+
+
+async def cluster_index(client: httpx.AsyncClient, crawl: str, data_dir: Path) -> ClusterIndex:
+    path = data_dir / "commoncrawl" / crawl / "cluster.idx"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        part = path.with_suffix(".part")
+        async with client.stream("GET", f"{DATA}/cc-index/collections/{crawl}/indexes/cluster.idx") as response:
+            response.raise_for_status()
+            with open(part, "wb") as f:
+                async for chunk in response.aiter_bytes(1 << 20):
+                    f.write(chunk)
+        part.rename(path)
+    return ClusterIndex.from_file(path)
+
+
+class IndexReader:
+    """Finds a domain's homepage captures by reading only the index blocks that can hold it."""
+
+    def __init__(self, client: httpx.AsyncClient, crawl: str, index: ClusterIndex, keep_blocks: int = 64):
+        self.client, self.crawl, self.index = client, crawl, index
+        self.blocks: dict[tuple[str, int, int], asyncio.Future] = {}
+        self.keep_blocks = keep_blocks
+
+    async def _block(self, block: tuple[str, int, int]) -> list[str]:
+        if block not in self.blocks:  # neighbouring domains share blocks; fetch each once
+            future = asyncio.get_running_loop().create_future()
+            self.blocks[block] = future
+            while len(self.blocks) > self.keep_blocks:
+                self.blocks.pop(next(iter(self.blocks)))
+            try:
+                name, offset, length = block
+                response = await _get(self.client, f"{DATA}/cc-index/collections/{self.crawl}/indexes/{name}",
+                                      headers={"Range": f"bytes={offset}-{offset + length - 1}"})
+                response.raise_for_status()
+                future.set_result(gzip.decompress(response.content).decode("utf-8", "replace").splitlines())
+            except Exception as exc:  # noqa: BLE001 - every waiter gets the same failure
+                self.blocks.pop(block, None)
+                future.set_exception(exc)
+        return await self.blocks[block]
+
+    async def lookup(self, domain: str) -> dict | None:
+        """The best homepage capture of `domain`: a 200 HTML page, https before http."""
+        key = surt_key(domain)
+        rows = []
+        for block in self.index.blocks_for(key):
+            for line in await self._block(block):
+                surt, _, rest = line.partition(" ")
+                if surt != key:
+                    continue
+                record = json.loads(rest.partition(" ")[2])
+                mime = record.get("mime-detected") or record.get("mime") or ""
+                small = int(record.get("length", 0)) <= MAX_RECORD_BYTES
+                if record.get("status") == "200" and "html" in mime and small:
+                    rows.append(record)
+        if not rows:
+            return None
+        return max(rows, key=lambda r: (r["url"].startswith("https://"), r.get("timestamp", "")))
 
 
 def parse_warc(data: bytes) -> tuple[dict[str, str], str]:
@@ -141,9 +242,10 @@ def extract(domain: str, crawl: str, url: str, fetched_at: str, html: str) -> Ho
     )
 
 
-async def read_homepage(client: httpx.AsyncClient, crawl: str, domain: str) -> Homepage:
+async def read_homepage(client: httpx.AsyncClient, reader: IndexReader, domain: str) -> Homepage:
+    crawl = reader.crawl
     try:
-        capture = await lookup(client, crawl, domain)
+        capture = await reader.lookup(domain)
         if capture is None:
             return Homepage(domain, found=False, crawl=crawl)
         start = int(capture["offset"])
@@ -152,7 +254,7 @@ async def read_homepage(client: httpx.AsyncClient, crawl: str, domain: str) -> H
         response.raise_for_status()
         headers, html = parse_warc(response.content)
         return extract(domain, crawl, capture["url"], headers.get("warc-date", capture.get("timestamp", "")), html)
-    except (httpx.HTTPError, OSError, ValueError, KeyError) as exc:
+    except (httpx.HTTPError, OSError, ValueError, KeyError, EOFError) as exc:
         return Homepage(domain, found=False, crawl=crawl, error=f"{type(exc).__name__}: {exc}"[:300])
 
 
@@ -230,20 +332,24 @@ def save(conn, page: Homepage) -> None:
 
 
 async def collect(domains: list[str], crawl: str | None, on_page: Callable[[Homepage], None],
-                  concurrency: int = 4, client: httpx.AsyncClient | None = None,
-                  user_agent: str = "heimdallr-kb") -> str:
+                  data_dir: Path, concurrency: int = 4, client: httpx.AsyncClient | None = None,
+                  user_agent: str = "heimdallr-kb", on_crawl: Callable[[str], None] | None = None) -> str:
     """Read every domain's homepage, `concurrency` at a time, handing each result to `on_page`."""
     own = client is None
-    client = client or httpx.AsyncClient(timeout=60, headers={"User-Agent": user_agent}, follow_redirects=True)
+    client = client or httpx.AsyncClient(timeout=httpx.Timeout(60, connect=20), headers={"User-Agent": user_agent},
+                                         follow_redirects=True)
     try:
         crawl = crawl or await latest_crawl(client)
+        if on_crawl:
+            on_crawl(crawl)
+        reader = IndexReader(client, crawl, await cluster_index(client, crawl, data_dir))
         queue: asyncio.Queue[str] = asyncio.Queue()
-        for d in domains:
+        for d in sorted(domains, key=surt_key):  # index order: neighbours share index blocks
             queue.put_nowait(d)
 
         async def worker() -> None:
             while not queue.empty():
-                on_page(await read_homepage(client, crawl, queue.get_nowait()))
+                on_page(await read_homepage(client, reader, queue.get_nowait()))
 
         await asyncio.gather(*(worker() for _ in range(concurrency)))
         return crawl

@@ -322,7 +322,9 @@ def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
 def kb_homepages(limit: int | None, iso2: str | None, crawl: str | None, concurrency: int, sample: bool) -> None:
     import asyncio
     import time
+    from pathlib import Path
 
+    import httpx
     import psycopg
 
     from app.config import get_settings
@@ -343,8 +345,17 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: str | None, concurr
                 rate = summary.domains / max(1.0, time.monotonic() - started)
                 print(f"  {summary.domains:,} done, {summary.found:,} found, {rate:.1f} sites/s", flush=True)
 
-        used = asyncio.run(homepages.collect(domains, crawl, on_page, concurrency,
-                                             user_agent=get_settings().user_agent))
+        def on_crawl(name: str) -> None:
+            print(f"Crawl {name}: getting its index map (cluster.idx, downloaded once, a few hundred MB)...",
+                  flush=True)
+
+        try:
+            used = asyncio.run(homepages.collect(
+                domains, crawl, on_page, Path(get_settings().data_dir), concurrency,
+                user_agent=get_settings().user_agent, on_crawl=on_crawl))
+        except httpx.HTTPError as exc:
+            sys.exit(f"Common Crawl did not answer ({exc}). If index.commoncrawl.org is down, pass the crawl id, "
+                     "e.g. --crawl CC-MAIN-2026-44 (the newest is listed at commoncrawl.org/latest-crawl).")
         seconds = time.monotonic() - started
     print(f"\nCrawl {used}, {seconds / 60:.1f} minutes, {summary.domains / max(1.0, seconds):.2f} sites/s")
     print(summary.report())
