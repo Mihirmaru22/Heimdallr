@@ -7,8 +7,15 @@ import gzip
 import json
 
 import httpx
+import pytest
 
 from app.kb import homepages
+
+
+@pytest.fixture(autouse=True)
+def _no_pause_left_over(monkeypatch):
+    """A slow-down pause set by one test must not hold up the next."""
+    monkeypatch.setattr(homepages, "_pause_until", 0.0)
 
 HTML = """<html><head><title>Acme Pay | Payments for small shops</title>
 <meta name="description" content="Acme Pay builds card terminals and payment software for small shops.">
@@ -194,3 +201,38 @@ def test_older_crawl_is_tried_when_the_newest_lacks_the_homepage():
     assert page.found and page.crawl == "CC-MAIN-2026-40"
     miss = asyncio.run(homepages.read_homepage(client, [new, old], "nobody.com"))
     assert not miss.found and miss.miss == "no_capture" and miss.crawl == "CC-MAIN-2026-44"
+
+
+def test_a_refused_index_block_fails_only_its_domain_and_is_retried_later(tmp_path, monkeypatch):
+    async def no_sleep(_):
+        return None
+
+    monkeypatch.setattr(homepages.asyncio, "sleep", no_sleep)
+    monkeypatch.setattr(homepages, "_pause_until", 0.0)
+    warc = _warc(HTML)
+    cluster, cdx = _setup(warc)
+    refused = {"left": 5}  # the CDN refuses the block for one domain's whole retry budget
+
+    def handler(request):
+        path = request.url.path
+        if path == "/collinfo.json":
+            return httpx.Response(200, json=[{"id": "CC-MAIN-2026-44"}])
+        if path.endswith("/cluster.idx"):
+            return httpx.Response(200, text=cluster)
+        if path.endswith("/cdx-00000.gz"):
+            if refused["left"]:
+                refused["left"] -= 1
+                return httpx.Response(403, text="Request blocked")
+            start, end = map(int, request.headers["Range"].removeprefix("bytes=").split("-"))
+            return httpx.Response(206, content=cdx[start:end + 1])
+        if path == "/x/home.warc.gz":
+            return httpx.Response(206, content=warc)
+        return httpx.Response(500)
+
+    pages: list[homepages.Homepage] = []
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    asyncio.run(homepages.collect(["aaa.com", "acmepay.com"], None, pages.append, tmp_path, 1, client=client))
+    by = {p.domain: p for p in pages}
+    assert by["aaa.com"].error.startswith("HTTPStatusError")  # refused five times: recorded, not a crash
+    assert by["acmepay.com"].found  # the block was fetched again for the next domain
+    assert homepages._pause_until > 0  # the 403s paused everyone

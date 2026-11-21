@@ -102,18 +102,36 @@ async def latest_crawls(client: httpx.AsyncClient, count: int = 1) -> list[str]:
     return ids[:count]
 
 
+# When Common Crawl pushes back (403 "Request blocked" from its CDN, 429, 503), every worker pauses,
+# not just the one that was refused: slowing down is what the server is asking for.
+_pause_until = 0.0
+SLOW_DOWN = (403, 429, 503)
+RETRY = (502, 504)
+
+
 async def _get(client: httpx.AsyncClient, url: str, headers: dict | None = None, tries: int = 5) -> httpx.Response:
-    """Back off on 429, 502, 503, 504 and timeouts rather than retry at once, as Common Crawl asks."""
+    """GET with back-off: on 403/429/503 all requests pause (30 s, doubling); on 502/504 and timeouts
+    this request retries after a short wait."""
+    global _pause_until
+    loop = asyncio.get_running_loop()
     for attempt in range(tries):
+        wait = _pause_until - loop.time()
+        if wait > 0:
+            await asyncio.sleep(wait)
         try:
             response = await client.get(url, headers=headers)
         except httpx.TimeoutException:
             if attempt == tries - 1:
                 raise
-        else:
-            if response.status_code not in (429, 502, 503, 504) or attempt == tries - 1:
-                return response
-        await asyncio.sleep(min(60, 2 ** attempt + random.random()))  # noqa: S311 - jitter, not security
+            await asyncio.sleep(min(60, 2 ** attempt + random.random()))  # noqa: S311 - jitter, not security
+            continue
+        if response.status_code in SLOW_DOWN and attempt < tries - 1:
+            _pause_until = max(_pause_until, loop.time() + min(300, 30 * 2 ** attempt))
+            continue
+        if response.status_code in RETRY and attempt < tries - 1:
+            await asyncio.sleep(min(60, 2 ** attempt + random.random()))  # noqa: S311 - jitter, not security
+            continue
+        return response
     return response
 
 
@@ -183,7 +201,8 @@ class IndexReader:
         self.keep_blocks = keep_blocks
 
     async def _block(self, block: tuple[str, int, int]) -> list[str]:
-        if block not in self.blocks:  # neighbouring domains share blocks; fetch each once
+        future = self.blocks.get(block)
+        if future is None:  # neighbouring domains share blocks; fetch each once
             future = asyncio.get_running_loop().create_future()
             self.blocks[block] = future
             while len(self.blocks) > self.keep_blocks:
@@ -195,9 +214,9 @@ class IndexReader:
                 response.raise_for_status()
                 future.set_result(gzip.decompress(response.content).decode("utf-8", "replace").splitlines())
             except Exception as exc:  # noqa: BLE001 - every waiter gets the same failure
-                self.blocks.pop(block, None)
+                self.blocks.pop(block, None)  # a later domain tries this block again
                 future.set_exception(exc)
-        return await self.blocks[block]
+        return await future
 
     async def _records(self, key: str, host_prefix: str) -> tuple[list[dict], list[dict]]:
         """(captures of exactly `key`, captures of other pages on the same host) in the blocks for `key`."""
