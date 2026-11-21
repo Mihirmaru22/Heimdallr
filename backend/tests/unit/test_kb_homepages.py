@@ -184,7 +184,7 @@ def test_lookup_follows_redirects_and_explains_misses():
     reader = _FakeReader("CC-MAIN-2026-44", lines)
     capture, miss, moved = asyncio.run(reader.lookup("moved.com"))
     assert capture["url"] == "https://moved.com/en/" and moved == "https://moved.com/en/" and not miss
-    assert asyncio.run(reader.lookup("gone.com"))[:2] == (None, "error_status")
+    assert asyncio.run(reader.lookup("gone.com"))[:2] == (None, "error_status_404")
     assert asyncio.run(reader.lookup("stand.com"))[0]["url"] == "https://stand.com/index.html"
     assert asyncio.run(reader.lookup("pdf.com"))[:2] == (None, "not_html")
     assert asyncio.run(reader.lookup("never.com"))[:2] == (None, "no_capture")
@@ -236,3 +236,16 @@ def test_a_refused_index_block_fails_only_its_domain_and_is_retried_later(tmp_pa
     assert by["aaa.com"].error.startswith("HTTPStatusError")  # refused five times: recorded, not a crash
     assert by["acmepay.com"].found  # the block was fetched again for the next domain
     assert homepages._pause_until > 0  # the 403s paused everyone
+
+
+def test_own_fetch_runs_only_after_every_crawl_missed():
+    new = _FakeReader("CC-MAIN-2026-44", [_cdx_line("com,gone)/", "https://gone.com/", "f", 0, 1, status="404")])
+    calls = []
+
+    async def own(domain):
+        calls.append(domain)
+        return homepages.Homepage(domain, found=False, crawl="own", miss="dns_dead")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
+    page = asyncio.run(homepages.read_homepage(client, [new], "gone.com", own))
+    assert calls == ["gone.com"] and page.miss == "error_status_404+dns_dead"

@@ -320,7 +320,7 @@ def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
 
 
 def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, concurrency: int, sample: bool,
-                 crawl_count: int, again: bool) -> None:
+                 crawl_count: int, again: bool, own_fetch: bool) -> None:
     import asyncio
     import time
     from pathlib import Path
@@ -354,10 +354,27 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
             print(f"Crawl {name}: getting its index map (cluster.idx, downloaded once, a few hundred MB)...",
                   flush=True)
 
+        async def run() -> list[str]:
+            settings = get_settings()
+            fetch_own = None
+            site_client = None
+            if own_fetch:
+                from app.kb.sitefetch import own_fetcher
+
+                site_client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(settings.read_timeout, connect=settings.connect_timeout),
+                    headers={"User-Agent": settings.user_agent}, follow_redirects=False)
+                fetch_own = own_fetcher(site_client, settings.user_agent)
+            try:
+                return await homepages.collect(
+                    domains, crawl, on_page, Path(settings.data_dir), concurrency, user_agent=settings.user_agent,
+                    on_crawl=on_crawl, crawl_count=crawl_count, own_fetch=fetch_own)
+            finally:
+                if site_client is not None:
+                    await site_client.aclose()
+
         try:
-            used = asyncio.run(homepages.collect(
-                domains, crawl, on_page, Path(get_settings().data_dir), concurrency,
-                user_agent=get_settings().user_agent, on_crawl=on_crawl, crawl_count=crawl_count))
+            used = asyncio.run(run())
         except httpx.HTTPError as exc:
             sys.exit(f"Common Crawl did not answer ({exc}). If index.commoncrawl.org is down, pass the crawl id, "
                      "e.g. --crawl CC-MAIN-2026-44 (the newest is listed at commoncrawl.org/latest-crawl).")
@@ -411,12 +428,14 @@ def main() -> None:
     p.add_argument("--concurrency", type=int, default=4, help="requests at a time (default 4; be gentle)")
     p.add_argument("--sample", action="store_true", help="a random sample of domains (for trials)")
     p.add_argument("--again", action="store_true", help="re-read the domains already in kb.homepage")
+    p.add_argument("--own-fetch", action="store_true",
+                   help="for homepages Common Crawl lacks: DNS check, then one robots-respecting fetch of the site")
     args = parser.parse_args()
     if args.cmd == "kb-load-companies-house":
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":
         return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample, args.crawls,
-                            args.again)
+                            args.again, args.own_fetch)
     if args.cmd == "kb-load-pdl":
         return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":

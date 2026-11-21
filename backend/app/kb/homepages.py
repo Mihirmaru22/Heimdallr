@@ -272,7 +272,8 @@ class IndexReader:
                 return None, "redirect_unfollowed", redirected_to
             if any(r.get("status") == "200" for r in exact):
                 return None, "not_html", redirected_to
-            return None, "error_status", redirected_to
+            statuses = Counter(str(r.get("status", "")) for r in exact)
+            return None, f"error_status_{statuses.most_common(1)[0][0]}", redirected_to
         return None, "redirect_unfollowed", redirected_to
 
 
@@ -311,31 +312,50 @@ def extract(domain: str, crawl: str, url: str, fetched_at: str, html: str) -> Ho
     )
 
 
-async def read_homepage(client: httpx.AsyncClient, readers: list[IndexReader], domain: str) -> Homepage:
-    """Try the newest crawl first, then older ones, until one has the homepage."""
+async def read_homepage(client: httpx.AsyncClient, readers: list[IndexReader], domain: str,
+                        own_fetch: Callable | None = None, cc_slots: asyncio.Semaphore | None = None) -> Homepage:
+    """Try the newest crawl first, then older ones, until one has the homepage; then, if given,
+    `own_fetch` (a DNS check and one polite fetch of the site itself)."""
+    page, misses, redirected_to = await _from_common_crawl(client, readers, domain, cc_slots or asyncio.Semaphore(1))
+    if page is not None:
+        return page
+    miss = next((m for m in misses if m != "no_capture"), "no_capture")
+    if own_fetch is not None:
+        page = await own_fetch(domain)
+        page.miss = page.miss and f"{miss}+{page.miss}"  # e.g. no_capture+dns_dead
+        page.redirected_to = page.redirected_to or redirected_to
+        return page
+    return Homepage(domain, found=False, crawl=readers[0].crawl, miss=miss, redirected_to=redirected_to)
+
+
+async def _from_common_crawl(client: httpx.AsyncClient, readers: list[IndexReader], domain: str,
+                             slots: asyncio.Semaphore) -> tuple[Homepage | None, list[str], str]:
+    """(the homepage, or an error row, or None; why each crawl lacked it; where it redirected to).
+    Holds one of Common Crawl's `slots` for the whole lookup."""
     misses: list[str] = []
     redirected_to = ""
-    for reader in readers:
-        try:
-            capture, miss, moved = await reader.lookup(domain)
-            redirected_to = redirected_to or moved
-            if capture is None:
-                misses.append(miss)
-                continue
-            start = int(capture["offset"])
-            end = start + int(capture["length"]) - 1
-            response = await _get(client, f"{DATA}/{capture['filename']}", headers={"Range": f"bytes={start}-{end}"})
-            response.raise_for_status()
-            headers, html = parse_warc(response.content)
-            page = extract(domain, reader.crawl, capture["url"],
-                           headers.get("warc-date", capture.get("timestamp", "")), html)
-            page.redirected_to = redirected_to
-            return page
-        except (httpx.HTTPError, OSError, ValueError, KeyError, EOFError) as exc:
-            return Homepage(domain, found=False, crawl=reader.crawl, error=f"{type(exc).__name__}: {exc}"[:300])
-    # The most telling reason: any crawl that saw the site beats "never captured".
-    miss = next((m for m in misses if m != "no_capture"), "no_capture")
-    return Homepage(domain, found=False, crawl=readers[0].crawl, miss=miss, redirected_to=redirected_to)
+    async with slots:
+        for reader in readers:
+            try:
+                capture, miss, moved = await reader.lookup(domain)
+                redirected_to = redirected_to or moved
+                if capture is None:
+                    misses.append(miss)
+                    continue
+                start = int(capture["offset"])
+                end = start + int(capture["length"]) - 1
+                response = await _get(client, f"{DATA}/{capture['filename']}",
+                                      headers={"Range": f"bytes={start}-{end}"})
+                response.raise_for_status()
+                headers, html = parse_warc(response.content)
+                page = extract(domain, reader.crawl, capture["url"],
+                               headers.get("warc-date", capture.get("timestamp", "")), html)
+                page.redirected_to = redirected_to
+                return page, misses, redirected_to
+            except (httpx.HTTPError, OSError, ValueError, KeyError, EOFError) as exc:
+                error = f"{type(exc).__name__}: {exc}"[:300]
+                return Homepage(domain, found=False, crawl=reader.crawl, error=error), misses, redirected_to
+    return None, misses, redirected_to
 
 
 @dataclass
@@ -432,7 +452,7 @@ def save(conn, page: Homepage) -> None:
 async def collect(domains: list[str], crawls: list[str] | None, on_page: Callable[[Homepage], None],
                   data_dir: Path, concurrency: int = 4, client: httpx.AsyncClient | None = None,
                   user_agent: str = "heimdallr-kb", on_crawl: Callable[[str], None] | None = None,
-                  crawl_count: int = 1) -> list[str]:
+                  crawl_count: int = 1, own_fetch: Callable | None = None) -> list[str]:
     """Read every domain's homepage, `concurrency` at a time, handing each result to `on_page`.
     Each domain is looked up in the given crawls (or the newest `crawl_count`), newest first."""
     own = client is None
@@ -449,11 +469,14 @@ async def collect(domains: list[str], crawls: list[str] | None, on_page: Callabl
         for d in sorted(domains, key=surt_key):  # index order: neighbours share index blocks
             queue.put_nowait(d)
 
+        cc_slots = asyncio.Semaphore(concurrency)  # Common Crawl sees at most `concurrency` requests at once
+
         async def worker() -> None:
             while not queue.empty():
-                on_page(await read_homepage(client, readers, queue.get_nowait()))
+                on_page(await read_homepage(client, readers, queue.get_nowait(), own_fetch, cc_slots))
 
-        await asyncio.gather(*(worker() for _ in range(concurrency)))
+        # Own fetches wait on slow sites, so more workers keep Common Crawl's slots busy meanwhile.
+        await asyncio.gather(*(worker() for _ in range(concurrency * (5 if own_fetch else 1))))
         return crawls
     finally:
         if own:
