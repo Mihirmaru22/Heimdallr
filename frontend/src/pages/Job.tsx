@@ -63,7 +63,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
     <div>
       <Research lines={activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
         title={schema.data?.spec.title || project.data?.name || "Research run"} question={schema.data?.nl_request}
-        elapsed={progress.data?.elapsed_seconds ?? null} createdAt={job.data?.created_at ?? null}
+        elapsed={progress.data?.elapsed_seconds ?? null} createdAt={job.data?.created_at ?? null} focus={schema.data?.spec.discovery.countries ?? []}
         stats={stats} summary={`${rows.toLocaleString()} row${rows === 1 ? "" : "s"}, ${(progress.data?.valid_records ?? 0).toLocaleString()} with every field, from ${(c.fetched ?? 0).toLocaleString()} pages read.`} />
       {progress.data?.error && <div className="error" role="alert"><strong>{progress.data.error}</strong></div>}
       <ErrorBox error={cancel.error || retry.error} />

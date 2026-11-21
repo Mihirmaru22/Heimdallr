@@ -5,6 +5,7 @@ import { KIND, hue } from "./ActivityFeed";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { duration } from "./ui";
 import { External } from "./icons";
+import LazyGlobe from "./LazyGlobe";
 import "./research.css";
 
 // The run screen as a live research view. Every row is a step the worker really took, grouped the way a
@@ -180,12 +181,15 @@ function Step({ b, working, freshFrom }: { b: Block; working: boolean; freshFrom
   );
 }
 
-export default function Research({ lines, live, state, title, question, elapsed, createdAt, stats, summary: done, actions, crumbs }: {
-  lines: Activity[]; live: boolean; state: string; title: string; question?: string; elapsed: number | null;
+export default function Research({ lines, live, state, title, question, elapsed, createdAt, focus, stats, summary: done, actions, crumbs }: {
+  lines: Activity[]; live: boolean; focus: string[]; state: string; title: string; question?: string; elapsed: number | null;
   createdAt: string | null; stats: ResearchStat[]; summary?: string; actions: ReactNode; crumbs: ReactNode;
 }) {
   const now = useNow(live);
   const blocks = useMemo(() => group(lines), [lines]);
+  // The globe draws the same lines: a beam per search, a dot per page read, a flare per site kept.
+  const signals = useMemo(() => lines.map((l) => ({ id: l.id, kind: l.data.kind, site: l.data.site,
+    source: (l.data.source as string | undefined) ?? null, at: l.created_at })), [lines]);
   const [all, setAll] = useState(false);
   const [follow, setFollow] = useState(true);
   const box = useRef<HTMLDivElement>(null);
@@ -211,6 +215,10 @@ export default function Research({ lines, live, state, title, question, elapsed,
 
   return (
     <section className="rs" aria-label="Live research">
+      <div className="rs-stage force-dark">
+      <LazyGlobe signals={signals} focus={focus} className="rs-globe" />
+      <div className="rs-scrim" aria-hidden />
+      <div className="rs-stage-grid">
       <header className="rs-top">
         <div className="rs-title-block">
           {crumbs}
@@ -241,6 +249,41 @@ export default function Research({ lines, live, state, title, question, elapsed,
           <span><b><AnimatedNumber value={accepted} /></b>/<AnimatedNumber value={evidence.length} /> proofs accepted</span>
         </div>
       </div>
+      <div className="rs-rail-card rs-progress" aria-label="In progress">
+        <span className="rs-label">In progress</span>
+        {working.length === 0 && <p className="muted small">{live ? "Nothing moving this second." : "Nothing running."}</p>}
+        <ul className="rs-lanes">
+          <AnimatePresence initial={false}>
+            {working.filter((b) => b.type === "site").slice(-8).map((b) => {
+              const read = [...b.lines].reverse().find((l) => l.data.kind === "read" && l.data.url);
+              return (
+                <motion.li key={b.key} className="rs-lane" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}>
+                  <Favicon site={b.name} />
+                  <span className="rs-lane-body"><b>{b.name.replace(/^www\./, "")}</b>
+                    <span className="mono muted">{read ? path(String(read.data.url)) : KIND[b.lines.at(-1)!.data.kind]?.label ?? ""}</span>
+                  </span>
+                  <span className="rs-bar" aria-hidden />
+                </motion.li>
+              );
+            })}
+            {working.filter((b) => b.type === "source").map((b) => (
+              <motion.li key={b.key} className="rs-lane" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                <span className="rs-fav src">⌕</span>
+                <span className="rs-lane-body"><b>{(b.lines.find((l) => l.data.kind === "search") ?? b.lines[0]).message}</b></span>
+                <span className="rs-bar" aria-hidden />
+              </motion.li>
+            ))}
+          </AnimatePresence>
+        </ul>
+      </div>
+      <div className="rs-legend" aria-hidden>
+        <span><i className="lg search" />search</span><span><i className="lg seen" />page read</span><span><i className="lg kept" />kept</span>
+        <span><i className="lg found" />detail found</span><span><i className="lg dropped" />dropped</span>
+        {focus.length > 0 && <span><i className="lg focus" />{focus.join(", ")}</span>}
+      </div>
+      </div>
+      </div>
 
       <div className="rs-body">
         <div className="rs-stream-wrap">
@@ -256,34 +299,6 @@ export default function Research({ lines, live, state, title, question, elapsed,
         </div>
 
         <aside className="rs-rail" aria-label="Run totals">
-          <div className="rs-rail-card">
-            <span className="rs-label">In progress</span>
-            {working.length === 0 && <p className="muted small">{live ? "Nothing moving this second." : "Nothing running."}</p>}
-            <ul className="rs-lanes">
-              <AnimatePresence initial={false}>
-                {working.filter((b) => b.type === "site").slice(-8).map((b) => {
-                  const read = [...b.lines].reverse().find((l) => l.data.kind === "read" && l.data.url);
-                  return (
-                    <motion.li key={b.key} className="rs-lane" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}>
-                      <Favicon site={b.name} />
-                      <span className="rs-lane-body"><b>{b.name.replace(/^www\./, "")}</b>
-                        <span className="mono muted">{read ? path(String(read.data.url)) : KIND[b.lines.at(-1)!.data.kind]?.label ?? ""}</span>
-                      </span>
-                      <span className="rs-bar" aria-hidden />
-                    </motion.li>
-                  );
-                })}
-                {working.filter((b) => b.type === "source").map((b) => (
-                  <motion.li key={b.key} className="rs-lane" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                    <span className="rs-fav src">⌕</span>
-                    <span className="rs-lane-body"><b>{(b.lines.find((l) => l.data.kind === "search") ?? b.lines[0]).message}</b></span>
-                    <span className="rs-bar" aria-hidden />
-                  </motion.li>
-                ))}
-              </AnimatePresence>
-            </ul>
-          </div>
           <div className="rs-rail-card">
             <span className="rs-label">Totals</span>
             <dl className="rs-stats">
