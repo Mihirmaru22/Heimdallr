@@ -95,3 +95,18 @@ def test_pages_exported_for_claude_come_back_as_checked_labels(conn, tmp_path):
                             "WHERE model = 'claude'").fetchall())
     assert got["a.com"] == "cybersecurity" and got["b.com"] is None and got["c.com"].startswith("ValueError")
     assert teach.export_pages(conn, out, 10, "claude") == 0
+
+
+def test_uncertain_export_puts_the_pages_the_classifier_doubts_first(conn):
+    conn.execute(classify.SCHEMA_SQL)
+    scores = {"sure.com": (0.99, 0.01, False, None), "edge.com": (0.95, 0.52, True, None),
+              "micro.com": (0.97, 0.9, True, None), "known.com": (0.98, 0.95, True, "fintech"),
+              "junk.com": (0.45, 0.1, None, None)}
+    for d, (real, tech, is_tech, micro) in scores.items():
+        _homepage(conn, d)
+        conn.execute("INSERT INTO kb.company_label (domain, real_score, tech_score, tech_company, micro_sector, "
+                     "model) VALUES (%s, %s, %s, %s, %s, 'fake')", (d, real, tech, is_tech, micro))
+    _homepage(conn, "new.com")  # never classified
+    picked = {r[0] for r in teach.select_pages(conn, 4, "claude", uncertain=True)}
+    assert picked == {"edge.com", "micro.com", "junk.com", "new.com"}
+    assert all(len(r) == 8 for r in teach.select_pages(conn, 4, "claude", uncertain=True))

@@ -393,7 +393,8 @@ def _label_model_path():
 
 
 def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None, same_as: str | None,
-             export_pages: int = 0, import_file: str | None = None, tech_share: float = 0.5) -> None:
+             export_pages: int = 0, import_file: str | None = None, tech_share: float = 0.5,
+             uncertain: bool = False) -> None:
     import time
     from pathlib import Path
 
@@ -412,7 +413,8 @@ def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None
             return
         if export_pages:
             path = Path(export_path or "teach_pages.csv")
-            print(f"Wrote {teach.export_pages(conn, path, export_pages, model, tech_share):,} pages to {path} "
+            n = teach.export_pages(conn, path, export_pages, model, tech_share, uncertain)
+            print(f"Wrote {n:,} pages to {path} "
                   f"(not yet labelled by {model}).")
             return
         if import_file:
@@ -583,6 +585,8 @@ def main() -> None:
                    help="write N pages not yet labelled by --model to a CSV, for labelling outside Ollama")
     p.add_argument("--tech-share", type=float, default=0.5,
                    help="share of exported pages from companies PDL files under Technology (default 0.5)")
+    p.add_argument("--uncertain", action="store_true",
+                   help="with --export-pages: the pages the trained classifier is least sure about first")
     p.add_argument("--import", dest="import_file", default=None, metavar="FILE",
                    help="read labels filled into an --export-pages CSV, saved under --model (e.g. claude)")
     p.add_argument("--same-pages-as", default=None, metavar="MODEL",
@@ -598,7 +602,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.cmd == "kb-teach":
         return kb_teach(args.model, args.limit, args.export_sample, args.out, args.same_pages_as, args.export_pages,
-                        args.import_file, args.tech_share)
+                        args.import_file, args.tech_share, args.uncertain)
     if args.cmd == "kb-train":
         return kb_train(args.teacher)
     if args.cmd == "kb-classify":

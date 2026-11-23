@@ -117,31 +117,63 @@ def ask(client, model: str, prompt: str) -> str:
 
 
 def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_share: float = 0.5,
-                 seed: int = 7) -> list[tuple]:
+                 seed: int = 7, uncertain: bool = False) -> list[tuple]:
     """Homepages this model has not labelled yet: half from companies PDL files under Technology
     (tech companies are rare, and the classifier needs examples of every micro-sector), half from
     the rest. With same_as, only pages that model labelled, so two models are compared on the
-    same pages."""
+    same pages.
+
+    With uncertain, the pages the trained classifier (kb.company_label) is least sure about come
+    first, taken in turn from two lists: pages nearest the real/not-real or tech/not-tech line, and
+    tech pages whose micro-sector it left unsure. Labelling those teaches it most per page; random
+    pages mostly repeat what it already gets right."""
+    has_labels = uncertain and conn.execute("SELECT to_regclass('kb.company_label')").fetchone()[0] is not None
+    doubt = ("l.real_score, l.tech_score, l.tech_company, l.micro_sector" if has_labels
+             else "NULL::real, NULL::real, NULL::boolean, NULL::text")
+    join = "LEFT JOIN kb.company_label l ON l.domain = h.domain" if has_labels else ""
     rows = conn.execute(
-        """SELECT h.domain, h.url, h.title, h.description, h.text, p.name, p.industry, p.sector
+        f"""SELECT h.domain, h.url, h.title, h.description, h.text, p.name, p.industry, p.sector, {doubt}
            FROM kb.homepage h
            LEFT JOIN LATERAL (SELECT name, industry, sector FROM kb.pdl_company c WHERE c.domain = h.domain
                               ORDER BY c.sector IS NULL LIMIT 1) p ON true
+           {join}
            WHERE h.found
              AND NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain AND t.model = %s)
              AND (%s::text IS NULL OR EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain
-                                                AND t.model = %s AND t.error IS NULL))""",
+                                                AND t.model = %s AND t.error IS NULL))""",  # noqa: S608 - fixed text
         (model, same_as, same_as),
     ).fetchall()
     rows = [r for r in rows if page_for_model(r[2], r[3], r[4])]
     rng = random.Random(seed)
     rng.shuffle(rows)
-    tech = [r for r in rows if r[7] == "Technology"]
-    rest = [r for r in rows if r[7] != "Technology"]
-    want_tech = min(len(tech), int(limit * tech_share))
-    picked = tech[:want_tech] + rest[:limit - want_tech]
+    if has_labels:
+        picked = _most_uncertain(rows, limit)
+    else:
+        tech = [r for r in rows if r[7] == "Technology"]
+        rest = [r for r in rows if r[7] != "Technology"]
+        want_tech = min(len(tech), int(limit * tech_share))
+        picked = tech[:want_tech] + rest[:limit - want_tech]
     rng.shuffle(picked)
-    return picked
+    return [r[:8] for r in picked]
+
+
+def _most_uncertain(rows: list[tuple], limit: int) -> list[tuple]:
+    """rows end with (real_score, tech_score, tech_company, micro_sector) from the classifier."""
+    def margin(r) -> float:  # 0 = exactly on a decision line, 0.5 = sure
+        real, tech = r[8], r[9]
+        if real is None:
+            return 0.0  # never classified: as unknown as a page can be
+        return min(abs(real - 0.5), abs(tech - 0.5) if real >= 0.5 and tech is not None else 0.5)
+
+    no_micro = [r for r in rows if r[10] and not r[11]]
+    seen = {r[0] for r in no_micro}
+    borderline = sorted((r for r in rows if r[0] not in seen), key=margin)
+    picked: list[tuple] = []
+    for a, b in zip(no_micro, borderline, strict=False):
+        picked += [a, b]
+    longer = no_micro if len(no_micro) > len(borderline) else borderline
+    picked += longer[min(len(no_micro), len(borderline)):]
+    return picked[:limit]
 
 
 SCHEMA_SQL = """
@@ -264,12 +296,12 @@ def export_sample(conn, path, size: int, seed: int = 7) -> int:
     return len(keep)
 
 
-def export_pages(conn, path, limit: int, model: str, tech_share: float = 0.5) -> int:
+def export_pages(conn, path, limit: int, model: str, tech_share: float = 0.5, uncertain: bool = False) -> int:
     """Pages for a teacher outside Ollama (a person, or Claude in the project thread): what the
     model would be shown, with empty answer columns to fill. import_labels reads it back."""
     import csv
 
-    rows = select_pages(conn, limit, model, tech_share=tech_share)
+    rows = select_pages(conn, limit, model, tech_share=tech_share, uncertain=uncertain)
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["domain", "name", "linkedin_industry", "url", "page", "real_page", "tech_company",
