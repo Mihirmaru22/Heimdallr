@@ -99,3 +99,22 @@ def test_summary_counts_real_tech_and_unsure():
         summary.add(label)
     report = summary.report()
     assert "Homepages labelled: 2" in report and "hr tech" in report
+
+
+def test_confidence_threshold_keeps_only_what_reaches_the_target():
+    conf = np.array([0.9] * 10 + [0.5] * 10)
+    correct = np.array([True] * 10 + [False] * 10)
+    threshold, covered = train.confidence_threshold(conf, correct, target=0.8)
+    assert threshold == 0.9 and covered == 0.5
+    assert train.confidence_threshold(conf, np.ones(20, bool)) == (0.0, 1.0)
+    assert train.confidence_threshold(conf, np.zeros(20, bool))[0] > 1
+
+
+def test_pdl_industry_is_a_feature_when_seen_often_enough():
+    data = [(v, {**t, "industry": "computer software" if t["tech_company"] else "law practice"})
+            for v, t in examples()]
+    model = train.train(data, "fake")
+    assert model.industries == ["computer software", "law practice"]
+    assert model.heads["tech_company"][1].shape[0] == 256 + 2
+    probs = model.predict(fake_embed(["payroll software"]), ["computer software"])
+    assert probs["tech_company"][0]["yes"] > 0.5

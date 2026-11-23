@@ -27,7 +27,6 @@ from pathlib import Path
 
 MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 TEXT_CHARS = 600  # the model reads about 128 tokens; the opening of the page carries the most
-MIN_PROBABILITY = 0.5  # below this a micro-sector is left empty ("tech, micro-sector unsure")
 
 MICRO_SECTORS: dict[str, str] = {
     "fintech": "financial technology: digital banking, lending, money apps and software for finance",
@@ -106,11 +105,16 @@ class Classifier:
     """The trained heads (app.kb.train.LabelModel) applied to embedded homepages."""
 
     def __init__(self, embed: Callable[[Sequence[str]], list[list[float]]], model,
-                 min_probability: float = MIN_PROBABILITY):
-        self.embed, self.model, self.min_probability = embed, model, min_probability
+                 min_probability: float | None = None):
+        """min_probability: the confidence a micro-sector needs; by default the one at which the
+        model's cross-validation agreed with the teacher TARGET_PRECISION of the time."""
+        self.embed, self.model = embed, model
+        self.micro_min = min_probability if min_probability is not None else model.threshold("micro_sector")
+        self.offer_min = model.threshold("offering")
 
-    def label(self, domains: Sequence[str], texts: Sequence[str]) -> list[Label]:
-        probs = self.model.predict(self.embed(list(texts)))
+    def label(self, domains: Sequence[str], texts: Sequence[str],
+              industries: Sequence[str | None] | None = None) -> list[Label]:
+        probs = self.model.predict(self.embed(list(texts)), industries)
         out = []
         for i, domain in enumerate(domains):
             real = probs["real_page"][i].get("yes", 0.0)
@@ -118,11 +122,12 @@ class Classifier:
             micro = sorted(probs["micro_sector"][i].items(), key=lambda x: -x[1])
             offer = max(probs["offering"][i].items(), key=lambda x: x[1])
             is_real, is_tech = real >= 0.5, real >= 0.5 and tech >= 0.5
-            chosen = micro[0][0] if is_tech and micro and micro[0][1] >= self.min_probability else None
+            chosen = micro[0][0] if is_tech and micro and micro[0][1] >= self.micro_min else None
+            offering = (offer[0] if offer[1] >= self.offer_min else "unsure") if is_real else None
             out.append(Label(domain, is_real, round(real, 4), is_tech if is_real else None, round(tech, 4),
                              chosen, round(micro[0][1], 4) if micro else 0.0,
                              [(n, round(p, 4)) for n, p in micro[:3]],
-                             offer[0] if is_real else None, round(offer[1], 4)))
+                             offering, round(offer[1], 4)))
         return out
 
 

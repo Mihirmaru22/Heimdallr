@@ -451,7 +451,9 @@ def kb_train(teacher: str) -> None:
 
     with psycopg.connect(kb_dsn()) as conn:
         rows = conn.execute(
-            """SELECT h.title, h.description, h.text, t.real_page, t.tech_company, t.micro_sector, t.offering
+            """SELECT h.title, h.description, h.text, t.real_page, t.tech_company, t.micro_sector, t.offering,
+                      (SELECT industry FROM kb.pdl_company c WHERE c.domain = t.domain
+                       ORDER BY c.industry IS NULL LIMIT 1)
                FROM kb.teach_label t JOIN kb.homepage h USING (domain)
                WHERE t.error IS NULL AND t.model = %s""", (teacher,)
         ).fetchall()
@@ -461,7 +463,8 @@ def kb_train(teacher: str) -> None:
     print(f"Embedding {len(rows):,} labelled homepages with {classify.MODEL}...", flush=True)
     embedder = classify.Embedder()
     vectors = embedder([classify.page_text(r[0], r[1], r[2]) for r in rows])
-    labels = [{"real_page": r[3], "tech_company": r[4], "micro_sector": r[5], "offering": r[6]} for r in rows]
+    labels = [{"real_page": r[3], "tech_company": r[4], "micro_sector": r[5], "offering": r[6], "industry": r[7]}
+              for r in rows]
     model = train.train(list(zip(vectors, labels, strict=True)), embedder.name)
     path = _label_model_path()
     model.save(path)
@@ -492,7 +495,10 @@ def kb_classify(limit: int | None, again: bool, export_sample: int, export_path:
         model = train.LabelModel.load(model_path)
         where = "h.found" + ("" if again else " AND l.domain IS NULL")
         rows = conn.execute(
-            f"""SELECT h.domain, h.url, h.title, h.description, h.text FROM kb.homepage h
+            f"""SELECT h.domain, h.url, h.title, h.description, h.text,
+                       (SELECT industry FROM kb.pdl_company c WHERE c.domain = h.domain
+                        ORDER BY c.industry IS NULL LIMIT 1)
+                FROM kb.homepage h
                 LEFT JOIN kb.company_label l USING (domain) WHERE {where} ORDER BY h.domain"""  # noqa: S608
             + (" LIMIT %s" if limit else ""), (limit,) if limit else ()).fetchall()
         rows = [r for r in rows if classify.page_text(r[2], r[3], r[4])]
@@ -508,7 +514,8 @@ def kb_classify(limit: int | None, again: bool, export_sample: int, export_path:
         batch = 256
         for i in range(0, len(rows), batch):
             chunk = rows[i:i + batch]
-            labels = labeller.label([r[0] for r in chunk], [classify.page_text(r[2], r[3], r[4]) for r in chunk])
+            labels = labeller.label([r[0] for r in chunk], [classify.page_text(r[2], r[3], r[4]) for r in chunk],
+                                    [r[5] for r in chunk])
             with conn.transaction():
                 for row, label in zip(chunk, labels, strict=True):
                     classify.save(conn, label, f"{embedder.name}+{model_path.name}", row[1])
