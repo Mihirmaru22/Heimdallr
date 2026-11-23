@@ -80,7 +80,10 @@ class TeachLabel:
 
 def parse(domain: str, raw: str) -> TeachLabel:
     """The model's JSON answer, checked: anything outside the schema becomes an error, not a label."""
-    data = json.loads(raw)
+    text = raw.strip()
+    if text.startswith("```"):  # some models wrap the JSON in a markdown fence
+        text = text.strip("`").removeprefix("json").strip()
+    data = json.loads(text)
     micro = data.get("micro_sector")
     offering = data.get("offering")
     if not isinstance(data.get("real_page"), bool) or not isinstance(data.get("tech_company"), bool):
@@ -95,26 +98,40 @@ def parse(domain: str, raw: str) -> TeachLabel:
 
 
 def ask(client, model: str, prompt: str) -> str:
-    """One answer from Ollama, held to the schema; temperature 0 so a rerun gives the same answer."""
-    r = client.post(f"{OLLAMA_URL}/api/chat", json={
-        "model": model, "stream": False, "format": schema(),
+    """One answer from Ollama, held to the schema; temperature 0 so a rerun gives the same answer.
+
+    Thinking is switched off: a reasoning model would otherwise spend hundreds of tokens (minutes on
+    a CPU) before the JSON. A model that does not think rejects the switch, so it is sent once
+    and dropped if refused."""
+    body = {
+        "model": model, "stream": False, "format": schema(), "think": False,
         "messages": [{"role": "user", "content": prompt}],
         "options": {"temperature": 0, "num_ctx": 4096},
-    })
+    }
+    r = client.post(f"{OLLAMA_URL}/api/chat", json=body)
+    if r.status_code == 400 and "think" in r.text:
+        body.pop("think")
+        r = client.post(f"{OLLAMA_URL}/api/chat", json=body)
     r.raise_for_status()
     return r.json()["message"]["content"]
 
 
-def select_pages(conn, limit: int, tech_share: float = 0.5, seed: int = 7) -> list[tuple]:
-    """Homepages not yet labelled: half from companies PDL files under Technology (tech companies
-    are rare, and the classifier needs examples of every micro-sector), half from all the rest."""
+def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_share: float = 0.5,
+                 seed: int = 7) -> list[tuple]:
+    """Homepages this model has not labelled yet: half from companies PDL files under Technology
+    (tech companies are rare, and the classifier needs examples of every micro-sector), half from
+    the rest. With same_as, only pages that model labelled, so two models are compared on the
+    same pages."""
     rows = conn.execute(
         """SELECT h.domain, h.url, h.title, h.description, h.text, p.name, p.industry, p.sector
            FROM kb.homepage h
-           LEFT JOIN kb.teach_label t USING (domain)
            LEFT JOIN LATERAL (SELECT name, industry, sector FROM kb.pdl_company c WHERE c.domain = h.domain
                               ORDER BY c.sector IS NULL LIMIT 1) p ON true
-           WHERE h.found AND t.domain IS NULL"""
+           WHERE h.found
+             AND NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain AND t.model = %s)
+             AND (%s::text IS NULL OR EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain
+                                                AND t.model = %s AND t.error IS NULL))""",
+        (model, same_as, same_as),
     ).fetchall()
     rows = [r for r in rows if page_for_model(r[2], r[3], r[4])]
     rng = random.Random(seed)
@@ -129,7 +146,7 @@ def select_pages(conn, limit: int, tech_share: float = 0.5, seed: int = 7) -> li
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS kb.teach_label (
-    domain text PRIMARY KEY,
+    domain text NOT NULL,
     real_page boolean,
     tech_company boolean,
     micro_sector text,
@@ -139,8 +156,16 @@ CREATE TABLE IF NOT EXISTS kb.teach_label (
     error text,
     model text NOT NULL,
     seconds real,
-    labelled_at timestamptz NOT NULL DEFAULT now()
+    labelled_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (domain, model)
 );
+DO $$ BEGIN  -- one row per page and model (it was one per page), so models can be compared
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'teach_label_pkey'
+             AND array_length(conkey, 1) = 1) THEN
+    ALTER TABLE kb.teach_label DROP CONSTRAINT teach_label_pkey;
+    ALTER TABLE kb.teach_label ADD PRIMARY KEY (domain, model);
+  END IF;
+END $$;
 """
 
 
@@ -151,10 +176,10 @@ def save(conn, domain: str, label: TeachLabel | None, model: str, seconds: float
         """INSERT INTO kb.teach_label (domain, real_page, tech_company, micro_sector, offering, reason, raw,
                                        error, model, seconds, labelled_at)
            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())
-           ON CONFLICT (domain) DO UPDATE SET real_page = EXCLUDED.real_page,
+           ON CONFLICT (domain, model) DO UPDATE SET real_page = EXCLUDED.real_page,
                tech_company = EXCLUDED.tech_company, micro_sector = EXCLUDED.micro_sector,
                offering = EXCLUDED.offering, reason = EXCLUDED.reason, raw = EXCLUDED.raw,
-               error = EXCLUDED.error, model = EXCLUDED.model, seconds = EXCLUDED.seconds, labelled_at = now()""",
+               error = EXCLUDED.error, seconds = EXCLUDED.seconds, labelled_at = now()""",
         (domain, *values, error, model, round(seconds, 2)),
     )
 
@@ -219,18 +244,21 @@ def run(conn, client, model: str, rows: list[tuple], progress: Callable[[Summary
 
 
 def export_sample(conn, path, size: int, seed: int = 7) -> int:
-    """Teacher labels next to the page, for checking the teacher by hand before training on it."""
+    """Teacher labels next to the page, for checking the teacher by hand before training on it.
+    A sampled page carries one row per model that labelled it, so models can be compared."""
     import csv
 
     rows = conn.execute(
-        """SELECT t.domain, h.url, h.title, h.description, left(h.text, 300), t.real_page, t.tech_company,
-                  t.micro_sector, t.offering, t.reason
-           FROM kb.teach_label t JOIN kb.homepage h USING (domain) WHERE t.error IS NULL"""
+        """SELECT t.domain, t.model, h.url, h.title, h.description, left(h.text, 300), t.real_page,
+                  t.tech_company, t.micro_sector, t.offering, t.reason, t.error, t.seconds
+           FROM kb.teach_label t JOIN kb.homepage h USING (domain) ORDER BY t.domain, t.model"""
     ).fetchall()
-    random.Random(seed).shuffle(rows)
+    domains = sorted({r[0] for r in rows})
+    random.Random(seed).shuffle(domains)
+    keep = set(domains[:size])
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["domain", "url", "title", "description", "text_start", "real_page", "tech_company",
-                    "micro_sector", "offering", "reason"])
-        w.writerows(rows[:size])
-    return min(size, len(rows))
+        w.writerow(["domain", "model", "url", "title", "description", "text_start", "real_page", "tech_company",
+                    "micro_sector", "offering", "reason", "error", "seconds"])
+        w.writerows(r for r in rows if r[0] in keep)
+    return len(keep)

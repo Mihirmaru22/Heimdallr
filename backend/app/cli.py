@@ -392,7 +392,7 @@ def _label_model_path():
     return Path(get_settings().data_dir) / "kb" / "label_model.npz"
 
 
-def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None) -> None:
+def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None, same_as: str | None) -> None:
     import time
     from pathlib import Path
 
@@ -406,9 +406,10 @@ def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None
         conn.execute(teach.SCHEMA_SQL)
         if export_sample:
             path = Path(export_path or "teach_sample.csv")
-            print(f"Wrote {teach.export_sample(conn, path, export_sample):,} teacher labels to {path}.")
+            print(f"Wrote the teacher labels of {teach.export_sample(conn, path, export_sample):,} pages "
+                  f"(one row per model) to {path}.")
             return
-        rows = teach.select_pages(conn, limit)
+        rows = teach.select_pages(conn, limit, model, same_as)
         if not rows:
             print("No unlabelled homepages (kb-homepages fills kb.homepage).")
             return
@@ -432,7 +433,7 @@ def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None
     print(summary.report())
 
 
-def kb_train() -> None:
+def kb_train(teacher: str) -> None:
     import psycopg
 
     from app.kb import classify, train
@@ -441,11 +442,12 @@ def kb_train() -> None:
     with psycopg.connect(kb_dsn()) as conn:
         rows = conn.execute(
             """SELECT h.title, h.description, h.text, t.real_page, t.tech_company, t.micro_sector, t.offering
-               FROM kb.teach_label t JOIN kb.homepage h USING (domain) WHERE t.error IS NULL"""
+               FROM kb.teach_label t JOIN kb.homepage h USING (domain)
+               WHERE t.error IS NULL AND t.model = %s""", (teacher,)
         ).fetchall()
     rows = [r for r in rows if classify.page_text(r[0], r[1], r[2])]
     if len(rows) < 100:
-        sys.exit(f"Only {len(rows)} teacher labels; run kb-teach first (a few thousand pages).")
+        sys.exit(f"Only {len(rows)} teacher labels from {teacher}; run kb-teach first (a few thousand pages).")
     print(f"Embedding {len(rows):,} labelled homepages with {classify.MODEL}...", flush=True)
     embedder = classify.Embedder()
     vectors = embedder([classify.page_text(r[0], r[1], r[2]) for r in rows])
@@ -560,7 +562,10 @@ def main() -> None:
     p.add_argument("--export-sample", type=int, default=0, metavar="N",
                    help="write N random teacher labels to a CSV for checking by hand, label nothing")
     p.add_argument("--out", default=None, help="the CSV for --export-sample (default teach_sample.csv)")
-    sub.add_parser("kb-train", help="train the homepage classifier on the teacher labels and report its quality")
+    p.add_argument("--same-pages-as", default=None, metavar="MODEL",
+                   help="label only pages MODEL already labelled, to compare two models on the same pages")
+    p = sub.add_parser("kb-train", help="train the homepage classifier on the teacher labels and report its quality")
+    p.add_argument("--teacher", default="qwen2.5:7b", help="whose labels to learn from (default qwen2.5:7b)")
     p = sub.add_parser("kb-classify", help="label homepages with the trained classifier")
     p.add_argument("--limit", type=int, default=None, help="at most this many homepages")
     p.add_argument("--again", action="store_true", help="relabel homepages that already have a label")
@@ -569,9 +574,9 @@ def main() -> None:
     p.add_argument("--out", default=None, help="the CSV for --export-sample (default label_sample.csv)")
     args = parser.parse_args()
     if args.cmd == "kb-teach":
-        return kb_teach(args.model, args.limit, args.export_sample, args.out)
+        return kb_teach(args.model, args.limit, args.export_sample, args.out, args.same_pages_as)
     if args.cmd == "kb-train":
-        return kb_train()
+        return kb_train(args.teacher)
     if args.cmd == "kb-classify":
         return kb_classify(args.limit, args.again, args.export_sample, args.out)
     if args.cmd == "kb-load-companies-house":

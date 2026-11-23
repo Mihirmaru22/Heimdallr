@@ -34,12 +34,27 @@ def test_teacher_pages_mix_tech_and_the_rest_and_skip_labelled_ones(conn):
         _homepage(conn, f"r{i}.com")
         conn.execute("INSERT INTO kb.pdl_company VALUES (%s, %s, 'computer software', 'Technology')",
                      (f"t{i}.com", f"T{i}"))
-    picked = teach.select_pages(conn, 8)
+    picked = teach.select_pages(conn, 8, "m")
     assert sum(r[7] == "Technology" for r in picked) == 4 and len(picked) == 8
     teach.save(conn, picked[0][0], teach.parse(picked[0][0], '{"real_page": true, "tech_company": false, '
                                                '"micro_sector": "none", "offering": "service", "reason": ""}'),
                "m", 1.0, None)
-    assert picked[0][0] not in {r[0] for r in teach.select_pages(conn, 100)}
+    assert picked[0][0] not in {r[0] for r in teach.select_pages(conn, 100, "m")}
+    assert [r[0] for r in teach.select_pages(conn, 100, "other", same_as="m")] == [picked[0][0]]
+    teach.save(conn, picked[0][0], None, "other", 1.0, "ValueError: x")  # a second model, same page
+    assert conn.execute("SELECT count(*) FROM kb.teach_label").fetchone()[0] == 2
+
+
+def test_teach_table_from_before_gets_the_two_column_key(conn):
+    conn.execute("DROP TABLE kb.teach_label")
+    conn.execute("CREATE TABLE kb.teach_label (domain text PRIMARY KEY, real_page boolean, tech_company boolean, "
+                 "micro_sector text, offering text, reason text, raw text, error text, model text NOT NULL, "
+                 "seconds real, labelled_at timestamptz NOT NULL DEFAULT now())")
+    conn.execute(teach.SCHEMA_SQL)
+    conn.execute(teach.SCHEMA_SQL)  # twice is fine
+    teach.save(conn, "a.com", None, "m1", 1.0, "e")
+    teach.save(conn, "a.com", None, "m2", 1.0, "e")
+    assert conn.execute("SELECT count(*) FROM kb.teach_label").fetchone()[0] == 2
 
 
 def test_labels_upsert_and_export_with_pdl_industry(conn, tmp_path):

@@ -39,6 +39,10 @@ def test_an_answer_outside_the_schema_is_an_error(bad):
         teach.parse("x.com", bad)
 
 
+def test_an_answer_in_a_markdown_fence_is_read():
+    assert teach.parse("x.com", "```json\n" + answer() + "\n```").micro_sector == "cybersecurity"
+
+
 def test_schema_offers_every_micro_sector_and_none():
     enum = teach.schema()["properties"]["micro_sector"]["enum"]
     assert "none" in enum and "cybersecurity" in enum
@@ -51,6 +55,9 @@ def test_page_for_model_keeps_title_description_and_opening_text():
 
 
 class FakeResponse:
+    status_code = 200
+    text = ""
+
     def __init__(self, content):
         self.content = content
 
@@ -91,3 +98,18 @@ def test_run_saves_labels_and_errors_and_one_bad_answer_fails_only_its_page():
     sent = client.prompts[0]
     assert sent["format"] == teach.schema() and sent["options"]["temperature"] == 0
     assert "LinkedIn industry (may be wrong): computer software" in sent["messages"][0]["content"]
+
+
+def test_thinking_is_switched_off_and_dropped_for_a_model_that_refuses_it():
+    class Refusing(FakeClient):
+        def post(self, url, json):
+            self.prompts.append(dict(json))
+            if "think" in json:
+                r = FakeResponse("")
+                r.status_code, r.text = 400, '{"error":"model does not support thinking"}'
+                return r
+            return FakeResponse(answer())
+
+    client = Refusing([])
+    assert teach.parse("x", teach.ask(client, "m", "p")).micro_sector == "cybersecurity"
+    assert client.prompts[0]["think"] is False and "think" not in client.prompts[1]
