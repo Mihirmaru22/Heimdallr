@@ -264,12 +264,12 @@ def export_sample(conn, path, size: int, seed: int = 7) -> int:
     return len(keep)
 
 
-def export_pages(conn, path, limit: int, model: str) -> int:
+def export_pages(conn, path, limit: int, model: str, tech_share: float = 0.5) -> int:
     """Pages for a teacher outside Ollama (a person, or Claude in the project thread): what the
     model would be shown, with empty answer columns to fill. import_labels reads it back."""
     import csv
 
-    rows = select_pages(conn, limit, model)
+    rows = select_pages(conn, limit, model, tech_share=tech_share)
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["domain", "name", "linkedin_industry", "url", "page", "real_page", "tech_company",
