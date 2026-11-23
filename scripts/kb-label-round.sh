@@ -4,6 +4,7 @@
 #   train FILE...: import Claude's label files, train the classifier, label every homepage,
 #                  and write a 200-page sample to ~/label_sample.csv for checking
 set -euo pipefail
+export PATH="$HOME/.local/bin:$PATH"  # uv, when run over ssh without a login shell
 cd ~/Heimdallr-kb
 git fetch -q origin claude/project-thread-zjy7wi && git checkout -q --detach FETCH_HEAD
 cd backend && uv sync -q
