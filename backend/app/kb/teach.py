@@ -262,3 +262,54 @@ def export_sample(conn, path, size: int, seed: int = 7) -> int:
                     "micro_sector", "offering", "reason", "error", "seconds"])
         w.writerows(r for r in rows if r[0] in keep)
     return len(keep)
+
+
+def export_pages(conn, path, limit: int, model: str) -> int:
+    """Pages for a teacher outside Ollama (a person, or Claude in the project thread): what the
+    model would be shown, with empty answer columns to fill. import_labels reads it back."""
+    import csv
+
+    rows = select_pages(conn, limit, model)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "name", "linkedin_industry", "url", "page", "real_page", "tech_company",
+                    "micro_sector", "offering", "reason"])
+        for domain, url, title, description, text, name, industry, _sector in rows:
+            w.writerow([domain, name or "", industry or "", url or "", page_for_model(title, description, text),
+                        "", "", "", "", ""])
+    return len(rows)
+
+
+def _bool(value: str) -> bool:
+    v = value.strip().lower()
+    if v in ("true", "yes", "1", "y", "t"):
+        return True
+    if v in ("false", "no", "0", "n", "f"):
+        return False
+    raise ValueError(f"not true or false: {value!r}")
+
+
+def import_labels(conn, path, model: str) -> Summary:
+    """Labels filled into an export_pages file (or any CSV with those columns), checked by the
+    same rules as a model's answer; a row that breaks them is saved as an error, not a label."""
+    import csv
+
+    summary = Summary()
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if not (row.get("real_page") or "").strip():
+                continue  # not filled in yet
+            domain = row["domain"].strip()
+            label, error = None, None
+            try:
+                answer = {"real_page": _bool(row["real_page"]),
+                          "tech_company": _bool(row.get("tech_company") or "false"),
+                          "micro_sector": (row.get("micro_sector") or "none").strip() or "none",
+                          "offering": (row.get("offering") or "none").strip() or "none",
+                          "reason": (row.get("reason") or "").strip()}
+                label = parse(domain, json.dumps(answer))
+            except (ValueError, KeyError) as exc:
+                error = f"{type(exc).__name__}: {str(exc)[:120]}"
+            save(conn, domain, label, model, 0.0, error)
+            summary.add(label, 0.0, error.split(":")[0] if error else None)
+    return summary

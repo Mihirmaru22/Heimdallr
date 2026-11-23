@@ -72,3 +72,26 @@ def test_labels_upsert_and_export_with_pdl_industry(conn, tmp_path):
     rows = {r["domain"]: r for r in csv.DictReader(out.open(encoding="utf-8"))}
     assert rows["pay.example"]["micro_sector"] == "hr tech"
     assert rows["law.example"]["pdl_industry"] == "law practice"
+
+
+def test_pages_exported_for_claude_come_back_as_checked_labels(conn, tmp_path):
+    for d in ("a.com", "b.com", "c.com"):
+        _homepage(conn, d, f"{d} sells things")
+    out = tmp_path / "pages.csv"
+    assert teach.export_pages(conn, out, 10, "claude") == 3
+    rows = list(csv.DictReader(out.open(encoding="utf-8")))
+    assert {r["domain"] for r in rows} == {"a.com", "b.com", "c.com"} and rows[0]["page"]
+    filled = {"a.com": ("true", "true", "cybersecurity", "product"), "b.com": ("no", "", "", ""),
+              "c.com": ("true", "true", "blockchain", "product")}
+    for r in rows:
+        r["real_page"], r["tech_company"], r["micro_sector"], r["offering"] = filled[r["domain"]]
+    with out.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    summary = teach.import_labels(conn, out, "claude")
+    assert summary.rows == 3 and summary.tech == 1 and sum(summary.errors.values()) == 1
+    got = dict(conn.execute("SELECT domain, coalesce(micro_sector, error) FROM kb.teach_label "
+                            "WHERE model = 'claude'").fetchall())
+    assert got["a.com"] == "cybersecurity" and got["b.com"] is None and got["c.com"].startswith("ValueError")
+    assert teach.export_pages(conn, out, 10, "claude") == 0

@@ -392,7 +392,8 @@ def _label_model_path():
     return Path(get_settings().data_dir) / "kb" / "label_model.npz"
 
 
-def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None, same_as: str | None) -> None:
+def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None, same_as: str | None,
+             export_pages: int = 0, import_file: str | None = None) -> None:
     import time
     from pathlib import Path
 
@@ -408,6 +409,15 @@ def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None
             path = Path(export_path or "teach_sample.csv")
             print(f"Wrote the teacher labels of {teach.export_sample(conn, path, export_sample):,} pages "
                   f"(one row per model) to {path}.")
+            return
+        if export_pages:
+            path = Path(export_path or "teach_pages.csv")
+            print(f"Wrote {teach.export_pages(conn, path, export_pages, model):,} pages to {path} "
+                  f"(not yet labelled by {model}).")
+            return
+        if import_file:
+            summary = teach.import_labels(conn, Path(import_file), model)
+            print(summary.report())
             return
         rows = teach.select_pages(conn, limit, model, same_as)
         if not rows:
@@ -562,6 +572,10 @@ def main() -> None:
     p.add_argument("--export-sample", type=int, default=0, metavar="N",
                    help="write N random teacher labels to a CSV for checking by hand, label nothing")
     p.add_argument("--out", default=None, help="the CSV for --export-sample (default teach_sample.csv)")
+    p.add_argument("--export-pages", type=int, default=0, metavar="N",
+                   help="write N pages not yet labelled by --model to a CSV, for labelling outside Ollama")
+    p.add_argument("--import", dest="import_file", default=None, metavar="FILE",
+                   help="read labels filled into an --export-pages CSV, saved under --model (e.g. claude)")
     p.add_argument("--same-pages-as", default=None, metavar="MODEL",
                    help="label only pages MODEL already labelled, to compare two models on the same pages")
     p = sub.add_parser("kb-train", help="train the homepage classifier on the teacher labels and report its quality")
@@ -574,7 +588,8 @@ def main() -> None:
     p.add_argument("--out", default=None, help="the CSV for --export-sample (default label_sample.csv)")
     args = parser.parse_args()
     if args.cmd == "kb-teach":
-        return kb_teach(args.model, args.limit, args.export_sample, args.out, args.same_pages_as)
+        return kb_teach(args.model, args.limit, args.export_sample, args.out, args.same_pages_as, args.export_pages,
+                        args.import_file)
     if args.cmd == "kb-train":
         return kb_train(args.teacher)
     if args.cmd == "kb-classify":
