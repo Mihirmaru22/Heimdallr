@@ -6,7 +6,7 @@ import { api, display, type CompanyRow, type CrawlUrl, type ExportRow, type Job,
 import { Badge, Card, Crumbs, ErrorBox, Pager, Spinner, when } from "../components/ui";
 import RecordDrawer from "../components/RecordDrawer";
 import ActivityFeed from "../components/ActivityFeed";
-import Mission, { type MissionStat } from "../components/Mission";
+import Research, { type ResearchStat } from "../components/Research";
 import { useActivity } from "../useActivity";
 import { Download, Retry, Stop } from "../components/icons";
 
@@ -38,7 +38,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
   const rows = progress.data?.records ?? 0;
   const notRead = (c.skipped ?? 0) + (c.blocked ?? 0) + (c.failed ?? 0);
   // The run's numbers, shown once. They come from the job's counters, the same totals the export uses.
-  const stats: MissionStat[] = [
+  const stats: ResearchStat[] = [
     ...(!terminal ? [{ label: "pages waiting", value: c.queued ?? 0, cls: "info", hint: "Pages lined up to be read next." }] : []),
     { label: "pages read", value: c.fetched ?? 0, hint: "Pages downloaded and read." },
     { label: "pages not read", value: notRead, cls: "muted",
@@ -61,7 +61,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
 
   return (
     <div>
-      <Mission lines={activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
+      <Research lines={activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
         title={schema.data?.spec.title || project.data?.name || "Research run"} question={schema.data?.nl_request}
         elapsed={progress.data?.elapsed_seconds ?? null} createdAt={job.data?.created_at ?? null} focus={schema.data?.spec.discovery.countries ?? []}
         stats={stats} summary={`${rows.toLocaleString()} row${rows === 1 ? "" : "s"}, ${(progress.data?.valid_records ?? 0).toLocaleString()} with every field, from ${(c.fetched ?? 0).toLocaleString()} pages read.`} />
