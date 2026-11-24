@@ -16,6 +16,16 @@ sources, and download an Excel file. Phase 1 runs entirely locally and makes no 
 Layout: `backend/` (FastAPI, Celery, Postgres), `frontend/` (React + Vite), `test-sites/` (offline
 websites the tests crawl), `deploy/` (Compose helpers).
 
+## Brahman: the company database
+
+Brahman is our own database of companies, built ahead of any question so that research starts from
+a known list rather than from web search. Each company gets its website, sector, location, whether
+it is a tech company, its micro-sector (fintech, cybersecurity...) and whether it sells products or
+services, every fact with its source. It lives in the `kb` schema of the same Postgres and costs
+nothing to run: free open data, our own server, small local models.
+
+How it is built, the tables, the commands and where it stands: [docs/brahman.md](docs/brahman.md).
+
 ## Earlier work (Argus)
 
 Research that turns live web evidence into cited, verifiable answers.
