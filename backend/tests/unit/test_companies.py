@@ -94,3 +94,21 @@ def test_without_a_technology_or_countries_only_filters_decide():
     assert decide(ok, plain)[0] == DELIVERED
     bad = one([], [fact("pizza.example", "filter", "not met", detail="a listing site")], seeds)
     assert decide(bad, plain)[0] == FILTER
+
+
+def test_a_bracketed_short_form_is_the_same_company():
+    # Veeva India, 2026-11-02: "Bharat Serums and Vaccines Limited" and "... (BSV)" were delivered as two rows.
+    assert name_key("Bharat Serums and Vaccines Limited (BSV)") == name_key("Bharat Serums and Vaccines Limited")
+    assert name_key("Kemwell BioPharma Pvt. Ltd.") == name_key("kemwell biopharma")
+
+
+def test_a_public_body_is_not_a_company():
+    # Windchill US, 2026-11-02/05: NASA, Brookhaven National Laboratory and the U.S. Army were delivered as
+    # companies. Only governments can register under .gov, .mil, .gov.uk, .gov.in.
+    for domain in ("nasa.gov", "bnl.gov", "army.mil", "hmrc.gov.uk", "cdsco.gov.in"):
+        c = one([proof("Agency", website=f"https://{domain}/")], [fact(domain, "country", "GB", by="registry: x")])
+        status, reasons, _ = decide(c, spec())
+        assert status == FILTER and any("public body" in r for r in reasons), domain
+    # A company whose name or domain merely contains "gov" is still a company.
+    c = one([proof("Govia", website="https://govia.co.uk/")], [fact("govia.co.uk", "country", "GB", by="registry: x")])
+    assert decide(c, spec())[0] == DELIVERED
