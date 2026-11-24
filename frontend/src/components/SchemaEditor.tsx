@@ -13,6 +13,7 @@ const SOURCES: [string, string, string, "finds" | "proves", ReactNode][] = [
   ["sec_edgar", "SEC EDGAR", "US-listed companies by industry code", "finds", <Landmark key="e" />],
   ["gleif", "GLEIF", "Global register of legal entities", "finds", <Globe key="g" />],
   ["sec_filings", "SEC filings", "A company's own filings name the product", "proves", <FileText key="f" />],
+  ["vendor_archive", "Maker's stories", "The maker's own customer stories and press releases", "proves", <Shield key="v" />],
   ["case_studies", "Case studies", "Vendor customer stories name the company", "proves", <Shield key="c" />],
   ["news", "News (GDELT)", "News articles report the company using it", "proves", <News key="n" />],
 ];

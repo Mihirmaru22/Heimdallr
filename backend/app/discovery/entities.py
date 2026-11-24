@@ -21,6 +21,7 @@ import asyncio
 import re
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from sqlalchemy import select
@@ -45,6 +46,18 @@ NOISE = re.compile(r"\b(inc|incorporated|ltd|limited|llc|llp|lp|plc|pvt|private|
 BUSINESS_PROPERTIES = ("P452", "P1278", "P414", "P1128", "P2139", "P159", "P1454", "P749")
 WIKIDATA_CANDIDATES = 7
 WIKIDATA_RETRY_WAIT = 5.0
+# A registry that times out or answers 5xx is asked again after these pauses (seconds): a busy moment lost GLEIF
+# matches for several companies in one run (NetSuite UK, 2026-10-29), and each became "country unconfirmed".
+REGISTRY_RETRY_WAITS = (2.0, 8.0)
+
+
+def transient(exc: BaseException) -> bool:
+    """A failure that a later request may not have: a timeout, a dropped connection, a server error."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    return isinstance(exc, httpx.TransportError)
+
+
 GLEIF_CANDIDATES = 10
 
 
@@ -95,17 +108,37 @@ class Resolution:
     candidates: list[Candidate] = field(default_factory=list)
 
 
+def one_word(company: str) -> bool:
+    """A name of one word or an acronym ("AUSA", "Wharton"): many organisations share it, so the name alone does
+    not say which one is meant."""
+    return len(words(company)) <= 1
+
+
 def settle(company: str, website: str, candidates: list[Candidate]) -> Resolution:
     """The strongest matches decide: an entity whose official website is the company's, else exact name matches,
-    else word matches; within the strongest kind every entity must agree on the country."""
+    else word matches; within the strongest kind every entity must agree on the country.
+
+    A name is one signal; a registry match needs a second that does not contradict it. An entity whose official
+    website is another site than the company's is another organisation, whatever its name ("AUSA": the Spanish
+    maker at ausa.com is not the US army association at ausa.org, 2026-10-30). And a one-word or acronym name
+    matched by name alone, with no website to compare, settles nothing."""
     site = registered_domain(website) if website else ""
     for c in candidates:
-        c.how = "website" if site and c.website and registered_domain(c.website) == site else name_match(company,
-                                                                                                         c.name)
+        theirs = registered_domain(c.website) if c.website else ""
+        if site and theirs and theirs == site:
+            c.how = "website"
+        elif site and theirs:
+            c.how = ""  # the same name on another organisation's site: not this company
+        else:
+            c.how = name_match(company, c.name)
     for kind in ("website", "exact"):
         group = [c for c in candidates if c.how == kind and c.country]
         if not group:
             continue
+        if kind == "exact" and one_word(company) and not site:
+            names = "; ".join(f"{c.name} ({c.registry} {c.ident}, {c.country})" for c in group[:4])
+            return Resolution(detail=f"only the name matches, and a one-word name is shared by many organisations; "
+                                     f"no website to tell them apart: {names}", candidates=candidates)
         countries = {c.country for c in group}
         names = "; ".join(f"{c.name} ({c.registry} {c.ident}, {c.country})" for c in group[:4])
         if len(countries) > 1:
@@ -122,9 +155,11 @@ def settle(company: str, website: str, candidates: list[Candidate]) -> Resolutio
 
 
 class EntityResolver:
-    def __init__(self, client: httpx.AsyncClient, gleif_gap: float = GLEIF_GAP) -> None:
+    def __init__(self, client: httpx.AsyncClient, gleif_gap: float = GLEIF_GAP,
+                 retry_waits: tuple[float, ...] = REGISTRY_RETRY_WAITS) -> None:
         self.client = client
         self.gleif_gap = gleif_gap
+        self.retry_waits = retry_waits
         self.cache: dict[str, Resolution] = {}  # per job: one lookup per name
         self.wd = WikidataProvider(client)
         self.problems: list[str] = []
@@ -134,14 +169,29 @@ class EntityResolver:
         if key in self.cache:
             return self.cache[key]
         candidates: list[Candidate] = []
+        failed: list[str] = []
         for source in (self._wikidata, self._gleif, self._sec):
-            try:
-                candidates += await source(company)
-            except (httpx.HTTPError, ValueError, KeyError, BlockedDestination) as exc:
-                problem = f"{source.__name__.strip('_')}: {type(exc).__name__}"
-                if problem not in self.problems:
-                    self.problems.append(problem)
-        result = self.cache[key] = settle(company, website, candidates)
+            for wait in (*self.retry_waits, None):
+                try:
+                    candidates += await source(company)
+                    break
+                except (httpx.HTTPError, ValueError, KeyError, BlockedDestination) as exc:
+                    if wait is not None and transient(exc):
+                        await asyncio.sleep(wait)  # a busy moment: asked again, not given up on
+                        continue
+                    name = source.__name__.strip("_")
+                    problem = f"{name}: {type(exc).__name__}"
+                    if problem not in self.problems:
+                        self.problems.append(problem)
+                    failed.append(name)
+                    break
+        result = settle(company, website, candidates)
+        if failed and not result.country:
+            # Not "no entity matches": a registry could not be asked. Kept out of the job's record of answers, so
+            # the next step that needs this name asks again.
+            result.detail = f"registry lookup failed ({', '.join(failed)}); {result.detail}"
+            return result
+        self.cache[key] = result
         return result
 
     async def _wikidata(self, company: str) -> list[Candidate]:
@@ -207,9 +257,29 @@ class EntityResolver:
 
 def resolution_facts(company: str, site: str, res: Resolution) -> list[dict[str, Any]]:
     """The facts a resolution establishes, for company_facts."""
+    source_url = _registry_source_url(res)
     facts = [{"site": site, "company": company, "kind": "country", "value": res.country, "by": res.by or "registry",
-              "detail": res.detail, "source_url": "", "quote": ""}]
+              "detail": res.detail, "source_url": source_url, "quote": ""}]
     if res.website:
         facts.append({"site": registered_domain(res.website) or site, "company": company, "kind": "website",
-                      "value": res.website, "by": res.by, "detail": res.detail, "source_url": "", "quote": ""})
+                      "value": res.website, "by": res.by, "detail": res.detail,
+                      "source_url": source_url, "quote": ""})
     return facts
+
+
+def _registry_source_url(res: Resolution) -> str:
+    """Return the official record for the entity that settled the country match."""
+    registry = res.by.removeprefix("registry:").strip().casefold()
+    candidate = next((item for item in res.candidates
+                      if item.registry == registry and item.country == res.country
+                      and item.how in ("website", "exact")), None)
+    if candidate is None:
+        return ""
+    ident = candidate.ident
+    if registry == "wikidata" and re.fullmatch(r"Q\d+", ident):
+        return f"https://www.wikidata.org/wiki/{ident}"
+    if registry == "gleif" and re.fullmatch(r"[A-Z0-9]{20}", ident):
+        return f"https://api.gleif.org/api/v1/lei-records/{quote(ident, safe='')}"
+    if registry == "sec" and ident.isdigit():
+        return f"https://www.sec.gov/edgar/browse/?CIK={int(ident)}"
+    return ""
