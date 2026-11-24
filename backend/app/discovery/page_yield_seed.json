@@ -1,0 +1,27 @@
+{
+ "_source": "Pages read and pages with kept proof, by page_kind, in the six scored runs of 2026-10-30 (d6b132b/f3fff15). Updated by every run in data_dir/page_yield.json.",
+ "other": {
+  "read": 157,
+  "proof": 20
+ },
+ "story": {
+  "read": 141,
+  "proof": 73
+ },
+ "news": {
+  "read": 92,
+  "proof": 36
+ },
+ "offer": {
+  "read": 60,
+  "proof": 4
+ },
+ "article": {
+  "read": 79,
+  "proof": 16
+ },
+ "jobs": {
+  "read": 31,
+  "proof": 7
+ }
+}

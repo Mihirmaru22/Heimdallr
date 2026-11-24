@@ -85,3 +85,90 @@ def test_countries_a_sentence_names_and_states():
     assert countries_named("Kemwell BioPharma, India's largest biologics CDMO") == {"IN"}
     assert countries_named("it helps us grow") == set()  # "us" the word is not the US
     assert countries_named("offices in the US and Germany") == {"US", "DE"}
+
+
+async def test_a_registry_that_times_out_is_asked_again_and_a_failure_is_not_kept_as_no_match():
+    calls = {"gleif": 0}
+
+    def handler(request):
+        if "wikidata" in request.url.host:
+            return httpx.Response(200, json={"search": []})
+        calls["gleif"] += 1
+        if calls["gleif"] == 1:
+            raise httpx.ReadTimeout("busy")  # a busy moment, then an answer
+        return httpx.Response(200, json={"data": [{"id": "L1", "attributes": {"lei": "L1", "entity": {
+            "legalName": {"name": "GREENSILL CAPITAL (UK) LIMITED"}, "status": "ACTIVE",
+            "legalAddress": {"country": "GB", "city": "Warrington"},
+            "headquartersAddress": {"country": "GB", "city": "Warrington"}}}}]})
+
+    async def no_sec(_company):
+        return []
+
+    resolver = EntityResolver(httpx.AsyncClient(transport=httpx.MockTransport(handler)), gleif_gap=0,
+                              retry_waits=(0.0, 0.0))
+    resolver._sec = no_sec
+    res = await resolver.resolve("Greensill Capital")
+    assert res.country == "GB" and calls["gleif"] == 2
+
+    def down(request):
+        if "wikidata" in request.url.host:
+            return httpx.Response(200, json={"search": []})
+        return httpx.Response(503)
+
+    resolver = EntityResolver(httpx.AsyncClient(transport=httpx.MockTransport(down)), gleif_gap=0,
+                              retry_waits=(0.0, 0.0))
+    resolver._sec = no_sec
+    res = await resolver.resolve("Greensill Capital")
+    assert res.country == "" and res.detail.startswith("registry lookup failed (gleif)")
+    assert not resolver.cache  # not kept: the next step that needs the name asks again
+
+
+def test_each_source_reading_pages_gets_an_equal_share_of_the_budget_left():
+    from app.crawl.runner import reading_share
+
+    assert reading_share(0.0, 3600.0, 2) == 1800.0  # case studies, then news: half each
+    assert reading_share(600.0, 3600.0, 1) == 3600.0  # the last source gets all that is left, early finish included
+    assert reading_share(4000.0, 3600.0, 1) == 4000.0  # past the deadline: no time
+
+
+def test_sources_with_open_ended_candidates_read_last_and_take_the_time_left():
+    from types import SimpleNamespace
+
+    from app.crawl.runner import reading_order, reading_share
+
+    cases = SimpleNamespace(name="case_studies", deadline=None, open_ended=True)
+    news = SimpleNamespace(name="news", deadline=None, open_ended=False)
+    filings = SimpleNamespace(name="sec_filings")
+    assert [p.name for p in reading_order([filings, cases, news])] == ["sec_filings", "news", "case_studies"]
+    # News is unreachable and ends at once: case studies, last, get the whole hour that is left, not half.
+    assert reading_share(0.0, 3600.0, 2) == 1800.0
+    assert reading_share(5.0, 3600.0, 1) == 3600.0
+
+
+def test_a_name_needs_a_second_signal_that_does_not_contradict_it():
+    army = Candidate("wikidata", "Q4810147", "AUSA", "US", website="https://www.ausa.org/")
+    # The Spanish maker's own site is ausa.com: the association at ausa.org is another organisation.
+    assert settle("AUSA", "https://ausa.com/", [army]).country == ""
+    # A one-word name matched by name alone, with no website to compare, settles nothing.
+    school = Candidate("wikidata", "Q1329269", "Wharton", "US", website="https://www.wharton.upenn.edu/")
+    res = settle("Wharton", "", [school])
+    assert res.country == "" and "one-word name" in res.detail
+    # The same entity with the company's own website agreeing settles it, one word or not.
+    dell = Candidate("wikidata", "Q30873", "Dell", "US", website="https://www.dell.com/")
+    assert settle("Dell", "https://www.dell.com/en-us", [dell]).country == "US"
+    # A name of several words matched exactly still settles without a website.
+    hs = Candidate("wikidata", "Q8961925", "Folio Society", "GB")
+    assert settle("The Folio Society", "", [hs]).country == "GB"
+
+
+def test_a_registry_country_fact_links_the_official_record_that_settled_it():
+    cands = [Candidate("wikidata", "Q1", "EnerSys", "US", website="https://www.enersys.com/")]
+    res = settle("EnerSys", "https://www.enersys.com/", cands)
+    (country, website) = resolution_facts("EnerSys", "enersys.com", res)
+    assert country["source_url"] == "https://www.wikidata.org/wiki/Q1"
+    assert website["source_url"] == "https://www.wikidata.org/wiki/Q1"
+
+    lei = "529900ABCDEFGHIJ1234"
+    res = settle("Kemwell BioPharma", "", [Candidate("gleif", lei, "KEMWELL BIOPHARMA PRIVATE LIMITED", "IN")])
+    (country,) = resolution_facts("Kemwell BioPharma", "", res)
+    assert country["source_url"] == f"https://api.gleif.org/api/v1/lei-records/{lei}"

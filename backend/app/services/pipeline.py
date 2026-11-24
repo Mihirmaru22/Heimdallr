@@ -140,8 +140,37 @@ def run_job(job_id: uuid.UUID, *, resolver=None, redis=None, client_factory=None
     if _held_elsewhere(job):
         log.warning("job %s is already being worked on; this duplicate delivery does nothing", job_id)
         return "running_elsewhere"
-    with _beating(job_id, org.id):
-        return _run(job_id, job, org, schema, resolver, redis, client_factory)
+    from app.llm.openrouter import JOB
+
+    token = JOB.set(str(job_id))  # every model call made for this job is counted under it, by step
+    try:
+        with _beating(job_id, org.id):
+            return _run(job_id, job, org, schema, resolver, redis, client_factory)
+    finally:
+        JOB.reset(token)
+        _keep_model_calls(job_id, org.id, schema.id)
+
+
+def _keep_model_calls(job_id: uuid.UUID, org_id: uuid.UUID, schema_id: uuid.UUID) -> None:
+    """The job's model calls per step (answered and failed), stored with the job, and its plan's calls: the report
+    reads them from the job, not from Redis, which keeps them only for a while."""
+    from app.llm.openrouter import State
+
+    try:
+        state = State()
+        calls, plan = state.calls(str(job_id)), state.calls(f"schema:{schema_id}")
+    except Exception:  # noqa: BLE001 - counts are a report, never a reason to fail the job
+        log.warning("could not read the model call counts of job %s", job_id)
+        return
+    with session_scope(org_id) as db:
+        job = db.get(CrawlJob, job_id)
+        if job is not None:
+            # Flat integer counters ("model_calls.proof_read.answered"), like every other counter of a job.
+            flat = {f"{scope}.{step}.{outcome}": n for scope, counts in (("model_calls", calls),
+                                                                          ("plan_model_calls", plan))
+                    for step, c in counts.items() for outcome, n in c.items()}
+            job.counters = {**{k: v for k, v in (job.counters or {}).items() if not k.startswith(
+                ("model_calls.", "plan_model_calls."))}, **flat, "model_calls_kept": 1}
 
 
 def _run(job_id: uuid.UUID, job: CrawlJob, org: Organization, schema: ExtractionSchema, resolver, redis,

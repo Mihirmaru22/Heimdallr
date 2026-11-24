@@ -439,3 +439,62 @@ class JobCompany(Base):
     record_id: Mapped[uuid.UUID | None] = mapped_column(UUIDPK, ForeignKey("extracted_records.id", ondelete="SET NULL"),
                                                        nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CatalogCompany(TimestampMixin, Base):
+    """An organization-scoped identity that accumulates sourced claims across research jobs."""
+
+    __tablename__ = "catalog_companies"
+    __table_args__ = (UniqueConstraint("org_id", "identity_key"),)
+    id: Mapped[uuid.UUID] = mapped_column(UUIDPK, primary_key=True, default=new_id)
+    org_id: Mapped[uuid.UUID] = org_fk()
+    identity_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    name: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    website: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    domain: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class CatalogClaim(TimestampMixin, Base):
+    """A normalized company fact with its original source and an explicit review state."""
+
+    __tablename__ = "catalog_claims"
+    __table_args__ = (
+        UniqueConstraint("company_id", "claim_key"),
+        Index("ix_catalog_claims_company_status", "company_id", "verification_status"),
+        Index("ix_catalog_claims_org_field", "org_id", "field_key"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(UUIDPK, primary_key=True, default=new_id)
+    org_id: Mapped[uuid.UUID] = org_fk()
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDPK, ForeignKey("catalog_companies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    claim_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    field_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    value: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    raw_value: Mapped[Any] = mapped_column(JSONB, default=dict, nullable=False)
+    display_value: Mapped[str] = mapped_column(Text, nullable=False)
+    verification_status: Mapped[str] = mapped_column(String(20), nullable=False)  # verified|needs_review|rejected
+    verification_method: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    source_url: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    source_origin: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    # Shared source family lets syndicated mirrors be counted as one origin for corroboration.
+    source_group: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    source_record_id: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    source_license: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    quote: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    source_type: Mapped[str] = mapped_column(String(100), default="", nullable=False)
+    source_date: Mapped[str] = mapped_column(String(10), default="", nullable=False)
+    relationship: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    source_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUIDPK, ForeignKey("crawl_jobs.id", ondelete="SET NULL")
+    )
+    source_evidence_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUIDPK, ForeignKey("evidence.id", ondelete="SET NULL")
+    )
+    verified_by: Mapped[uuid.UUID | None] = mapped_column(UUIDPK, ForeignKey("users.id", ondelete="SET NULL"))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
