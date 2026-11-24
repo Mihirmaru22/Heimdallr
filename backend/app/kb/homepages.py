@@ -17,6 +17,9 @@ which is often overloaded): the small cluster.idx file is downloaded once per cr
 locally, and only the index block holding a domain is fetched, by byte range, from
 data.commoncrawl.org. Domains are processed in index order, so neighbours share a block.
 
+With --own-fetch every site is first fetched once directly (app.kb.sitefetch), which finds about
+twice as many homepages; Common Crawl then fills in the live sites that fetch missed.
+
 Domains shared by many PDL rows (business.site, instagram.com, linktr.ee...) are hosting
 platforms or directories, not one company's site, so they are skipped: see SHARED_DOMAIN_LIMIT.
 """
@@ -326,17 +329,40 @@ def extract(domain: str, crawl: str, url: str, fetched_at: str, html: str) -> Ho
 
 async def read_homepage(client: httpx.AsyncClient, readers: list[IndexReader], domain: str,
                         own_fetch: Callable | None = None, cc_slots: asyncio.Semaphore | None = None) -> Homepage:
-    """Try the newest crawl first, then older ones, until one has the homepage; then, if given,
-    `own_fetch` (a DNS check and one polite fetch of the site itself)."""
-    page, misses, redirected_to = await _from_common_crawl(client, readers, domain, cc_slots or asyncio.Semaphore(1))
+    """With `own_fetch` (a DNS check and one polite fetch of the site itself): that first, and
+    Common Crawl only for a live site the fetch did not get (refused, timed out, not HTML).
+    Without it: the newest crawl first, then older ones, until one has the homepage."""
+    slots = cc_slots or asyncio.Semaphore(1)
+    if own_fetch is None:
+        return await common_crawl_page(client, readers, domain, slots)
+    own = await own_fetch(domain)
+    if not needs_common_crawl(own):
+        return own
+    return merge(own, await common_crawl_page(client, readers, domain, slots))
+
+
+def needs_common_crawl(own: Homepage) -> bool:
+    """A dead domain (no DNS) has no website to describe; anything else our fetch missed may
+    still be in Common Crawl."""
+    return not own.found and own.miss != "dns_dead"
+
+
+def merge(own: Homepage, cc: Homepage) -> Homepage:
+    """Common Crawl's page when it has one; otherwise our row, with both miss reasons."""
+    if cc.found:
+        return cc
+    own.miss = f"{cc.miss or 'cc_error'}+{own.miss}" if own.miss else own.miss  # e.g. no_capture+site_timeout
+    own.error = own.error or cc.error
+    own.redirected_to = own.redirected_to or cc.redirected_to
+    return own
+
+
+async def common_crawl_page(client: httpx.AsyncClient, readers: list[IndexReader], domain: str,
+                            slots: asyncio.Semaphore) -> Homepage:
+    page, misses, redirected_to = await _from_common_crawl(client, readers, domain, slots)
     if page is not None:
         return page
     miss = next((m for m in misses if m != "no_capture"), "no_capture")
-    if own_fetch is not None:
-        page = await own_fetch(domain)
-        page.miss = page.miss and f"{miss}+{page.miss}"  # e.g. no_capture+dns_dead
-        page.redirected_to = page.redirected_to or redirected_to
-        return page
     return Homepage(domain, found=False, crawl=readers[0].crawl, miss=miss, redirected_to=redirected_to)
 
 
@@ -483,14 +509,36 @@ async def collect(domains: list[str], crawls: list[str] | None, on_page: Callabl
             queue.put_nowait(d)
 
         cc_slots = asyncio.Semaphore(concurrency)  # Common Crawl sees at most `concurrency` requests at once
+        if own_fetch is None:
+            async def worker() -> None:
+                while not queue.empty():
+                    on_page(await common_crawl_page(client, readers, queue.get_nowait(), cc_slots))
 
-        async def worker() -> None:
+            await asyncio.gather(*(worker() for _ in range(concurrency)))
+            return crawls
+
+        # Two lanes, so neither waits on the other: our own fetch of every site (OWN_WORKERS at a
+        # time), and Common Crawl for the live sites it missed. When Common Crawl asks everyone to
+        # slow down (a 30-120 s pause), only its own lane stops; the own fetch carries on.
+        fallback: asyncio.Queue[Homepage | None] = asyncio.Queue()
+
+        async def own_worker() -> None:
             while not queue.empty():
-                on_page(await read_homepage(client, readers, queue.get_nowait(), own_fetch, cc_slots))
+                page = await own_fetch(queue.get_nowait())
+                if needs_common_crawl(page):
+                    fallback.put_nowait(page)
+                else:
+                    on_page(page)
 
-        # Own fetches wait on slow sites, so there are enough workers to fill every own-fetch slot
-        # and still keep Common Crawl's slots busy meanwhile.
-        await asyncio.gather(*(worker() for _ in range(concurrency + (OWN_WORKERS if own_fetch else 0))))
+        async def cc_worker() -> None:
+            while (own_page := await fallback.get()) is not None:
+                on_page(merge(own_page, await common_crawl_page(client, readers, own_page.domain, cc_slots)))
+
+        cc_lane = [asyncio.create_task(cc_worker()) for _ in range(concurrency)]
+        await asyncio.gather(*(own_worker() for _ in range(OWN_WORKERS)))
+        for _ in cc_lane:
+            fallback.put_nowait(None)
+        await asyncio.gather(*cc_lane)
         return crawls
     finally:
         if own:

@@ -18,7 +18,7 @@ case "${1:-}" in
   doubt)
     cli kb-teach --model claude --export-pages "${2:-1000}" --uncertain --out ~/claude_pages.csv ;;
   batch)
-    cli kb-homepages --own-fetch --biggest-first --country "${3:-GB,IN,US}" --limit "${2:-30000}" --concurrency 8
+    cli kb-homepages --own-fetch --biggest-first --country "${3:-GB,IN,US}" --limit "${2:-30000}" --concurrency 4
     cli kb-classify
     uv run python -c "import psycopg; from app.kb.pdl import kb_dsn; \
 print('Usable companies (real homepage, labelled):', \

@@ -238,14 +238,56 @@ def test_a_refused_index_block_fails_only_its_domain_and_is_retried_later(tmp_pa
     assert homepages._pause_until > 0  # the 403s paused everyone
 
 
-def test_own_fetch_runs_only_after_every_crawl_missed():
-    new = _FakeReader("CC-MAIN-2026-44", [_cdx_line("com,gone)/", "https://gone.com/", "f", 0, 1, status="404")])
+def test_own_fetch_first_and_common_crawl_only_for_live_sites_it_missed():
+    new = _FakeReader("CC-MAIN-2026-44", [_cdx_line("com,gone)/", "https://gone.com/", "f", 0, 1, status="404"),
+                                          _cdx_line("com,acmepay)/", "https://acmepay.com/", "x/home.warc.gz",
+                                                    100, len(_warc(HTML)))])
     calls = []
+    misses = {"gone.com": "site_timeout", "dead.com": "dns_dead", "acmepay.com": "site_http_403"}
 
     async def own(domain):
         calls.append(domain)
-        return homepages.Homepage(domain, found=False, crawl="own", miss="dns_dead")
+        if domain == "mine.com":
+            return homepages.Homepage(domain, found=True, crawl="own", url="https://mine.com/")
+        return homepages.Homepage(domain, found=False, crawl="own", miss=misses[domain])
 
+    seen = []
+    client = httpx.AsyncClient(transport=_transport(_warc(HTML), seen))
+    read = lambda d: asyncio.run(homepages.read_homepage(client, [new], d, own))  # noqa: E731
+    assert read("mine.com").crawl == "own" and not seen  # found by our fetch: Common Crawl not asked
+    assert read("dead.com").miss == "dns_dead" and not seen  # dead domain: Common Crawl not asked
+    assert read("gone.com").miss == "error_status_404+site_timeout"
+    page = read("acmepay.com")  # our fetch was refused; Common Crawl's copy is used
+    assert page.found and page.crawl == "CC-MAIN-2026-44"
+    assert calls == ["mine.com", "dead.com", "gone.com", "acmepay.com"]
+
+
+def test_a_common_crawl_pause_does_not_hold_up_the_own_fetch(tmp_path, monkeypatch):
+    """The two lanes: every own fetch finishes while Common Crawl's lane is still waiting."""
+    order = []
+    released = asyncio.Event()
+
+    async def slow_cc(client, readers, domain, slots):
+        await released.wait()
+        order.append(f"cc:{domain}")
+        return homepages.Homepage(domain, found=False, crawl="CC", miss="no_capture")
+
+    async def own(domain):
+        order.append(f"own:{domain}")
+        if domain == "d9.com":
+            released.set()  # Common Crawl answers only once the last own fetch has run
+        return homepages.Homepage(domain, found=False, crawl="own", miss="site_timeout")
+
+    async def no_index(client, crawl, data_dir):
+        return homepages.ClusterIndex(["a)/ 1\tcdx.gz\t0\t1\t1"])
+
+    monkeypatch.setattr(homepages, "common_crawl_page", slow_cc)
+    monkeypatch.setattr(homepages, "cluster_index", no_index)
+    monkeypatch.setattr(homepages, "OWN_WORKERS", 2)
+    pages = []
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
-    page = asyncio.run(homepages.read_homepage(client, [new], "gone.com", own))
-    assert calls == ["gone.com"] and page.miss == "error_status_404+dns_dead"
+    domains = [f"d{i}.com" for i in range(10)]
+    asyncio.run(homepages.collect(domains, ["CC-MAIN-2026-44"], pages.append, tmp_path, 1, client=client,
+                                  own_fetch=own))
+    assert len(pages) == 10 and all(p.miss == "no_capture+site_timeout" for p in pages)
+    assert all(o.startswith("own:") for o in order[:10])  # no own fetch waited for Common Crawl
