@@ -5,6 +5,10 @@
 3. One GET of the homepage (https, then www., then http), through the app's SSRF-checked Fetcher.
    A 403, 429 or other refusal is recorded and left alone: blocks are never bypassed.
 
+One try per request, no retries: this reads millions of small sites once each, and a site that
+does not answer in time is recorded as such. Retries with backoff (the research crawler's
+setting) made a dead site cost about two minutes and held the whole run to 0.2 sites a second.
+
 Each step's outcome is kept as the miss reason, so the report shows where the rest of the
 "no capture" sites went: dns_dead, robots_disallowed, site_http_403, site_timeout...
 """
@@ -23,6 +27,7 @@ from app.crawl.robots import RobotsCache
 from app.kb.homepages import Homepage, extract
 
 OWN = "own"
+OWN_CONCURRENCY = 64  # different sites at a time; each site still gets one request at a time
 
 
 async def dns_alive(domain: str, timeout: float = 5.0) -> bool:
@@ -36,11 +41,11 @@ async def dns_alive(domain: str, timeout: float = 5.0) -> bool:
     return False
 
 
-def own_fetcher(client: httpx.AsyncClient, user_agent: str, concurrency: int = 16,
+def own_fetcher(client: httpx.AsyncClient, user_agent: str, concurrency: int = OWN_CONCURRENCY,
                 alive: Callable[[str], Awaitable[bool]] = dns_alive,
                 resolver=None) -> Callable[[str], Awaitable[Homepage]]:
     fetcher = Fetcher(client, resolver=resolver)
-    robots = RobotsCache(fetcher, user_agent)
+    robots = RobotsCache(fetcher, user_agent, attempts=1)
     slots = asyncio.Semaphore(concurrency)
 
     async def fetch(domain: str) -> Homepage:
@@ -54,7 +59,7 @@ def own_fetcher(client: httpx.AsyncClient, user_agent: str, concurrency: int = 1
                     if not decision.allowed:
                         last = "robots_disallowed" if "disallowed by" in decision.reason else "robots_unreachable"
                         continue
-                    result = await fetcher.fetch(url, attempts=2)
+                    result = await fetcher.fetch(url, attempts=1)
                 except FetchError as exc:
                     last = f"site_{exc.kind}"
                     if exc.kind.startswith("http_4") or exc.kind == "blocked":

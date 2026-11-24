@@ -116,6 +116,7 @@ async def latest_crawls(client: httpx.AsyncClient, count: int = 1) -> list[str]:
 # not just the one that was refused: slowing down is what the server is asking for.
 _pause_until = 0.0
 SLOW_DOWN = (403, 429, 503)
+OWN_WORKERS = 64  # matches app.kb.sitefetch.OWN_CONCURRENCY (that module imports this one)
 RETRY = (502, 504)
 
 
@@ -487,8 +488,9 @@ async def collect(domains: list[str], crawls: list[str] | None, on_page: Callabl
             while not queue.empty():
                 on_page(await read_homepage(client, readers, queue.get_nowait(), own_fetch, cc_slots))
 
-        # Own fetches wait on slow sites, so more workers keep Common Crawl's slots busy meanwhile.
-        await asyncio.gather(*(worker() for _ in range(concurrency * (5 if own_fetch else 1))))
+        # Own fetches wait on slow sites, so there are enough workers to fill every own-fetch slot
+        # and still keep Common Crawl's slots busy meanwhile.
+        await asyncio.gather(*(worker() for _ in range(concurrency + (OWN_WORKERS if own_fetch else 0))))
         return crawls
     finally:
         if own:

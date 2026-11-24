@@ -360,10 +360,16 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
             fetch_own = None
             site_client = None
             if own_fetch:
-                from app.kb.sitefetch import own_fetcher
+                from concurrent.futures import ThreadPoolExecutor
 
-                site_client = httpx.AsyncClient(
-                    timeout=httpx.Timeout(settings.read_timeout, connect=settings.connect_timeout),
+                from app.kb.sitefetch import OWN_CONCURRENCY, own_fetcher
+
+                # DNS lookups run in the default thread pool (about 14 threads); with 64 sites at a time
+                # they would queue there and run into dns_alive's timeout, reading live sites as dead.
+                asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(2 * OWN_CONCURRENCY))
+
+                site_client = httpx.AsyncClient(  # short: one try per site, a slow site is recorded as slow
+                    timeout=httpx.Timeout(10.0, connect=5.0),
                     headers={"User-Agent": settings.user_agent}, follow_redirects=False)
                 fetch_own = own_fetcher(site_client, settings.user_agent)
             try:
