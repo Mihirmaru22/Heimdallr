@@ -282,8 +282,9 @@ class IndexReader:
                 return None, "redirect_unfollowed", redirected_to
             if any(r.get("status") == "200" for r in exact):
                 return None, "not_html", redirected_to
-            statuses = Counter(str(r.get("status", "")) for r in exact)
-            return None, f"error_status_{statuses.most_common(1)[0][0]}", redirected_to
+            statuses = Counter(str(r.get("status", "")) for r in (exact or same_host))
+            status_tag = statuses.most_common(1)[0][0] if statuses else "unknown"
+            return None, f"error_status_{status_tag}", redirected_to
         return None, "redirect_unfollowed", redirected_to
 
 
