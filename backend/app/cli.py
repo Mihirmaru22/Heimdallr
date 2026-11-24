@@ -321,7 +321,8 @@ def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
 
 
 def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, concurrency: int, sample: bool,
-                 crawl_count: int, again: bool, own_fetch: bool, biggest_first: bool = False) -> None:
+                 crawl_count: int, again: bool, own_fetch: bool, biggest_first: bool = False,
+                 own_lanes: int = 128) -> None:
     import asyncio
     import time
     from pathlib import Path
@@ -344,6 +345,7 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
         summary = homepages.Summary()
         started = time.monotonic()
         window = {"start": started, "stall": 0.0}
+        status: dict = {}
 
         def on_page(page) -> None:
             homepages.save(conn, page)
@@ -351,8 +353,10 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
             if summary.domains % 500 == 0:  # speed over the last 500 sites, so start-up time does not count
                 now = time.monotonic()
                 rate = 500 / max(0.1, now - window["start"])
+                waiting = status["cc_waiting"]() if "cc_waiting" in status else 0
                 print(f"  {summary.domains:,} done, {summary.found:,} found, {rate:.1f} sites/s; "
-                      f"event loop stalled up to {window['stall']:.1f} s", flush=True)
+                      f"event loop stalled up to {window['stall']:.1f} s; {waiting:,} waiting for Common Crawl",
+                      flush=True)
                 window.update(start=now, stall=0.0)
 
         async def watch_loop() -> None:
@@ -375,21 +379,22 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
             if own_fetch:
                 from concurrent.futures import ThreadPoolExecutor
 
-                from app.kb.sitefetch import OWN_CONCURRENCY, own_fetcher
+                from app.kb.sitefetch import own_fetcher
 
-                # DNS lookups run in the default thread pool (about 14 threads); with 64 sites at a time
+                # DNS lookups run in the default thread pool (about 14 threads); with many sites at a time
                 # they would queue there and run into dns_alive's timeout, reading live sites as dead.
-                asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(2 * OWN_CONCURRENCY))
+                asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(2 * own_lanes))
 
                 site_client = httpx.AsyncClient(  # short: one try per site, a slow site is recorded as slow
                     timeout=httpx.Timeout(10.0, connect=5.0),
                     headers={"User-Agent": settings.user_agent}, follow_redirects=False)
-                fetch_own = own_fetcher(site_client, settings.user_agent)
+                fetch_own = own_fetcher(site_client, settings.user_agent, concurrency=own_lanes)
             watcher = asyncio.create_task(watch_loop())
             try:
                 return await homepages.collect(
                     domains, crawl, on_page, Path(settings.data_dir), concurrency, user_agent=settings.user_agent,
-                    on_crawl=on_crawl, crawl_count=crawl_count, own_fetch=fetch_own)
+                    on_crawl=on_crawl, crawl_count=crawl_count, own_fetch=fetch_own,
+                    own_lanes=own_lanes, status=status)
             finally:
                 watcher.cancel()
                 if site_client is not None:
@@ -596,6 +601,8 @@ def main() -> None:
     p.add_argument("--concurrency", type=int, default=4, help="requests at a time (default 4; be gentle)")
     p.add_argument("--sample", action="store_true", help="a random sample of domains (for trials)")
     p.add_argument("--again", action="store_true", help="re-read the domains already in kb.homepage")
+    p.add_argument("--own-lanes", type=int, default=128,
+                   help="with --own-fetch: different sites fetched at a time (default 128)")
     p.add_argument("--own-fetch", action="store_true",
                    help="for homepages Common Crawl lacks: DNS check, then one robots-respecting fetch of the site")
     p = sub.add_parser("kb-teach", help="teacher labels for kb-train from a local open model (Ollama)")
@@ -634,7 +641,7 @@ def main() -> None:
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":
         return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample, args.crawls,
-                            args.again, args.own_fetch, args.biggest_first)
+                            args.again, args.own_fetch, args.biggest_first, args.own_lanes)
     if args.cmd == "kb-load-pdl":
         return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":

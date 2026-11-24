@@ -27,7 +27,7 @@ from app.crawl.robots import RobotsCache
 from app.kb.homepages import Homepage, extract
 
 OWN = "own"
-OWN_CONCURRENCY = 64  # different sites at a time; each site still gets one request at a time
+OWN_CONCURRENCY = 128  # different sites at a time; each site still gets one request at a time
 
 
 async def dns_alive(domain: str, timeout: float = 5.0) -> bool:

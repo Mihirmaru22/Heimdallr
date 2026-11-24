@@ -119,7 +119,7 @@ async def latest_crawls(client: httpx.AsyncClient, count: int = 1) -> list[str]:
 # not just the one that was refused: slowing down is what the server is asking for.
 _pause_until = 0.0
 SLOW_DOWN = (403, 429, 503)
-OWN_WORKERS = 64  # matches app.kb.sitefetch.OWN_CONCURRENCY (that module imports this one)
+OWN_WORKERS = 128  # default own-fetch lanes; matches app.kb.sitefetch.OWN_CONCURRENCY (that module imports this one)
 RETRY = (502, 504)
 
 
@@ -495,8 +495,11 @@ def save(conn, page: Homepage) -> None:
 async def collect(domains: list[str], crawls: list[str] | None, on_page: Callable[[Homepage], None],
                   data_dir: Path, concurrency: int = 4, client: httpx.AsyncClient | None = None,
                   user_agent: str = "heimdallr-kb", on_crawl: Callable[[str], None] | None = None,
-                  crawl_count: int = 1, own_fetch: Callable | None = None) -> list[str]:
+                  crawl_count: int = 1, own_fetch: Callable | None = None, own_lanes: int | None = None,
+                  status: dict | None = None) -> list[str]:
     """Read every domain's homepage, `concurrency` at a time, handing each result to `on_page`.
+    With own_fetch, `own_lanes` sites are fetched at a time; status["cc_waiting"]() then tells how
+    many sites are queued for Common Crawl.
     Each domain is looked up in the given crawls (or the newest `crawl_count`), newest first."""
     own = client is None
     client = client or httpx.AsyncClient(timeout=httpx.Timeout(60, connect=20), headers={"User-Agent": user_agent},
@@ -521,10 +524,12 @@ async def collect(domains: list[str], crawls: list[str] | None, on_page: Callabl
             await asyncio.gather(*(worker() for _ in range(concurrency)))
             return crawls
 
-        # Two lanes, so neither waits on the other: our own fetch of every site (OWN_WORKERS at a
+        # Two lanes, so neither waits on the other: our own fetch of every site (own_lanes at a
         # time), and Common Crawl for the live sites it missed. When Common Crawl asks everyone to
         # slow down (a 30-120 s pause), only its own lane stops; the own fetch carries on.
         fallback: asyncio.Queue[Homepage | None] = asyncio.Queue()
+        if status is not None:
+            status["cc_waiting"] = fallback.qsize
 
         async def own_worker() -> None:
             while not queue.empty():
@@ -539,7 +544,7 @@ async def collect(domains: list[str], crawls: list[str] | None, on_page: Callabl
                 on_page(merge(own_page, await common_crawl_page(client, readers, own_page.domain, cc_slots)))
 
         cc_lane = [asyncio.create_task(cc_worker()) for _ in range(concurrency)]
-        await asyncio.gather(*(own_worker() for _ in range(OWN_WORKERS)))
+        await asyncio.gather(*(own_worker() for _ in range(own_lanes or OWN_WORKERS)))
         for _ in cc_lane:
             fallback.put_nowait(None)
         await asyncio.gather(*cc_lane)

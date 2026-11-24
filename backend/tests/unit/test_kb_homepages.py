@@ -283,11 +283,11 @@ def test_a_common_crawl_pause_does_not_hold_up_the_own_fetch(tmp_path, monkeypat
 
     monkeypatch.setattr(homepages, "common_crawl_page", slow_cc)
     monkeypatch.setattr(homepages, "cluster_index", no_index)
-    monkeypatch.setattr(homepages, "OWN_WORKERS", 2)
-    pages = []
+    pages, status = [], {}
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
     domains = [f"d{i}.com" for i in range(10)]
     asyncio.run(homepages.collect(domains, ["CC-MAIN-2026-44"], pages.append, tmp_path, 1, client=client,
-                                  own_fetch=own))
+                                  own_fetch=own, own_lanes=2, status=status))
+    assert status["cc_waiting"]() == 0  # the Common Crawl queue was emptied at the end
     assert len(pages) == 10 and all(p.miss == "no_capture+site_timeout" for p in pages)
     assert all(o.startswith("own:") for o in order[:10])  # no own fetch waited for Common Crawl
