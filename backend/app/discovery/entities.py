@@ -7,7 +7,9 @@ company as Indian. Registries record these facts about legal entities:
 
 - Wikidata: country (P17), headquarters (P159), official website (P856);
 - GLEIF: legal and headquarters address of every entity with an LEI;
-- SEC EDGAR (the local `sec_companies` copy): business address of US-listed companies.
+- SEC EDGAR (the local `sec_companies` copy): business address of US-listed companies;
+- Companies House (the local `kb.uk_company` copy, when loaded with `kb-load-companies-house`): every active
+  company on the UK register, private ones included, which GLEIF and Wikidata mostly lack.
 
 A name is matched to an entity only by rules: the entity's official website is the company's website, or the names
 are the same once legal forms are set aside (a one-word name must be exactly the same). When the matching entities
@@ -163,6 +165,7 @@ class EntityResolver:
         self.cache: dict[str, Resolution] = {}  # per job: one lookup per name
         self.wd = WikidataProvider(client)
         self.problems: list[str] = []
+        self._uk_register: bool | None = None  # kb.uk_company loaded? checked once per job
 
     async def resolve(self, company: str, website: str = "") -> Resolution:
         key = f"{' '.join(words(company))}|{registered_domain(website) if website else ''}"
@@ -170,7 +173,7 @@ class EntityResolver:
             return self.cache[key]
         candidates: list[Candidate] = []
         failed: list[str] = []
-        for source in (self._wikidata, self._gleif, self._sec):
+        for source in (self._wikidata, self._gleif, self._sec, self._companies_house):
             for wait in (*self.retry_waits, None):
                 try:
                     candidates += await source(company)
@@ -255,6 +258,56 @@ class EntityResolver:
                 for cik, name, state, foreign, site in found if name_match(company, name)]
 
 
+    async def _companies_house(self, company: str) -> list[Candidate]:
+        """Active companies on the UK register whose name is the same once legal forms are set aside. Nothing when
+        the register has not been loaded into the company database; a lookup that fails is a registry failure."""
+        if self._uk_register is False:
+            return []
+        from app.kb import companies_house as ch
+
+        key = ch.name_key(company)
+        if not key:
+            return []
+        try:
+            rows = await asyncio.to_thread(_uk_register_rows, key, self._uk_register is None)
+        except UKRegisterMissing:
+            self._uk_register = False
+            return []
+        self._uk_register = True
+        return [Candidate("companies_house", number, name, "GB", place=town or "")
+                for number, name, town in rows if name_match(company, name)]
+
+
+class UKRegisterMissing(Exception):
+    """kb.uk_company is not loaded (or the company database is not reachable): the source is simply absent."""
+
+
+def _uk_register_rows(key: str, first: bool) -> list[tuple[str, str, str]]:
+    import psycopg
+
+    from app.kb.pdl import kb_dsn
+
+    try:
+        conn = psycopg.connect(kb_dsn(), connect_timeout=3)
+    except psycopg.OperationalError as exc:
+        if first:
+            raise UKRegisterMissing from exc
+        raise ValueError(f"company database not reachable ({type(exc).__name__})") from exc
+    try:
+        with conn, conn.cursor() as cur:
+            if first:
+                cur.execute("SELECT to_regclass('kb.uk_company') IS NOT NULL")
+                if not cur.fetchone()[0]:
+                    raise UKRegisterMissing
+            cur.execute("SELECT company_number, name, post_town FROM kb.uk_company "
+                        "WHERE name_key = %s AND status = 'Active' LIMIT 10", (key,))
+            return [(str(a), str(b), str(c or "")) for a, b, c in cur.fetchall()]
+    except psycopg.Error as exc:
+        if first:
+            raise UKRegisterMissing from exc
+        raise ValueError(f"UK register lookup failed ({type(exc).__name__})") from exc
+
+
 def resolution_facts(company: str, site: str, res: Resolution) -> list[dict[str, Any]]:
     """The facts a resolution establishes, for company_facts."""
     source_url = _registry_source_url(res)
@@ -282,4 +335,6 @@ def _registry_source_url(res: Resolution) -> str:
         return f"https://api.gleif.org/api/v1/lei-records/{quote(ident, safe='')}"
     if registry == "sec" and ident.isdigit():
         return f"https://www.sec.gov/edgar/browse/?CIK={int(ident)}"
+    if registry == "companies_house" and re.fullmatch(r"[A-Z0-9]{8}", ident):
+        return f"https://find-and-update.company-information.service.gov.uk/company/{ident}"
     return ""
