@@ -26,7 +26,7 @@ from typing import Any
 
 from sqlalchemy import delete, select
 
-from app.crawl.urlnorm import homepage, registered_domain
+from app.crawl.urlnorm import homepage, public_suffix, registered_domain
 from app.db import session_scope
 from app.evidence.judge import VERDICT_RANK
 from app.models import CompanyFact, DiscoveredUrl, Evidence, ExtractedRecord, JobCompany
@@ -47,8 +47,17 @@ NOISE = re.compile(r"\b(inc|incorporated|ltd|limited|llc|llp|lp|plc|pvt|private|
 
 
 def name_key(name: str) -> str:
-    """"Kemwell BioPharma Pvt. Ltd." and "kemwell biopharma" are one company."""
+    """"Kemwell BioPharma Pvt. Ltd." and "kemwell biopharma" are one company; so are "Bharat Serums and Vaccines
+    Limited (BSV)" and "Bharat Serums and Vaccines Limited": a bracketed short form is not part of the name."""
+    name = re.sub(r"\([^)]*\)", " ", name)
     return "name:" + re.sub(r"[^a-z0-9]+", "", NOISE.sub(" ", name.casefold()))
+
+
+def public_body_suffix(website: str) -> str:
+    """The reserved public-sector ending of a website ("gov", "mil", "gov.uk", "gov.in"), or "". Only
+    governments can register under these endings, so a site there is a public body, not a company."""
+    suffix = public_suffix(website)
+    return suffix if any(label in ("gov", "mil", "govt") for label in suffix.split(".")) else ""
 
 
 def country_rank(by: str) -> int:
@@ -112,6 +121,10 @@ def decide(c: Company, spec: ExtractionSpec) -> tuple[str, list[str], dict[str, 
 
     failed = [f for f in c.facts if f["kind"] == "filter" and f["value"] == "not met"]
     reasons += [f"filter not met: {f['detail']}"[:400] for f in failed]
+    site = c.website or next((e["website"] for e in c.proof if e.get("website")), "")
+    if spec.entity == "company" and (gov := public_body_suffix(site)):
+        failed.append({"detail": f"a public body, not a company (its website is under .{gov})"})
+        reasons.append(f"filter not met: a public body, not a company (its website is under .{gov})")
     reasons += [f"not read: {f['detail']}"[:400] for f in c.facts if f["kind"] == "crawl"]
     if not c.website:
         why = next((f["detail"] for f in c.facts if f["kind"] == "website" and not f["value"]), "")
