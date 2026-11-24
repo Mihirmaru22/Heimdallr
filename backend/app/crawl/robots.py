@@ -25,8 +25,9 @@ class RobotsDecision:
 
 
 class RobotsCache:
-    def __init__(self, fetcher: Fetcher, user_agent: str, enabled: bool = True) -> None:
+    def __init__(self, fetcher: Fetcher, user_agent: str, enabled: bool = True, attempts: int = 3) -> None:
         self.fetcher = fetcher
+        self.attempts = attempts
         self.user_agent = user_agent
         self.enabled = enabled
         self._rules: dict[str, Protego | str] = {}
@@ -39,7 +40,7 @@ class RobotsCache:
                                  allowed_types=TEXT_PLAIN)
         try:
             # Three tries with backoff: a site that times out once (Celanese did) is not lost for the whole run.
-            result = await robots_fetcher.fetch(origin + "/robots.txt", attempts=3)
+            result = await robots_fetcher.fetch(origin + "/robots.txt", attempts=self.attempts)
         except FetchError as exc:
             if exc.kind.startswith("http_4") and exc.kind != "http_429":
                 return "allow_all"
