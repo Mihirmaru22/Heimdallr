@@ -73,13 +73,23 @@ class Homepage:
     redirected_to: str = ""  # the homepage moved here (another path or another domain)
 
 
-def select_domains(conn, limit: int | None = None, iso2: str | None = None, sample: bool = False) -> list[str]:
-    """Distinct company domains to read, without platforms; a random sample for trials."""
-    sql = ("SELECT domain FROM (SELECT DISTINCT domain FROM kb.pdl_company "  # noqa: S608 - fixed text, values are parameters
-           "WHERE domain IS NOT NULL AND domain_rows <= %s" + (" AND iso2 = %s" if iso2 else "") + ") d")
-    params: list = [SHARED_DOMAIN_LIMIT] + ([iso2.upper()] if iso2 else [])
+def select_domains(conn, limit: int | None = None, iso2: str | None = None, sample: bool = False,
+                   biggest_first: bool = False) -> list[str]:
+    """Distinct company domains to read, without platforms and without the ones already read; a
+    random sample for trials. iso2 may list several countries ("GB,IN,US"). biggest_first orders by
+    PDL's company size (largest band first), so a partial run covers the companies that matter most."""
+    countries = [c.strip().upper() for c in (iso2 or "").split(",") if c.strip()]
+    size = "max(coalesce(nullif(regexp_replace(split_part(size, '-', 1), '[^0-9]', '', 'g'), '')::int, 0))"
+    sql = (f"SELECT domain FROM (SELECT domain, {size} AS size FROM kb.pdl_company "  # noqa: S608 - fixed text, values are parameters
+           "WHERE domain IS NOT NULL AND domain_rows <= %s" + (" AND iso2 = ANY(%s)" if countries else "")
+           + (" AND NOT EXISTS (SELECT 1 FROM kb.homepage h WHERE h.domain = kb.pdl_company.domain)"
+              if biggest_first else "")
+           + " GROUP BY domain) d")
+    params: list = [SHARED_DOMAIN_LIMIT] + ([countries] if countries else [])
     if sample:
         sql += " ORDER BY random()"
+    elif biggest_first:
+        sql += " ORDER BY size DESC, domain"
     if limit:
         sql += " LIMIT %s"
         params.append(limit)

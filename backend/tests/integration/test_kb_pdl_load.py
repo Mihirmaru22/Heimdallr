@@ -77,3 +77,26 @@ def test_companies_house_load_and_overlap_with_pdl(tmp_path, dsn):
     assert coverage.overlap == {"active": 2, "name_match": 1, "name_town_match": 1, "pdl_uk": 1}
     assert _count(dsn, "SELECT count(*) FROM kb.uk_company") == 3
     assert _count(dsn, "SELECT to_regclass('kb.pdl_uk_keys') IS NULL") is True
+
+
+def test_biggest_companies_first_in_chosen_countries_skipping_read_ones(tmp_path, dsn):
+    import psycopg
+
+    from app.kb import homepages
+
+    path = tmp_path / "mixed.csv"
+    rows = [("big.com", "10001+", "united kingdom"), ("mid.com", "201-500", "india"),
+            ("small.com", "1-10", "united states"), ("de.com", "10001+", "germany"),
+            ("nosize.com", "", "india"), ("read.com", "5001-10000", "united kingdom")]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(HEADER)
+        for i, (site, size, country) in enumerate(rows):
+            w.writerow([f"c{i}", site, site, "computer software", size, "", country, "", "", ""])
+    pdl.load(path, dsn)
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        conn.execute(homepages.SCHEMA_SQL)
+        homepages.save(conn, homepages.Homepage(domain="read.com", found=True, crawl="own"))
+        got = homepages.select_domains(conn, limit=3, iso2="GB,IN,US", biggest_first=True)
+        assert got == ["big.com", "mid.com", "small.com"]
+        assert len(homepages.select_domains(conn, iso2="gb, in", biggest_first=True)) == 3

@@ -321,7 +321,7 @@ def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
 
 
 def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, concurrency: int, sample: bool,
-                 crawl_count: int, again: bool, own_fetch: bool) -> None:
+                 crawl_count: int, again: bool, own_fetch: bool, biggest_first: bool = False) -> None:
     import asyncio
     import time
     from pathlib import Path
@@ -339,7 +339,7 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
             domains = [r[0] for r in conn.execute("SELECT domain FROM kb.homepage ORDER BY domain").fetchall()]
             domains = domains[:limit] if limit else domains
         else:
-            domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample)
+            domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample, biggest_first=biggest_first)
         print(f"Reading {len(domains):,} homepages from Common Crawl, {concurrency} at a time...", flush=True)
         summary = homepages.Summary()
         started = time.monotonic()
@@ -565,7 +565,9 @@ def main() -> None:
     p.add_argument("--force", action="store_true", help="load even if the file has far fewer rows than the table")
     p = sub.add_parser("kb-homepages", help="read company homepages from Common Crawl into kb.homepage")
     p.add_argument("--limit", type=int, default=None, help="at most this many domains")
-    p.add_argument("--country", default=None, help="only companies in this country (ISO code, e.g. IN)")
+    p.add_argument("--country", default=None, help="only companies in these countries (ISO codes, e.g. IN or GB,IN,US)")
+    p.add_argument("--biggest-first", action="store_true",
+                   help="largest companies (PDL size) first, skipping domains already read")
     p.add_argument("--crawl", action="append", default=None,
                    help="Common Crawl crawl id; repeat for several (default: the newest --crawls)")
     p.add_argument("--crawls", type=int, default=3,
@@ -611,7 +613,7 @@ def main() -> None:
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":
         return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample, args.crawls,
-                            args.again, args.own_fetch)
+                            args.again, args.own_fetch, args.biggest_first)
     if args.cmd == "kb-load-pdl":
         return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":
