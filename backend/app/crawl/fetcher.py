@@ -111,7 +111,9 @@ class Fetcher:
         current = url
         for _hop in range(s.max_redirects + 1):
             try:
-                self._check(current)
+                # In a thread: the check resolves the host name (socket.getaddrinfo, which blocks), and a
+                # slow name server would otherwise stop every other fetch in the event loop meanwhile.
+                await asyncio.to_thread(self._check, current)
             except BlockedDestination as exc:
                 raise FetchError("blocked", str(exc), retryable=False) from None
             if self.politeness is not None:

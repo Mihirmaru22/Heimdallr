@@ -313,8 +313,12 @@ def parse_warc(data: bytes) -> tuple[dict[str, str], str]:
     return headers, html
 
 
+PARSE_CHARS = 400_000  # title, meta, JSON-LD and the opening text sit well inside this; whole 3 MB pages
+# made parsing (structured-data extraction especially) the slowest step
+
+
 def extract(domain: str, crawl: str, url: str, fetched_at: str, html: str) -> Homepage:
-    doc = parse_page(url, html)
+    doc = parse_page(url, html[:PARSE_CHARS])
     descriptions = _description(doc)
     emails = [{"email": c.value.lower(), "method": c.method} for c in _emails(doc)
               if ROLE_WORD_RE.search(c.value.split("@")[0].lower())]
@@ -386,8 +390,8 @@ async def _from_common_crawl(client: httpx.AsyncClient, readers: list[IndexReade
                                       headers={"Range": f"bytes={start}-{end}"})
                 response.raise_for_status()
                 headers, html = parse_warc(response.content)
-                page = extract(domain, reader.crawl, capture["url"],
-                               headers.get("warc-date", capture.get("timestamp", "")), html)
+                page = await asyncio.to_thread(extract, domain, reader.crawl, capture["url"],
+                                               headers.get("warc-date", capture.get("timestamp", "")), html)
                 page.redirected_to = redirected_to
                 return page, misses, redirected_to
             except (httpx.HTTPError, OSError, ValueError, KeyError, EOFError) as exc:

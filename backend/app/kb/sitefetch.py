@@ -68,8 +68,9 @@ def own_fetcher(client: httpx.AsyncClient, user_agent: str, concurrency: int = O
                 if not result.is_html:
                     last = "site_not_html"
                     continue
-                page = extract(domain, OWN, result.final_url, datetime.now(UTC).isoformat(timespec="seconds"),
-                               result.text)
+                page = await asyncio.to_thread(  # parsing is CPU work: off the event loop
+                    extract, domain, OWN, result.final_url, datetime.now(UTC).isoformat(timespec="seconds"),
+                    result.text)
                 if result.final_url.rstrip("/") != url.rstrip("/"):
                     page.redirected_to = result.final_url
                 return page

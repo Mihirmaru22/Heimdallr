@@ -343,13 +343,26 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
         print(f"Reading {len(domains):,} homepages from Common Crawl, {concurrency} at a time...", flush=True)
         summary = homepages.Summary()
         started = time.monotonic()
+        window = {"start": started, "stall": 0.0}
 
         def on_page(page) -> None:
             homepages.save(conn, page)
             summary.add(page)
-            if summary.domains % 500 == 0:
-                rate = summary.domains / max(1.0, time.monotonic() - started)
-                print(f"  {summary.domains:,} done, {summary.found:,} found, {rate:.1f} sites/s", flush=True)
+            if summary.domains % 500 == 0:  # speed over the last 500 sites, so start-up time does not count
+                now = time.monotonic()
+                rate = 500 / max(0.1, now - window["start"])
+                print(f"  {summary.domains:,} done, {summary.found:,} found, {rate:.1f} sites/s; "
+                      f"event loop stalled up to {window['stall']:.1f} s", flush=True)
+                window.update(start=now, stall=0.0)
+
+        async def watch_loop() -> None:
+            """How long the event loop was blocked (0 = never): a long stall means something
+            synchronous is holding every fetch, not that the sites are slow."""
+            loop = asyncio.get_running_loop()
+            while True:
+                before = loop.time()
+                await asyncio.sleep(0.5)
+                window["stall"] = max(window["stall"], loop.time() - before - 0.5)
 
         def on_crawl(name: str) -> None:
             print(f"Crawl {name}: getting its index map (cluster.idx, downloaded once, a few hundred MB)...",
@@ -372,11 +385,13 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
                     timeout=httpx.Timeout(10.0, connect=5.0),
                     headers={"User-Agent": settings.user_agent}, follow_redirects=False)
                 fetch_own = own_fetcher(site_client, settings.user_agent)
+            watcher = asyncio.create_task(watch_loop())
             try:
                 return await homepages.collect(
                     domains, crawl, on_page, Path(settings.data_dir), concurrency, user_agent=settings.user_agent,
                     on_crawl=on_crawl, crawl_count=crawl_count, own_fetch=fetch_own)
             finally:
+                watcher.cancel()
                 if site_client is not None:
                     await site_client.aclose()
 
