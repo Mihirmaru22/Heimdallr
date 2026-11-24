@@ -172,3 +172,49 @@ def test_a_registry_country_fact_links_the_official_record_that_settled_it():
     res = settle("Kemwell BioPharma", "", [Candidate("gleif", lei, "KEMWELL BIOPHARMA PRIVATE LIMITED", "IN")])
     (country,) = resolution_facts("Kemwell BioPharma", "", res)
     assert country["source_url"] == f"https://api.gleif.org/api/v1/lei-records/{lei}"
+
+
+async def test_the_uk_register_settles_a_private_company_registries_lack(monkeypatch):
+    # NetSuite UK, 2026-11-02: Emerald Technology and Charlotte Tilbury had proof but stayed "country unconfirmed":
+    # GLEIF and Wikidata have few private UK companies. The Companies House copy in the company database has them.
+    import app.discovery.entities as entities
+
+    def nothing(request):
+        if "wikidata" in request.url.host:
+            return httpx.Response(200, json={"search": []})
+        return httpx.Response(200, json={"data": []})
+
+    asked = []
+
+    def rows(key, first):
+        asked.append((key, first))
+        return [("01234567", "WIDGET WORKS LIMITED", "LEEDS"), ("07654321", "WIDGET WORKS GROUP LIMITED", "YORK")]
+
+    async def no_sec(_company):
+        return []
+
+    monkeypatch.setattr(entities, "_uk_register_rows", rows)
+    resolver = EntityResolver(httpx.AsyncClient(transport=httpx.MockTransport(nothing)), gleif_gap=0)
+    resolver._sec = no_sec
+    res = await resolver.resolve("Widget Works Ltd")
+    assert res.country == "GB" and res.by == "registry: companies_house" and "LEEDS" in res.detail
+    assert asked == [("widget works", True)]
+    facts = entities.resolution_facts("Widget Works Ltd", "widgetworks.co.uk", res)
+    assert facts[0]["source_url"].endswith("/company/01234567")
+
+
+async def test_no_uk_register_loaded_is_no_source_not_a_failure(monkeypatch):
+    import app.discovery.entities as entities
+
+    def missing(key, first):
+        raise entities.UKRegisterMissing
+
+    async def none(_company):
+        return []
+
+    monkeypatch.setattr(entities, "_uk_register_rows", missing)
+    resolver = EntityResolver(httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200))),
+                              gleif_gap=0)
+    resolver._sec = resolver._wikidata = resolver._gleif = none
+    res = await resolver.resolve("Widget Works Ltd")
+    assert res.country == "" and "lookup failed" not in res.detail and resolver._uk_register is False
