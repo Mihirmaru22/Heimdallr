@@ -13,7 +13,7 @@ Signature:   The Globe (src/geo/scene.ts, wrapped by src/components/Globe.tsx). 
              Natural Earth country shapes (world-atlas). Every activity line reacts: each search
              provider is a satellite that fires beams at the land, a site read lights its country
              (by ccTLD, otherwise a stable land dot) with a hop arc from the last site, a kept site
-             ripples, raises a pillar and flies an arc into "Sites kept", a found detail throws
+             ripples, raises a pillar and flies an arc into the vault ring (no counter there; totals live only in the HUD strip), a found detail throws
              sparks, dropped and blocked sites ripple grey and red. The countries the plan targets
              are tinted and turned to face you. The run page (Mission.tsx) puts it full-bleed with a
              HUD: current step, the reading stream, the live wire and counters.
