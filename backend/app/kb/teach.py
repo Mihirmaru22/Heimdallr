@@ -146,7 +146,8 @@ def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_
                               ORDER BY c.sector IS NULL LIMIT 1) p ON true
            {join}
            WHERE h.found
-             AND NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain AND t.model = %s)
+             AND NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain AND t.model = %s
+                             AND (t.real_page IS NOT NULL OR t.error IS NOT NULL))
              AND (%s::text IS NULL OR EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain
                                                 AND t.model = %s AND t.error IS NULL))""",  # noqa: S608 - fixed text
         (model, same_as, same_as),
@@ -222,6 +223,10 @@ ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS niche text;
 ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS offers text;
 ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS address text;
 ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS people text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS tools text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS pages_read timestamptz;
 """
 
 # The profile a teacher can add beyond the four labels (Claude does, when it labels companies directly):
@@ -232,6 +237,10 @@ ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS people text;
 # data, kept by Ronak's decision of 2026-11-25 in their own column so that one DROP COLUMN (here and in
 # kb.company_label) removes them if that is ever required.
 PROFILE_FIELDS = ("sector", "niche", "offers", "address", "people")
+# From the contact and careers pages (app.kb.pages): the company phone and mailbox (never a person's),
+# and tools: software and services the company's job ads say it works with (technographics).
+PAGE_FIELDS = ("address", "phone", "email", "people", "tools")
+ALL_FIELDS = PROFILE_FIELDS + ("phone", "email", "tools")
 
 
 def _sectors() -> frozenset[str]:
@@ -245,16 +254,81 @@ def _sectors() -> frozenset[str]:
 SECTORS = _sectors()
 
 
-def save_profile(conn, domain: str, model: str, profile: dict[str, str]) -> None:
-    """Profile fields for a label already saved; an empty field or "-" is stored as unknown, and a
-    sector outside SECTORS is dropped rather than stored."""
-    clean = {k: (profile.get(k) or "").strip()[:300] for k in PROFILE_FIELDS}
+def _clean(profile: dict[str, str], fields: tuple[str, ...]) -> dict[str, str | None]:
+    clean = {k: (profile.get(k) or "").strip()[:300] for k in fields}
     clean = {k: (None if v in ("", "-", "none") else v) for k, v in clean.items()}
-    if clean["sector"] not in SECTORS:
+    if "sector" in clean and clean["sector"] not in SECTORS:
         clean["sector"] = None
-    conn.execute("UPDATE kb.teach_label SET sector = %s, niche = %s, offers = %s, address = %s, people = %s "
-                 "WHERE domain = %s AND model = %s",
-                 (clean["sector"], clean["niche"], clean["offers"], clean["address"], clean["people"], domain, model))
+    return clean
+
+
+def _merge(conn, domain: str, model: str, clean: dict[str, str | None], extra: str = "") -> int:
+    """Known values replace, unknown ones (None) leave what is there: the homepage pass and the
+    contact-page pass fill different fields, in either order."""
+    sets = ", ".join(f"{k} = coalesce(%s, {k})" for k in clean) + extra
+    return conn.execute(f"UPDATE kb.teach_label SET {sets} WHERE domain = %s AND model = %s",  # noqa: S608
+                        (*clean.values(), domain, model)).rowcount
+
+
+def save_profile(conn, domain: str, model: str, profile: dict[str, str]) -> None:
+    """Profile fields for a label already saved; an empty field or "-" is unknown, and a sector
+    outside SECTORS is dropped rather than stored."""
+    _merge(conn, domain, model, _clean(profile, PROFILE_FIELDS))
+
+
+def import_profile(conn, path, model: str) -> tuple[int, int]:
+    """What a teacher read on the contact and careers pages (columns domain + PAGE_FIELDS), merged into
+    its labels. A page read before the homepage label exists waits in a row of its own, which the
+    homepage label then completes. (merged, new rows)."""
+    import csv
+
+    merged = waiting = 0
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            domain = (row.get("domain") or "").strip()
+            if not domain:
+                continue
+            clean = _clean(row, PAGE_FIELDS)
+            if _merge(conn, domain, model, clean, ", pages_read = now()"):
+                merged += 1
+                continue
+            conn.execute("INSERT INTO kb.teach_label (domain, model, address, phone, email, people, tools, "
+                         "pages_read) VALUES (%s, %s, %s, %s, %s, %s, %s, now()) ON CONFLICT DO NOTHING",
+                         (domain, model, clean["address"], clean["phone"], clean["email"], clean["people"],
+                          clean["tools"]))
+            waiting += 1
+    return merged, waiting
+
+
+def export_contacts(conn, path, limit: int, model: str) -> int:
+    """Contact, careers and job-ad text (app.kb.pages) of sites the teacher has not read yet, biggest
+    companies first, one row per site, for the contact-page pass."""
+    import csv
+
+    rows = conn.execute(
+        """SELECT p.domain, p.kind, p.url, p.title, p.text, p.emails, p.addresses
+           FROM kb.company_page p
+           WHERE NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = p.domain AND t.model = %s
+                             AND t.pages_read IS NOT NULL)
+           ORDER BY p.domain, p.kind""", (model,)).fetchall()
+    sizes = dict(conn.execute(
+        "SELECT domain, array_agg(size) FROM kb.pdl_company WHERE domain = ANY(%s) GROUP BY domain",
+        (list({r[0] for r in rows}),)).fetchall())
+    sites: dict[str, dict[str, list[str]]] = {}
+    for domain, kind, url, title, text, emails, addresses in rows:
+        found = " ".join(filter(None, [", ".join(e["email"] for e in emails or []),
+                                       " / ".join(a["address"] for a in addresses or [])]))
+        sites.setdefault(domain, {}).setdefault(kind, []).append(
+            " ".join(f"{url} {title or ''} {found} {text or ''}".split()))
+    order = sorted(sites, key=lambda d: (-max((size_rank(s) for s in sizes.get(d) or [None]), default=0), d))
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "contact", "careers", "jobs"])
+        for d in order[:limit]:
+            k = sites[d]
+            w.writerow([d, " | ".join(k.get("contact", [])), " | ".join(k.get("careers", [])),
+                        " | ".join(k.get("job", []))])
+    return min(limit, len(order))
 
 
 def save(conn, domain: str, label: TeachLabel | None, model: str, seconds: float, error: str | None) -> None:

@@ -443,7 +443,8 @@ def _label_model_path():
 
 def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None, same_as: str | None,
              export_pages: int = 0, import_file: str | None = None, tech_share: float = 0.5,
-             uncertain: bool = False, biggest_first: bool = False, countries: str | None = None) -> None:
+             uncertain: bool = False, biggest_first: bool = False, countries: str | None = None,
+             export_contacts: int = 0) -> None:
     import time
     from pathlib import Path
 
@@ -460,6 +461,14 @@ def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None
             print(f"Wrote the teacher labels of {teach.export_sample(conn, path, export_sample):,} pages "
                   f"(one row per model) to {path}.")
             return
+        if export_contacts:
+            from app.kb import pages
+
+            conn.execute(pages.SCHEMA_SQL)
+            path = Path(export_path or "contact_pages.csv")
+            print(f"Wrote the contact/careers pages of {teach.export_contacts(conn, path, export_contacts, model):,} "
+                  f"sites to {path}.")
+            return
         if export_pages:
             path = Path(export_path or "teach_pages.csv")
             n = teach.export_pages(conn, path, export_pages, model, tech_share, uncertain, biggest_first, countries)
@@ -467,6 +476,12 @@ def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None
                   f"(not yet labelled by {model}).")
             return
         if import_file:
+            with open(import_file, encoding="utf-8") as f:
+                header = f.readline()
+            if "real_page" not in header:  # what was read on the contact and careers pages
+                merged, waiting = teach.import_profile(conn, Path(import_file), model)
+                print(f"Contact/careers details: {merged:,} merged into labels, {waiting:,} waiting for one.")
+                return
             summary = teach.import_labels(conn, Path(import_file), model)
             print(summary.report())
             return
@@ -506,7 +521,7 @@ def kb_train(teacher: str) -> None:
                       (SELECT industry FROM kb.pdl_company c WHERE c.domain = t.domain
                        ORDER BY c.industry IS NULL LIMIT 1)
                FROM kb.teach_label t JOIN kb.homepage h USING (domain)
-               WHERE t.error IS NULL AND t.model = %s""", (teacher,)
+               WHERE t.error IS NULL AND t.real_page IS NOT NULL AND t.model = %s""", (teacher,)
         ).fetchall()
     rows = [r for r in rows if classify.page_text(r[0], r[1], r[2])]
     if len(rows) < 100:
@@ -522,6 +537,64 @@ def kb_train(teacher: str) -> None:
     print(f"Saved {path}\n")
     for report in model.reports:
         print("\n".join(report.lines()) + "\n")
+
+
+def kb_pages(limit: int, countries: str | None, lanes: int) -> None:
+    import asyncio
+    import time
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor
+
+    import httpx
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import pages
+    from app.kb.pdl import kb_dsn
+
+    settings = get_settings()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        conn.execute(pages.SCHEMA_SQL)
+        sites = pages.select_sites(conn, limit, countries)
+        print(f"Reading contact and careers pages of {len(sites):,} sites, {lanes} at a time...", flush=True)
+        done, kinds, misses = 0, Counter(), Counter()
+        started = window = time.monotonic()
+
+        async def run() -> None:
+            nonlocal done, window
+            asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(2 * lanes))
+            client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0),
+                                       headers={"User-Agent": settings.user_agent}, follow_redirects=False)
+            read = pages.page_reader(client, settings.user_agent, lanes)
+            queue: asyncio.Queue = asyncio.Queue()
+            for site in sites:
+                queue.put_nowait(site)
+
+            async def worker() -> None:
+                nonlocal done, window
+                while not queue.empty():
+                    domain, url = queue.get_nowait()
+                    found, miss = await read(domain, url)
+                    pages.save(conn, domain, found, miss)
+                    done += 1
+                    kinds.update({p.kind for p in found})
+                    misses.update([miss] if miss else [])
+                    if done % 500 == 0:
+                        now = time.monotonic()
+                        print(f"  {done:,} sites, {500 / max(0.1, now - window):.1f} sites/s; with contact page "
+                              f"{kinds['contact']:,}, careers {kinds['careers']:,}, job ads {kinds['job']:,}",
+                              flush=True)
+                        window = now
+
+            try:
+                await asyncio.gather(*(worker() for _ in range(lanes)))
+            finally:
+                await client.aclose()
+
+        asyncio.run(run())
+    print(f"\n{done:,} sites in {(time.monotonic() - started) / 60:.1f} minutes: contact page {kinds['contact']:,}, "
+          f"careers page {kinds['careers']:,}, sites with job ads {kinds['job']:,}")
+    print("Not found: " + ", ".join(f"{k} {n:,}" for k, n in misses.most_common()))
 
 
 def kb_classify(limit: int | None, again: bool, export_sample: int, export_path: str | None,
@@ -684,12 +757,18 @@ def main() -> None:
     p.add_argument("--biggest-first", action="store_true",
                    help="with --export-pages: the largest companies first (PDL size), for labelling them directly")
     p.add_argument("--country", default=None, help="with --biggest-first: only these countries, e.g. GB,IN,US")
+    p.add_argument("--export-contacts", type=int, default=0, metavar="N",
+                   help="write the contact/careers pages (kb-pages) of N sites --model has not read yet")
     p.add_argument("--import", dest="import_file", default=None, metavar="FILE",
                    help="read labels filled into an --export-pages CSV, saved under --model (e.g. claude)")
     p.add_argument("--same-pages-as", default=None, metavar="MODEL",
                    help="label only pages MODEL already labelled, to compare two models on the same pages")
     p = sub.add_parser("kb-train", help="train the homepage classifier on the teacher labels and report its quality")
     p.add_argument("--teacher", default="qwen2.5:7b", help="whose labels to learn from (default qwen2.5:7b)")
+    p = sub.add_parser("kb-pages", help="read each company's contact page, careers page and a few job ads")
+    p.add_argument("--limit", type=int, default=10000, help="at most this many sites (default 10000)")
+    p.add_argument("--country", default=None, help="only companies in these countries, e.g. GB,IN,US")
+    p.add_argument("--lanes", type=int, default=128, help="different sites at a time (default 128)")
     p = sub.add_parser("kb-classify", help="label homepages with the trained classifier")
     p.add_argument("--limit", type=int, default=None, help="at most this many homepages")
     p.add_argument("--again", action="store_true", help="relabel homepages that already have a label")
@@ -715,9 +794,12 @@ def main() -> None:
     args = parser.parse_args()
     if args.cmd == "kb-teach":
         return kb_teach(args.model, args.limit, args.export_sample, args.out, args.same_pages_as, args.export_pages,
-                        args.import_file, args.tech_share, args.uncertain, args.biggest_first, args.country)
+                        args.import_file, args.tech_share, args.uncertain, args.biggest_first, args.country,
+                        args.export_contacts)
     if args.cmd == "kb-train":
         return kb_train(args.teacher)
+    if args.cmd == "kb-pages":
+        return kb_pages(args.limit, args.country, args.lanes)
     if args.cmd == "kb-classify":
         return kb_classify(args.limit, args.again, args.export_sample, args.out, args.teacher)
     if args.cmd == "kb-load-companies-house":

@@ -6,6 +6,8 @@
 #                  label them with the current classifier, and count the usable companies
 #   brahman N [FETCH]: start fetching the next FETCH biggest GB/IN/US companies in tmux 'brahman' (if not
 #                  already running) and export the N biggest pages Claude has not labelled to ~/brahman_pages.csv
+#   pages N   : read the contact page, careers page and job ads of the N biggest GB/IN/US sites not yet read
+#                  (in tmux 'pages', log ~/pages.log), then export them to ~/contact_pages.csv
 #   train FILE...: import Claude's label files, train the classifier, label every homepage,
 #                  and write a 200-page sample to ~/label_sample.csv for checking
 set -euo pipefail
@@ -32,11 +34,19 @@ psycopg.connect(kb_dsn()).execute('SELECT count(*) FROM kb.company_label WHERE r
     fi
     cli kb-teach --model claude --export-pages "${2:-40000}" --biggest-first --country GB,IN,US \
       --out ~/brahman_pages.csv ;;
+  pages)
+    tmux new -d -s pages "cd $HOME/Heimdallr-kb/backend && export PATH=$HOME/.local/bin:\$PATH && \
+      uv run python -m app.cli kb-pages --limit ${2:-10000} --country GB,IN,US > $HOME/pages.log 2>&1 && \
+      uv run python -m app.cli kb-teach --model claude --export-contacts ${2:-10000} --out $HOME/contact_pages.csv \
+      >> $HOME/pages.log 2>&1"
+    echo "Reading contact/careers pages in tmux session 'pages' (log ~/pages.log); ~/contact_pages.csv when done." ;;
+  contacts)
+    cli kb-teach --model claude --export-contacts "${2:-10000}" --out ~/contact_pages.csv ;;
   train)
     shift
     for f in "$@"; do cli kb-teach --model claude --import "$f"; done
     cli kb-train --teacher claude
     cli kb-classify --again
     cli kb-classify --export-sample 200 --out ~/label_sample.csv ;;
-  *) echo "usage: $0 brahman N [FETCH] | batch N [COUNTRIES] | export N | doubt N | train FILE..."; exit 1 ;;
+  *) echo "usage: $0 brahman N [FETCH] | pages N | contacts N | batch N [COUNTRIES] | export N | doubt N | train FILE..."; exit 1 ;;
 esac

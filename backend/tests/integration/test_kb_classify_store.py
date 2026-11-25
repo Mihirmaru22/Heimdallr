@@ -147,3 +147,40 @@ def test_teacher_label_and_profile_replace_the_classifiers(conn, tmp_path):
     assert rows["acme.co"] == ("teacher:claude", "hr tech", "Technology", "payroll app; HR portal",
                                "1 High St, London", 1.0, "Jane Doe (CEO)")
     assert rows["shop.co"][2:5] == (None, "shoes", None)  # unknown sector dropped, "-" address = unknown
+
+
+def test_contact_page_details_merge_with_homepage_labels_in_either_order(conn, tmp_path):
+    from app.kb import pages
+
+    conn.execute(pages.SCHEMA_SQL)
+    for d in ("a.co", "b.co"):
+        _homepage(conn, d, f"{d} sells software")
+        conn.execute("INSERT INTO kb.pdl_company VALUES (%s, %s, 'computer software', 'Technology', '51-200', 'GB')",
+                     (d, d))
+        pages.save(conn, d, [pages.CompanyPage(d, "contact", f"https://{d}/contact", "Contact", "1 High St"),
+                             pages.CompanyPage(d, "job", f"https://{d}/jobs/1", "Engineer", "We use Salesforce")],
+                   "")
+    out = tmp_path / "contacts.csv"
+    assert teach.export_contacts(conn, out, 10, "claude") == 2
+    rows = list(csv.DictReader(out.open(encoding="utf-8")))
+    assert "1 High St" in rows[0]["contact"] and "Salesforce" in rows[0]["jobs"]
+    labels = tmp_path / "labels.csv"
+    with labels.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "real_page", "tech_company", "micro_sector", "offering", "reason", "address"])
+        w.writerow(["a.co", "true", "true", "crm and sales tech", "product", "", "-"])
+    teach.import_labels(conn, labels, "claude")  # a.co: homepage label first
+    found = tmp_path / "found.csv"
+    with found.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "address", "phone", "email", "people", "tools"])
+        w.writerow(["a.co", "1 High St, London", "+44 20 1234", "info@a.co", "-", "Salesforce; AWS"])
+        w.writerow(["b.co", "2 Low St", "-", "-", "-", "SAP"])  # b.co: contact page first
+    assert teach.import_profile(conn, found, "claude") == (1, 1)
+    assert teach.select_pages(conn, 10, "claude")[0][0] == "b.co"  # still waiting for its homepage label
+    assert teach.export_contacts(conn, out, 10, "claude") == 0
+    teach.import_labels(conn, labels, "claude")  # the homepage pass again does not erase the contact details
+    assert classify.apply_teacher(conn, "claude") == 1  # b.co has no homepage label yet
+    row = conn.execute("SELECT address, phone, tools, micro_sector FROM kb.company_label "
+                       "WHERE domain = 'a.co'").fetchone()
+    assert row == ("1 High St, London", "+44 20 1234", "Salesforce; AWS", "crm and sales tech")
