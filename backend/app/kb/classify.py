@@ -178,6 +178,11 @@ ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS real_page boolean;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS real_score real;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS tech_company boolean;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS tech_score real;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS sector text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS niche text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS offers text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS address text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS people text;  -- personal data: see app.kb.teach
 """
 
 
@@ -197,6 +202,38 @@ def save(conn, label: Label, model: str, source_url: str | None) -> None:
          label.micro_sector, label.micro_score, json.dumps(label.micro_top3), label.offering,
          label.offering_score, model, source_url),
     )
+
+
+def apply_teacher(conn, teacher: str) -> int:
+    """Where the teacher (e.g. Claude) labelled a page itself, its label is the company's label: it
+    is better than the classifier's, which only learns from such labels. Confidence 1. Run after
+    every classifier pass, which would otherwise overwrite them."""
+    if conn.execute("SELECT to_regclass('kb.teach_label')").fetchone()[0] is None:
+        return 0
+    cur = conn.execute(
+        """INSERT INTO kb.company_label (domain, real_page, real_score, tech_company, tech_score, micro_sector,
+                                         micro_score, micro_top3, offering, offering_score, model, source_url,
+                                         sector, niche, offers, address, people, labelled_at)
+           SELECT t.domain, t.real_page, 1.0, CASE WHEN t.real_page THEN t.tech_company END,
+                  CASE WHEN t.tech_company THEN 1.0 ELSE 0.0 END, t.micro_sector,
+                  CASE WHEN t.micro_sector IS NULL THEN 0.0 ELSE 1.0 END,
+                  CASE WHEN t.micro_sector IS NULL THEN '[]'::jsonb
+                       ELSE jsonb_build_array(jsonb_build_array(t.micro_sector, 1.0)) END,
+                  CASE WHEN t.real_page THEN t.offering END, 1.0, 'teacher:' || t.model, h.url,
+                  t.sector, t.niche, t.offers, t.address, t.people, now()
+           FROM kb.teach_label t JOIN kb.homepage h ON h.domain = t.domain AND h.found
+           WHERE t.model = %s AND t.error IS NULL
+           ON CONFLICT (domain) DO UPDATE SET real_page = EXCLUDED.real_page, real_score = EXCLUDED.real_score,
+               tech_company = EXCLUDED.tech_company, tech_score = EXCLUDED.tech_score,
+               micro_sector = EXCLUDED.micro_sector, micro_score = EXCLUDED.micro_score,
+               micro_top3 = EXCLUDED.micro_top3, offering = EXCLUDED.offering,
+               offering_score = EXCLUDED.offering_score, model = EXCLUDED.model,
+               source_url = EXCLUDED.source_url, sector = EXCLUDED.sector, niche = EXCLUDED.niche,
+               offers = EXCLUDED.offers, address = EXCLUDED.address, people = EXCLUDED.people,
+               labelled_at = now()""",
+        (teacher,),
+    )
+    return cur.rowcount
 
 
 def export_sample(conn, path: Path, size: int, seed: int = 7) -> int:

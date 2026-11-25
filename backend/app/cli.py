@@ -420,7 +420,7 @@ def _label_model_path():
 
 def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None, same_as: str | None,
              export_pages: int = 0, import_file: str | None = None, tech_share: float = 0.5,
-             uncertain: bool = False) -> None:
+             uncertain: bool = False, biggest_first: bool = False, countries: str | None = None) -> None:
     import time
     from pathlib import Path
 
@@ -439,7 +439,7 @@ def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None
             return
         if export_pages:
             path = Path(export_path or "teach_pages.csv")
-            n = teach.export_pages(conn, path, export_pages, model, tech_share, uncertain)
+            n = teach.export_pages(conn, path, export_pages, model, tech_share, uncertain, biggest_first, countries)
             print(f"Wrote {n:,} pages to {path} "
                   f"(not yet labelled by {model}).")
             return
@@ -501,7 +501,8 @@ def kb_train(teacher: str) -> None:
         print("\n".join(report.lines()) + "\n")
 
 
-def kb_classify(limit: int | None, again: bool, export_sample: int, export_path: str | None) -> None:
+def kb_classify(limit: int | None, again: bool, export_sample: int, export_path: str | None,
+                teacher: str = "claude") -> None:
     import time
     from pathlib import Path
 
@@ -532,6 +533,8 @@ def kb_classify(limit: int | None, again: bool, export_sample: int, export_path:
         rows = [r for r in rows if classify.page_text(r[2], r[3], r[4])]
         if not rows:
             print("No homepages to label (kb-homepages fills kb.homepage; --again relabels).")
+            if teacher:
+                print(f"Pages labelled by {teacher} itself: {classify.apply_teacher(conn, teacher):,}")
             return
         print(f"Loading the model {model.embed_model} (downloaded once, about 250 MB)...", flush=True)
         embedder = classify.Embedder(model.embed_model)
@@ -550,8 +553,11 @@ def kb_classify(limit: int | None, again: bool, export_sample: int, export_path:
                     summary.add(label)
             rate = summary.rows / max(1.0, time.monotonic() - started)
             print(f"  {summary.rows:,} labelled, {rate:.0f} pages/s", flush=True)
+        taught = classify.apply_teacher(conn, teacher) if teacher else 0
     print(f"\n{(time.monotonic() - started) / 60:.1f} minutes")
     print(summary.report())
+    if teacher:
+        print(f"\nPages labelled by {teacher} itself (its label replaces the classifier's): {taught:,}")
 
 
 def main() -> None:
@@ -617,6 +623,9 @@ def main() -> None:
                    help="share of exported pages from companies PDL files under Technology (default 0.5)")
     p.add_argument("--uncertain", action="store_true",
                    help="with --export-pages: the pages the trained classifier is least sure about first")
+    p.add_argument("--biggest-first", action="store_true",
+                   help="with --export-pages: the largest companies first (PDL size), for labelling them directly")
+    p.add_argument("--country", default=None, help="with --biggest-first: only these countries, e.g. GB,IN,US")
     p.add_argument("--import", dest="import_file", default=None, metavar="FILE",
                    help="read labels filled into an --export-pages CSV, saved under --model (e.g. claude)")
     p.add_argument("--same-pages-as", default=None, metavar="MODEL",
@@ -629,14 +638,16 @@ def main() -> None:
     p.add_argument("--export-sample", type=int, default=0, metavar="N",
                    help="write N random labelled homepages to a CSV for checking by hand, label nothing")
     p.add_argument("--out", default=None, help="the CSV for --export-sample (default label_sample.csv)")
+    p.add_argument("--teacher", default="claude",
+                   help="pages this teacher labelled keep its label, not the classifier's (default claude; '' = none)")
     args = parser.parse_args()
     if args.cmd == "kb-teach":
         return kb_teach(args.model, args.limit, args.export_sample, args.out, args.same_pages_as, args.export_pages,
-                        args.import_file, args.tech_share, args.uncertain)
+                        args.import_file, args.tech_share, args.uncertain, args.biggest_first, args.country)
     if args.cmd == "kb-train":
         return kb_train(args.teacher)
     if args.cmd == "kb-classify":
-        return kb_classify(args.limit, args.again, args.export_sample, args.out)
+        return kb_classify(args.limit, args.again, args.export_sample, args.out, args.teacher)
     if args.cmd == "kb-load-companies-house":
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":

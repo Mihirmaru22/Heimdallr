@@ -19,7 +19,8 @@ def conn(database):
         c.execute(homepages.SCHEMA_SQL)
         c.execute(classify.SCHEMA_SQL)
         c.execute(teach.SCHEMA_SQL)
-        c.execute("CREATE TABLE kb.pdl_company (domain text, name text, industry text, sector text)")
+        c.execute("CREATE TABLE kb.pdl_company (domain text, name text, industry text, sector text, "
+                  "size text, iso2 text)")
         yield c
 
 
@@ -110,3 +111,39 @@ def test_uncertain_export_puts_the_pages_the_classifier_doubts_first(conn):
     picked = {r[0] for r in teach.select_pages(conn, 4, "claude", uncertain=True)}
     assert picked == {"edge.com", "micro.com", "junk.com", "new.com"}
     assert all(len(r) == 8 for r in teach.select_pages(conn, 4, "claude", uncertain=True))
+
+
+def test_biggest_companies_exported_first_in_chosen_countries(conn):
+    sizes = {"big.co": ("10001+", "GB"), "mid.co": ("201-500", "IN"), "small.co": ("1-10", "US"),
+             "abroad.co": ("10001+", "DE"), "unknown.co": (None, "US")}
+    for d, (size, iso2) in sizes.items():
+        _homepage(conn, d, f"{d} makes things")
+        conn.execute("INSERT INTO kb.pdl_company VALUES (%s, %s, 'retail', 'Retail and consumer goods', %s, %s)",
+                     (d, d, size, iso2))
+    got = [r[0] for r in teach.select_pages(conn, 3, "claude", biggest_first=True, countries="GB,IN,US")]
+    assert got == ["big.co", "mid.co", "small.co"]
+    assert teach.size_rank("10001+") == 10001 and teach.size_rank(None) == 0
+
+
+def test_teacher_label_and_profile_replace_the_classifiers(conn, tmp_path):
+    _homepage(conn, "acme.co", "payroll software")
+    _homepage(conn, "shop.co", "shoes")
+    c = classify.Classifier(fake_embed, train.train(examples(), "fake"))
+    for label in c.label(["acme.co", "shop.co"], ["payroll software", "shoes"]):
+        classify.save(conn, label, "fake", None)
+    out = tmp_path / "labels.csv"
+    with out.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "real_page", "tech_company", "micro_sector", "offering", "reason",
+                    "sector", "niche", "offers", "address", "people"])
+        w.writerow(["acme.co", "true", "true", "hr tech", "product", "payroll SaaS", "Technology",
+                    "payroll software", "payroll app; HR portal", "1 High St, London",
+                    "Jane Doe (CEO)"])
+        w.writerow(["shop.co", "true", "false", "none", "product", "", "Shops", "shoe shop", "shoes", "-", ""])
+    teach.import_labels(conn, out, "claude")
+    assert classify.apply_teacher(conn, "claude") == 2
+    rows = {r[0]: r[1:] for r in conn.execute(
+        "SELECT domain, model, micro_sector, sector, offers, address, real_score, people FROM kb.company_label")}
+    assert rows["acme.co"] == ("teacher:claude", "hr tech", "Technology", "payroll app; HR portal",
+                               "1 High St, London", 1.0, "Jane Doe (CEO)")
+    assert rows["shop.co"][2:5] == (None, "shoes", None)  # unknown sector dropped, "-" address = unknown
