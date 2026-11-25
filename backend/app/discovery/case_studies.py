@@ -29,7 +29,7 @@ from app.crawl.urlnorm import normalize_url, registered_domain
 from app.discovery.page_yield import Yields, page_kind
 from app.discovery.providers import NOT_COMPANY_SITES, DiscoveryError, DiscoveryResult
 from app.discovery.relevance import CCTLD_TO_ISO
-from app.discovery.websites import WebsiteFinder, names_company
+from app.discovery.websites import UNVERIFIED, WebsiteFinder, names_company
 from app.evidence.judge import Judge, score
 from app.evidence.products import Product, product_for
 from app.evidence.quotes import find_mentions, verify_quote
@@ -414,7 +414,8 @@ class CaseStudiesProvider:
                 seen.add(domain)
                 hint = {"company_name": ev["company"], "website_url": site, "uses_technology": ev["verdict"],
                         "evidence": ev["quote"], "evidence_url": ev["url"], "evidence_date": ev["evidence_date"],
-                        "evidence_type": ev["source_type"], "_source": ev["url"], "_strength": ev["strength"]}
+                        "evidence_type": ev["source_type"], "_source": ev["url"], "_strength": ev["strength"],
+                        "_website_unverified": UNVERIFIED in how}
                 results.append(DiscoveryResult(site, self.name, {k: v for k, v in hint.items() if v},
                                                referrer=ev["url"]))
         finally:

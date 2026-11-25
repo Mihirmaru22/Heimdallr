@@ -389,7 +389,11 @@ class CrawlRunner:
         if d.countries:
             for r in named:
                 name, site = str(r.hint["company_name"]), registered_domain(r.url) or ""
-                res = await resolver.resolve(name, r.url)
+                # A website search kept without reading its homepage is the name's most popular site, not proof of
+                # which organisation this is: it must not be the second signal that settles a registry match.
+                # "AUSA" from a PTC story (a Barcelona maker) took ausa.org that way, then the US army association's
+                # Wikidata entry "matched by website", and was delivered as a US company (2026-11-25).
+                res = await resolver.resolve(name, "" if r.hint.get("_website_unverified") else r.url)
                 self.facts += resolution_facts(name, site, res)
                 if res.country:
                     settled += 1

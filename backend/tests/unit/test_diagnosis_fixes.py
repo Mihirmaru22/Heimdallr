@@ -373,3 +373,34 @@ async def test_a_site_that_answers_between_two_stray_errors_is_not_passed_over()
     with pytest.raises(DiscoveryError):
         await p.discover(spec)
     assert not any("refused or gave no text" in e["reason"] for e in p.evidence)
+
+
+async def test_a_website_kept_without_reading_its_homepage_is_marked_unverified():
+    story = ("<html><head><title>AUSA picks Teamcenter</title></head><body><p>Thanks to Teamcenter, AUSA Corp "
+             "integrated all its technical documentation with its ERP.</p></body></html>")
+
+    def searx(request):
+        if "official website" in request.url.params["q"]:
+            return httpx.Response(200, json={"results": [{"url": "https://www.ausacorp.org/"}] * 5})
+        if request.url.params["pageno"] != "1":
+            return httpx.Response(200, json={"results": []})
+        return httpx.Response(200, json={"results": [{"url": "https://maker.example/stories/ausa"}]})
+
+    async def fetch_page(url):
+        return parse_page(url, story) if url == "https://maker.example/stories/ausa" else None  # homepage unreadable
+
+    class Router:
+        async def chat(self, messages, **_kw):
+            return Reply(json.dumps({"publisher": "vendor", "customers": [
+                {"name": "AUSA Corp", "quote": 1, "relationship": "uses"}]}), "m:free")
+
+        async def aclose(self):
+            pass
+
+    p = CaseStudiesProvider(httpx.AsyncClient(transport=httpx.MockTransport(searx)), Judge(Router()), "http://searx")
+    p.fetch_page = fetch_page
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["case_studies"], "technology": "Teamcenter"}})
+    (ausa,) = await p.discover(spec)
+    assert ausa.hint["website_url"] == "https://www.ausacorp.org/" and ausa.hint["_website_unverified"] is True
