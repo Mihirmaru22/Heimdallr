@@ -64,3 +64,12 @@ async def test_a_403_stays_a_403_when_the_fallback_user_agent_is_off(monkeypatch
         assert exc.kind == "http_403"
     else:
         raise AssertionError("expected a 403")
+
+
+def test_pdf_lines_broken_by_width_are_joined_back_into_sentences():
+    from app.crawl.fetcher import pdf_paragraphs
+
+    text = ("Customer Story\n\nVeeva Systems announced that Kemwell\nBioPharma has implemented Veeva Vault QMS to "
+            "stream-\nline quality.\nNext sentence here.")
+    assert pdf_paragraphs(text) == ["Customer Story", "Veeva Systems announced that Kemwell BioPharma has implemented "
+                                    "Veeva Vault QMS to streamline quality.", "Next sentence here."]

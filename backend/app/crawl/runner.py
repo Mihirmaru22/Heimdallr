@@ -178,6 +178,7 @@ class CrawlRunner:
             redis = aioredis.from_url(self.settings.redis_url)
         self.politeness = RedisPoliteness(redis, delay) if redis is not None else LocalPoliteness(delay)
         self.fetcher = Fetcher(self.client, self.politeness, resolver)
+        self.fetch_failures: dict[str, str] = {}  # address -> why a discovery source's fetch_page gave nothing
         # Pages a discovery source reads for proof may be PDFs (case studies often are); crawled pages stay HTML.
         self.doc_fetcher = Fetcher(self.client, self.politeness, resolver, allowed_types=DOCUMENT_TYPES)
         self.robots = RobotsCache(self.fetcher, self.settings.user_agent, self.settings.respect_robots)
@@ -297,6 +298,8 @@ class CrawlRunner:
                     provider.fetch_text = self.fetch_text
                 if hasattr(provider, "fetch_page"):
                     provider.fetch_page = self.fetch_page
+                if hasattr(provider, "failure_of"):
+                    provider.failure_of = self.failure_of
                 if hasattr(provider, "fetch_xml"):
                     provider.fetch_xml, provider.sitemaps_of = self.fetch_xml, self.sitemaps_of
                 if hasattr(provider, "deadline"):
@@ -438,22 +441,31 @@ class CrawlRunner:
 
     async def fetch_page(self, url: str) -> PageDoc | None:
         """A page for a discovery source, fetched like any crawled page: robots.txt respected, network rules
-        checked. None when it cannot be read or has no text."""
+        checked. None when it cannot be read or has no text; failure_of(url) then says why."""
         got = await self._fetch_doc(url)
+        if got is not None and unreadable(got[1]):
+            self.fetch_failures[url] = "no_text"
         return None if got is None or unreadable(got[1]) else got[1]
+
+    def failure_of(self, url: str) -> str:
+        """Why the last fetch_page of this address gave nothing: a FetchError kind, "robots" or "no_text"."""
+        return self.fetch_failures.get(url, "")
 
     async def _fetch_doc(self, url: str) -> tuple[Any, PageDoc] | None:
         """(fetch result, parsed page) under robots.txt and the network rules; None when nothing was fetched."""
         try:
             decision = await self.robots.check(url)
             if not decision.allowed:
+                self.fetch_failures[url] = "robots"
                 return None
             result = await self.doc_fetcher.fetch(url)
             return result, parse_page(normalize_url(result.final_url) or url, result.html())
-        except FetchError:
+        except FetchError as exc:
+            self.fetch_failures[url] = exc.kind
             return None
         except Exception as exc:  # noqa: BLE001 - one page that cannot be read or parsed is that page's problem
             log.warning("page %s could not be read: %s: %s", url, type(exc).__name__, str(exc)[:200])
+            self.fetch_failures[url] = "request"
             return None
 
     async def fetch_xml(self, url: str) -> str | None:

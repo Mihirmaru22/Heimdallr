@@ -3,6 +3,7 @@
 import json
 
 import httpx
+import pytest
 
 from app.discovery.case_studies import CaseStudiesProvider, adoption_queries, candidate_key
 from app.discovery.relevance import pages_country
@@ -297,3 +298,41 @@ async def test_searches_name_each_country_by_its_standard_name():
     qs = await p._context(product_for("Oracle NetSuite"), spec.discovery)
     assert p.place == "United Kingdom" and '"Oracle NetSuite" United Kingdom implemented' in qs
     assert not any("Britain" in q for q in qs)
+
+
+@pytest.mark.parametrize(("why", "passed_over"), [("http_403", 3), ("http_404", 0), ("no_text", 0), ("robots", 0)])
+async def test_only_a_site_that_refuses_us_is_passed_over_not_one_with_missing_or_textless_pages(why, passed_over):
+    pages = {f"https://refuser.example/story-{i}": None for i in range(5)}
+    story = ("<html><head><title>Acme picks Teamcenter</title></head><body><p>Acme Corp standardized on "
+             "Teamcenter.</p></body></html>")
+
+    def searx(request):
+        if "official website" in request.url.params["q"]:
+            return httpx.Response(200, json={"results": [{"url": "https://www.acme.com/"}] * 5})
+        if request.url.params["pageno"] != "1":
+            return httpx.Response(200, json={"results": []})
+        return httpx.Response(200, json={"results": [{"url": u} for u in [*pages, "https://partner.example/acme"]]})
+
+    async def fetch_page(url):
+        if url == "https://partner.example/acme":
+            return parse_page(url, story)
+        if url == "https://www.acme.com/":
+            return parse_page(url, "<html><body>Acme Corp makes things</body></html>")
+        return None
+
+    class Router:
+        async def chat(self, messages, **_kw):
+            return Reply(json.dumps({"publisher": "partner", "customers": [
+                {"name": "Acme Corp", "quote": 1, "relationship": "uses"}]}), "m:free")
+
+        async def aclose(self):
+            pass
+
+    p = CaseStudiesProvider(httpx.AsyncClient(transport=httpx.MockTransport(searx)), Judge(Router()), "http://searx")
+    p.fetch_page, p.failure_of = fetch_page, lambda url: why
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["case_studies"], "technology": "Teamcenter"}})
+    await p.discover(spec)
+    reasons = [e["reason"] for e in p.evidence if e["url"].startswith("https://refuser.example")]
+    assert sum("refused or gave no text" in r for r in reasons) == passed_over

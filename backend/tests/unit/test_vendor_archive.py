@@ -94,3 +94,12 @@ def test_the_maker_is_recognised_from_the_products_own_names():
     assert maker_site("oracle.com", product_for("NetSuite")) and maker_site("netsuite.co.uk", product_for("NetSuite"))
     assert maker_site("veeva.com", product_for("Veeva Vault"))
     assert not maker_site("spkaa.com", WINDCHILL)
+
+
+def test_sitemap_addresses_wrapped_in_cdata_are_read():
+    from app.discovery.vendor_archive import LOC
+
+    text = ("<sitemapindex><sitemap><loc><![CDATA[https://www.veeva.com/customer-stories-sitemap.xml]]></loc>"
+            "</sitemap><sitemap><loc> https://www.veeva.com/page-sitemap.xml </loc></sitemap></sitemapindex>")
+    assert LOC.findall(text) == ["https://www.veeva.com/customer-stories-sitemap.xml",
+                                 "https://www.veeva.com/page-sitemap.xml"]

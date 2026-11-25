@@ -37,7 +37,8 @@ from app.search import EVIDENCE, SearchError, SearchHub
 MAX_HOSTS = 6  # maker hosts whose sitemaps are read
 MAX_SITEMAP_FILES = 25  # sitemap files fetched per job, indexes included
 MAX_CANDIDATES = 400  # pages handed to the reading loop, best first
-LOC = re.compile(r"<loc>\s*([^<\s]+)\s*</loc>", re.I)
+# Some sitemaps wrap each address in CDATA (<loc><![CDATA[https://...]]></loc>; Veeva's do): read through it.
+LOC = re.compile(r"<loc>\s*(?:<!\[CDATA\[)?\s*([^<\s\]]+)\s*(?:\]\]>)?\s*</loc>", re.I)
 # Child sitemaps whose name suggests stories or releases are read first ("sitemap-case-studies.xml").
 STORY_SITEMAP = re.compile(r"case|stor|customer|success|press|news|release|blog|resource", re.I)
 LOCALE = re.compile(r"^/(?:[a-z]{2}(?:[-_][a-z]{2})?)(?=/)", re.I)  # "/en/", "/de-de/", "/ja_jp/"

@@ -77,6 +77,31 @@ class FetchResult:
         return pdf_html(self.body) if self.is_pdf else self.text
 
 
+def pdf_paragraphs(text: str) -> list[str]:
+    """A PDF page's text lines joined back into paragraphs: a PDF breaks lines by width, so one sentence
+    ("... announced that Kemwell / BioPharma implemented Veeva Vault QMS") is otherwise split across two
+    paragraphs and neither half names both. A line ending a sentence, or a blank line, closes a paragraph."""
+    paras: list[str] = []
+    cur: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            if cur:
+                paras.append(" ".join(cur))
+                cur = []
+            continue
+        if cur and cur[-1].endswith("-") and line[:1].islower():
+            cur[-1] = cur[-1][:-1] + line  # a word hyphenated at the line end
+        else:
+            cur.append(line)
+        if line.endswith((".", "!", "?", ":", "\u201d", '"')) or sum(map(len, cur)) > 1500:  # 1500: tables
+            paras.append(" ".join(cur))
+            cur = []
+    if cur:
+        paras.append(" ".join(cur))
+    return paras
+
+
 def pdf_html(body: bytes) -> str:
     """A PDF's text as a minimal HTML page ("" when it has no extractable text, e.g. a scanned image)."""
     from pypdf import PdfReader
@@ -84,12 +109,11 @@ def pdf_html(body: bytes) -> str:
     try:
         reader = PdfReader(io.BytesIO(body))
         title = str((reader.metadata or {}).get("/Title") or "")
-        lines = [line.strip() for page in reader.pages[:MAX_PDF_PAGES]
-                 for line in (page.extract_text() or "").splitlines()]
+        texts = [page.extract_text() or "" for page in reader.pages[:MAX_PDF_PAGES]]
     except Exception as exc:  # noqa: BLE001 - a broken PDF is a page without text, not a crash
         log.info("PDF could not be read: %s", type(exc).__name__)
         return ""
-    body_html = "".join(f"<p>{html.escape(line)}</p>" for line in lines if line)
+    body_html = "".join(f"<p>{html.escape(para)}</p>" for text in texts for para in pdf_paragraphs(text))
     return f"<html><head><title>{html.escape(title)}</title></head><body>{body_html}</body></html>" if body_html else ""
 
 
