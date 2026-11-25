@@ -58,3 +58,9 @@ frontend/dist/
 .env
 !.env.example
 *.tsbuildinfo
+
+# Browser authentication state is a credential, never a fixture.
+backend/tests/e2e/.auth/
+
+# Regional Overture extracts are large source data, not application code.
+var/overture/

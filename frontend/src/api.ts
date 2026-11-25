@@ -96,3 +96,13 @@ export function display(value: unknown): string {
 export interface CompanyRow { id: string; name: string; website: string; status: string; reasons: string[];
   proof_verdict: string; proof_url: string; proof_quote: string; country: string; country_by: string;
   sources: string[]; record_id: string | null }
+
+export interface CatalogCompany { id: string; name: string; website: string; domain: string; location: string;
+  verified_claims: number; review_claims: number; last_seen_at: string; updated_at: string }
+export interface CatalogClaim { id: string; field_key: string; value: unknown; raw_value: unknown; display_value: string;
+  verification_status: string; verification_method: string; confidence: number | null; source_url: string;
+  source_origin: string; source_group: string; source_record_id: string; source_license: string;
+  retrieved_at: string | null; quote: string; source_type: string; source_date: string; relationship: string;
+  source_job_id: string | null; verified_by: string | null; verified_at: string | null;
+  first_seen_at: string; last_seen_at: string; created_at: string }
+export interface CatalogCompanyDetail extends CatalogCompany { claims: CatalogClaim[] }

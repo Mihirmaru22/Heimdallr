@@ -69,3 +69,42 @@ def audit(db: Session, action: str, *, org_id=None, actor_id=None, target_type=N
           data: dict[str, Any] | None = None) -> None:
     db.add(AuditLog(org_id=org_id, actor_id=actor_id, action=action, target_type=target_type,
                     target_id=str(target_id) if target_id else None, ip=ip, data=data or {}))
+
+
+def model_calls(job: CrawlJob) -> tuple[dict[str, dict[str, int]], dict[str, dict[str, int]]]:
+    """(the job's model calls per step, its plan's), each step {"answered": n, "failed": n}: what the job stored
+    when it ended, or while it runs, the live counts in Redis."""
+    counters = job.counters or {}
+    if counters.get("model_calls_kept"):
+        out: dict[str, dict[str, dict[str, int]]] = {"model_calls": {}, "plan_model_calls": {}}
+        for key, n in counters.items():
+            scope, _, rest = key.partition(".")
+            if scope in out and rest.count(".") == 1:
+                step, outcome = rest.split(".")
+                out[scope].setdefault(step, {"answered": 0, "failed": 0})[outcome] = int(n)
+        return out["model_calls"], out["plan_model_calls"]
+    try:
+        from app.llm.openrouter import State
+
+        state = State()
+        return state.calls(str(job.id)), state.calls(f"schema:{job.schema_id}")
+    except Exception:  # noqa: BLE001 - no Redis: no live counts
+        return {}, {}
+
+
+def model_call_lines(job: CrawlJob) -> list[tuple[str, str]]:
+    """(label, "total N: answered A, failed F") for the whole job and each step, plan included."""
+    calls, plan = model_calls(job)
+    steps = {k: dict(v) for k, v in calls.items()}
+    for counts in plan.values():  # whatever the planner's calls were tagged with, they planned the job
+        merged = steps.setdefault("plan", {"answered": 0, "failed": 0})
+        for outcome in ("answered", "failed"):
+            merged[outcome] = merged.get(outcome, 0) + counts.get(outcome, 0)
+
+    def line(c: dict[str, int]) -> str:
+        a, f = c.get("answered", 0), c.get("failed", 0)
+        return f"total {a + f}: answered {a}, failed {f}"
+
+    total = {o: sum(c.get(o, 0) for c in steps.values()) for o in ("answered", "failed")}
+    return [("model calls", line(total))] + [(f"model calls: {step}", line(c)) for step, c in sorted(
+        steps.items(), key=lambda kv: -(kv[1].get("answered", 0) + kv[1].get("failed", 0)))]

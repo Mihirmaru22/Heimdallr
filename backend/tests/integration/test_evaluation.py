@@ -8,6 +8,8 @@ from app.models import CrawlJob, ExtractionSchema
 from app.services import evaluation, pipeline
 from tests.integration.test_pipeline import make_job
 
+PROOF = ["sec_filings", "vendor_archive", "case_studies", "news"]
+
 
 def test_runs_of_a_question_are_scored_oldest_first_with_their_code(db_clean, crawl_env, tmp_path, monkeypatch):
     url = crawl_env["url"]
@@ -50,7 +52,7 @@ def test_a_benchmark_run_can_take_the_sources_todays_rules_pick_and_keep_the_res
         old = db.get(ExtractionSchema, db.get(CrawlJob, job_id).schema_id)
         new = evaluation.with_current_sources(db, old)
         assert new.id != old.id and new.version == old.version + 1
-        assert new.spec["discovery"]["providers"] == ["sec_filings", "case_studies", "news"]
+        assert new.spec["discovery"]["providers"] == PROOF
         assert {k: v for k, v in new.spec.items() if k != "discovery"} == \
             {k: v for k, v in old.spec.items() if k != "discovery"}
         assert evaluation.with_current_sources(db, new).id == new.id  # nothing to change: the same plan

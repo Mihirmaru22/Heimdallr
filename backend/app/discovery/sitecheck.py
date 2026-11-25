@@ -89,14 +89,14 @@ class SiteChecker:
         try:
             self.router = self.router or OpenRouter()
             try:
-                reply = await self.router.chat(messages, json_mode=True, max_tokens=300)
+                reply = await self.router.chat(messages, json_mode=True, max_tokens=300, step="site_check")
             except LLMUnavailable as exc:
                 # Every free model busy for a moment ("no free model answered") is not the end of model use:
                 # it once left a whole run's later sites unchecked, a ministry and an investing app among them.
                 if not str(exc).startswith(BUSY):
                     raise
                 await asyncio.sleep(self.wait)
-                reply = await self.router.chat(messages, json_mode=True, max_tokens=300)
+                reply = await self.router.chat(messages, json_mode=True, max_tokens=300, step="site_check")
             verdict = Verdict.model_validate(reply.json())
         except LLMUnavailable as exc:
             if not str(exc).startswith(BUSY):

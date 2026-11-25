@@ -54,7 +54,7 @@ async def test_a_technology_question_read_by_the_rules_keeps_its_technology_and_
                                       "name, website and the link proving they use it", [], NoModel())
     d = spec.discovery
     assert by == "rules" and d.technology == "Veeva Vault" and d.industry == "pharmaceutical"
-    assert d.countries == ["IN"] and d.providers[:2] == ["case_studies", "news"]
+    assert d.countries == ["IN"] and d.providers[:3] == ["vendor_archive", "case_studies", "news"]
     assert "uses_technology" in [f.name for f in spec.fields] and "evidence_url" in [f.name for f in spec.fields]
     assert any("Veeva Vault" in n for n in notes)
 
@@ -104,13 +104,14 @@ def test_filings_without_line_breaks_are_quoted_as_before():
     assert find_mentions(text, product_for("SAP S/4HANA")) == ["We completed our migration to SAP S/4HANA in 2024."]
 
 
-async def test_an_unreadable_proof_answer_is_asked_of_another_model():
+async def test_an_unreadable_proof_answer_is_asked_of_another_model_once_and_a_plain_sentence_needs_no_model():
     class BrokenThenFine:
         def __init__(self):
-            self.avoided = []
+            self.avoided, self.steps = [], []
 
-        async def chat(self, messages, avoid=None, **_kw):
+        async def chat(self, messages, avoid=None, step=None, **_kw):
             self.avoided.append(avoid)
+            self.steps.append(step)
             if avoid is None:
                 return Reply("Sure, here is what I found:", "broken:free")
             return Reply(json.dumps({"publisher": "news", "customers": [
@@ -120,9 +121,14 @@ async def test_an_unreadable_proof_answer_is_asked_of_another_model():
             pass
 
     router = BrokenThenFine()
-    sentence = "PTC today announced that Komatsu America Corp. has chosen Windchill."
-    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [sentence], sentence, "u")
-    assert [f.customer for f in found] == ["Komatsu America"] and router.avoided[:2] == [None, "broken:free"]
+    hedged = "PTC said Komatsu America Corp. may move to Windchill next year."
+    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [hedged], hedged, "u")
+    assert [f.customer for f in found] == ["Komatsu America"]
+    assert router.avoided == [None, "broken:free"] and router.steps == ["proof_read", "reask"]
+    plain = "PTC today announced that Komatsu America Corp. has chosen Windchill."
+    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [plain], plain, "u")
+    assert [f.customer for f in found] == ["Komatsu America Corp."] and found[0].agreement == "rules"
+    assert len(router.avoided) == 2  # the sentence says it: no model call
 
 
 def test_the_maker_is_recognised_from_the_product_s_name():
@@ -240,19 +246,14 @@ async def test_a_refusing_site_is_passed_over_and_unread_pages_stay_visible():
     assert not any(e["url"] == "https://www.partner.example/acme/" for e in p.evidence)  # a copy, not read
 
 
-async def test_adoption_searches_keep_the_product_name_and_the_place():
-    class Words:
-        async def chat(self, *_a, **_kw):
-            return Reply(json.dumps({"queries": ['"Windchill" selects PLM United States', "no product here",
-                                                 '"Windchill" site:ptc.com', '"Windchill" Konzern führt ein']}),
-                         "m:free")
-
-        async def aclose(self):
-            pass
-
-    out = await adoption_queries(Judge(Words()), "Windchill", "United States")
-    assert out == ['"Windchill" selects PLM United States', '"Windchill" Konzern führt ein']
-    assert await adoption_queries(Judge(NoModel()), "Windchill", "United States") == []
+async def test_adoption_searches_are_fixed_templates_so_the_same_question_asks_the_same_searches():
+    first = adoption_queries("Windchill", "United States", "US")
+    assert first == adoption_queries("Windchill", "United States", "US")  # every run the same
+    assert first == ['"Windchill" United States implemented', '"Windchill" United States "went live"',
+                     '"Windchill" United States selects', '"Windchill" United States customer']
+    assert all('"Windchill"' in q for q in adoption_queries("Windchill", "Japan", "JP"))
+    assert '"Windchill" 導入事例' in adoption_queries("Windchill", "Japan", "JP")  # the place's own words
+    assert adoption_queries("Windchill", "", "") == []
     q = CaseStudiesProvider.queries(product_for("Teamcenter"), "Germany")
     assert q[0] == '"Teamcenter" "case study" Germany'
 
@@ -284,3 +285,15 @@ async def test_a_busy_moment_does_not_switch_the_site_check_off_for_the_run():
     always_busy = SiteChecker(NoModel("no free model answered: a: rate limited"), wait=0)
     assert (await always_busy.check(_page("https://x.example/", "pharma"), spec))[1].startswith("unchecked")
     assert always_busy.unavailable is None  # the next site is asked again
+
+
+async def test_searches_name_each_country_by_its_standard_name():
+    p = CaseStudiesProvider(searxng_url="http://searx")
+    from app.spec.models import ExtractionSpec
+
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["case_studies"], "technology": "Oracle NetSuite", "countries": ["GB"]}})
+    qs = await p._context(product_for("Oracle NetSuite"), spec.discovery)
+    assert p.place == "United Kingdom" and '"Oracle NetSuite" United Kingdom implemented' in qs
+    assert not any("Britain" in q for q in qs)
