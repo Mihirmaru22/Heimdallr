@@ -59,7 +59,7 @@ def finds_dried_up(read: int, finds: list[int]) -> bool:
     recent = [f for f in finds if f > read - WINDOW]
     return read - (finds[-1] if finds else 0) >= QUIET and len(recent) <= MAX_IN_WINDOW
 SEARCH_PAGES = 2  # result pages per query
-HOST_FAILURES = 2  # times one site refused us before its other candidates are passed over
+HOST_FAILURES = 2  # times in a row one site refused us before its other candidates are passed over
 # Failures that say the SITE refuses or cannot be reached. A missing page (404), a PDF with no readable text or a page
 # robots.txt keeps out is that page's problem: Veeva's 52 other story pages were once skipped after one encrypted
 # PDF and one 404 (2026-11-25).
@@ -544,6 +544,9 @@ class CaseStudiesProvider:
                     failures[host] += 1
                 pending += [c for c in await self._copies(url, product) if c not in pending]
                 continue
+            # Refusals count in a row: a site answering its pages is not refusing us. Two stray network errors among
+            # 340 PTC pages once passed over its Welbilt, HP and Polaris stories (2026-11-25).
+            failures[host] = 0
             new = [r for r in kept_rows if r["company"].casefold() not in users]
             for row in kept_rows:
                 k = row["company"].casefold()
