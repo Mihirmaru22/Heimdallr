@@ -37,6 +37,8 @@ from app.search import EVIDENCE, SearchError, SearchHub
 MAX_HOSTS = 6  # maker hosts whose sitemaps are read
 MAX_SITEMAP_FILES = 25  # sitemap files fetched per job, indexes included
 MAX_CANDIDATES = 400  # pages handed to the reading loop, best first
+SITE_SEARCH_PAGES = 3  # result pages of the one site search per maker host
+SEARCHED_KINDS = ("story", "news", "article", "other")  # not product, service or job pages
 # Some sitemaps wrap each address in CDATA (<loc><![CDATA[https://...]]></loc>; Veeva's do): read through it.
 LOC = re.compile(r"<loc>\s*(?:<!\[CDATA\[)?\s*([^<\s\]]+)\s*(?:\]\]>)?\s*</loc>", re.I)
 # Child sitemaps whose name suggests stories or releases are read first ("sitemap-case-studies.xml").
@@ -78,21 +80,25 @@ def page_key(url: str) -> str:
     return f"{parts.netloc.lower().removeprefix('www.')}{LOCALE.sub('', parts.path).rstrip('/').lower()}"
 
 
-def choose(urls: list[str], product: Product, limit: int = MAX_CANDIDATES) -> list[str]:
-    """Pages worth reading, best first: stories naming the product, other stories, then releases naming it.
-    Within each, the shortest address of a page's language copies, in sitemap order."""
+def choose(urls: list[str], product: Product, limit: int = MAX_CANDIDATES,
+           searched: list[str] | tuple[str, ...] = ()) -> list[str]:
+    """Pages worth reading, best first: pages a site search shows naming the product, stories whose address names
+    it, releases naming it, then the other stories (mostly about the maker's other products). Within each, the
+    shortest address of a page's language copies, in search or sitemap order."""
     best: dict[str, str] = {}
-    for url in urls:
-        if not keep(url, product):
-            continue
+    hit = {page_key(u) for u in searched}
+    for url in [*searched, *urls]:
         key = page_key(url)
+        if key not in hit and not keep(url, product):
+            continue
         if key not in best or len(url) < len(best[key]):
             best[key] = url
     order = {u: i for i, u in enumerate(best.values())}
 
     def rank(u: str) -> tuple:
         story, named = page_kind(u) == "story", names_product(u, product)
-        return (0 if story and named else 1 if story else 2, order[u])
+        tier = 0 if page_key(u) in hit else 1 if story and named else 2 if named else 3
+        return (tier, order[u])
 
     return sorted(best.values(), key=rank)[:limit]
 
@@ -102,6 +108,9 @@ class VendorArchiveProvider(CaseStudiesProvider):
     what = "the maker's customer stories and press releases"
     publisher = "vendor"
     open_ended = False  # its candidates are bounded (MAX_CANDIDATES), so it reads before the open-ended sources
+    # At most a third of the reading time: a maker's site holds hundreds of stories about its other products, and
+    # reading them once left the third-party pages that found SRAM, EnerSys and Lick unread (2026-11-25).
+    max_share = 1 / 3
 
     def __init__(self, client: httpx.AsyncClient | None = None, judge=None, searxng_url: str | None = None) -> None:
         super().__init__(client, judge, searxng_url)
@@ -162,6 +171,31 @@ class VendorArchiveProvider(CaseStudiesProvider):
             queue.sort(key=lambda u: not STORY_SITEMAP.search(u))
         return pages
 
+    async def site_pages(self, host: str, product: Product) -> list[str]:
+        """Pages of a maker host that web search shows naming the product (`site:host "name"`). The sitemap lists
+        every page the maker published, mostly about its other products: of 331 PTC pages read once, 240 never
+        named Windchill (2026-11-25). Search engines index the text, so they know which pages name it."""
+        if self.hub is None:
+            return []
+        names = sorted((n for n in product.names if len(n) > 4), key=len) or product.names
+        query = f'site:{host} "{names[0]}"'
+        out: list[str] = []
+        for page in range(1, SITE_SEARCH_PAGES + 1):
+            try:
+                hits = await self.hub.search(query, page=page, kind=EVIDENCE)
+            except SearchError:
+                break
+            new = 0
+            for h in hits:
+                url = normalize_url(h.url)
+                if url and urlsplit(url).netloc.lower() == host and url not in out \
+                        and page_kind(url, h.title) in SEARCHED_KINDS:
+                    out.append(url)
+                    new += 1
+            if not new:
+                break
+        return out
+
     async def search(self, client: httpx.AsyncClient, product: Product) -> list[str]:
         """Candidate pages: the maker's stories and product releases from its sitemaps (no search for pages)."""
         self.hosts = await self.maker_hosts(client, product)
@@ -169,14 +203,19 @@ class VendorArchiveProvider(CaseStudiesProvider):
             self.notes.append(f"{self.name}: no site of {product.name}'s maker came up in web search")
             return []
         found: list[str] = []
+        searched: list[str] = []
         for host in self.hosts:
             pages = await self.sitemap_pages(host)
-            self._say("search", f"{host}: its sitemaps list {len(pages)} page(s)")
+            named = await self.site_pages(host, product)
+            self._say("search", f"{host}: its sitemaps list {len(pages)} page(s); a site search shows "
+                                f"{len(named)} naming {product.name}")
             found += pages
-        urls = [u for u in (normalize_url(p) for p in choose(found, product)) if u]
+            searched += named
+        urls = [u for u in (normalize_url(p) for p in choose(found, product, searched=searched)) if u]
         for url in urls:
             self.meta.setdefault(url, ("", ""))
             self.order.setdefault(url, len(self.order))
         self.notes.append(f"{self.name}: maker sites {', '.join(self.hosts)}; {self.files_read} sitemap file(s), "
-                          f"{len(found)} page(s) listed, {len(urls)} kept as stories or product releases")
+                          f"{len(found)} page(s) listed, {len(searched)} named the product in a site search, "
+                          f"{len(urls)} kept as stories or product releases")
         return urls

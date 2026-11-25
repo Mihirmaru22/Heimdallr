@@ -141,10 +141,10 @@ def reading_order(providers: list) -> list:
     return sorted(providers, key=lambda p: bool(getattr(p, "open_ended", False)))
 
 
-def reading_share(now: float, deadline: float, readers_left: int) -> float:
+def reading_share(now: float, deadline: float, readers_left: int, cap: float = 1.0) -> float:
     """When the source whose turn it is must stop reading: an equal share of the budget left, among the sources
-    still to read (this one included)."""
-    return now + max(0.0, deadline - now) / max(1, readers_left)
+    still to read (this one included), and never more than `cap` of it."""
+    return now + max(0.0, deadline - now) * min(1 / max(1, readers_left), cap)
 
 
 class CrawlRunner:
@@ -303,7 +303,8 @@ class CrawlRunner:
                 if hasattr(provider, "fetch_xml"):
                     provider.fetch_xml, provider.sitemaps_of = self.fetch_xml, self.sitemaps_of
                 if hasattr(provider, "deadline"):
-                    provider.deadline = reading_share(time.monotonic(), self.read_deadline, readers_left)
+                    provider.deadline = reading_share(time.monotonic(), self.read_deadline, readers_left,
+                                                      getattr(provider, "max_share", 1.0))
                     readers_left -= 1
                 if hasattr(provider, "resolver"):
                     provider.resolver = self.entity_resolver
