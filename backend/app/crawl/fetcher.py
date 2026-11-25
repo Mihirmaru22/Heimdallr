@@ -10,6 +10,7 @@ import logging
 import random
 import time
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -26,6 +27,9 @@ PDF_TYPES = ("application/pdf",)
 DOCUMENT_TYPES = HTML_TYPES + PDF_TYPES
 MAX_PDF_PAGES = 40
 RETRY_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+# Hosts that refused the crawler's own User-Agent with a 403 and are read with the fallback (browser) one from
+# then on, for the life of the process: one refused request per host, not one per page.
+FALLBACK_HOSTS: set[str] = set()
 
 
 class FetchError(Exception):
@@ -91,8 +95,9 @@ def pdf_html(body: bytes) -> str:
 
 class Fetcher:
     def __init__(self, client: httpx.AsyncClient, politeness=None, resolver=None,
-                 allowed_types: tuple[str, ...] = HTML_TYPES) -> None:
+                 allowed_types: tuple[str, ...] = HTML_TYPES, use_fallback: bool = True) -> None:
         self.client = client
+        self.use_fallback = use_fallback  # off for the company-database homepage crawl: its own UA only
         self.politeness = politeness
         self.resolver = resolver
         self.allowed_types = allowed_types
@@ -118,8 +123,11 @@ class Fetcher:
                 raise FetchError("blocked", str(exc), retryable=False) from None
             if self.politeness is not None:
                 await self.politeness.wait(current)
+            host = urlsplit(current).netloc.lower()
+            fallback = s.fallback_user_agent if self.use_fallback and host in FALLBACK_HOSTS else ""
+            headers = {"User-Agent": fallback} if fallback else None
             try:
-                async with self.client.stream("GET", current) as resp:
+                async with self.client.stream("GET", current, headers=headers) as resp:
                     if resp.status_code in (301, 302, 303, 307, 308):
                         location = resp.headers.get("location")
                         nxt = normalize_url(location, base=current) if location else None
@@ -132,6 +140,13 @@ class Fetcher:
                     if resp.status_code in RETRY_STATUSES:
                         retry_after = resp.headers.get("retry-after", "")
                         raise FetchError(f"http_{resp.status_code}", retry_after, retryable=True)
+                    if resp.status_code == 403 and self.use_fallback and s.fallback_user_agent and not fallback:
+                        # Some sites (CDN bot walls, e.g. Akamai) refuse every bot User-Agent, even on pages their
+                        # robots.txt allows. The owner chose (2026-11-25) to read such hosts with a browser one;
+                        # robots.txt is still obeyed under the crawler's own name, and politeness is unchanged.
+                        FALLBACK_HOSTS.add(host)
+                        log.info("403 to the crawler's User-Agent; reading %s with the fallback one", host)
+                        continue
                     if resp.status_code >= 400:
                         raise FetchError(f"http_{resp.status_code}", f"HTTP {resp.status_code}", retryable=False)
                     base_type = ctype.split(";")[0].strip().lower()

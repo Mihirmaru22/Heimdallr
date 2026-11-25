@@ -44,7 +44,7 @@ async def dns_alive(domain: str, timeout: float = 5.0) -> bool:
 def own_fetcher(client: httpx.AsyncClient, user_agent: str, concurrency: int = OWN_CONCURRENCY,
                 alive: Callable[[str], Awaitable[bool]] = dns_alive,
                 resolver=None) -> Callable[[str], Awaitable[Homepage]]:
-    fetcher = Fetcher(client, resolver=resolver)
+    fetcher = Fetcher(client, resolver=resolver, use_fallback=False)
     robots = RobotsCache(fetcher, user_agent, attempts=1)
     slots = asyncio.Semaphore(concurrency)
 
