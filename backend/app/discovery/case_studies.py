@@ -129,6 +129,20 @@ def page_date(doc: PageDoc) -> str:
     return ""
 
 
+def with_summary(doc: PageDoc) -> str:
+    """The page's text with its own summary first: the og:title and description tags in its static HTML, when
+    the body does not already carry them. Some newsrooms (netsuite.co.uk) draw the story's body with JavaScript,
+    so the fetched text is only the site's menus, while "Bloom & Wild ... is using Oracle NetSuite" sits in the
+    page's og:description. A summary the site repeats on every page is caught as boilerplate like any sentence."""
+    seen = " ".join(doc.text.split()).casefold()
+    extra = []
+    for key in ("og:title", "og:description", "description", "twitter:description"):
+        value = " ".join(doc.meta.get(key, "").split())
+        if value and value.casefold() not in seen and all(value.casefold() not in e.casefold() for e in extra):
+            extra.append(value if value.endswith((".", "!", "?")) else value + ".")
+    return " ".join([*extra, doc.text]) if extra else doc.text
+
+
 class CaseStudiesProvider:
     name = "case_studies"
     what = "case studies and customer stories"  # what the pages are, in notes and the live feed
@@ -434,8 +448,9 @@ class CaseStudiesProvider:
             self._record(**base, kept=False, reason="page could not be read (robots.txt, error or no text)")
             return [], False
         self.read += 1
-        text = f"{doc.title} {doc.text}"
-        sentences = [q for q in find_mentions(doc.text, product, limit=PAGE_SENTENCES) if verify_quote(q, doc.text)]
+        body = with_summary(doc)
+        text = f"{doc.title} {body}"
+        sentences = [q for q in find_mentions(body, product, limit=PAGE_SENTENCES) if verify_quote(q, body)]
         boilerplate = self._repeated(url, sentences)
         if not sentences:
             self._record(**base, kept=False, reason="the product's name is not on the page")
