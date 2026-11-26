@@ -22,7 +22,7 @@ def create_app() -> FastAPI:
         logging_setup.configure()
     if settings.env == "production" and settings.secret_key.lower().startswith("change-me"):
         raise RuntimeError("Set WEBDATA_SECRET_KEY to a long random value")
-    app = FastAPI(title="WebData AI", version="0.1.0", docs_url="/api/docs", openapi_url="/api/openapi.json")
+    app = FastAPI(title="Heimdallr", version="0.1.0", docs_url="/api/docs", openapi_url="/api/openapi.json")
     errors.install(app)
     if settings.cors_origins:
         app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,

@@ -41,12 +41,12 @@ export default function LoginPage() {
       <div className="signin-globe" aria-hidden><LazyGlobe demo labels={false} horizon={0.56} /></div>
       <div className="signin-scrim" aria-hidden />
       <header className="signin-top">
-        <Link to="/" className="brand" aria-label="WebData AI home"><BrandMark /> WebData AI</Link>
+        <Link to="/" className="brand" aria-label="Heimdallr home"><BrandMark /> Heimdallr</Link>
         <Link to="/" className="btn ghost-btn"><Back /> Home</Link>
       </header>
 
       <div className="signin-body">
-        <section className="signin-copy" aria-label="About WebData AI">
+        <section className="signin-copy" aria-label="About Heimdallr">
           <h2>Every row comes from a page that was <em>read, checked and cited.</em></h2>
           <ul className="land-rules">
             <li><span aria-hidden><Check size={14} /></span>Free models and open sources</li>

@@ -1,4 +1,4 @@
-# WebData AI: free company and website discovery options (checked 2026-10-19)
+# Heimdallr: free company and website discovery options (checked 2026-10-19)
 
 **How this was checked.** Every row was checked on 2026-10-19 through WebFetch on the provider's own page, unless the row says otherwise. Library versions and licences come from the PyPI JSON API. Direct curl to provider sites and the GitHub API were blocked in this sandbox. Labels used below:
 - **[3P]**: the fact comes from a third-party page, used only because no first-party page could be read.

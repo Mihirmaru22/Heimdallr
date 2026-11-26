@@ -1,11 +1,12 @@
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Feature, MultiPolygon, Polygon } from "geojson";
-import countries from "world-atlas/countries-110m.json";
+import countries from "./countries-110m.json";
 import { TLD_TO_ISO } from "./cc";
 
 // The globe's dots: an even Fibonacci sphere, each dot tagged with the country it falls in (or ocean).
-// Countries come from Natural Earth via world-atlas (public domain data, ISC package), rasterised once into a
+// Countries come from Natural Earth's India point-of-view map (public domain; India drawn with its official
+// borders), built by scripts/build-countries.mjs and rasterised once into a
 // small canvas where each country is painted in its own colour, so a dot's country is one pixel lookup.
 
 export interface Earth {

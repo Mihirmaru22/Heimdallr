@@ -114,7 +114,7 @@ class KeenableBackend(Backend):
                                      headers={"X-API-Key": self.api_key})
         else:
             resp = await client.post("https://api.keenable.ai/v1/search/public", json={"query": query},
-                                     headers={"X-Keenable-Title": "webdata-ai"})
+                                     headers={"X-Keenable-Title": "heimdallr"})
         self.check(resp, quota_codes=(402,))
         return [Hit(r.get("url", ""), r.get("title", ""), r.get("snippet") or r.get("description") or "", self.name)
                 for r in resp.json().get("results", []) if r.get("url")]

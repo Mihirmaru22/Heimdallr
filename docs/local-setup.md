@@ -1,4 +1,4 @@
-# Running WebData AI locally
+# Running Heimdallr locally
 
 Everything runs on your machine. No cloud account, paid API key or AI model is needed for
 Phase 1: discovery uses your start URLs, Wikidata (free, no key) and a local SearXNG search
@@ -161,7 +161,7 @@ All backend settings use the `WEBDATA_` prefix. The important ones:
 | `WEBDATA_DATABASE_URL` | local `webdata` DB | Set by Compose. |
 | `WEBDATA_REDIS_URL` | `redis://localhost:6379/0` | Set by Compose. |
 | `WEBDATA_COOKIE_SECURE` | `false` | `true` only when served over HTTPS. |
-| `WEBDATA_USER_AGENT` | WebDataAI/0.1 | Put a real contact address here; site owners use it. |
+| `WEBDATA_USER_AGENT` | Heimdallr/0.1 | Put a real contact address here; site owners use it. |
 | `WEBDATA_RESPECT_ROBOTS` | `true` | Leave on. |
 | `WEBDATA_PER_DOMAIN_DELAY_SECONDS` | `1.0` | Minimum gap between requests to one host (robots.txt `Crawl-delay` can raise it, up to 30 s). |
 | `WEBDATA_PER_DOMAIN_CONCURRENCY` | `2` | |

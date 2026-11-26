@@ -1,4 +1,4 @@
-# Local SearXNG used by WebData AI for website discovery. Only the app talks to it.
+# Local SearXNG used by Heimdallr for website discovery. Only the app talks to it.
 use_default_settings: true
 general:
   instance_name: "webdata-searxng"

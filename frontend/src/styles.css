@@ -1,4 +1,4 @@
-/* WebData AI: tokens, base, components. Both themes are designed; see DESIGN.md. */
+/* Heimdallr: tokens, base, components. Both themes are designed; see DESIGN.md. */
 
 :root {
   --ground: #f4f4f1; --panel: #ffffff; --sunk: #ecece8; --raised: #fafaf8;
@@ -672,8 +672,8 @@ button.wide { width: 100%; }
   background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(93, 156, 255, .12), transparent 70%),
     linear-gradient(180deg, #06070a 0, rgba(6, 7, 10, .85) 34%, rgba(6, 7, 10, .1) 62%, rgba(6, 7, 10, .6) 100%); }
 .land-hero-copy { grid-column: 1 / -1; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 22px; }
-.land-hero-copy h1 { font-family: var(--f-display); font-size: clamp(2.6rem, 1.2rem + 5vw, 5.6rem); line-height: .96; letter-spacing: -.05em; font-weight: 680; max-width: 16ch; text-wrap: balance; }
-.land-hero-copy h1 em { font-style: normal; background: linear-gradient(90deg, #ff9a6b, #ff7a45 40%, #ffc56b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.land-hero-copy h1 { font-family: var(--f-display); font-size: clamp(2.2rem, 1rem + 3.6vw, 4.4rem); line-height: 1; letter-spacing: -.045em; font-weight: 680; max-width: 20ch; text-wrap: balance; }
+.land-hero-copy h1 em { display: block; margin-top: .4em; font-size: .5em; letter-spacing: -.02em; font-weight: 600; font-style: normal; background: linear-gradient(90deg, #ff9a6b, #ff7a45 40%, #ffc56b); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .land-hero-copy p { max-width: 56ch; color: var(--ink-2); font-size: clamp(1rem, .9rem + .3vw, 1.15rem); line-height: 1.55; }
 .land-cta { display: flex; gap: 12px; flex-wrap: wrap; }
 .land-cta-center { justify-content: center; }
