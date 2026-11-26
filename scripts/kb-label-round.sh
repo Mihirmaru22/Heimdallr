@@ -2,8 +2,14 @@
 # One labelling round on the server, so each round is one command instead of many.
 #   export N  : update the code, export N pages (70% from PDL Technology companies) to ~/claude_pages.csv
 #   doubt N   : the same, but the N pages the trained classifier is least sure about
-#   batch N [COUNTRIES]: fetch the homepages of the N biggest companies not yet read (default GB,IN,US),
+#   batch N [COUNTRIES] [SIZES]: fetch the homepages of the N biggest companies not yet read (default GB,IN,US;
+#                  SIZES e.g. 51-500 keeps only companies of that size band),
 #                  label them with the current classifier, and count the usable companies
+#   brahman N [FETCH] [SIZES]: start fetching the next FETCH biggest GB/IN/US companies in tmux 'brahman' (if
+#                  not already running) and export the N biggest pages Claude has not labelled to ~/brahman_pages.csv;
+#                  SIZES (e.g. 51-500) limits both to companies of that size
+#   pages N   : read the contact page, careers page and job ads of the N biggest GB/IN/US sites not yet read
+#                  (in tmux 'pages', log ~/pages.log), then export them to ~/contact_pages.csv
 #   train FILE...: import Claude's label files, train the classifier, label every homepage,
 #                  and write a 200-page sample to ~/label_sample.csv for checking
 set -euo pipefail
@@ -18,16 +24,32 @@ case "${1:-}" in
   doubt)
     cli kb-teach --model claude --export-pages "${2:-1000}" --uncertain --out ~/claude_pages.csv ;;
   batch)
-    cli kb-homepages --own-fetch --biggest-first --country "${3:-GB,IN,US}" --limit "${2:-30000}" --concurrency 4
+    cli kb-homepages --own-fetch --biggest-first --country "${3:-GB,IN,US}" --limit "${2:-30000}" --concurrency 4 \
+      ${4:+--sizes "$4"}
     cli kb-classify
     uv run python -c "import psycopg; from app.kb.pdl import kb_dsn; \
 print('Usable companies (real homepage, labelled):', \
 psycopg.connect(kb_dsn()).execute('SELECT count(*) FROM kb.company_label WHERE real_page').fetchone()[0])" ;;
+  brahman)
+    if ! tmux has-session -t brahman 2>/dev/null; then
+      tmux new -d -s brahman "bash $HOME/Heimdallr-kb/scripts/kb-label-round.sh batch ${3:-65000} GB,IN,US ${4:-} > $HOME/brahman.log 2>&1"
+      echo "Started fetching homepages in tmux session 'brahman' (log ~/brahman.log)."
+    fi
+    cli kb-teach --model claude --export-pages "${2:-40000}" --biggest-first --country GB,IN,US \
+      ${4:+--sizes "$4"} --out ~/brahman_pages.csv ;;
+  pages)
+    tmux new -d -s pages "cd $HOME/Heimdallr-kb/backend && export PATH=$HOME/.local/bin:\$PATH && \
+      uv run python -m app.cli kb-pages --limit ${2:-10000} --country GB,IN,US > $HOME/pages.log 2>&1 && \
+      uv run python -m app.cli kb-teach --model claude --export-contacts ${2:-10000} --out $HOME/contact_pages.csv \
+      >> $HOME/pages.log 2>&1"
+    echo "Reading contact/careers pages in tmux session 'pages' (log ~/pages.log); ~/contact_pages.csv when done." ;;
+  contacts)
+    cli kb-teach --model claude --export-contacts "${2:-10000}" --out ~/contact_pages.csv ;;
   train)
     shift
     for f in "$@"; do cli kb-teach --model claude --import "$f"; done
     cli kb-train --teacher claude
     cli kb-classify --again
     cli kb-classify --export-sample 200 --out ~/label_sample.csv ;;
-  *) echo "usage: $0 batch N [COUNTRIES] | export N | doubt N | train FILE..."; exit 1 ;;
+  *) echo "usage: $0 brahman N [FETCH] [SIZES] | pages N | contacts N | batch N [COUNTRIES] | export N | doubt N | train FILE..."; exit 1 ;;
 esac

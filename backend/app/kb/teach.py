@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -23,6 +24,7 @@ from app.kb.classify import MICRO_SECTORS
 OLLAMA_URL = "http://localhost:11434"
 DEFAULT_MODEL = "qwen2.5:7b"
 PAGE_CHARS = 1500
+TAIL_CHARS = 600  # the end of the stored text, where footers put the address and contact details
 OFFERINGS = ("product", "service", "both", "none")
 
 PROMPT = """You label companies from their homepage. Read the page and answer in JSON.
@@ -117,7 +119,8 @@ def ask(client, model: str, prompt: str) -> str:
 
 
 def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_share: float = 0.5,
-                 seed: int = 7, uncertain: bool = False) -> list[tuple]:
+                 seed: int = 7, uncertain: bool = False, biggest_first: bool = False,
+                 countries: str | None = None, sizes: str | None = None) -> list[tuple]:
     """Homepages this model has not labelled yet: half from companies PDL files under Technology
     (tech companies are rare, and the classifier needs examples of every micro-sector), half from
     the rest. With same_as, only pages that model labelled, so two models are compared on the
@@ -126,24 +129,41 @@ def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_
     With uncertain, the pages the trained classifier (kb.company_label) is least sure about come
     first, taken in turn from two lists: pages nearest the real/not-real or tech/not-tech line, and
     tech pages whose micro-sector it left unsure. Labelling those teaches it most per page; random
-    pages mostly repeat what it already gets right."""
+    pages mostly repeat what it already gets right.
+
+    With biggest_first, the largest companies (PDL size band) come first, in that order, optionally
+    only in `countries` ("GB,IN,US"): for a teacher that labels the companies that matter most
+    directly, not only as examples. sizes ("51-500") keeps only companies whose PDL size band starts
+    in that range."""
     has_labels = uncertain and conn.execute("SELECT to_regclass('kb.company_label')").fetchone()[0] is not None
     doubt = ("l.real_score, l.tech_score, l.tech_company, l.micro_sector" if has_labels
              else "NULL::real, NULL::real, NULL::boolean, NULL::text")
     join = "LEFT JOIN kb.company_label l ON l.domain = h.domain" if has_labels else ""
     rows = conn.execute(
-        f"""SELECT h.domain, h.url, h.title, h.description, h.text, p.name, p.industry, p.sector, {doubt}
+        f"""SELECT h.domain, h.url, h.title, h.description, h.text, p.name, p.industry, p.sector, {doubt},
+                  p.size, p.iso2
            FROM kb.homepage h
-           LEFT JOIN LATERAL (SELECT name, industry, sector FROM kb.pdl_company c WHERE c.domain = h.domain
+           LEFT JOIN LATERAL (SELECT name, industry, sector, size, iso2 FROM kb.pdl_company c WHERE c.domain = h.domain
                               ORDER BY c.sector IS NULL LIMIT 1) p ON true
            {join}
            WHERE h.found
-             AND NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain AND t.model = %s)
+             AND NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain AND t.model = %s
+                             AND (t.real_page IS NOT NULL OR t.error IS NOT NULL))
              AND (%s::text IS NULL OR EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = h.domain
                                                 AND t.model = %s AND t.error IS NULL))""",  # noqa: S608 - fixed text
         (model, same_as, same_as),
     ).fetchall()
     rows = [r for r in rows if page_for_model(r[2], r[3], r[4])]
+    from app.kb.homepages import parse_sizes
+
+    band = parse_sizes(sizes)
+    if band:
+        rows = [r for r in rows if band[0] <= size_rank(r[12]) <= band[1]]
+    if biggest_first:
+        wanted = {c.strip().upper() for c in (countries or "").split(",") if c.strip()}
+        rows = [r for r in rows if not wanted or (r[13] or "").upper() in wanted]
+        rows.sort(key=lambda r: (-size_rank(r[12]), r[0]))
+        return [r[:8] for r in rows[:limit]]
     rng = random.Random(seed)
     rng.shuffle(rows)
     if has_labels:
@@ -155,6 +175,12 @@ def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_
         picked = tech[:want_tech] + rest[:limit - want_tech]
     rng.shuffle(picked)
     return [r[:8] for r in picked]
+
+
+def size_rank(size: str | None) -> int:
+    """PDL's size band ("1-10", "10001+") as its lower bound; 0 when unknown."""
+    digits = re.match(r"\s*(\d+)", size or "")
+    return int(digits.group(1)) if digits else 0
 
 
 def _most_uncertain(rows: list[tuple], limit: int) -> list[tuple]:
@@ -198,7 +224,122 @@ DO $$ BEGIN  -- one row per page and model (it was one per page), so models can 
     ALTER TABLE kb.teach_label ADD PRIMARY KEY (domain, model);
   END IF;
 END $$;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS sector text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS niche text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS audience text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS offers text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS address text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS people text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS tools text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS pages_read timestamptz;
 """
+
+# The profile a teacher can add beyond the four labels (Claude does, when it labels companies directly):
+# sector (one of SECTORS, the same 20 our PDL industry mapping uses), niche (what kind of company, in a
+# few words: the finer label for companies that are not tech), offers (its main products if it sells
+# products, else its main services), the postal address when the page shows one, and people: the
+# leaders or team members the page names, with their role ("Jane Doe (CEO); ..."). People are personal
+# data, kept by Ronak's decision of 2026-11-25 in their own column so that one DROP COLUMN (here and in
+# kb.company_label) removes them if that is ever required.
+PROFILE_FIELDS = ("sector", "niche", "offers", "address", "people", "audience")
+# Who the company sells to: businesses, consumers, governments, or more than one of them.
+AUDIENCES = frozenset({"b2b", "b2c", "b2g", "mixed"})
+# From the contact and careers pages (app.kb.pages): the company phone and mailbox (never a person's),
+# and tools: software and services the company's job ads say it works with (technographics).
+PAGE_FIELDS = ("address", "phone", "email", "people", "tools")
+ALL_FIELDS = PROFILE_FIELDS + ("phone", "email", "tools")
+
+
+def _sectors() -> frozenset[str]:
+    import csv
+    from pathlib import Path
+
+    with open(Path(__file__).parent / "data" / "pdl_industry_sector.csv", newline="", encoding="utf-8") as f:
+        return frozenset(r["sector"] for r in csv.DictReader(f) if r["sector"])
+
+
+SECTORS = _sectors()
+
+
+def _clean(profile: dict[str, str], fields: tuple[str, ...]) -> dict[str, str | None]:
+    clean = {k: (profile.get(k) or "").strip()[:300] for k in fields}
+    clean = {k: (None if v in ("", "-", "none") else v) for k, v in clean.items()}
+    if "sector" in clean and clean["sector"] not in SECTORS:
+        clean["sector"] = None
+    if "audience" in clean and clean["audience"] is not None:
+        clean["audience"] = clean["audience"].lower() if clean["audience"].lower() in AUDIENCES else None
+    return clean
+
+
+def _merge(conn, domain: str, model: str, clean: dict[str, str | None], extra: str = "") -> int:
+    """Known values replace, unknown ones (None) leave what is there: the homepage pass and the
+    contact-page pass fill different fields, in either order."""
+    sets = ", ".join(f"{k} = coalesce(%s, {k})" for k in clean) + extra
+    return conn.execute(f"UPDATE kb.teach_label SET {sets} WHERE domain = %s AND model = %s",  # noqa: S608
+                        (*clean.values(), domain, model)).rowcount
+
+
+def save_profile(conn, domain: str, model: str, profile: dict[str, str]) -> None:
+    """Profile fields for a label already saved; an empty field or "-" is unknown, and a sector
+    outside SECTORS is dropped rather than stored."""
+    _merge(conn, domain, model, _clean(profile, PROFILE_FIELDS))
+
+
+def import_profile(conn, path, model: str) -> tuple[int, int]:
+    """What a teacher read on the contact and careers pages (columns domain + PAGE_FIELDS), merged into
+    its labels. A page read before the homepage label exists waits in a row of its own, which the
+    homepage label then completes. (merged, new rows)."""
+    import csv
+
+    merged = waiting = 0
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            domain = (row.get("domain") or "").strip()
+            if not domain:
+                continue
+            clean = _clean(row, PAGE_FIELDS)
+            if _merge(conn, domain, model, clean, ", pages_read = now()"):
+                merged += 1
+                continue
+            conn.execute("INSERT INTO kb.teach_label (domain, model, address, phone, email, people, tools, "
+                         "pages_read) VALUES (%s, %s, %s, %s, %s, %s, %s, now()) ON CONFLICT DO NOTHING",
+                         (domain, model, clean["address"], clean["phone"], clean["email"], clean["people"],
+                          clean["tools"]))
+            waiting += 1
+    return merged, waiting
+
+
+def export_contacts(conn, path, limit: int, model: str) -> int:
+    """Contact, careers and job-ad text (app.kb.pages) of sites the teacher has not read yet, biggest
+    companies first, one row per site, for the contact-page pass."""
+    import csv
+
+    rows = conn.execute(
+        """SELECT p.domain, p.kind, p.url, p.title, p.text, p.emails, p.addresses
+           FROM kb.company_page p
+           WHERE NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = p.domain AND t.model = %s
+                             AND t.pages_read IS NOT NULL)
+           ORDER BY p.domain, p.kind""", (model,)).fetchall()
+    sizes = dict(conn.execute(
+        "SELECT domain, array_agg(size) FROM kb.pdl_company WHERE domain = ANY(%s) GROUP BY domain",
+        (list({r[0] for r in rows}),)).fetchall())
+    sites: dict[str, dict[str, list[str]]] = {}
+    for domain, kind, url, title, text, emails, addresses in rows:
+        found = " ".join(filter(None, [", ".join(e["email"] for e in emails or []),
+                                       " / ".join(a["address"] for a in addresses or [])]))
+        sites.setdefault(domain, {}).setdefault(kind, []).append(
+            " ".join(f"{url} {title or ''} {found} {text or ''}".split()))
+    order = sorted(sites, key=lambda d: (-max((size_rank(s) for s in sizes.get(d) or [None]), default=0), d))
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "contact", "careers", "jobs"])
+        for d in order[:limit]:
+            k = sites[d]
+            w.writerow([d, " | ".join(k.get("contact", [])), " | ".join(k.get("careers", [])),
+                        " | ".join(k.get("job", []))])
+    return min(limit, len(order))
 
 
 def save(conn, domain: str, label: TeachLabel | None, model: str, seconds: float, error: str | None) -> None:
@@ -296,19 +437,23 @@ def export_sample(conn, path, size: int, seed: int = 7) -> int:
     return len(keep)
 
 
-def export_pages(conn, path, limit: int, model: str, tech_share: float = 0.5, uncertain: bool = False) -> int:
+def export_pages(conn, path, limit: int, model: str, tech_share: float = 0.5, uncertain: bool = False,
+                 biggest_first: bool = False, countries: str | None = None, sizes: str | None = None) -> int:
     """Pages for a teacher outside Ollama (a person, or Claude in the project thread): what the
     model would be shown, with empty answer columns to fill. import_labels reads it back."""
     import csv
 
-    rows = select_pages(conn, limit, model, tech_share=tech_share, uncertain=uncertain)
+    rows = select_pages(conn, limit, model, tech_share=tech_share, uncertain=uncertain,
+                        biggest_first=biggest_first, countries=countries, sizes=sizes)
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["domain", "name", "linkedin_industry", "url", "page", "real_page", "tech_company",
+        w.writerow(["domain", "name", "linkedin_industry", "url", "page", "tail", "real_page", "tech_company",
                     "micro_sector", "offering", "reason"])
         for domain, url, title, description, text, name, industry, _sector in rows:
+            flat = " ".join((text or "").split())
+            tail = flat[-TAIL_CHARS:] if len(flat) > PAGE_CHARS + TAIL_CHARS else flat[PAGE_CHARS:]
             w.writerow([domain, name or "", industry or "", url or "", page_for_model(title, description, text),
-                        "", "", "", "", ""])
+                        tail, "", "", "", "", ""])
     return len(rows)
 
 
@@ -343,5 +488,7 @@ def import_labels(conn, path, model: str) -> Summary:
             except (ValueError, KeyError) as exc:
                 error = f"{type(exc).__name__}: {str(exc)[:120]}"
             save(conn, domain, label, model, 0.0, error)
+            if label and any(row.get(k) for k in PROFILE_FIELDS):
+                save_profile(conn, domain, model, row)
             summary.add(label, 0.0, error.split(":")[0] if error else None)
     return summary

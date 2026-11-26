@@ -100,3 +100,6 @@ def test_biggest_companies_first_in_chosen_countries_skipping_read_ones(tmp_path
         got = homepages.select_domains(conn, limit=3, iso2="GB,IN,US", biggest_first=True)
         assert got == ["big.com", "mid.com", "small.com"]
         assert len(homepages.select_domains(conn, iso2="gb, in", biggest_first=True)) == 3
+        assert homepages.select_domains(conn, iso2="GB,IN,US", biggest_first=True, sizes="51-500") == ["mid.com"]
+    assert homepages.parse_sizes("51-500") == (51, 500) and homepages.parse_sizes("1001-")[0] == 1001
+    assert homepages.parse_sizes("") is None

@@ -76,11 +76,21 @@ class Homepage:
     redirected_to: str = ""  # the homepage moved here (another path or another domain)
 
 
+def parse_sizes(sizes: str | None) -> tuple[int, int] | None:
+    """"51-500" -> (51, 500): companies whose PDL size band starts within that range (51-200 and
+    201-500). "1001-" has no upper end. None or "" = any size."""
+    if not sizes:
+        return None
+    lo, _, hi = sizes.partition("-")
+    return int(lo or 0), int(hi) if hi.strip() else 10**9
+
+
 def select_domains(conn, limit: int | None = None, iso2: str | None = None, sample: bool = False,
-                   biggest_first: bool = False) -> list[str]:
+                   biggest_first: bool = False, sizes: str | None = None) -> list[str]:
     """Distinct company domains to read, without platforms and without the ones already read; a
     random sample for trials. iso2 may list several countries ("GB,IN,US"). biggest_first orders by
-    PDL's company size (largest band first), so a partial run covers the companies that matter most."""
+    PDL's company size (largest band first), so a partial run covers the companies that matter most.
+    sizes ("51-500", parse_sizes) keeps only companies of that size."""
     countries = [c.strip().upper() for c in (iso2 or "").split(",") if c.strip()]
     size = "max(coalesce(nullif(regexp_replace(split_part(size, '-', 1), '[^0-9]', '', 'g'), '')::int, 0))"
     sql = (f"SELECT domain FROM (SELECT domain, {size} AS size FROM kb.pdl_company "  # noqa: S608 - fixed text, values are parameters
@@ -89,6 +99,10 @@ def select_domains(conn, limit: int | None = None, iso2: str | None = None, samp
               if biggest_first else "")
            + " GROUP BY domain) d")
     params: list = [SHARED_DOMAIN_LIMIT] + ([countries] if countries else [])
+    band = parse_sizes(sizes)
+    if band:
+        sql += " WHERE size BETWEEN %s AND %s"
+        params += list(band)
     if sample:
         sql += " ORDER BY random()"
     elif biggest_first:

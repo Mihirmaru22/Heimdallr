@@ -19,7 +19,8 @@ def conn(database):
         c.execute(homepages.SCHEMA_SQL)
         c.execute(classify.SCHEMA_SQL)
         c.execute(teach.SCHEMA_SQL)
-        c.execute("CREATE TABLE kb.pdl_company (domain text, name text, industry text, sector text)")
+        c.execute("CREATE TABLE kb.pdl_company (domain text, name text, industry text, sector text, "
+                  "size text, iso2 text)")
         yield c
 
 
@@ -110,3 +111,81 @@ def test_uncertain_export_puts_the_pages_the_classifier_doubts_first(conn):
     picked = {r[0] for r in teach.select_pages(conn, 4, "claude", uncertain=True)}
     assert picked == {"edge.com", "micro.com", "junk.com", "new.com"}
     assert all(len(r) == 8 for r in teach.select_pages(conn, 4, "claude", uncertain=True))
+
+
+def test_biggest_companies_exported_first_in_chosen_countries(conn):
+    sizes = {"big.co": ("10001+", "GB"), "mid.co": ("201-500", "IN"), "small.co": ("1-10", "US"),
+             "abroad.co": ("10001+", "DE"), "unknown.co": (None, "US")}
+    for d, (size, iso2) in sizes.items():
+        _homepage(conn, d, f"{d} makes things")
+        conn.execute("INSERT INTO kb.pdl_company VALUES (%s, %s, 'retail', 'Retail and consumer goods', %s, %s)",
+                     (d, d, size, iso2))
+    got = [r[0] for r in teach.select_pages(conn, 3, "claude", biggest_first=True, countries="GB,IN,US")]
+    assert got == ["big.co", "mid.co", "small.co"]
+    mid = teach.select_pages(conn, 3, "claude", biggest_first=True, countries="GB,IN,US", sizes="51-500")
+    assert [r[0] for r in mid] == ["mid.co"]
+    assert teach.size_rank("10001+") == 10001 and teach.size_rank(None) == 0
+
+
+def test_teacher_label_and_profile_replace_the_classifiers(conn, tmp_path):
+    _homepage(conn, "acme.co", "payroll software")
+    _homepage(conn, "shop.co", "shoes")
+    c = classify.Classifier(fake_embed, train.train(examples(), "fake"))
+    for label in c.label(["acme.co", "shop.co"], ["payroll software", "shoes"]):
+        classify.save(conn, label, "fake", None)
+    out = tmp_path / "labels.csv"
+    with out.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "real_page", "tech_company", "micro_sector", "offering", "reason",
+                    "sector", "niche", "offers", "address", "people", "audience"])
+        w.writerow(["acme.co", "true", "true", "hr tech", "product", "payroll SaaS", "Technology",
+                    "payroll software", "payroll app; HR portal", "1 High St, London",
+                    "Jane Doe (CEO)", "B2B"])
+        w.writerow(["shop.co", "true", "false", "none", "product", "", "Shops", "shoe shop", "shoes", "-", "",
+                    "everyone"])
+    teach.import_labels(conn, out, "claude")
+    assert classify.apply_teacher(conn, "claude") == 2
+    rows = {r[0]: r[1:] for r in conn.execute(
+        "SELECT domain, model, micro_sector, sector, offers, address, real_score, people FROM kb.company_label")}
+    assert rows["acme.co"] == ("teacher:claude", "hr tech", "Technology", "payroll app; HR portal",
+                               "1 High St, London", 1.0, "Jane Doe (CEO)")
+    assert rows["shop.co"][2:5] == (None, "shoes", None)  # unknown sector dropped, "-" address = unknown
+    audience = dict(conn.execute("SELECT domain, audience FROM kb.company_label").fetchall())
+    assert audience == {"acme.co": "b2b", "shop.co": None}  # outside the list = unknown
+
+
+def test_contact_page_details_merge_with_homepage_labels_in_either_order(conn, tmp_path):
+    from app.kb import pages
+
+    conn.execute(pages.SCHEMA_SQL)
+    for d in ("a.co", "b.co"):
+        _homepage(conn, d, f"{d} sells software")
+        conn.execute("INSERT INTO kb.pdl_company VALUES (%s, %s, 'computer software', 'Technology', '51-200', 'GB')",
+                     (d, d))
+        pages.save(conn, d, [pages.CompanyPage(d, "contact", f"https://{d}/contact", "Contact", "1 High St"),
+                             pages.CompanyPage(d, "job", f"https://{d}/jobs/1", "Engineer", "We use Salesforce")],
+                   "")
+    out = tmp_path / "contacts.csv"
+    assert teach.export_contacts(conn, out, 10, "claude") == 2
+    rows = list(csv.DictReader(out.open(encoding="utf-8")))
+    assert "1 High St" in rows[0]["contact"] and "Salesforce" in rows[0]["jobs"]
+    labels = tmp_path / "labels.csv"
+    with labels.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "real_page", "tech_company", "micro_sector", "offering", "reason", "address"])
+        w.writerow(["a.co", "true", "true", "crm and sales tech", "product", "", "-"])
+    teach.import_labels(conn, labels, "claude")  # a.co: homepage label first
+    found = tmp_path / "found.csv"
+    with found.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["domain", "address", "phone", "email", "people", "tools"])
+        w.writerow(["a.co", "1 High St, London", "+44 20 1234", "info@a.co", "-", "Salesforce; AWS"])
+        w.writerow(["b.co", "2 Low St", "-", "-", "-", "SAP"])  # b.co: contact page first
+    assert teach.import_profile(conn, found, "claude") == (1, 1)
+    assert teach.select_pages(conn, 10, "claude")[0][0] == "b.co"  # still waiting for its homepage label
+    assert teach.export_contacts(conn, out, 10, "claude") == 0
+    teach.import_labels(conn, labels, "claude")  # the homepage pass again does not erase the contact details
+    assert classify.apply_teacher(conn, "claude") == 1  # b.co has no homepage label yet
+    row = conn.execute("SELECT address, phone, tools, micro_sector FROM kb.company_label "
+                       "WHERE domain = 'a.co'").fetchone()
+    assert row == ("1 High St, London", "+44 20 1234", "Salesforce; AWS", "crm and sales tech")

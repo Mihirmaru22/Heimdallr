@@ -40,8 +40,10 @@ with the teacher, the label is stored as "unsure" rather than guessed.
    models through Ollama were tried and were not accurate enough as teachers.
 4. **Train** (`kb-train --teacher claude`): four small heads (numpy softmax regression) on a
    multilingual sentence vector of each page (paraphrase-multilingual-MiniLM-L12-v2 via fastembed,
-   on the CPU) plus the PDL industry. Each head is cross-validated and its "unsure" threshold set
-   before the model is saved to `backend/var/kb/label_model.npz`.
+   on the CPU; the opening 600 characters and the next 1,200 averaged) plus the PDL industry, fitted
+   with Adam. Each head is also tried with TF-IDF word features over the first 5,000 characters and
+   keeps them only if cross-validation agrees with the teacher more often. Then its "unsure" threshold
+   is set and the model is saved to `backend/var/kb/label_model.npz`.
 5. **Label** (`kb-classify`): every homepage not yet labelled (`--again` relabels all, which takes
    minutes). `--export-sample 200` writes a random sample for checking by hand.
 

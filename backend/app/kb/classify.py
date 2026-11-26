@@ -27,6 +27,8 @@ from pathlib import Path
 
 MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 TEXT_CHARS = 600  # the model reads about 128 tokens; the opening of the page carries the most
+MORE_CHARS = 1200  # the next part of the page, embedded too: the opening is often only a slogan
+WORDS_CHARS = 5000  # what the word features (app.kb.train) read: all the text a homepage keeps
 
 MICRO_SECTORS: dict[str, str] = {
     "fintech": "financial technology: digital banking, lending, money apps and software for finance",
@@ -87,6 +89,43 @@ def page_text(title: str | None, description: str | None, text: str | None) -> s
     return ". ".join(parts + ([body] if body else []))
 
 
+def page_chunks(title: str | None, description: str | None, text: str | None, chunks: int = 2) -> list[str]:
+    """What the sentence model reads: the opening (page_text) and, with chunks=2, the next
+    MORE_CHARS of the text. 600 characters were mostly hero slogans ("transforming enterprise
+    workflows"); with the next part averaged in, micro-sector cross-validation rose and no
+    micro-sector was left never predicted."""
+    first = page_text(title, description, text)
+    if chunks < 2:
+        return [first]
+    body = " ".join((text or "").split())
+    more = body[TEXT_CHARS:TEXT_CHARS + MORE_CHARS]
+    return [first, more] if more.strip() else [first]
+
+
+def word_text(title: str | None, description: str | None, text: str | None) -> str:
+    return " ".join(p for p in (title, description, (text or "")[:WORDS_CHARS]) if p)
+
+
+def as_page(page) -> tuple[str | None, str | None, str | None]:
+    """A page as (title, description, text); a plain string is the page's text."""
+    return (None, None, page) if isinstance(page, str) else tuple(page)
+
+
+def embed_pages(embed: Callable[[Sequence[str]], list[list[float]]], pages, chunks: int) -> list[list[float]]:
+    """One vector per page: the mean of its chunks' unit vectors."""
+    import numpy as np
+
+    pieces = [page_chunks(*as_page(p), chunks=chunks) for p in pages]
+    flat = embed([t for ts in pieces for t in ts])
+    out, k = [], 0
+    for ts in pieces:
+        v = np.asarray(flat[k:k + len(ts)], dtype=np.float64)
+        k += len(ts)
+        v /= np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-12)
+        out.append(v.mean(axis=0).tolist())
+    return out
+
+
 @dataclass
 class Label:
     domain: str
@@ -112,9 +151,12 @@ class Classifier:
         self.micro_min = min_probability if min_probability is not None else model.threshold("micro_sector")
         self.offer_min = model.threshold("offering")
 
-    def label(self, domains: Sequence[str], texts: Sequence[str],
+    def label(self, domains: Sequence[str], pages: Sequence,
               industries: Sequence[str | None] | None = None) -> list[Label]:
-        probs = self.model.predict(self.embed(list(texts)), industries)
+        """pages: (title, description, text) per domain, or the text alone."""
+        pages = [as_page(p) for p in pages]
+        vectors = embed_pages(self.embed, pages, getattr(self.model, "chunks", 1))
+        probs = self.model.predict(vectors, industries, [word_text(*p) for p in pages])
         out = []
         for i, domain in enumerate(domains):
             real = probs["real_page"][i].get("yes", 0.0)
@@ -178,6 +220,15 @@ ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS real_page boolean;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS real_score real;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS tech_company boolean;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS tech_score real;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS sector text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS niche text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS audience text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS offers text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS address text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS people text;  -- personal data: see app.kb.teach
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS tools text;
 """
 
 
@@ -197,6 +248,40 @@ def save(conn, label: Label, model: str, source_url: str | None) -> None:
          label.micro_sector, label.micro_score, json.dumps(label.micro_top3), label.offering,
          label.offering_score, model, source_url),
     )
+
+
+def apply_teacher(conn, teacher: str) -> int:
+    """Where the teacher (e.g. Claude) labelled a page itself, its label is the company's label: it
+    is better than the classifier's, which only learns from such labels. Confidence 1. Run after
+    every classifier pass, which would otherwise overwrite them."""
+    if conn.execute("SELECT to_regclass('kb.teach_label')").fetchone()[0] is None:
+        return 0
+    cur = conn.execute(
+        """INSERT INTO kb.company_label (domain, real_page, real_score, tech_company, tech_score, micro_sector,
+                                         micro_score, micro_top3, offering, offering_score, model, source_url,
+                                         sector, niche, offers, address, people, phone, email, tools, audience,
+                                         labelled_at)
+           SELECT t.domain, t.real_page, 1.0, CASE WHEN t.real_page THEN t.tech_company END,
+                  CASE WHEN t.tech_company THEN 1.0 ELSE 0.0 END, t.micro_sector,
+                  CASE WHEN t.micro_sector IS NULL THEN 0.0 ELSE 1.0 END,
+                  CASE WHEN t.micro_sector IS NULL THEN '[]'::jsonb
+                       ELSE jsonb_build_array(jsonb_build_array(t.micro_sector, 1.0)) END,
+                  CASE WHEN t.real_page THEN t.offering END, 1.0, 'teacher:' || t.model, h.url,
+                  t.sector, t.niche, t.offers, t.address, t.people, t.phone, t.email, t.tools, t.audience, now()
+           FROM kb.teach_label t JOIN kb.homepage h ON h.domain = t.domain AND h.found
+           WHERE t.model = %s AND t.error IS NULL AND t.real_page IS NOT NULL
+           ON CONFLICT (domain) DO UPDATE SET real_page = EXCLUDED.real_page, real_score = EXCLUDED.real_score,
+               tech_company = EXCLUDED.tech_company, tech_score = EXCLUDED.tech_score,
+               micro_sector = EXCLUDED.micro_sector, micro_score = EXCLUDED.micro_score,
+               micro_top3 = EXCLUDED.micro_top3, offering = EXCLUDED.offering,
+               offering_score = EXCLUDED.offering_score, model = EXCLUDED.model,
+               source_url = EXCLUDED.source_url, sector = EXCLUDED.sector, niche = EXCLUDED.niche,
+               offers = EXCLUDED.offers, address = EXCLUDED.address, people = EXCLUDED.people,
+               phone = EXCLUDED.phone, email = EXCLUDED.email, tools = EXCLUDED.tools, audience = EXCLUDED.audience,
+               labelled_at = now()""",
+        (teacher,),
+    )
+    return cur.rowcount
 
 
 def export_sample(conn, path: Path, size: int, seed: int = 7) -> int:
