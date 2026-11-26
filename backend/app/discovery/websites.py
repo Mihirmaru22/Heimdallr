@@ -50,6 +50,11 @@ def names_company(text: str, company: str) -> bool:
     return "".join(words) in flat or all(re.search(rf"\b{re.escape(w)}\b", text, re.I) for w in words)
 
 
+# The reason a website search gives when it kept a site whose homepage it could not read: search agreed on the site,
+# but nothing showed it is this company's (search for "AUSA" gives the US army association, not the Spanish maker).
+UNVERIFIED = "its homepage could not be read, so it is not verified"
+
+
 class WebsiteFinder:
     def __init__(self, client: httpx.AsyncClient, searxng_url: str, fetch_text: FetchText,
                  hub: SearchHub | None = None) -> None:
@@ -120,7 +125,7 @@ class WebsiteFinder:
             if text is None:
                 if unverified_ok:
                     return url, (f"web search ({n} of the top {total} results) and the name in its domain; "
-                                 "its homepage could not be read, so it is not verified")
+                                 f"{UNVERIFIED}")
                 why = f"{best}'s homepage could not be read"
                 continue
             if not names_company(text, company):

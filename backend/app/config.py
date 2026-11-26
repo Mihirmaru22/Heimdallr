@@ -22,6 +22,11 @@ class Settings(BaseSettings):
 
     # Crawler identity and politeness
     user_agent: str = "Heimdallr/0.1 (+http://localhost/crawler-info; contact: admin@example.invalid)"
+    # Sent only to hosts that answer the crawler's own User-Agent with 403 (CDN bot walls refuse every bot name,
+    # even on pages robots.txt allows); robots.txt is still read and obeyed under user_agent's name. Empty = off.
+    fallback_user_agent: str = (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36")
     respect_robots: bool = True
     per_domain_concurrency: int = 2
     per_domain_delay_seconds: float = 1.0

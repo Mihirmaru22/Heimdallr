@@ -37,7 +37,8 @@ class RobotsCache:
 
     async def _load(self, origin: str) -> Protego | str:
         robots_fetcher = Fetcher(self.fetcher.client, self.fetcher.politeness, self.fetcher.resolver,
-                                 allowed_types=TEXT_PLAIN)
+                                 allowed_types=TEXT_PLAIN,
+                                 use_fallback=self.fetcher.use_fallback)
         try:
             # Three tries with backoff: a site that times out once (Celanese did) is not lost for the whole run.
             result = await robots_fetcher.fetch(origin + "/robots.txt", attempts=self.attempts)

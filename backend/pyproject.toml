@@ -25,6 +25,8 @@ dependencies = [
     "xlsxwriter",
     "python-multipart",
     "pypdf>=6.21.2",
+    "cryptography>=3.1",
+    "wordfreq>=3.1",  # word frequencies: a product name that is a common word is not a mention alone  # pypdf needs it to open AES-encrypted PDFs (many vendor case studies are)
     "fastembed>=0.9.1",
 ]
 
