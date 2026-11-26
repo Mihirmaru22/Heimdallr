@@ -345,7 +345,7 @@ def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
 
 def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, concurrency: int, sample: bool,
                  crawl_count: int, again: bool, own_fetch: bool, biggest_first: bool = False,
-                 own_lanes: int = 128) -> None:
+                 own_lanes: int = 128, sizes: str | None = None) -> None:
     import asyncio
     import time
     from pathlib import Path
@@ -363,7 +363,8 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
             domains = [r[0] for r in conn.execute("SELECT domain FROM kb.homepage ORDER BY domain").fetchall()]
             domains = domains[:limit] if limit else domains
         else:
-            domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample, biggest_first=biggest_first)
+            domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample, biggest_first=biggest_first,
+                                                sizes=sizes)
         print(f"Reading {len(domains):,} homepages from Common Crawl, {concurrency} at a time...", flush=True)
         summary = homepages.Summary()
         started = time.monotonic()
@@ -444,7 +445,7 @@ def _label_model_path():
 def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None, same_as: str | None,
              export_pages: int = 0, import_file: str | None = None, tech_share: float = 0.5,
              uncertain: bool = False, biggest_first: bool = False, countries: str | None = None,
-             export_contacts: int = 0) -> None:
+             export_contacts: int = 0, sizes: str | None = None) -> None:
     import time
     from pathlib import Path
 
@@ -471,7 +472,8 @@ def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None
             return
         if export_pages:
             path = Path(export_path or "teach_pages.csv")
-            n = teach.export_pages(conn, path, export_pages, model, tech_share, uncertain, biggest_first, countries)
+            n = teach.export_pages(conn, path, export_pages, model, tech_share, uncertain, biggest_first, countries,
+                                   sizes)
             print(f"Wrote {n:,} pages to {path} "
                   f"(not yet labelled by {model}).")
             return
@@ -733,6 +735,8 @@ def main() -> None:
     p.add_argument("--country", default=None, help="only companies in these countries (ISO codes, e.g. IN or GB,IN,US)")
     p.add_argument("--biggest-first", action="store_true",
                    help="largest companies (PDL size) first, skipping domains already read")
+    p.add_argument("--sizes", default=None, metavar="LO-HI",
+                   help="only companies whose PDL size band starts in this range, e.g. 51-500 (51-200 and 201-500)")
     p.add_argument("--crawl", action="append", default=None,
                    help="Common Crawl crawl id; repeat for several (default: the newest --crawls)")
     p.add_argument("--crawls", type=int, default=3,
@@ -759,6 +763,8 @@ def main() -> None:
     p.add_argument("--biggest-first", action="store_true",
                    help="with --export-pages: the largest companies first (PDL size), for labelling them directly")
     p.add_argument("--country", default=None, help="with --biggest-first: only these countries, e.g. GB,IN,US")
+    p.add_argument("--sizes", default=None, metavar="LO-HI",
+                   help="only companies whose PDL size band starts in this range, e.g. 51-500 (51-200 and 201-500)")
     p.add_argument("--export-contacts", type=int, default=0, metavar="N",
                    help="write the contact/careers pages (kb-pages) of N sites --model has not read yet")
     p.add_argument("--import", dest="import_file", default=None, metavar="FILE",
@@ -797,7 +803,7 @@ def main() -> None:
     if args.cmd == "kb-teach":
         return kb_teach(args.model, args.limit, args.export_sample, args.out, args.same_pages_as, args.export_pages,
                         args.import_file, args.tech_share, args.uncertain, args.biggest_first, args.country,
-                        args.export_contacts)
+                        args.export_contacts, args.sizes)
     if args.cmd == "kb-train":
         return kb_train(args.teacher)
     if args.cmd == "kb-pages":
@@ -808,7 +814,7 @@ def main() -> None:
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":
         return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample, args.crawls,
-                            args.again, args.own_fetch, args.biggest_first, args.own_lanes)
+                            args.again, args.own_fetch, args.biggest_first, args.own_lanes, args.sizes)
     if args.cmd == "kb-load-pdl":
         return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":

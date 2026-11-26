@@ -122,6 +122,8 @@ def test_biggest_companies_exported_first_in_chosen_countries(conn):
                      (d, d, size, iso2))
     got = [r[0] for r in teach.select_pages(conn, 3, "claude", biggest_first=True, countries="GB,IN,US")]
     assert got == ["big.co", "mid.co", "small.co"]
+    mid = teach.select_pages(conn, 3, "claude", biggest_first=True, countries="GB,IN,US", sizes="51-500")
+    assert [r[0] for r in mid] == ["mid.co"]
     assert teach.size_rank("10001+") == 10001 and teach.size_rank(None) == 0
 
 

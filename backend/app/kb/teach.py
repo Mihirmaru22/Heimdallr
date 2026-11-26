@@ -120,7 +120,7 @@ def ask(client, model: str, prompt: str) -> str:
 
 def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_share: float = 0.5,
                  seed: int = 7, uncertain: bool = False, biggest_first: bool = False,
-                 countries: str | None = None) -> list[tuple]:
+                 countries: str | None = None, sizes: str | None = None) -> list[tuple]:
     """Homepages this model has not labelled yet: half from companies PDL files under Technology
     (tech companies are rare, and the classifier needs examples of every micro-sector), half from
     the rest. With same_as, only pages that model labelled, so two models are compared on the
@@ -133,7 +133,8 @@ def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_
 
     With biggest_first, the largest companies (PDL size band) come first, in that order, optionally
     only in `countries` ("GB,IN,US"): for a teacher that labels the companies that matter most
-    directly, not only as examples."""
+    directly, not only as examples. sizes ("51-500") keeps only companies whose PDL size band starts
+    in that range."""
     has_labels = uncertain and conn.execute("SELECT to_regclass('kb.company_label')").fetchone()[0] is not None
     doubt = ("l.real_score, l.tech_score, l.tech_company, l.micro_sector" if has_labels
              else "NULL::real, NULL::real, NULL::boolean, NULL::text")
@@ -153,6 +154,11 @@ def select_pages(conn, limit: int, model: str, same_as: str | None = None, tech_
         (model, same_as, same_as),
     ).fetchall()
     rows = [r for r in rows if page_for_model(r[2], r[3], r[4])]
+    from app.kb.homepages import parse_sizes
+
+    band = parse_sizes(sizes)
+    if band:
+        rows = [r for r in rows if band[0] <= size_rank(r[12]) <= band[1]]
     if biggest_first:
         wanted = {c.strip().upper() for c in (countries or "").split(",") if c.strip()}
         rows = [r for r in rows if not wanted or (r[13] or "").upper() in wanted]
@@ -427,13 +433,13 @@ def export_sample(conn, path, size: int, seed: int = 7) -> int:
 
 
 def export_pages(conn, path, limit: int, model: str, tech_share: float = 0.5, uncertain: bool = False,
-                 biggest_first: bool = False, countries: str | None = None) -> int:
+                 biggest_first: bool = False, countries: str | None = None, sizes: str | None = None) -> int:
     """Pages for a teacher outside Ollama (a person, or Claude in the project thread): what the
     model would be shown, with empty answer columns to fill. import_labels reads it back."""
     import csv
 
     rows = select_pages(conn, limit, model, tech_share=tech_share, uncertain=uncertain,
-                        biggest_first=biggest_first, countries=countries)
+                        biggest_first=biggest_first, countries=countries, sizes=sizes)
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["domain", "name", "linkedin_industry", "url", "page", "tail", "real_page", "tech_company",
