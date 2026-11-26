@@ -116,3 +116,19 @@ async def test_stories_about_the_question_s_industry_and_place_are_searched_firs
     assert '"Teamcenter" Germany implemented' in qs and '"Teamcenter" Fallstudie' in qs
     assert any(n.startswith("case_studies: searches:") for n in p.notes)
     assert CaseStudiesProvider.context_queries(product_for("Teamcenter", []), "", [], []) == []
+
+
+def test_a_story_drawn_by_javascript_is_read_from_its_own_summary_tags():
+    from app.discovery.case_studies import with_summary
+    from app.evidence.products import product_for
+    from app.evidence.quotes import find_mentions
+    from app.extract.deterministic import parse_page
+
+    html = ('<html><head><title>Newsroom</title><meta property="og:description" content="Bloom &amp; Wild, a UK '
+            'flower delivery platform, is using Oracle NetSuite to support its growth"></head><body><nav>Products '
+            'ERP CRM Customers</nav></body></html>')
+    doc = parse_page("https://www.netsuite.co.uk/portal/uk/news/bloom-wild.shtml", html)
+    body = with_summary(doc)
+    assert any("Bloom & Wild" in s for s in find_mentions(body, product_for("NetSuite")))
+    plain = parse_page("https://a.example/x", "<html><body><p>Acme runs NetSuite.</p></body></html>")
+    assert with_summary(plain) == plain.text  # no summary tags: the text is unchanged

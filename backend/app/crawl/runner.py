@@ -141,10 +141,10 @@ def reading_order(providers: list) -> list:
     return sorted(providers, key=lambda p: bool(getattr(p, "open_ended", False)))
 
 
-def reading_share(now: float, deadline: float, readers_left: int) -> float:
+def reading_share(now: float, deadline: float, readers_left: int, cap: float = 1.0) -> float:
     """When the source whose turn it is must stop reading: an equal share of the budget left, among the sources
-    still to read (this one included)."""
-    return now + max(0.0, deadline - now) / max(1, readers_left)
+    still to read (this one included), and never more than `cap` of it."""
+    return now + max(0.0, deadline - now) * min(1 / max(1, readers_left), cap)
 
 
 class CrawlRunner:
@@ -178,6 +178,7 @@ class CrawlRunner:
             redis = aioredis.from_url(self.settings.redis_url)
         self.politeness = RedisPoliteness(redis, delay) if redis is not None else LocalPoliteness(delay)
         self.fetcher = Fetcher(self.client, self.politeness, resolver)
+        self.fetch_failures: dict[str, str] = {}  # address -> why a discovery source's fetch_page gave nothing
         # Pages a discovery source reads for proof may be PDFs (case studies often are); crawled pages stay HTML.
         self.doc_fetcher = Fetcher(self.client, self.politeness, resolver, allowed_types=DOCUMENT_TYPES)
         self.robots = RobotsCache(self.fetcher, self.settings.user_agent, self.settings.respect_robots)
@@ -297,10 +298,13 @@ class CrawlRunner:
                     provider.fetch_text = self.fetch_text
                 if hasattr(provider, "fetch_page"):
                     provider.fetch_page = self.fetch_page
+                if hasattr(provider, "failure_of"):
+                    provider.failure_of = self.failure_of
                 if hasattr(provider, "fetch_xml"):
                     provider.fetch_xml, provider.sitemaps_of = self.fetch_xml, self.sitemaps_of
                 if hasattr(provider, "deadline"):
-                    provider.deadline = reading_share(time.monotonic(), self.read_deadline, readers_left)
+                    provider.deadline = reading_share(time.monotonic(), self.read_deadline, readers_left,
+                                                      getattr(provider, "max_share", 1.0))
                     readers_left -= 1
                 if hasattr(provider, "resolver"):
                     provider.resolver = self.entity_resolver
@@ -385,7 +389,11 @@ class CrawlRunner:
         if d.countries:
             for r in named:
                 name, site = str(r.hint["company_name"]), registered_domain(r.url) or ""
-                res = await resolver.resolve(name, r.url)
+                # A website search kept without reading its homepage is the name's most popular site, not proof of
+                # which organisation this is: it must not be the second signal that settles a registry match.
+                # "AUSA" from a PTC story (a Barcelona maker) took ausa.org that way, then the US army association's
+                # Wikidata entry "matched by website", and was delivered as a US company (2026-11-25).
+                res = await resolver.resolve(name, "" if r.hint.get("_website_unverified") else r.url)
                 self.facts += resolution_facts(name, site, res)
                 if res.country:
                     settled += 1
@@ -438,22 +446,31 @@ class CrawlRunner:
 
     async def fetch_page(self, url: str) -> PageDoc | None:
         """A page for a discovery source, fetched like any crawled page: robots.txt respected, network rules
-        checked. None when it cannot be read or has no text."""
+        checked. None when it cannot be read or has no text; failure_of(url) then says why."""
         got = await self._fetch_doc(url)
+        if got is not None and unreadable(got[1]):
+            self.fetch_failures[url] = "no_text"
         return None if got is None or unreadable(got[1]) else got[1]
+
+    def failure_of(self, url: str) -> str:
+        """Why the last fetch_page of this address gave nothing: a FetchError kind, "robots" or "no_text"."""
+        return self.fetch_failures.get(url, "")
 
     async def _fetch_doc(self, url: str) -> tuple[Any, PageDoc] | None:
         """(fetch result, parsed page) under robots.txt and the network rules; None when nothing was fetched."""
         try:
             decision = await self.robots.check(url)
             if not decision.allowed:
+                self.fetch_failures[url] = "robots"
                 return None
             result = await self.doc_fetcher.fetch(url)
             return result, parse_page(normalize_url(result.final_url) or url, result.html())
-        except FetchError:
+        except FetchError as exc:
+            self.fetch_failures[url] = exc.kind
             return None
         except Exception as exc:  # noqa: BLE001 - one page that cannot be read or parsed is that page's problem
             log.warning("page %s could not be read: %s: %s", url, type(exc).__name__, str(exc)[:200])
+            self.fetch_failures[url] = "request"
             return None
 
     async def fetch_xml(self, url: str) -> str | None:

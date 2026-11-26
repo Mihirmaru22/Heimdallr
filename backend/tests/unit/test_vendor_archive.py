@@ -27,9 +27,13 @@ def test_language_copies_are_kept_once_and_stories_naming_the_product_come_first
             "https://investor.ptc.com/news-releases/raytheon-windchill",
             "https://www.ptc.com/en/case-studies/polaris-windchill-rollout"]
     assert page_key(urls[0]) == page_key(urls[1]) == page_key(urls[2])
+    # A release naming the product comes before a story that does not: most of those are about other products.
     assert choose(urls, WINDCHILL) == ["https://www.ptc.com/en/case-studies/polaris-windchill-rollout",
-                                       "https://www.ptc.com/case-studies/hp-minimizes-complexity",
-                                       "https://investor.ptc.com/news-releases/raytheon-windchill"]
+                                       "https://investor.ptc.com/news-releases/raytheon-windchill",
+                                       "https://www.ptc.com/case-studies/hp-minimizes-complexity"]
+    # A page a site search shows naming the product comes first, whatever its address says.
+    assert choose(urls, WINDCHILL, searched=["https://www.ptc.com/en/case-studies/hp-minimizes-complexity"])[0] == \
+        "https://www.ptc.com/case-studies/hp-minimizes-complexity"
 
 
 class FakeHub:
@@ -71,13 +75,17 @@ def test_the_makers_hosts_come_from_search_results_and_their_sitemaps_are_follow
     urls = asyncio.run(p.search(None, WINDCHILL))
 
     assert set(p.hosts) == {"investor.ptc.com", "www.ptc.com"}
-    assert urls == ["https://www.ptc.com/en/case-studies/welbilt-lower-tco",
-                    "https://investor.ptc.com/news-releases/cummins-selects-ptcs-windchill"]
+    # The fake search answers every query alike: its investor news page counts as a site-search hit (first); its
+    # product page does not (a product page is not proof).
+    assert urls == ["https://investor.ptc.com/news-releases/x",
+                    "https://investor.ptc.com/news-releases/cummins-selects-ptcs-windchill",
+                    "https://www.ptc.com/en/case-studies/welbilt-lower-tco"]
+    assert 'site:www.ptc.com "Windchill"' in hub.queries
     # The story sitemap was read before the products one, and the compressed one was never asked for.
     assert fetched.index("https://www.ptc.com/sitemap-case-studies.xml") < fetched.index(
         "https://www.ptc.com/sitemap-products.xml")
     assert not any(u.endswith(".gz") for u in fetched)
-    assert "2 kept as stories or product releases" in p.notes[-1]
+    assert "3 kept as stories or product releases" in p.notes[-1]
 
 
 def test_no_maker_site_in_search_means_no_candidates_and_a_note_saying_so():
@@ -94,3 +102,12 @@ def test_the_maker_is_recognised_from_the_products_own_names():
     assert maker_site("oracle.com", product_for("NetSuite")) and maker_site("netsuite.co.uk", product_for("NetSuite"))
     assert maker_site("veeva.com", product_for("Veeva Vault"))
     assert not maker_site("spkaa.com", WINDCHILL)
+
+
+def test_sitemap_addresses_wrapped_in_cdata_are_read():
+    from app.discovery.vendor_archive import LOC
+
+    text = ("<sitemapindex><sitemap><loc><![CDATA[https://www.veeva.com/customer-stories-sitemap.xml]]></loc>"
+            "</sitemap><sitemap><loc> https://www.veeva.com/page-sitemap.xml </loc></sitemap></sitemapindex>")
+    assert LOC.findall(text) == ["https://www.veeva.com/customer-stories-sitemap.xml",
+                                 "https://www.veeva.com/page-sitemap.xml"]

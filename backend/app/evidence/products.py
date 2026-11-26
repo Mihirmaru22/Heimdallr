@@ -33,6 +33,11 @@ KNOWN: dict[str, list[str]] = {
     "ansys": ["Ansys Fluent", "Ansys Mechanical", "ANSYS"],
 }
 SHORT = re.compile(r"^[A-Za-z]{1,4}$")  # SAP, PTC, IFS: too short to trust on its own
+# A one-word name this common in everyday English ("Vault", "Fusion", "Dynamics", "Cloud") names many other things:
+# "Vault" alone matched HashiCorp Vault, Veeam's data vault and Vault Platform, and delivered Neptune Energy as a
+# Veeva Vault user (2026-11-25). Coined names sit well below it: Windchill 2.1, NetSuite 2.1, Workday 2.9,
+# Snowflake 3.3; Vault 3.9 (Zipf scale, wordfreq).
+COMMON_WORD_ZIPF = 3.5
 
 
 @dataclass
@@ -53,16 +58,42 @@ class Product:
         return any(p.search(text) for p in self.patterns)
 
 
+def short_form(name: str) -> str:
+    """The typed name without its first word, the maker's ("PTC Windchill" -> "Windchill", "Oracle NetSuite" ->
+    "NetSuite", "Microsoft Dynamics 365" -> "Dynamics 365"), when what is left still has a word of five letters
+    or more; "" otherwise. Customer stories mostly write the short form: PTC's Welbilt, HP and EnerSys stories name
+    "Windchill" 30-45 times and "PTC Windchill" never, so all three were read as naming it only in a menu
+    (2026-11-25). A short form that is a common word ("Veeva Vault" -> "Vault") is dropped below like any other."""
+    words = name.split()
+    rest = " ".join(words[1:])
+    return rest if len(words) > 1 and any(len(re.sub(r"[^A-Za-z]", "", w)) >= 5 for w in words[1:]) else ""
+
+
 def product_for(name: str, aliases: list[str] | None = None) -> Product:
-    """The product and its names: the typed name, the known names, and any the planner suggested."""
+    """The product and its names: the typed name, its short form, the known names, and any the planner
+    suggested."""
     key = re.sub(r"\s+", " ", name.strip().lower())
-    names = list(KNOWN.get(key, []))
+    short = short_form(name.strip())
+    names = list(KNOWN.get(key) or KNOWN.get(short.lower(), []))
     known = {n.lower() for n in names}
-    for n in [name.strip(), *(aliases or [])]:
+    for n in [name.strip(), short, *(aliases or [])]:
         n = n.strip()
         # A known name keeps its own spelling: "catia" typed must not undo matching "CATIA" by case.
         if n and n.lower() not in known and not SHORT.match(n) and len(n) <= 60:
             names.append(n)
     if not names:  # only a short name was given and it is not one we know: use it, case-sensitively
         names = [name.strip()]
-    return Product(name.strip(), list(dict.fromkeys(names)))
+    names = list(dict.fromkeys(names))
+    distinct = [n for n in names if not common_word(n)]
+    return Product(name.strip(), distinct or names)  # a common word alone is kept only when it is the only name
+
+
+def common_word(name: str) -> bool:
+    """One everyday English word, too common to count as a mention of a product on its own."""
+    if " " in name.strip() or not name.strip().isalpha():
+        return False
+    try:
+        from wordfreq import zipf_frequency
+    except ImportError:  # the word list is an optional dependency: without it no name is dropped
+        return False
+    return zipf_frequency(name.strip().lower(), "en") >= COMMON_WORD_ZIPF

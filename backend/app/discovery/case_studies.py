@@ -29,7 +29,7 @@ from app.crawl.urlnorm import normalize_url, registered_domain
 from app.discovery.page_yield import Yields, page_kind
 from app.discovery.providers import NOT_COMPANY_SITES, DiscoveryError, DiscoveryResult
 from app.discovery.relevance import CCTLD_TO_ISO
-from app.discovery.websites import WebsiteFinder, names_company
+from app.discovery.websites import UNVERIFIED, WebsiteFinder, names_company
 from app.evidence.judge import Judge, score
 from app.evidence.products import Product, product_for
 from app.evidence.quotes import find_mentions, verify_quote
@@ -59,7 +59,11 @@ def finds_dried_up(read: int, finds: list[int]) -> bool:
     recent = [f for f in finds if f > read - WINDOW]
     return read - (finds[-1] if finds else 0) >= QUIET and len(recent) <= MAX_IN_WINDOW
 SEARCH_PAGES = 2  # result pages per query
-HOST_FAILURES = 2  # pages of one site that could not be read before its other candidates are passed over
+HOST_FAILURES = 2  # times in a row one site refused us before its other candidates are passed over
+# Failures that say the SITE refuses or cannot be reached. A missing page (404), a PDF with no readable text or a page
+# robots.txt keeps out is that page's problem: Veeva's 52 other story pages were once skipped after one encrypted
+# PDF and one 404 (2026-11-25).
+HOST_REFUSALS = {"http_401", "http_403", "http_429", "blocked", "network", "timeout"}
 # A page a site refuses (403, robots.txt) is not asked for again, under any identity; its story is looked for
 # elsewhere: one search for its title, on the free engines, and up to COPIES_PER_PAGE copies on other sites read.
 # Measured 2026-10-30: 7 of 8 pages ptc.com and oracle.com refused had a copy elsewhere naming the same customer.
@@ -125,6 +129,20 @@ def page_date(doc: PageDoc) -> str:
     return ""
 
 
+def with_summary(doc: PageDoc) -> str:
+    """The page's text with its own summary first: the og:title and description tags in its static HTML, when
+    the body does not already carry them. Some newsrooms (netsuite.co.uk) draw the story's body with JavaScript,
+    so the fetched text is only the site's menus, while "Bloom & Wild ... is using Oracle NetSuite" sits in the
+    page's og:description. A summary the site repeats on every page is caught as boilerplate like any sentence."""
+    seen = " ".join(doc.text.split()).casefold()
+    extra = []
+    for key in ("og:title", "og:description", "description", "twitter:description"):
+        value = " ".join(doc.meta.get(key, "").split())
+        if value and value.casefold() not in seen and all(value.casefold() not in e.casefold() for e in extra):
+            extra.append(value if value.endswith((".", "!", "?")) else value + ".")
+    return " ".join([*extra, doc.text]) if extra else doc.text
+
+
 class CaseStudiesProvider:
     name = "case_studies"
     what = "case studies and customer stories"  # what the pages are, in notes and the live feed
@@ -144,6 +162,7 @@ class CaseStudiesProvider:
         self.facts: list[dict[str, Any]] = []  # what the website lookup established, for the final decision
         self.on_note: Callable[..., None] | None = None
         self.fetch_page: FetchPage | None = None  # set by the crawler: robots.txt respected, network rules checked
+        self.failure_of: Callable[[str], str] | None = None  # set by the crawler: why fetch_page gave nothing
         self.dates: dict[str, str] = {}  # url -> date the search source gives, when the page itself gives none
         self.context: list[str] = []  # searches naming the question's industry and place, asked first
         self.place = ""  # the one place asked for, written out ("United Kingdom"), or ""
@@ -395,7 +414,8 @@ class CaseStudiesProvider:
                 seen.add(domain)
                 hint = {"company_name": ev["company"], "website_url": site, "uses_technology": ev["verdict"],
                         "evidence": ev["quote"], "evidence_url": ev["url"], "evidence_date": ev["evidence_date"],
-                        "evidence_type": ev["source_type"], "_source": ev["url"], "_strength": ev["strength"]}
+                        "evidence_type": ev["source_type"], "_source": ev["url"], "_strength": ev["strength"],
+                        "_website_unverified": UNVERIFIED in how}
                 results.append(DiscoveryResult(site, self.name, {k: v for k, v in hint.items() if v},
                                                referrer=ev["url"]))
         finally:
@@ -429,8 +449,9 @@ class CaseStudiesProvider:
             self._record(**base, kept=False, reason="page could not be read (robots.txt, error or no text)")
             return [], False
         self.read += 1
-        text = f"{doc.title} {doc.text}"
-        sentences = [q for q in find_mentions(doc.text, product, limit=PAGE_SENTENCES) if verify_quote(q, doc.text)]
+        body = with_summary(doc)
+        text = f"{doc.title} {body}"
+        sentences = [q for q in find_mentions(body, product, limit=PAGE_SENTENCES) if verify_quote(q, body)]
         boilerplate = self._repeated(url, sentences)
         if not sentences:
             self._record(**base, kept=False, reason="the product's name is not on the page")
@@ -519,9 +540,14 @@ class CaseStudiesProvider:
             if fetched and self.yields is not None:
                 self.yields.record(page_kind(url, self.meta.get(url, ("", ""))[0]), bool(kept_rows))
             if not fetched:
-                failures[host] += 1
+                why = self.failure_of(url) if self.failure_of else ""
+                if not self.failure_of or why in HOST_REFUSALS:
+                    failures[host] += 1
                 pending += [c for c in await self._copies(url, product) if c not in pending]
                 continue
+            # Refusals count in a row: a site answering its pages is not refusing us. Two stray network errors among
+            # 340 PTC pages once passed over its Welbilt, HP and Polaris stories (2026-11-25).
+            failures[host] = 0
             new = [r for r in kept_rows if r["company"].casefold() not in users]
             for row in kept_rows:
                 k = row["company"].casefold()

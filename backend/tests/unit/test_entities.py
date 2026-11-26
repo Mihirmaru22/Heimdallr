@@ -128,6 +128,7 @@ def test_each_source_reading_pages_gets_an_equal_share_of_the_budget_left():
 
     assert reading_share(0.0, 3600.0, 2) == 1800.0  # case studies, then news: half each
     assert reading_share(600.0, 3600.0, 1) == 3600.0  # the last source gets all that is left, early finish included
+    assert reading_share(0.0, 3600.0, 2, cap=1 / 3) == 1200.0  # the maker's archive: never more than a third
     assert reading_share(4000.0, 3600.0, 1) == 4000.0  # past the deadline: no time
 
 
