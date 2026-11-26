@@ -2,7 +2,7 @@ import { BORDERS, COAST, COUNT, DOTS, IDS } from "./earth-data";
 import { TLD_TO_ISO } from "./cc";
 
 // The globe's dots: an even Fibonacci sphere, each dot tagged with the country it falls in (or ocean).
-// Which country is precomputed by scripts/build-earth.mjs from Natural Earth (world-atlas), so the browser
+// Which country is precomputed by scripts/build-earth.mjs from Natural Earth (India point-of-view map, official Indian borders), so the browser
 // neither downloads the map nor draws it.
 
 export interface Earth {
