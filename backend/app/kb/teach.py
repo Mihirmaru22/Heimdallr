@@ -226,6 +226,7 @@ DO $$ BEGIN  -- one row per page and model (it was one per page), so models can 
 END $$;
 ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS sector text;
 ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS niche text;
+ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS audience text;
 ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS offers text;
 ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS address text;
 ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS people text;
@@ -242,7 +243,9 @@ ALTER TABLE kb.teach_label ADD COLUMN IF NOT EXISTS pages_read timestamptz;
 # leaders or team members the page names, with their role ("Jane Doe (CEO); ..."). People are personal
 # data, kept by Ronak's decision of 2026-11-25 in their own column so that one DROP COLUMN (here and in
 # kb.company_label) removes them if that is ever required.
-PROFILE_FIELDS = ("sector", "niche", "offers", "address", "people")
+PROFILE_FIELDS = ("sector", "niche", "offers", "address", "people", "audience")
+# Who the company sells to: businesses, consumers, governments, or more than one of them.
+AUDIENCES = frozenset({"b2b", "b2c", "b2g", "mixed"})
 # From the contact and careers pages (app.kb.pages): the company phone and mailbox (never a person's),
 # and tools: software and services the company's job ads say it works with (technographics).
 PAGE_FIELDS = ("address", "phone", "email", "people", "tools")
@@ -265,6 +268,8 @@ def _clean(profile: dict[str, str], fields: tuple[str, ...]) -> dict[str, str | 
     clean = {k: (None if v in ("", "-", "none") else v) for k, v in clean.items()}
     if "sector" in clean and clean["sector"] not in SECTORS:
         clean["sector"] = None
+    if "audience" in clean and clean["audience"] is not None:
+        clean["audience"] = clean["audience"].lower() if clean["audience"].lower() in AUDIENCES else None
     return clean
 
 

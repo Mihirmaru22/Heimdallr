@@ -222,6 +222,7 @@ ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS tech_company boolean;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS tech_score real;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS sector text;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS niche text;
+ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS audience text;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS offers text;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS address text;
 ALTER TABLE kb.company_label ADD COLUMN IF NOT EXISTS people text;  -- personal data: see app.kb.teach
@@ -258,14 +259,15 @@ def apply_teacher(conn, teacher: str) -> int:
     cur = conn.execute(
         """INSERT INTO kb.company_label (domain, real_page, real_score, tech_company, tech_score, micro_sector,
                                          micro_score, micro_top3, offering, offering_score, model, source_url,
-                                         sector, niche, offers, address, people, phone, email, tools, labelled_at)
+                                         sector, niche, offers, address, people, phone, email, tools, audience,
+                                         labelled_at)
            SELECT t.domain, t.real_page, 1.0, CASE WHEN t.real_page THEN t.tech_company END,
                   CASE WHEN t.tech_company THEN 1.0 ELSE 0.0 END, t.micro_sector,
                   CASE WHEN t.micro_sector IS NULL THEN 0.0 ELSE 1.0 END,
                   CASE WHEN t.micro_sector IS NULL THEN '[]'::jsonb
                        ELSE jsonb_build_array(jsonb_build_array(t.micro_sector, 1.0)) END,
                   CASE WHEN t.real_page THEN t.offering END, 1.0, 'teacher:' || t.model, h.url,
-                  t.sector, t.niche, t.offers, t.address, t.people, t.phone, t.email, t.tools, now()
+                  t.sector, t.niche, t.offers, t.address, t.people, t.phone, t.email, t.tools, t.audience, now()
            FROM kb.teach_label t JOIN kb.homepage h ON h.domain = t.domain AND h.found
            WHERE t.model = %s AND t.error IS NULL AND t.real_page IS NOT NULL
            ON CONFLICT (domain) DO UPDATE SET real_page = EXCLUDED.real_page, real_score = EXCLUDED.real_score,
@@ -275,7 +277,8 @@ def apply_teacher(conn, teacher: str) -> int:
                offering_score = EXCLUDED.offering_score, model = EXCLUDED.model,
                source_url = EXCLUDED.source_url, sector = EXCLUDED.sector, niche = EXCLUDED.niche,
                offers = EXCLUDED.offers, address = EXCLUDED.address, people = EXCLUDED.people,
-               phone = EXCLUDED.phone, email = EXCLUDED.email, tools = EXCLUDED.tools, labelled_at = now()""",
+               phone = EXCLUDED.phone, email = EXCLUDED.email, tools = EXCLUDED.tools, audience = EXCLUDED.audience,
+               labelled_at = now()""",
         (teacher,),
     )
     return cur.rowcount

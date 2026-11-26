@@ -137,11 +137,12 @@ def test_teacher_label_and_profile_replace_the_classifiers(conn, tmp_path):
     with out.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["domain", "real_page", "tech_company", "micro_sector", "offering", "reason",
-                    "sector", "niche", "offers", "address", "people"])
+                    "sector", "niche", "offers", "address", "people", "audience"])
         w.writerow(["acme.co", "true", "true", "hr tech", "product", "payroll SaaS", "Technology",
                     "payroll software", "payroll app; HR portal", "1 High St, London",
-                    "Jane Doe (CEO)"])
-        w.writerow(["shop.co", "true", "false", "none", "product", "", "Shops", "shoe shop", "shoes", "-", ""])
+                    "Jane Doe (CEO)", "B2B"])
+        w.writerow(["shop.co", "true", "false", "none", "product", "", "Shops", "shoe shop", "shoes", "-", "",
+                    "everyone"])
     teach.import_labels(conn, out, "claude")
     assert classify.apply_teacher(conn, "claude") == 2
     rows = {r[0]: r[1:] for r in conn.execute(
@@ -149,6 +150,8 @@ def test_teacher_label_and_profile_replace_the_classifiers(conn, tmp_path):
     assert rows["acme.co"] == ("teacher:claude", "hr tech", "Technology", "payroll app; HR portal",
                                "1 High St, London", 1.0, "Jane Doe (CEO)")
     assert rows["shop.co"][2:5] == (None, "shoes", None)  # unknown sector dropped, "-" address = unknown
+    audience = dict(conn.execute("SELECT domain, audience FROM kb.company_label").fetchall())
+    assert audience == {"acme.co": "b2b", "shop.co": None}  # outside the list = unknown
 
 
 def test_contact_page_details_merge_with_homepage_labels_in_either_order(conn, tmp_path):
