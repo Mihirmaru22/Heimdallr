@@ -1,4 +1,4 @@
-# Running WebData AI locally
+# Running Heimdallr locally
 
 Everything runs on your machine. No cloud account, paid API key or AI model is needed for
 Phase 1: discovery uses your start URLs, Wikidata (free, no key) and a local SearXNG search

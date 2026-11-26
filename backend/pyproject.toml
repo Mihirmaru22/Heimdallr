@@ -1,7 +1,7 @@
 [project]
-name = "webdata-ai"
+name = "heimdallr"
 version = "0.1.0"
-description = "WebData AI: discover, crawl, extract and export web data to Excel, locally and for $0"
+description = "Heimdallr: discover, crawl, extract and export web data to Excel, locally and for $0"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi",

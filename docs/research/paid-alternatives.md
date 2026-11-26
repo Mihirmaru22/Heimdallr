@@ -1,4 +1,4 @@
-# WebData AI: paid alternatives to consider later (research only, not for the MVP)
+# Heimdallr: paid alternatives to consider later (research only, not for the MVP)
 
 Prepared 2026-10-19. All "verified" prices were read with WebFetch on 2026-10-19 from the vendor's own pricing page or docs, linked in the last column. Anything marked **unverified** could not be confirmed on a vendor page. Prices change often, so check them again before buying anything.
 
@@ -61,7 +61,7 @@ Baseline for comparison: the MVP's self-hosted crawler (e.g. open-source Crawl4A
 
 ---
 
-## 2. Overall ranking: top 5 by value and fit for WebData AI
+## 2. Overall ranking: top 5 by value and fit for Heimdallr
 
 1. **Parallel (FindAll + Search + Extract).** FindAll is the only priced product that does "find N companies matching criteria" directly: about $15.25 for 500 matches at Base. Search and Extract are each $1–5 per 1k, and the free allowance is large.
 2. **Firecrawl.** One vendor covers search, crawl, JS rendering and markdown. $19/mo Hobby covers the whole 4,100-credit job, and it's the easiest drop-in replacement for our crawler.

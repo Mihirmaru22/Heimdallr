@@ -52,7 +52,7 @@ evals/evidence_snapshots/*.txt
 exports/evals/
 exports/briefs/
 
-# WebData AI
+# Heimdallr
 node_modules/
 frontend/dist/
 .env

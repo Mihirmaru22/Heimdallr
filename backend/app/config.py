@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     celery_eager: bool = False  # run tasks inline (tests, single-process demo)
 
     # Crawler identity and politeness
-    user_agent: str = "WebDataAI/0.1 (+http://localhost/crawler-info; contact: admin@example.invalid)"
+    user_agent: str = "Heimdallr/0.1 (+http://localhost/crawler-info; contact: admin@example.invalid)"
     respect_robots: bool = True
     per_domain_concurrency: int = 2
     per_domain_delay_seconds: float = 1.0
