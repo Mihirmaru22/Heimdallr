@@ -118,3 +118,37 @@ def test_pdl_industry_is_a_feature_when_seen_often_enough():
     assert model.heads["tech_company"][1].shape[0] == 256 + 2
     probs = model.predict(fake_embed(["payroll software"]), ["computer software"])
     assert probs["tech_company"][0]["yes"] > 0.5
+
+
+def test_words_are_kept_only_for_heads_they_help_and_survive_save_and_load(tmp_path):
+    data = examples()
+    texts = [f"{text} page{i}" for i in range(12) for text, _ in PAGES.values()]
+    model = train.train(data, "fake", texts=texts, chunks=2)
+    reports = {r.name: r for r in model.reports}
+    assert set(model.uses_words) == {"real_page", "tech_company", "micro_sector", "offering"}
+    assert all(r.other for r in reports.values())  # both variants were cross-validated
+    assert ("words" in "\n".join(reports["micro_sector"].lines()))
+    path = tmp_path / "m.npz"
+    model.save(path)
+    again = train.LabelModel.load(path)
+    assert again.chunks == 2 and again.uses_words == model.uses_words and again.vocab == model.vocab
+    c = classify.Classifier(fake_embed, again)
+    (payroll,) = c.label(["b"], [("Payroll", "payroll software", "free trial for small business")])
+    assert payroll.micro_sector == "hr tech"
+
+
+def test_terms_and_vocabulary():
+    assert train.terms("SAP S/4HANA and C++ apps") == ["sap", "s", "4hana", "and", "c++", "apps",
+                                                       "sap s", "s 4hana", "4hana and", "and c++", "c++ apps"]
+    vocab, idf = train.vocabulary(["payroll app"] * 3 + ["law firm"] * 3 + ["other"])
+    assert "payroll" in vocab and "payroll app" in vocab and len(idf) == len(vocab)
+
+
+def test_page_chunks_add_the_next_part_of_the_page():
+    text = "a" * 600 + "b" * 2000
+    first, more = classify.page_chunks("T", None, text)
+    assert first.startswith("T. aaa") and set(more) == {"b"} and len(more) == classify.MORE_CHARS
+    assert classify.page_chunks("T", None, "short") == ["T. short"]
+    assert len(classify.page_chunks("T", None, text, chunks=1)) == 1
+    vecs = classify.embed_pages(fake_embed, [("T", None, text), "short"], 2)
+    assert len(vecs) == 2 and abs(np.linalg.norm(vecs[1]) - 1) < 1e-9

@@ -27,6 +27,8 @@ from pathlib import Path
 
 MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 TEXT_CHARS = 600  # the model reads about 128 tokens; the opening of the page carries the most
+MORE_CHARS = 1200  # the next part of the page, embedded too: the opening is often only a slogan
+WORDS_CHARS = 5000  # what the word features (app.kb.train) read: all the text a homepage keeps
 
 MICRO_SECTORS: dict[str, str] = {
     "fintech": "financial technology: digital banking, lending, money apps and software for finance",
@@ -87,6 +89,43 @@ def page_text(title: str | None, description: str | None, text: str | None) -> s
     return ". ".join(parts + ([body] if body else []))
 
 
+def page_chunks(title: str | None, description: str | None, text: str | None, chunks: int = 2) -> list[str]:
+    """What the sentence model reads: the opening (page_text) and, with chunks=2, the next
+    MORE_CHARS of the text. 600 characters were mostly hero slogans ("transforming enterprise
+    workflows"); with the next part averaged in, micro-sector cross-validation rose and no
+    micro-sector was left never predicted."""
+    first = page_text(title, description, text)
+    if chunks < 2:
+        return [first]
+    body = " ".join((text or "").split())
+    more = body[TEXT_CHARS:TEXT_CHARS + MORE_CHARS]
+    return [first, more] if more.strip() else [first]
+
+
+def word_text(title: str | None, description: str | None, text: str | None) -> str:
+    return " ".join(p for p in (title, description, (text or "")[:WORDS_CHARS]) if p)
+
+
+def as_page(page) -> tuple[str | None, str | None, str | None]:
+    """A page as (title, description, text); a plain string is the page's text."""
+    return (None, None, page) if isinstance(page, str) else tuple(page)
+
+
+def embed_pages(embed: Callable[[Sequence[str]], list[list[float]]], pages, chunks: int) -> list[list[float]]:
+    """One vector per page: the mean of its chunks' unit vectors."""
+    import numpy as np
+
+    pieces = [page_chunks(*as_page(p), chunks=chunks) for p in pages]
+    flat = embed([t for ts in pieces for t in ts])
+    out, k = [], 0
+    for ts in pieces:
+        v = np.asarray(flat[k:k + len(ts)], dtype=np.float64)
+        k += len(ts)
+        v /= np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-12)
+        out.append(v.mean(axis=0).tolist())
+    return out
+
+
 @dataclass
 class Label:
     domain: str
@@ -112,9 +151,12 @@ class Classifier:
         self.micro_min = min_probability if min_probability is not None else model.threshold("micro_sector")
         self.offer_min = model.threshold("offering")
 
-    def label(self, domains: Sequence[str], texts: Sequence[str],
+    def label(self, domains: Sequence[str], pages: Sequence,
               industries: Sequence[str | None] | None = None) -> list[Label]:
-        probs = self.model.predict(self.embed(list(texts)), industries)
+        """pages: (title, description, text) per domain, or the text alone."""
+        pages = [as_page(p) for p in pages]
+        vectors = embed_pages(self.embed, pages, getattr(self.model, "chunks", 1))
+        probs = self.model.predict(vectors, industries, [word_text(*p) for p in pages])
         out = []
         for i, domain in enumerate(domains):
             real = probs["real_page"][i].get("yes", 0.0)

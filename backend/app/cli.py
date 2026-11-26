@@ -526,12 +526,15 @@ def kb_train(teacher: str) -> None:
     rows = [r for r in rows if classify.page_text(r[0], r[1], r[2])]
     if len(rows) < 100:
         sys.exit(f"Only {len(rows)} teacher labels from {teacher}; run kb-teach first (a few thousand pages).")
-    print(f"Embedding {len(rows):,} labelled homepages with {classify.MODEL}...", flush=True)
+    chunks = 2
+    print(f"Embedding {len(rows):,} labelled homepages with {classify.MODEL} ({chunks} parts each)...", flush=True)
     embedder = classify.Embedder()
-    vectors = embedder([classify.page_text(r[0], r[1], r[2]) for r in rows])
+    vectors = classify.embed_pages(embedder, [r[:3] for r in rows], chunks)
     labels = [{"real_page": r[3], "tech_company": r[4], "micro_sector": r[5], "offering": r[6], "industry": r[7]}
               for r in rows]
-    model = train.train(list(zip(vectors, labels, strict=True)), embedder.name)
+    print("Training: each head is cross-validated with and without the page's words...", flush=True)
+    model = train.train(list(zip(vectors, labels, strict=True)), embedder.name,
+                        texts=[classify.word_text(*r[:3]) for r in rows], chunks=chunks)
     path = _label_model_path()
     model.save(path)
     print(f"Saved {path}\n")
@@ -641,8 +644,7 @@ def kb_classify(limit: int | None, again: bool, export_sample: int, export_path:
         batch = 256
         for i in range(0, len(rows), batch):
             chunk = rows[i:i + batch]
-            labels = labeller.label([r[0] for r in chunk], [classify.page_text(r[2], r[3], r[4]) for r in chunk],
-                                    [r[5] for r in chunk])
+            labels = labeller.label([r[0] for r in chunk], [r[2:5] for r in chunk], [r[5] for r in chunk])
             with conn.transaction():
                 for row, label in zip(chunk, labels, strict=True):
                     classify.save(conn, label, f"{embedder.name}+{model_path.name}", row[1])
