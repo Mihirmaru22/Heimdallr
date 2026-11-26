@@ -218,8 +218,8 @@ function SheetRows({ compact = false }: { compact?: boolean }) {
   );
 }
 
-// Front-page tagline: first line, then the highlighted second line. Change only this to swap it.
-const TAGLINE: [string, string] = ["Ask anything about any company.", "Every answer comes with its proof."];
+// Front-page tagline: headline, then the smaller highlighted line under it. Change only this to swap it.
+const TAGLINE: [string, string] = ["Find the companies, jobs, services and places you're looking for.", "Answers you can trust."];
 
 export default function LandingPage() {
   return (
@@ -240,7 +240,7 @@ export default function LandingPage() {
         <div className="land-hero-scrim" aria-hidden />
         <Reveal className="land-hero-copy">
           <span className="eyebrow-pill"><span className="pulse" aria-hidden /> Research engine on free models and open data</span>
-          <h1>{TAGLINE[0]}<br /><em>{TAGLINE[1]}</em></h1>
+          <h1>{TAGLINE[0]} <em>{TAGLINE[1]}</em></h1>
           <p>Heimdallr searches open sources, reads the pages, checks every claim and hands you a spreadsheet where each
             row links to its proof.</p>
           <div className="land-cta">
