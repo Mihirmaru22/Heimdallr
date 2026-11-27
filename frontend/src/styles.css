@@ -241,6 +241,21 @@ tr.excluded { opacity: .5; }
 .empty { padding: 28px 8px; text-align: center; color: var(--muted); font-size: .9rem; }
 .pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 14px; }
 
+/* ---------- persistent company database ---------- */
+.database-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); gap: 16px; align-items: start; }
+.database-layout > .card { min-width: 0; }
+.database-layout .selected-row { background: var(--accent-soft); }
+.claim-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.claim-card { display: flex; flex-direction: column; gap: 9px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--raised); }
+.claim-title { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.claim-title strong { display: block; margin-bottom: 3px; text-transform: capitalize; }
+.claim-title > div { min-width: 0; overflow-wrap: anywhere; }
+.claim-card blockquote { margin: 0; padding: 9px 12px; border-left: 2px solid var(--accent); border-radius: 0 8px 8px 0; background: var(--sunk); color: var(--ink-2); font-size: .84rem; }
+.claim-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
+.claim-actions .primary { background: var(--ok); border-color: var(--ok); color: #fff; }
+.claim-actions .danger { color: var(--bad); }
+@media (max-width: 1000px) { .database-layout { grid-template-columns: 1fr; } }
+
 /* ---------- legend dots ---------- */
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
 .dot.kept { background: var(--accent); } .dot.seen { background: var(--ink); } .dot.dropped { background: var(--lens-faint); }
