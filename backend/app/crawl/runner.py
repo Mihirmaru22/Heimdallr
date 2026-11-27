@@ -47,6 +47,7 @@ from app.discovery.relevance import (
     unreadable,
 )
 from app.discovery.sitecheck import SiteChecker
+from app.discovery.websites import site_name
 from app.evidence.judge import proof_confidence
 from app.evidence.site import SiteProof
 from app.extract.deterministic import (
@@ -393,7 +394,16 @@ class CrawlRunner:
                 # which organisation this is: it must not be the second signal that settles a registry match.
                 # "AUSA" from a PTC story (a Barcelona maker) took ausa.org that way, then the US army association's
                 # Wikidata entry "matched by website", and was delivered as a US company (2026-11-25).
-                res = await resolver.resolve(name, "" if r.hint.get("_website_unverified") else r.url)
+                verified = not r.hint.get("_website_unverified")
+                res = await resolver.resolve(name, r.url if verified else "")
+                short = site_name(name, site) if verified and not res.country else ""
+                if short:
+                    # A headline taken for the name ("EnerSys Speeds Time") matches no registry; the part of it that
+                    # is the company's own (read) website's name does, and is the company's name.
+                    retry = await resolver.resolve(short, r.url)
+                    if retry.country:
+                        name, res = short, retry
+                        r.hint["company_name"] = short
                 self.facts += resolution_facts(name, site, res)
                 if res.country:
                     settled += 1

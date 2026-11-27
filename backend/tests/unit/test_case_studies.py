@@ -8,6 +8,7 @@ import pytest
 from app.discovery.case_studies import CaseStudiesProvider, page_date
 from app.discovery.providers import DiscoveryError
 from app.evidence.judge import Judge
+from app.evidence.products import product_for
 from app.extract.deterministic import parse_page
 from app.llm.openrouter import LLMUnavailable, Reply
 from app.spec.models import ExtractionSpec
@@ -132,3 +133,27 @@ def test_a_story_drawn_by_javascript_is_read_from_its_own_summary_tags():
     assert any("Bloom & Wild" in s for s in find_mentions(body, product_for("NetSuite")))
     plain = parse_page("https://a.example/x", "<html><body><p>Acme runs NetSuite.</p></body></html>")
     assert with_summary(plain) == plain.text  # no summary tags: the text is unchanged
+
+
+def test_a_sentence_about_the_pages_own_subject_is_not_boilerplate_there():
+    from app.discovery.case_studies import page_subject
+
+    windchill = product_for("PTC Windchill")
+    p = CaseStudiesProvider()
+    card = "Cummins optimizes product designs with Windchill."
+    other = "https://www.ptc.com/en/case-studies/welbilt-lower-tco"
+    story = "https://www.ptc.com/en/case-studies/cummins-optimizes-product-designs"
+    assert p._repeated(other, [card], windchill) == set()
+    # The same sentence on the Cummins story itself is that story's own, not a repeated card.
+    assert p._repeated(story, [card], windchill) == set()
+    # On a third page about something else it is repeated.
+    assert p._repeated("https://www.ptc.com/en/case-studies/polaris", [card], windchill) == {card.casefold()}
+    assert "windchill" not in page_subject(story + "-windchill", windchill)
+
+
+def test_a_headline_taken_for_a_name_falls_back_to_the_part_its_website_spells():
+    from app.discovery.websites import site_name
+
+    assert site_name("EnerSys Speeds Time", "enersys.com") == "EnerSys"
+    assert site_name("Bloom & Wild", "bloomandwild.com") == ""
+    assert site_name("Acme", "acme.com") == ""

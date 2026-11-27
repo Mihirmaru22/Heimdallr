@@ -27,7 +27,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from app.crawl.urlnorm import normalize_url, registered_domain
+from app.crawl.urlnorm import normalize_url, public_suffix, registered_domain
 from app.discovery.case_studies import CaseStudiesProvider
 from app.discovery.page_yield import page_kind
 from app.evidence.judge import makes_product
@@ -62,16 +62,59 @@ def maker_site(site: str, product: Product) -> bool:
     return makes_product(label, product) or (len(label) > 2 and label in words)
 
 
+def country_tld(iso: str) -> str:
+    """The country-code domain ending for an ISO country: "uk" for GB, else the code itself."""
+    return "uk" if iso.upper() == "GB" else iso.lower()
+
+
+def host_country(host: str) -> str:
+    """The two-letter country ending of a host ("uk" for www.netsuite.co.uk, "cn" for www.netsuite.cn), "" for a
+    generic one (.com, .org)."""
+    last = public_suffix(host).rsplit(".", 1)[-1]
+    return last if len(last) == 2 else ""
+
+
+def for_countries(hosts: list[str], countries: list[str]) -> list[str]:
+    """Maker hosts for the countries asked, in order: the maker's site for an asked country first; its site for
+    another country is dropped when the maker also has a generic or asked-country one (a UK question once read
+    www.netsuite.cn and never reached www.netsuite.co.uk's sitemap, 2026-11-26); a bare host is dropped when its
+    www. twin is there (one site, one sitemap)."""
+    wanted = {country_tld(c) for c in countries}
+
+    def brand(h: str) -> str:
+        return (registered_domain(h) or h).split(".")[0]
+
+    home = {brand(h) for h in hosts if not host_country(h) or host_country(h) in wanted}
+    out = [h for h in hosts if f"www.{h}" not in hosts
+           and not (wanted and host_country(h) and host_country(h) not in wanted and brand(h) in home)]
+    return sorted(out, key=lambda h: host_country(h) not in wanted) if wanted else out
+
+
 def names_product(url: str, product: Product) -> bool:
     """The page's address names the product ("...cummins-selects-ptcs-windchill..."); hyphens and case aside."""
     path = slug(urlsplit(url).path)
     return any(len(s) > 3 and s in path for s in (slug(n) for n in product.names))
 
 
+def product_site(url: str, product: Product) -> bool:
+    """The site is named after the product itself ("netsuite.co.uk" for Oracle NetSuite), not just its maker
+    ("oracle.com", "ptc.com"): everything it publishes is about that product."""
+    label = (registered_domain(url) or "").split(".")[0]
+    return len(label) > 3 and label in {slug(n) for n in product.names}
+
+
+def release(url: str, product: Product) -> bool:
+    """A news or release page about the product: its address names it, or it is in the newsroom of a site named
+    after the product. netsuite.co.uk's releases say "NS" or nothing ("oliver-bonas-sees-ns-as-the-perfect-fit",
+    "daring-foods-takes-on-the-meat-industry"), so an address test alone dropped two UK customers (2026-11-27)."""
+    kind = page_kind(url)
+    return (kind in ("news", "article", "other") and names_product(url, product)) \
+        or (kind == "news" and product_site(url, product))
+
+
 def keep(url: str, product: Product) -> bool:
     """A customer story, or a news or release page about the product, judged from the address alone."""
-    kind = page_kind(url)
-    return kind == "story" or (kind in ("news", "article", "other") and names_product(url, product))
+    return page_kind(url) == "story" or release(url, product)
 
 
 def page_key(url: str) -> str:
@@ -83,8 +126,8 @@ def page_key(url: str) -> str:
 def choose(urls: list[str], product: Product, limit: int = MAX_CANDIDATES,
            searched: list[str] | tuple[str, ...] = ()) -> list[str]:
     """Pages worth reading, best first: pages a site search shows naming the product, stories whose address names
-    it, releases naming it, then the other stories (mostly about the maker's other products). Within each, the
-    shortest address of a page's language copies, in search or sitemap order."""
+    it, releases about it (see `release`), then the other stories (mostly about the maker's other products).
+    Within each, the shortest address of a page's language copies, in search or sitemap order."""
     best: dict[str, str] = {}
     hit = {page_key(u) for u in searched}
     for url in [*searched, *urls]:
@@ -97,7 +140,7 @@ def choose(urls: list[str], product: Product, limit: int = MAX_CANDIDATES,
 
     def rank(u: str) -> tuple:
         story, named = page_kind(u) == "story", names_product(u, product)
-        tier = 0 if page_key(u) in hit else 1 if story and named else 2 if named else 3
+        tier = 0 if page_key(u) in hit else 1 if story and named else 2 if named or release(u, product) else 3
         return (tier, order[u])
 
     return sorted(best.values(), key=rank)[:limit]
@@ -144,22 +187,33 @@ class VendorArchiveProvider(CaseStudiesProvider):
                     host = urlsplit(url).netloc.lower()
                     seen[host] = seen.get(host, 0) + 1
                     seen.setdefault(f"www.{site}", 0)  # the maker's main site, even when search showed a subdomain
-        return sorted(seen, key=lambda h: -seen[h])[:MAX_HOSTS]
+        return for_countries(sorted(seen, key=lambda h: -seen[h]), self.countries)[:MAX_HOSTS]
 
-    async def sitemap_pages(self, host: str) -> list[str]:
-        """Page addresses a host's sitemaps list, story-like child sitemaps first, within the file budget."""
+    async def sitemap_pages(self, host: str, budget: int = MAX_SITEMAP_FILES) -> list[str]:
+        """Page addresses a host's sitemaps list, story-like child sitemaps first, within this host's file budget.
+        Child sitemaps for another country's locale ("/ae/sitemap-wcs.xml" on a UK question) come last: oracle.com's
+        regional sitemaps once used up every file before netsuite.co.uk's was read (2026-11-26)."""
         if self.fetch_xml is None:
             return []
+        wanted = {country_tld(c) for c in self.countries} | {"en"}
+
+        def later(u: str) -> tuple[bool, bool]:
+            m = LOCALE.match(urlsplit(u).path)
+            elsewhere = bool(self.countries and m and m.group(0)[1:3].lower() not in wanted)
+            return elsewhere, not STORY_SITEMAP.search(u)
+
         origin = f"https://{host}"
         queue = (await self.sitemaps_of(origin) if self.sitemaps_of else []) or [f"{origin}/sitemap.xml"]
         pages: list[str] = []
         done: set[str] = set()
-        while queue and self.files_read < MAX_SITEMAP_FILES:
+        read = 0
+        while queue and read < budget:
             sm = queue.pop(0)
             if sm in done:
                 continue
             done.add(sm)
             self.files_read += 1
+            read += 1
             text = await self.fetch_xml(sm)
             if not text:
                 continue
@@ -167,8 +221,8 @@ class VendorArchiveProvider(CaseStudiesProvider):
             # A compressed sitemap (.xml.gz) is not read: the fetcher hands back text, not bytes.
             children = [u for u in locs if u.lower().split("?")[0].endswith(".xml")]
             pages += [u for u in locs if u not in children and not u.lower().split("?")[0].endswith(".gz")]
-            queue += sorted(children, key=lambda u: not STORY_SITEMAP.search(u))
-            queue.sort(key=lambda u: not STORY_SITEMAP.search(u))
+            queue += children
+            queue.sort(key=later)
         return pages
 
     async def site_pages(self, host: str, product: Product) -> list[str]:
@@ -204,8 +258,9 @@ class VendorArchiveProvider(CaseStudiesProvider):
             return []
         found: list[str] = []
         searched: list[str] = []
+        budget = max(4, MAX_SITEMAP_FILES // len(self.hosts))  # each maker host gets its share of sitemap files
         for host in self.hosts:
-            pages = await self.sitemap_pages(host)
+            pages = await self.sitemap_pages(host, budget)
             named = await self.site_pages(host, product)
             self._say("search", f"{host}: its sitemaps list {len(pages)} page(s); a site search shows "
                                 f"{len(named)} naming {product.name}")

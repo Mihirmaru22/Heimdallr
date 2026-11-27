@@ -111,3 +111,48 @@ def test_sitemap_addresses_wrapped_in_cdata_are_read():
             "</sitemap><sitemap><loc> https://www.veeva.com/page-sitemap.xml </loc></sitemap></sitemapindex>")
     assert LOC.findall(text) == ["https://www.veeva.com/customer-stories-sitemap.xml",
                                  "https://www.veeva.com/page-sitemap.xml"]
+
+
+def test_maker_hosts_for_a_country_question_put_that_countrys_site_first_and_drop_other_countries():
+    from app.discovery.vendor_archive import for_countries
+
+    hosts = ["netsuite.com", "www.netsuite.com", "www.netsuite.cn", "www.oracle.com", "www.netsuite.co.uk",
+             "netsuite.co.uk"]
+    assert for_countries(hosts, ["GB"]) == ["www.netsuite.co.uk", "www.netsuite.com", "www.oracle.com"]
+    assert for_countries(hosts, []) == ["www.netsuite.com", "www.netsuite.cn", "www.oracle.com", "www.netsuite.co.uk"]
+    assert for_countries(["www.maker.de"], ["GB"]) == ["www.maker.de"]  # the maker's only site is kept
+
+
+def test_another_countrys_regional_sitemaps_are_read_last():
+    files = {
+        "https://www.oracle.com/sitemap.xml": "<sitemapindex>" + "".join(
+            f"<sitemap><loc>https://www.oracle.com/{c}/sitemap-wcs.xml</loc></sitemap>" for c in ("ae", "au", "uk"))
+            + "</sitemapindex>",
+        "https://www.oracle.com/uk/sitemap-wcs.xml": "<urlset><url><loc>https://www.oracle.com/uk/customers/acme/"
+            "</loc></url></urlset>",
+    }
+    fetched = []
+
+    async def fetch_xml(url):
+        fetched.append(url)
+        return files.get(url)
+
+    p = VendorArchiveProvider()
+    p.fetch_xml, p.countries = fetch_xml, ["GB"]
+    pages = asyncio.run(p.sitemap_pages("www.oracle.com", budget=2))
+    assert fetched == ["https://www.oracle.com/sitemap.xml", "https://www.oracle.com/uk/sitemap-wcs.xml"]
+    assert pages == ["https://www.oracle.com/uk/customers/acme/"]
+
+
+def test_releases_on_a_site_named_after_the_product_are_kept_even_when_the_address_does_not_name_it():
+    netsuite = product_for("Oracle NetSuite")
+    uk = "https://www.netsuite.co.uk/portal/uk/"
+    oliver = uk + "company/newsroom/oliver-bonas-sees-ns-as-the-perfect-fit-for-its-growth-journey.shtml"
+    story = uk + "customer-testimonials/vivobarefoot-retail.shtml"
+    assert keep(oliver, netsuite)
+    # Only its news: a product page there is not a candidate, nor a maker's release about another product.
+    assert not keep(uk + "products/erp.shtml", netsuite)
+    assert not keep("https://www.oracle.com/news/announcement/oracle-database-23ai/", netsuite)
+    assert not keep("https://investor.ptc.com/news-releases/news-release-details/ptc-reports-q3-results", WINDCHILL)
+    # Such releases rank with the releases that name the product, ahead of stories that do not.
+    assert choose([story, oliver], netsuite) == [oliver, story]

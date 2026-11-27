@@ -73,3 +73,11 @@ def test_pdf_lines_broken_by_width_are_joined_back_into_sentences():
             "stream-\nline quality.\nNext sentence here.")
     assert pdf_paragraphs(text) == ["Customer Story", "Veeva Systems announced that Kemwell BioPharma has implemented "
                                     "Veeva Vault QMS to streamline quality.", "Next sentence here."]
+
+
+def test_a_heading_in_spaced_capitals_is_joined_and_kept_apart_from_the_next_words():
+    from app.crawl.fetcher import pdf_paragraphs
+
+    text = "T O P L I N E SRAM\nSRAM, a maker of bicycle parts, selected PTC Windchill to\nmanage its product data."
+    assert pdf_paragraphs(text) == ["TOPLINE", "SRAM", "SRAM, a maker of bicycle parts, selected PTC Windchill to "
+                                    "manage its product data."]
