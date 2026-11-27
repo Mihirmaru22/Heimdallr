@@ -21,6 +21,7 @@ const STATE_CLASS: Record<string, string> = {
   dead: "bad", skipped: "muted", ready: "ok", pending: "muted", queued: "muted", draft: "muted",
   delivered: "ok", country_unconfirmed: "warn", filter_not_met: "warn", elsewhere: "muted", weak_proof: "muted",
   no_proof: "muted",
+  verified: "ok", needs_review: "warn", rejected: "bad",
 };
 const LIVE = new Set(["created", "validating", "planning", "queued", "running", "waiting_quota", "validating_results", "exporting"]);
 

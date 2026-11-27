@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select, text
 
 from app.db import SessionLocal, session_scope, set_tenant
-from app.models import CrawlJob, ExtractedRecord, Project
+from app.models import CatalogClaim, CatalogCompany, CrawlJob, ExtractedRecord, Project
 
 
 @pytest.fixture
@@ -81,7 +81,6 @@ def test_rls_blocks_writes_into_another_tenant(two_tenants):
         db.rollback()
         db.close()
 
-
 def test_no_tenant_means_no_rows(two_tenants):
     db = SessionLocal()
     try:
@@ -111,3 +110,96 @@ def test_member_roles(make_user):
     assert member.patch(member.org(f"/members/{me}"), json={"role": "owner"}).status_code == 403
     owner_id = owner.me["user"]["id"]
     assert owner.delete(owner.org(f"/members/{owner_id}")).status_code == 409
+
+
+def test_catalog_api_tenant_isolation(two_tenants):
+    alice, mallory, ids = two_tenants
+    with session_scope(uuid.UUID(alice.org_id)) as db:
+        company = CatalogCompany(
+            org_id=uuid.UUID(alice.org_id),
+            identity_key="domain:secret-corp.test",
+            name="Secret Corp",
+            website="https://secret-corp.test",
+            domain="secret-corp.test",
+        )
+        db.add(company)
+        db.flush()
+        claim = CatalogClaim(
+            org_id=uuid.UUID(alice.org_id),
+            company_id=company.id,
+            claim_key="country:US",
+            field_key="country",
+            value="US",
+            display_value="US",
+            verification_status="verified",
+            verification_method="manual",
+            source_url="https://secret-corp.test/contact",
+            source_job_id=uuid.UUID(ids["job"]["id"]),
+        )
+        db.add(claim)
+        db.commit()
+        company_id = company.id
+        claim_id = claim.id
+
+    # Mallory querying Alice's catalog directly gets 404
+    assert mallory.get(f"/api/v1/orgs/{alice.org_id}/catalog").status_code == 404
+
+    # Mallory using her own org but Alice's company id gets 404
+    assert mallory.get(mallory.org(f"/catalog/{company_id}")).status_code == 404
+
+    # Mallory attempting to review Alice's claim gets 404
+    r_review = mallory.post(mallory.org(f"/catalog/claims/{claim_id}/review"), json={"decision": "reject"})
+    assert r_review.status_code == 404
+
+
+def test_catalog_database_rls_isolation(two_tenants):
+    alice, mallory, ids = two_tenants
+    with session_scope(uuid.UUID(alice.org_id)) as db:
+        company = CatalogCompany(
+            org_id=uuid.UUID(alice.org_id),
+            identity_key="domain:alice-exclusive.test",
+            name="Alice Exclusive",
+            website="https://alice-exclusive.test",
+            domain="alice-exclusive.test",
+        )
+        db.add(company)
+        db.flush()
+        claim = CatalogClaim(
+            org_id=uuid.UUID(alice.org_id),
+            company_id=company.id,
+            claim_key="uses_tech:SecretStack",
+            field_key="uses_technology",
+            value="SecretStack",
+            display_value="SecretStack",
+            verification_status="verified",
+            verification_method="confirmed",
+            source_url="https://alice-exclusive.test",
+            source_job_id=uuid.UUID(ids["job"]["id"]),
+        )
+        db.add(claim)
+        db.commit()
+
+    with session_scope(uuid.UUID(mallory.org_id)) as db:
+        assert db.execute(select(CatalogCompany)).scalars().all() == []
+        assert db.execute(select(CatalogClaim)).scalars().all() == []
+
+    with session_scope(uuid.UUID(alice.org_id)) as db:
+        assert len(db.execute(select(CatalogCompany)).scalars().all()) >= 1
+        assert len(db.execute(select(CatalogClaim)).scalars().all()) >= 1
+
+    # RLS blocks writes into Alice's tenant by Mallory
+    db = SessionLocal()
+    try:
+        set_tenant(db, uuid.UUID(mallory.org_id))
+        db.add(CatalogCompany(
+            org_id=uuid.UUID(alice.org_id),
+            identity_key="domain:spoofed.test",
+            name="Spoofed",
+            website="https://spoofed.test",
+            domain="spoofed.test",
+        ))
+        with pytest.raises(Exception, match="row-level security"):
+            db.flush()
+    finally:
+        db.rollback()
+        db.close()

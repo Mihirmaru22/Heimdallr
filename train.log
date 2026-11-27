@@ -1,0 +1,92 @@
+Embedding 1,160 labelled homepages with sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2...
+Saved var/kb/label_model.npz
+
+real_page: 1,160 examples, cross-validated agreement with the teacher 91.6%
+  yes                            989  precision  93.6%  recall  96.7%
+  no                             171  precision  76.3%  recall  62.0%
+  kept when confidence >= 0.00: 100.0% of pages, about 80% agreement; the rest are left unsure
+
+tech_company: 989 examples, cross-validated agreement with the teacher 84.5%
+  no                             537  precision  86.4%  recall  84.9%
+  yes                            452  precision  82.4%  recall  84.1%
+  kept when confidence >= 0.00: 100.0% of pages, about 80% agreement; the rest are left unsure
+
+micro_sector: 352 examples, cross-validated agreement with the teacher 63.4%
+  it services and consulting     187  precision  69.5%  recall  90.4%
+  ai and machine learning         36  precision  48.6%  recall  50.0%
+  erp and business software       24  precision  29.4%  recall  20.8%
+  hardware and iot                22  precision  50.0%  recall  36.4%
+  healthtech                      13  precision  85.7%  recall  46.2%
+  data and analytics              12  precision  50.0%  recall   8.3%
+  martech and adtech              12  precision  22.2%  recall  16.7%
+  cybersecurity                   11  precision  66.7%  recall  18.2%
+  gaming                          11  precision 100.0%  recall  72.7%
+  crm and sales tech               8  precision  25.0%  recall  12.5%
+  e-commerce                       8  precision  25.0%  recall  12.5%
+  edtech                           8  precision 100.0%  recall  25.0%
+  kept when confidence >= 0.37: 52.6% of pages, about 80% agreement; the rest are left unsure
+  too few examples to learn yet: industrial software (7), fintech (6), telecom tech (6), hr tech (6), logistics tech (5), media and streaming (4), medtech (4), proptech (4), developer tools (4), cleantech and energy tech (4), semiconductors (3), legaltech (3), cloud and infrastructure (3), construction tech (3), mobility tech (3), insurtech (2), payments (2), robotics (2), foodtech (2), biotech (2), regtech (2), agritech (2)
+
+offering: 989 examples, cross-validated agreement with the teacher 67.7%
+  service                        501  precision  72.0%  recall  79.0%
+  product                        304  precision  68.7%  recall  73.0%
+  both                           102  precision  29.7%  recall  10.8%
+  none                            82  precision  51.9%  recall  50.0%
+  kept when confidence >= 0.50: 55.6% of pages, about 80% agreement; the rest are left unsure
+
+Loading the model sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (downloaded once, about 250 MB)...
+Labelling 6,432 homepages...
+  256 labelled, 35 pages/s
+  512 labelled, 35 pages/s
+  768 labelled, 34 pages/s
+  1,024 labelled, 34 pages/s
+  1,280 labelled, 33 pages/s
+  1,536 labelled, 34 pages/s
+  1,792 labelled, 34 pages/s
+  2,048 labelled, 34 pages/s
+  2,304 labelled, 34 pages/s
+  2,560 labelled, 34 pages/s
+  2,816 labelled, 34 pages/s
+  3,072 labelled, 34 pages/s
+  3,328 labelled, 34 pages/s
+  3,584 labelled, 34 pages/s
+  3,840 labelled, 34 pages/s
+  4,096 labelled, 34 pages/s
+  4,352 labelled, 34 pages/s
+  4,608 labelled, 35 pages/s
+  4,864 labelled, 35 pages/s
+  5,120 labelled, 35 pages/s
+  5,376 labelled, 35 pages/s
+  5,632 labelled, 35 pages/s
+  5,888 labelled, 35 pages/s
+  6,144 labelled, 35 pages/s
+  6,400 labelled, 35 pages/s
+  6,432 labelled, 35 pages/s
+
+3.1 minutes
+Homepages labelled: 6,432
+Real company page:     5,806   90.3%
+Tech company:            663   11.4%  (of real pages)
+
+Micro-sector (tech companies):
+  (unsure)                          358   54.0%
+  it services and consulting        223   33.6%
+  ai and machine learning            30    4.5%
+  hardware and iot                   16    2.4%
+  cybersecurity                       8    1.2%
+  erp and business software           6    0.9%
+  healthtech                          6    0.9%
+  gaming                              5    0.8%
+  martech and adtech                  3    0.5%
+  e-commerce                          3    0.5%
+  data and analytics                  2    0.3%
+  edtech                              2    0.3%
+  crm and sales tech                  1    0.2%
+
+Offering (real pages):
+  unsure                          2,490   42.9%
+  service                         2,184   37.6%
+  product                           792   13.6%
+  none                              335    5.8%
+  both                                5    0.1%
+Wrote 200 labelled homepages to /home/mihir/label_sample.csv.

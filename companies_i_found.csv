@@ -1,0 +1,1224 @@
+
+Company	Ticker	Sector	Why It Is Excluded
+SpaceX (Space Exploration Technologies)	SPCX	Aerospace & Defense	Went public recently; awaiting S&P seasoning period and committee selection.
+Anthropic	ANT	Artificial Intelligence	Recent IPO; still building public trading history.
+Marvell Technology	MRVL	Semiconductors	Large market cap, though GAAP profitability requirements have delayed entry.
+AppLovin	APP	Enterprise Software	High valuation, awaiting index committee selection during quarterly rebalances.
+Snowflake	SNOW	Cloud Computing	Historical GAAP net losses restricted eligibility under S&P earnings rules.
+Cloudflare	NET	Cybersecurity & Cloud	Historically lacked four consecutive quarters of positive GAAP earnings.
+Cheniere Energy	LNG	Energy / LNG	Major U.S. liquefied natural gas exporter not yet selected by the committee.
+Strategy (formerly MicroStrategy)	MSTR	Software & Bitcoin	High earnings volatility tied to digital asset holdings.
+Astera Labs	ALAB	AI Infrastructure	Recent listing still establishing long-term eligibility.
+Natera	NTRA	Biotech / Diagnostics	High-growth healthcare firm awaiting GAAP profitability consistency.
+Company	Industry	Estimated Annual Revenue	Ownership Structure
+Cargill	Agriculture & Food	~$164 Billion	Family-owned
+Koch (Koch Industries)	Energy, Chemicals & Manufacturing	~$125 Billion	Family-owned
+Mars, Inc.	Confectionery, Pet Care & Food	~$55+ Billion (pre-Kellanova merger)	Family-owned
+Publix Super Markets	Grocery Retail	~$60–$63 Billion	Employee-owned
+H-E-B	Grocery Retail	~$50 Billion	Family-owned
+Reyes Holdings	Food & Beverage Distribution	~$44 Billion	Family-owned
+Enterprise Mobility	Car Rental & Fleet Management	~$38 Billion	Family-owned
+C&S Wholesale Grocers	Grocery Distribution	~$35+ Billion	Privately held
+Fidelity Investments	Financial Services	~$33 Billion	Family & employee-owned
+Southern Glazer's Wine & Spirits	Beverage Distribution	~$25–$26 Billion	Family-owned
+Cox Enterprises	Telecom & Automotive	~$23.5 Billion	Family-owned
+Nordstrom	Department Store Retail	~$15 Billion	Family-led buyout (taken private)
+OpenAI	Artificial Intelligence	~$13 Billion	Capped-profit / Private (pre-IPO)
+
+[Sales 5-year change, %](https://stoxray.com/markets/largest-stocks-not-in-the-sp500?s=7)
+[Taiwan Semiconductor Manufacturing Co Ltd](https://stoxray.com/stocks/xnys/tsm)
+TSM XNYS
+342.34 USD
+-1.96
+20.25
+1,679,964
+Semiconductors
+25.17
+23.25
+[Space Exploration Technologies Corp](https://stoxray.com/stocks/xnas/spcx)
+SPCX XNAS
+127.44 USD
+1.30
+1,678,918
+Space
+[Anthropic, PBC](https://stoxray.com/stocks/xnas/ant)
+ANT XNAS
+82.79 USD
+1.08
+1,083,445
+Data Analytics, Observability & AI
+[SK Hynix Inc](https://stoxray.com/stocks/xnas/skhy)
+SKHY XNAS
+111.14 USD
+-0.75
+541,314
+Memory & Storage
+-33.27
+24.95
+[ASML Holding NV](https://stoxray.com/stocks/xnas/asml)
+ASML XNAS
+1,303.08 USD
+-2.47
+29.89
+481,979
+Semiconductor Equipment & Testing
+18.26
+18.49
+[Novartis AG](https://stoxray.com/stocks/xnys/nvs)
+NVS XNYS
+155.29 USD
+0.57
+19.22
+291,053
+Big Pharma
+2.62
+2.74
+[AstraZeneca PLC](https://stoxray.com/stocks/xnas/azn)
+AZN XNAS
+184.21 USD
+0.55
+-1.22
+285,694
+Big Pharma
+10.38
+17.15
+[HSBC Holdings PLC](https://stoxray.com/stocks/xnys/hsbc)
+HSBC XNYS
+81.81 USD
+-0.27
+17.70
+280,865
+Global Banks (G-SIBs)
+11.60
+[Shell PLC](https://stoxray.com/stocks/xnys/shel)
+SHEL XNYS
+94.13 USD
+0.76
+29.30
+267,613
+Integrated Oil & Gas
+-0.21
+8.13
+[Royal Bank of Canada](https://stoxray.com/stocks/xnys/ry)
+RY XNYS
+189.42 USD
+0.15
+24.44
+262,649
+Global Banks (G-SIBs)
+17.57
+[Toyota Motor Corp](https://stoxray.com/stocks/xnys/tm)
+TM XNYS
+215.79 USD
+2.77
+7.75
+251,948
+Automakers
+-76.51
+13.24
+[SAP SE](https://stoxray.com/stocks/xnys/sap)
+SAP XNYS
+209.37 USD
+0.30
+-11.98
+240,415
+Enterprise Software
+11.51
+6.12
+[Mitsubishi UFJ Financial Group Inc](https://stoxray.com/stocks/xnys/mufg)
+MUFG XNYS
+19.56 USD
+0.46
+26.28
+220,750
+Global Banks (G-SIBs)
+19.96
+[Alibaba Group Holding Ltd](https://stoxray.com/stocks/xnys/baba)
+BABA XNYS
+86.26 USD
+1.65
+-45.06
+206,162
+E-Commerce
+-71.55
+7.37
+[Toronto-Dominion Bank](https://stoxray.com/stocks/xnys/td)
+TD XNYS
+116.06 USD
+0.03
+39.92
+195,492
+Global Banks (G-SIBs)
+16.23
+[TotalEnergies SE](https://stoxray.com/stocks/xnys/tte)
+TTE XNYS
+85.59 USD
+0.46
+30.12
+193,488
+Integrated Oil & Gas
+6.78
+8.78
+[Novo Nordisk A/S](https://stoxray.com/stocks/xnys/nvo)
+NVO XNYS
+40.97 USD
+1.64
+-12.94
+177,412
+Big Pharma
+-73.66
+19.48
+[BHP Group Ltd](https://stoxray.com/stocks/xnys/bhp)
+BHP XNYS
+70.77 USD
+1.67
+31.84
+175,934
+Diversified Miners
+-53.40
+0.64
+[Arm Holdings PLC](https://stoxray.com/stocks/xnas/arm)
+ARM XNAS
+161.51 USD
+-0.03
+22.88
+172,815
+Semiconductors
+19.40
+[Shopify Inc](https://stoxray.com/stocks/xnys/shop)
+SHOP XNYS
+133.40 USD
+0.82
+-15.23
+171,622
+E-Commerce
+234.19
+31.58
+[Sony Group Corp](https://stoxray.com/stocks/xnys/sony)
+SONY XNYS
+28.49 USD
+2.52
+-0.38
+165,192
+Video Games
+-4.68
+6.76
+[Banco Santander SA](https://stoxray.com/stocks/xnys/san)
+SAN XNYS
+11.33 USD
+-1.39
+8.32
+158,554
+Global Banks (G-SIBs)
+30.37
+[HDFC Bank Ltd](https://stoxray.com/stocks/xnys/hdb)
+HDB XNYS
+28.35 USD
+2.87
+-21.64
+145,848
+Major Regional & National Banks
+27.80
+[Unilever PLC](https://stoxray.com/stocks/xnys/ul)
+UL XNYS
+66.85 USD
+2.48
+-1.44
+145,480
+Personal Products
+1.96
+-0.09
+[Anheuser-Busch Inbev SA](https://stoxray.com/stocks/xnys/bud)
+BUD XNYS
+79.98 USD
+-0.11
+27.87
+143,295
+Beer
+-1.34
+5.66
+[Sumitomo Mitsui Financial Group Inc](https://stoxray.com/stocks/xnys/smfg)
+SMFG XNYS
+22.59 USD
+0.53
+29.83
+142,365
+Global Banks (G-SIBs)
+23.39
+[UBS Group AG](https://stoxray.com/stocks/xnys/ubs)
+UBS XNYS
+45.40 USD
+0.55
+20.78
+134,154
+Global Banks (G-SIBs)
+18.15
+[ICICI Bank Ltd](https://stoxray.com/stocks/xnys/ibn)
+IBN XNYS
+36.50 USD
+1.67
+19.20
+131,116
+Major Regional & National Banks
+14.13
+[Sanofi SA](https://stoxray.com/stocks/xnas/sny)
+SNY XNAS
+54.39 USD
+4.80
+8.17
+130,094
+Big Pharma
+5.48
+4.57
+[British American Tobacco PLC](https://stoxray.com/stocks/xnys/bti)
+BTI XNYS
+60.43 USD
+3.76
+6.65
+128,233
+Tobacco
+5.65
+-0.13
+[Banco Bilbao Vizcaya Argentaria SA](https://stoxray.com/stocks/xnys/bbva)
+BBVA XNYS
+24.01 USD
+-1.03
+13.42
+127,261
+Global Banks (G-SIBs)
+-3.57
+[Spotify Technology SA](https://stoxray.com/stocks/xnys/spot)
+SPOT XNYS
+616.46 USD
+2.79
+5.29
+126,698
+Streaming & Digital Media
+259.54
+16.88
+[PDD Holdings Inc](https://stoxray.com/stocks/xnas/pdd)
+PDD XNAS
+87.42 USD
+0.23
+-23.32
+124,319
+E-Commerce
+-54.23
+48.65
+[YPF SA](https://stoxray.com/stocks/xnys/ypf)
+YPF XNYS
+31.45 USD
+-0.82
+-11.01
+123,680
+Integrated Oil & Gas
+227.97
+107.33
+[Southern Copper Corp](https://stoxray.com/stocks/xnys/scco)
+SCCO XNYS
+140.99 USD
+3.03
+13.69
+120,305
+Copper - Majors / Mid-Tiers
+9.60
+10.94
+[Rio Tinto PLC](https://stoxray.com/stocks/xnys/rio)
+RIO XNYS
+74.58 USD
+1.90
+4.94
+117,859
+Diversified Miners
+5.72
+[Marvell Technology Inc](https://stoxray.com/stocks/xnas/mrvl)
+MRVL XNAS
+130.93 USD
+-0.49
+56.93
+114,664
+Semiconductors
+272.13
+6.72
+[Applovin Corp](https://stoxray.com/stocks/xnas/app)
+APP XNAS
+378.95 USD
+-0.57
+-31.85
+114,161
+Enterprise Software
+252.01
+30.45
+[Mizuho Financial Group Inc](https://stoxray.com/stocks/xnys/mfg)
+MFG XNYS
+9.30 USD
+-1.06
+35.57
+112,596
+Global Banks (G-SIBs)
+25.76
+[Bank of Montreal](https://stoxray.com/stocks/xnys/bmo)
+BMO XNYS
+160.12 USD
+-0.39
+29.33
+111,286
+Major Regional & National Banks
+17.86
+[BP PLC](https://stoxray.com/stocks/xnys/bp)
+BP XNYS
+43.00 USD
+0.54
+20.48
+110,462
+Integrated Oil & Gas
+527.25
+12.31
+[Enbridge Inc](https://stoxray.com/stocks/xnys/enb)
+ENB XNYS
+46.95 USD
+1.92
+-2.28
+103,063
+Oil & Gas Midstream
+7.96
+10.77
+[Bank of Nova Scotia](https://stoxray.com/stocks/xnys/bns)
+BNS XNYS
+84.29 USD
+-0.99
+24.23
+102,645
+Major Regional & National Banks
+18.52
+[Cloudflare Inc](https://stoxray.com/stocks/xnys/net)
+NET XNYS
+283.30 USD
+-1.39
+43.45
+101,532
+Cloud & Infrastructure Software
+239.07
+38.13
+[GSK plc](https://stoxray.com/stocks/xnys/gsk)
+GSK XNYS
+50.76 USD
+1.38
+6.75
+100,888
+Big Pharma
+-0.86
+[Petroleo Brasileiro SA Petrobras](https://stoxray.com/stocks/xnys/pbr.a)
+PBR.A XNYS
+14.19 USD
+3.35
+18.84
+98,355
+Integrated Oil & Gas
+269.62
+10.65
+[Canadian Imperial Bank of Commerce](https://stoxray.com/stocks/xnys/cm)
+CM XNYS
+104.58 USD
+-1.09
+23.14
+94,828
+Major Regional & National Banks
+19.79
+[Snowflake Inc.](https://stoxray.com/stocks/xnys/snow)
+SNOW XNYS
+267.72 USD
+-1.24
+6.95
+94,451
+Data Analytics, Observability & AI
+210.84
+51.23
+[Equinor ASA](https://stoxray.com/stocks/xnys/eqnr)
+EQNR XNYS
+38.71 USD
+-0.44
+71.89
+93,843
+Integrated Oil & Gas
+-81.03
+18.95
+[Canadian Natural Resources Ltd](https://stoxray.com/stocks/xnys/cnq)
+CNQ XNYS
+45.56 USD
+1.74
+37.06
+92,689
+Oil & Gas E&P
+-71.94
+20.35 [Sales 5-year change, %](https://stoxray.com/markets/largest-stocks-not-in-the-sp500?page=2&s=7)
+[Brookfield Corp](https://stoxray.com/stocks/xnys/bn)
+BN XNYS
+40.32 USD
+2.13
+-12.42
+89,749
+Alternative Asset Managers
+3.66
+[Sandisk LLC](https://stoxray.com/stocks/xnas/sndk)
+SNDK XNAS
+73.61 USD
+-5.57
+167.07
+83,791
+Memory & Storage
+[BROOKFIELD ASSET MANAGEMENT LTD](https://stoxray.com/stocks/xnys/bam)
+BAM XNYS
+52.12 USD
+2.60
+1.58
+83,280
+Alternative Asset Managers
+[ING Groep NV](https://stoxray.com/stocks/xnys/ing)
+ING XNYS
+29.74 USD
+-1.33
+16.35
+83,159
+Global Banks (G-SIBs)
+17.09
+[National Grid PLC](https://stoxray.com/stocks/xnys/ngg)
+NGG XNYS
+82.54 USD
+0.30
+11.44
+82,633
+Multi-Utilities
+9.25
+-0.84
+[Canadian Pacific Railway Ltd](https://stoxray.com/stocks/xnys/cp)
+CP XNYS
+93.19 USD
+0.40
+30.28
+81,030
+Ground Freight & Logistics
+6.51
+14.36
+[Itau Unibanco Holding SA ON](https://stoxray.com/stocks/xnys/itub)
+ITUB XNYS
+6.88 USD
+2.38
+-4.50
+79,371
+Major Regional & National Banks
+17.25
+[Agnico Eagle Mines Ltd](https://stoxray.com/stocks/xnys/aem)
+AEM XNYS
+161.20 USD
+-2.03
+-5.86
+79,097
+Gold - Majors
+13.86
+30.57
+[Eni SpA](https://stoxray.com/stocks/xnys/e)
+E XNYS
+52.39 USD
+0.25
+43.42
+78,881
+Integrated Oil & Gas
+112.40
+13.31
+[Enterprise Products Partners LP](https://stoxray.com/stocks/xnys/epd)
+EPD XNYS
+36.06 USD
+0.17
+10.89
+77,767
+Oil & Gas Midstream
+309.59
+14.10
+[Canadian National Railway Co](https://stoxray.com/stocks/xnys/cni)
+CNI XNYS
+126.40 USD
+0.73
+36.40
+75,802
+Ground Freight & Logistics
+-75.49
+4.58
+[Carvana Co](https://stoxray.com/stocks/xnys/cvna)
+CVNA XNYS
+67.84 USD
+2.85
+-3.43
+74,409
+Auto Dealers
+241.43
+29.47
+[MercadoLibre Inc](https://stoxray.com/stocks/xnas/meli)
+MELI XNAS
+1,467.30 USD
+1.17
+-28.60
+74,387
+E-Commerce
+231.78
+48.70
+[Suncor Energy Inc](https://stoxray.com/stocks/xnys/su)
+SU XNYS
+64.42 USD
+0.92
+45.38
+74,161
+Integrated Oil & Gas
+304.17
+14.68
+[Takeda Pharmaceutical Co Ltd](https://stoxray.com/stocks/xnys/tak)
+TAK XNYS
+23.01 USD
+1.81
+58.69
+73,890
+Big Pharma
+326.48
+7.23
+[Relx PLC](https://stoxray.com/stocks/xnys/relx)
+RELX XNYS
+40.15 USD
+1.54
+-0.54
+72,828
+Credit Bureaus & Risk Scoring
+5.10
+6.17
+[DoorDash Inc](https://stoxray.com/stocks/xnys/dash)
+DASH XNYS
+166.40 USD
+3.92
+-14.88
+72,546
+Food & Grocery Delivery
+276.00
+36.58
+[Ferrari NV](https://stoxray.com/stocks/xnys/race)
+RACE XNYS
+409.59 USD
+2.96
+6.35
+71,141
+Automakers
+10.12
+15.61
+[Lloyds Banking Group PLC](https://stoxray.com/stocks/xnys/lyg)
+LYG XNYS
+4.98 USD
+0.40
+3.32
+69,830
+Major Regional & National Banks
+27.80
+[Manulife Financial Corp](https://stoxray.com/stocks/xnys/mfc)
+MFC XNYS
+42.26 USD
+0.48
+19.68
+69,811
+Life & Health Insurance
+-268.62
+-7.22
+[Infosys Ltd](https://stoxray.com/stocks/xnys/infy)
+INFY XNYS
+13.02 USD
+4.24
+-24.65
+68,151
+Technology Consulting & Systems Integration
+9.82
+8.25
+[Barclays PLC](https://stoxray.com/stocks/xnys/bcs)
+BCS XNYS
+21.14 USD
+-0.70
+-2.54
+68,099
+Global Banks (G-SIBs)
+15.17
+[Vertiv Holdings Co](https://stoxray.com/stocks/xnys/vrt)
+VRT XNYS
+173.37 USD
+-0.26
+2.24
+66,757
+Power Transmission & Distribution
+18.54
+[TC Energy Corp](https://stoxray.com/stocks/xnys/trp)
+TRP XNYS
+62.88 USD
+1.35
+17.14
+65,506
+Oil & Gas Midstream
+-3.10
+3.16
+[ASE Technology Holding Co Ltd](https://stoxray.com/stocks/xnys/asx)
+ASX XNYS
+29.49 USD
+0.55
+107.97
+64,920
+Semiconductor Equipment & Testing
+220.38
+7.36
+[Energy Transfer LP](https://stoxray.com/stocks/xnys/et)
+ET XNYS
+18.81 USD
+0.70
+15.61
+64,768
+Oil & Gas Midstream
+-81.49
+17.04
+[CRH PLC](https://stoxray.com/stocks/xnys/crh)
+CRH XNYS
+97.30 USD
+3.89
+-16.32
+64,726
+Construction Materials
+84.05
+2.78
+[NetEase](https://stoxray.com/stocks/xnas/ntes)
+NTES XNAS
+104.26 USD
+3.81
+-25.51
+64,334
+Video Games
+259.43
+8.86
+[America Movil SAB de CV](https://stoxray.com/stocks/xnys/amx)
+AMX XNYS
+24.90 USD
+1.10
+7.56
+62,534
+Integrated Telecommunications Services
+-2.97
+2.96
+[Cheniere Energy Inc](https://stoxray.com/stocks/xnys/lng)
+LNG XNYS
+301.99 USD
+2.02
+47.38
+61,667
+Oil & Gas Midstream
+15.90
+[Nu Holdings Ltd](https://stoxray.com/stocks/xnys/nu)
+NU XNYS
+12.36 USD
+4.22
+-25.59
+59,804
+Major Regional & National Banks
+167.00
+94.19
+[argenx SE](https://stoxray.com/stocks/xnas/argx)
+ARGX XNAS
+981.05 USD
+-0.54
+6.88
+59,566
+Commercial-Stage Biotech
+159.48
+151.54
+[Natwest Group PLC](https://stoxray.com/stocks/xnys/nwg)
+NWG XNYS
+15.37 USD
+-3.64
+59,398
+Global Banks (G-SIBs)
+30.84
+[Deutsche Bank AG](https://stoxray.com/stocks/xnys/db)
+DB XNYS
+32.82 USD
+-0.70
+-5.58
+59,144
+Global Banks (G-SIBs)
+15.01
+[Datadog Inc](https://stoxray.com/stocks/xnas/ddog)
+DDOG XNAS
+158.25 USD
+-4.31
+-0.47
+57,134
+Data Analytics, Observability & AI
+215.38
+41.53
+[MPLX LP](https://stoxray.com/stocks/xnys/mplx)
+MPLX XNYS
+56.28 USD
+0.59
+5.27
+57,013
+Oil & Gas Midstream
+29.06
+7.07
+[Diageo PLC](https://stoxray.com/stocks/xnys/deo)
+DEO XNYS
+101.76 USD
+1.38
+11.62
+56,431
+Distillers & Wineries
+-8.67
+9.01
+[Barnes Group Inc](https://stoxray.com/stocks/xnys/b)
+B XNYS
+34.52 USD
+2.80
+-11.76
+56,220
+General Industrial Components & Machinery
+-0.32
+72.06
+[Wheaton Precious Metals Corp](https://stoxray.com/stocks/xnys/wpm)
+WPM XNYS
+122.60 USD
+5.15
+19.61
+55,683
+Royalty & Streaming
+8.48
+16.12
+[Imperial Oil Ltd](https://stoxray.com/stocks/xnys/imo)
+IMO XNYS
+116.75 USD
+0.70
+19.49
+55,168
+Integrated Oil & Gas
+-76.77
+16.14
+[Fomento Economico Mexicano SAB de CV](https://stoxray.com/stocks/xnys/fmx)
+FMX XNYS
+127.92 USD
+1.98
+36.13
+52,676
+Food Retail & Distribution
+7.87
+-37.60
+[Robinhood Markets Inc](https://stoxray.com/stocks/xnas/hood)
+HOOD XNAS
+65.78 USD
+0.20
+-43.08
+52,191
+Brokerages & Trading Platforms
+36.10
+[Coca-Cola Europacific Partners PLC](https://stoxray.com/stocks/xnas/ccep)
+CCEP XNAS
+117.99 USD
+0.57
+29.29
+51,888
+Non-Alcoholic Beverages
+4.33
+14.53
+[Honeywell Aerospace Inc](https://stoxray.com/stocks/xnas/hona)
+HONA XNAS
+157.84 USD
+1.98
+50,040
+Aerospace
+[Ferguson PLC](https://stoxray.com/stocks/xnys/ferg)
+FERG XNYS
+256.99 USD
+1.88
+3.63
+49,765
+Industrial Distributors
+-0.87
+-17.42
+[Cenovus Energy Inc](https://stoxray.com/stocks/xnys/cve)
+CVE XNYS
+27.03 USD
+0.63
+54.99
+48,851
+Integrated Oil & Gas
+-3.18
+28.97
+[Thomson Reuters Corp](https://stoxray.com/stocks/xnys/tri)
+TRI XNYS
+109.35 USD
+1.98
+-19.49
+47,381
+Legal, Tax & Academic Information
+7.36
+4.55
+[Franco-Nevada Corp](https://stoxray.com/stocks/xnys/fnv)
+FNV XNYS
+244.76 USD
+3.06
+21.90
+47,217
+Royalty & Streaming
+296.70
+12.31
+[HEICO Corp](https://stoxray.com/stocks/xnys/hei)
+HEI XNYS
+336.46 USD
+0.62
+6.96
+46,875
+Aerospace
+-13.07
+20.21
+[Waste Connections Inc](https://stoxray.com/stocks/xnys/wcn)
+WCN XNYS
+187.27 USD
+1.84
+6.10
+46,850
+Environmental Services & Equipment
+9.46
+11.69
+Sales 5-year change, %
+Vylor Inc.	VYLR XNYS	69.47 USD	1.31		46,350	 Agricultural Chemicals		
+Teva Pharmaceutical Industries Ltd	TEVA XNYS	39.86 USD	-0.60	59.50	46,270	 Specialty & Generic Pharmaceuticals	-10.43	0.71
+Bloom Energy Corp	BE XNYS	152.89 USD	-2.25	62.15	45,202	 Hydrogen	218.48	20.57
+Veeva Systems Inc	VEEV XNYS	271.90 USD	-0.63	13.32	44,023	 HealthTech & Life Sciences Software	281.21	16.88
+Ares Management Corp	ARES XNYS	133.94 USD	1.29	-12.38	43,987	 Alternative Asset Managers	84.20	29.68
+Viking Holdings Ltd	VIK XNYS	99.22 USD	-1.64	46.19	43,897	 Hotels & Cruise Lines		
+Natera Inc	NTRA XNAS	301.33 USD	0.84	27.42	43,694	 Commercial-Stage Biotech	261.49	42.61
+Vale SA	VALE XNYS	9.81 USD	4.70	-19.52	43,376	 Diversified Miners	-69.50	-0.58
+Lumentum Holdings Inc	LITE XNAS	476.58 USD	-2.16	63.62	43,218	 Networking & Communications	7.24	11.97
+Rocket Companies Inc	RKT XNYS	15.30 USD	7.37	-22.18	43,207	 Consumer Lending	21.95	-15.42
+Honda Motor Co Ltd	HMC XNYS	33.66 USD	1.81	12.35	43,116	 Automakers	-78.24	10.74
+ArcelorMittal SA	MT XNYS	57.91 USD	3.63	37.13	42,946	 Iron & Steel	-7.13	2.87
+Beigene Ltd	ONC XNAS	414.79 USD	-0.20	23.76	42,791	 Biotechnology	208.56	76.85
+Ambev SA	ABEV XNYS	2.69 USD		7.17	42,040	 Beer	231.72	8.61
+Ferrovial SA	FER XNAS	59.12 USD	0.10	-9.63	41,750	 Heavy Civil & Road Construction	5.53	8.71
+Block Inc	XYZ XNYS	76.10 USD	2.63	19.49	41,439	 Payments & Fintech	333.03	20.56
+HALEON PLC	HLN XNYS	9.43 USD	1.73	-3.97	40,968	 Personal Products		2.20
+Sea Ltd	SE XNYS	66.88 USD	2.94	-50.93	40,110	 E-Commerce	208.96	39.28
+Nokia Oyj	NOK XNYS	7.30 USD	-0.41	20.46	39,245	 Networking & Communications	3.33	-1.86
+Sun Life Financial Inc	SLF XNYS	70.47 USD	-0.27	17.84	39,078	 Life & Health Insurance		-0.54
+KB Financial Group Inc	KB XNYS	110.35 USD	0.18	31.28	39,058	 Major Regional & National Banks		20.67
+Ubiquiti Inc	UI XNYS	639.25 USD	1.14	11.99	38,661	 Networking & Communications	10.57	11.52
+Coherent Corp	COHR XNYS	196.19 USD	-0.03	31.80	38,641	 Semiconductors		18.04
+Comfort Systems USA Inc	FIX XNYS	1,099.58 USD	0.28	14.89	38,469	 Electrical & Mechanical Engineering Services	263.45	26.08
+Chunghwa Telecom Co Ltd	CHT XNYS	50.02 USD	-1.13	19.78	38,216	 Integrated Telecommunications Services	-3.70	2.51
+Revolution Medicines Inc	RVMD XNAS	175.67 USD	-3.04	130.18	37,996	 Clinical-Stage Biotech	148.21	-10.50
+Zscaler Inc	ZS XNAS	230.86 USD	-0.33	-20.32	37,890	 Cybersecurity	62.08	37.87
+Woodside Energy Group Ltd	WDS XNYS	20.21 USD	2.33	24.37	37,496	 Integrated Oil & Gas	-50.13	29.25
+Insmed Inc	INSM XNAS	170.31 USD	0.09	-18.52	37,362	 Commercial-Stage Biotech	1,286.89	29.83
+Roblox Corp	RBLX XNYS	55.63 USD	4.00	-38.92	37,346	 Video Games	237.43	39.56
+Alcon AG	ALC XNYS	77.97 USD	1.75	-2.12	36,907	 Medical Equipment	4.96	8.77
+AngloGold Ashanti Ltd	AU XNYS	77.94 USD	2.20	-7.61	36,897	 Gold - Majors	5.67	16.58
+Atlassian Corporation Ltd	TEAM XNAS	144.39 USD	2.54	-3.12	36,365	 Enterprise Software	40.32	25.76
+ORIX Corp	IX XNYS	33.74 USD	2.12	26.18	36,299	 Diversified Investment Services	265.65	9.03
+Medline Inc	MDLN XNAS	40.57 USD	2.17		35,647	 Healthcare Distributors		
+Ciena Corp	CIEN XNYS	242.79 USD	1.47	23.72	34,429	 Networking & Communications	-1.12	6.19
+STMicroelectronics NV	STM XNYS	39.73 USD	0.08	76.89	34,199	 Semiconductors	-65.20	2.92
+Genmab A/S	GMAB XNAS	56.80 USD	0.41	80.89	34,130	 Commercial-Stage Biotech	77.38	-18.11
+Interactive Brokers Group Inc	IBKR XNAS	74.74 USD	-2.30	19.67	33,851	 Brokerages & Trading Platforms	10.12	33.42
+Astera Labs Inc	ALAB XNAS	190.34 USD	-0.50	31.47	33,268	 Semiconductors		
+Okta Inc	OKTA XNAS	201.77 USD	-3.96	150.31	33,113	 Cybersecurity	239.47	28.44
+United Microelectronics Corp	UMC XNYS	13.19 USD	-1.57	81.43	33,021	 Semiconductors	290.36	6.08
+Sharkninja Inc	SN XNYS	232.50 USD	1.56	149.17	32,761	 Appliances, Tools & Housewares		18.37
+Microstrategy Inc	MSTR XNAS	79.96 USD	3.11	-53.56	32,201	 Enterprise Software	266.08	-0.15
+Telefonaktiebolaget LM Ericsson	ERIC XNAS	10.34 USD	1.17	8.84	32,178	 Networking & Communications	7.77	1.46
+Grayscale Bitcoin Trust (Btc)	GBTC ARCX	46.41 USD	0.83	-32.11	32,132	 Investment Trusts & Closed-End Funds		
+Nutrien Ltd	NTR XNYS	66.84 USD	0.77	17.61	31,674	 Agricultural Chemicals	1.97	5.16
+Pure Storage Inc	P XNYS	94.69 USD	2.70	13.88	31,553	 Memory & Storage	235.01	5.87
+Royalty Pharma PLC	RPRX XNAS	70.57 USD	-1.04	78.48	31,422	 Specialized Financials		2.30
+Vodafone Group PLC	VOD XNAS	13.45 USD	0.07	10.07	30,952	 Integrated Telecommunications Services	3.00	-1.58
+Sales 5-year change, %
+Elbit Systems Ltd	ESLT XNAS	662.03 USD	0.19	42.01	30,785	 Defense	22.39	11.23
+Crew Energy Inc	SUNB XNYS	74.78 USD	0.59		30,642	 Oil & Gas E&P	-11.74	78.94
+Fortis Inc	FTS XNYS	59.39 USD	0.27	14.39	30,633	 Multi-Utilities	4.68	6.37
+Roivant Sciences Ltd	ROIV XNAS	42.20 USD	-0.33	102.30	30,576	 Commercial-Stage Biotech		-19.07
+Illumina Inc	ILMN XNAS	200.39 USD	-2.02	54.57	30,298	 Life Sciences Tools & Services	239.87	6.04
+JD.Com Inc	JD XNAS	26.38 USD	2.53	-9.47	29,901	 E-Commerce	244.90	11.91
+Rocket Lab USA Inc	RKLB XNAS	47.02 USD	2.26	10.38	29,717	 Space		76.47
+Prudential PLC	PUK XNYS	25.05 USD	0.20	-11.36	29,631	 Life & Health Insurance		-5.18
+Venture Global, Inc.	VG XNYS	11.74 USD	-1.10	70.39	29,557	 Oil & Gas Midstream		
+Bending Spoons SpA	BSP XNAS	46.29 USD	8.00		29,404	 Application Software		
+Shinhan Financial Group Co Ltd	SHG XNYS	63.85 USD	0.44	18.53	29,291	 Major Regional & National Banks		6.16
+Coupang Inc	CPNG XNYS	16.09 USD	0.50	-42.04	28,838	 E-Commerce	224.78	23.61
+Koninklijke Philips NV	PHG XNYS	29.84 USD	0.88	7.15	28,808	 Medical Equipment	0.27	0.59
+Pembina Pipeline Corp	PBA XNYS	49.37 USD	1.69	29.82	28,705	 Oil & Gas Midstream	-41.76	5.21
+Ryanair Holdings PLC	RYAAY XNAS	57.61 USD	0.86	-14.44	28,541	 Airlines	10.36	56.88
+Gold Fields Ltd	GFI XNYS	34.06 USD	2.62	-16.34	28,486	 Gold - Majors	15.10	17.66
+Cheniere Energy Partners LP	CQP XNYS	58.31 USD	1.87	11.13	28,225	 Oil & Gas Midstream	6.41	11.77
+Twilio Inc	TWLO XNYS	180.79 USD	0.10	40.65	27,974	 Communication & Collaboration Platforms	237.21	23.53
+Credicorp Ltd	BAP XNYS	351.13 USD	2.77	39.53	27,886	 Major Regional & National Banks		9.68
+EMCOR Group Inc	EME XNYS	628.72 USD	-0.52	3.82	27,526	 Electrical & Mechanical Engineering Services	281.65	14.07
+Coinbase Global Inc	COIN XNAS	103.72 USD	1.34	-59.18	27,461	 Cryptocurrency	118.33	41.24
+Tradeweb Markets Inc	TW XNAS	128.05 USD	0.15	19.12	27,419	 Exchanges & Market Infrastructure	288.78	18.12
+Ecopetrol SA	EC XNYS	13.33 USD	3.09	38.57	27,404	 Oil & Gas E&P	4.46	18.97
+Tenaris	TS XNYS	55.31 USD	2.22	39.60	26,886	 Oil & Gas Equipment & Services	319.07	18.41
+Cameco Corp	CCJ XNYS	61.55 USD	2.94	-29.54	26,807	 Uranium - Producers	-10.94	14.11
+Liberty Media Corp	FWONK XNAS	107.16 USD	1.83	13.82	26,769	 Professional Sports	69.66	31.38
+Restaurant Brands International Inc	QSR XNYS	76.64 USD	1.42	6.40	26,697	 Restaurants	4.59	13.68
+AerCap Holdings NV	AER XNYS	168.77 USD	0.72	27.74	26,063	 Corporate Financial Services	3.26	12.75
+Banco Bradesco SA	BBDO XNYS	2.21 USD	2.79	-28.25	26,052	 Major Regional & National Banks		18.94
+Zoom Video Communications Inc	ZM XNAS	88.56 USD	0.18	2.57	25,840	 Communication & Collaboration Platforms	-59.59	12.92
+Caseys General Stores Inc	CASY XNAS	698.26 USD	1.64	23.49	25,807	 Specialty Retail	-1.90	15.06
+InterContinental Hotels Group PLC	IHG XNYS	175.44 USD		30.28	25,481	 Hotels & Cruise Lines	6.69	16.73
+Nomura Holdings Inc	NMR XNYS	8.85 USD		20.90	25,476	 Investment Banking & Capital Markets	6.40	25.67
+MongoDB Inc	MDB XNAS	313.53 USD	1.63	-5.49	25,217	 Database & Data Management	227.88	33.07
+Trip.com Group Ltd	TCOM XNAS	40.88 USD	0.37	-41.85	25,176	 Online Travel	268.98	27.79
+United Therapeutics Corp	UTHR XNAS	590.67 USD	0.93	21.59	25,155	 Commercial-Stage Biotech	-11.00	16.50
+Williams-Sonoma Inc	WSM XNYS	212.39 USD	-0.69	18.27	25,008	 Home Furnishings Retailers	3.99	-2.09
+Teck Resources Ltd	TECK XNYS	51.55 USD	2.14	22.04	24,919	 Diversified Miners	-5.01	3.73
+Flex Ltd	FLEX XNAS	67.23 USD	1.19	17.23	24,838	 Electronics Manufacturing Services	285.00	2.96
+Celestica Inc	CLS XNYS	191.95 USD	-2.39	-41.43	24,213	 Electronics Manufacturing Services	-2.38	16.60
+Markel Group Inc	MKL XNYS	1,979.48 USD	0.92	-4.67	24,207	 Property & Casualty Insurance		11.47
+US Foods Holding Corp	USFD XNYS	111.66 USD	1.00	41.56	23,972	 Food Retail & Distribution	7.30	5.98
+First Citizens BancShares Inc (Delaware)	FCNCA XNAS	2,153.88 USD	0.78	14.70	23,825	 Major Regional & National Banks	-93.33	49.89
+ATI Inc	ATI XNYS	175.33 USD	3.72	76.58	23,813	 Aerospace	1.88	9.00
+CoreWeave Inc	CRWV XNAS	42.57 USD	-0.08	-40.29	23,674	 Data Analytics, Observability & AI		
+TechnipFMC PLC	FTI XNYS	59.32 USD	1.28	31.73	23,065	 Oil & Gas Equipment & Services	6.82	8.75
+Amrize AG	AMRZ XNYS	43.40 USD	5.34	-14.53	22,936	 Construction Materials		
+Samsara Inc	IOT XNYS	38.86 USD	-1.42	3.77	22,756	 Logistics & Supply Chain Software		19.92
+Qnity Electronics Inc	Q XNYS	108.42 USD	-0.90	39.17	22,664	 Specialty Chemicals		
+BioNTech SE	BNTX XNAS	90.42 USD	1.23	-9.32	22,417	 Commercial-Stage Biotech	39.62	41.71
+Sales 5-year change, %
+Tenet Healthcare Corp	THC XNYS	280.65 USD	2.02	28.47	22,336	 Healthcare Facilities & Services	0.91	3.85
+Rubrik Inc	RBRK XNYS	107.97 USD	-2.40	56.73	22,223	 Cybersecurity		27.69
+Alnylam Pharmaceuticals Inc	ALNY XNAS	164.73 USD	5.53	-62.09	22,047	 Commercial-Stage Biotech	226.56	49.77
+Kinross Gold Corp	KGC XNYS	18.42 USD	3.14	-29.40	21,699	 Gold - Majors	8.86	11.23
+Wipro Ltd	WIT XNYS	2.17 USD	3.33	-19.63	21,470	 Technology Consulting & Systems Integration	4.16	8.38
+LPL Financial Holdings Inc	LPLA XNAS	275.47 USD	1.18	-20.93	21,450	 Asset & Wealth Management	8.41	23.68
+Unity Software Inc	U XNYS	48.24 USD	-0.27	13.29	21,410	 Video Games	251.59	19.08
+Roku Inc	ROKU XNAS	160.52 USD	0.09	53.14	21,307	 Streaming & Digital Media	219.48	21.65
+Reliance Steel & Aluminum Co	RS XNYS	415.80 USD	0.95	48.67	21,181	 Industrial Distributors	312.91	0.28
+Baidu Inc	BIDU XNAS	63.49 USD	-0.03	-46.14	21,074	 Search Engines & Portals	253.81	3.27
+Guardant Health Inc	GH XNAS	153.36 USD	-2.94	40.94	20,747	 Commercial-Stage Biotech	-62.30	27.92
+BCE Inc	BCE XNYS	22.18 USD	0.18	-3.65	20,638	 Integrated Telecommunications Services	2.11	1.33
+XPO Inc	XPO XNYS	176.60 USD	2.52	26.15	20,575	 Ground Freight & Logistics	-3.65	5.75
+Brookfield Infrastructure Partners LP	BIP XNYS	44.62 USD	-1.98	24.64	20,427	 Multi-Utilities		21.06
+Nebius Group NV	NBIS XNAS	84.99 USD	-2.66	-4.38	20,397	 Data Analytics, Observability & AI	37.39	-70.01
+Cerebras Systems Inc	CBRS XNAS	89.68 USD	1.01		20,315	 Semiconductors		
+Woodward Inc	WWD XNAS	344.19 USD	1.64	17.20	20,079	 Aerospace	-13.95	14.17
+Credo Technology Group Holding Ltd	CRDO XNAS	106.80 USD	0.31	-30.73	20,072	 Semiconductors		48.61
+Chesapeake Energy Corp	EXE XNAS	86.77 USD	5.75	-25.20	20,040	 Oil & Gas E&P	-16.92	17.46
+Globalfoundries Inc	GFS XNAS	36.20 USD	-0.60	4.62	19,864	 Semiconductors		6.96
+Royal Gold Inc	RGLD XNAS	241.28 USD	-0.81	22.07	19,773	 Royalty & Streaming	17.91	10.84
+Rogers Communications Inc	RCI XNYS	35.74 USD	-0.22	-7.05	19,618	 Integrated Telecommunications Services	-0.15	9.30
+Entegris Inc	ENTG XNAS	128.37 USD	0.43	74.13	19,614	 Semiconductor Equipment & Testing	2.62	11.45
+Bancolombia SA	CIB XNYS	82.68 USD	0.62	36.68	19,526	 Major Regional & National Banks	-78.16	14.74
+APi Group Corp	APG XNYS	45.20 USD	0.36	15.99	19,402	 Electrical & Mechanical Engineering Services		17.14
+ITT Inc	ITT XNYS	216.51 USD	2.00	17.98	19,312	 General Industrial Components & Machinery	3.69	9.71
+Telefonica Brasil SA	VIV XNYS	12.00 USD	0.33	-6.98	19,282	 Integrated Telecommunications Services	1.85	6.26
+Telkom Indonesia (Persero) Tbk PT	TLK XNYS	11.16 USD	0.81	-49.68	19,152	 Integrated Telecommunications Services	3.65	1.47
+Ke Holdings Inc	BEKE XNYS	18.24 USD	-0.38	4.77	19,131	 Real Estate Services	210.89	6.06
+Banco de Chile	BCH XNYS	36.67 USD	1.16	-0.46	18,521	 Banks		4.00
+SS&C Technologies Holdings Inc	SSNC XNAS	78.79 USD	0.91	-8.26	18,501	 Financial Software	35.42	6.09
+Ascendis Pharma A/S	ASND XNAS	276.80 USD	0.80	33.95	18,156	 Commercial-Stage Biotech	26.47	150.93
+TPG Inc	TPG XNAS	47.24 USD	0.77	-17.77	18,108	 Alternative Asset Managers		15.55
+Reinsurance Group of America Inc	RGA XNYS	278.29 USD	1.39	46.51	18,102	 Reinsurance		9.34
+Affirm Holdings Inc	AFRM XNAS	60.52 USD	1.82	-12.07	18,064	 Consumer Lending	256.09	35.32
+Amer Sports Inc	AS XNYS	30.91 USD	2.55	-15.55	17,984	 Recreational Products		21.83
+FedEx Freight Holding Company Inc	FDXF XNYS	118.71 USD	3.28		17,747			
+Ritchie Bros. Auctioneers Inc	RBA XNYS	97.78 USD	1.94	0.29	17,726	 Online Classifieds & Auctions	12.70	27.67
+Reddit Inc	RDDT XNYS	91.51 USD	1.30	-58.12	17,670	 Social Media & Networking		57.27
+Yum China Holdings Inc	YUMC XNYS	52.34 USD	1.22	8.95	17,631	 Restaurants	4.29	7.38
+Banco Santander Brasil SA	BSBR XNYS	4.69 USD	-1.47	-24.60	17,602	 Major Regional & National Banks		24.39
+Toast Inc	TOST XNYS	33.71 USD	0.06	1.35	17,495	 Payments & Fintech		49.53
+BridgeBio Pharma Inc	BBIO XNAS	89.79 USD	4.57	27.13	17,491	 Clinical-Stage Biotech	6,775.00	127.44
+Performance Food Group Co	PFGC XNYS	110.84 USD	1.20	14.75	17,488	 Food Retail & Distribution	27.06	17.42
+TD Synnex Corp	SNX XNYS	218.42 USD	0.52	43.67	17,425	 Technology Distributors	20.18	25.63
+Hyatt Hotels Corp	H XNYS	186.43 USD	-0.52	12.04	17,410	 Hotels & Cruise Lines	12.71	55.76
+Companhia de Saneamento Basico do Estado de Sao Paulo SABESP	SBS XNYS	4.86 USD	3.62	-3.39	17,237	 Water	13.21	15.98
+Woori Financial Group Inc	WF XNYS	70.88 USD	1.63	31.26	17,201	 Major Regional & National Banks		-18.22
+Telus Corp	TU XNYS	10.80 USD		-16.73	17,125	 Integrated Telecommunications Services	3.50	5.81
+Rivian Automotive Inc	RIVN XNAS	11.71 USD	3.17	-24.74	17,095	 EV Makers		
+Sales 5-year change, %
+East West Bancorp Inc	EWBC XNAS	124.69 USD	0.18	16.12	17,087	 Major Regional & National Banks		20.61
+Warner Music Group Corp	WMG XNAS	32.46 USD	0.19	14.50	17,074	 Entertainment Production	-0.27	7.01
+Jones Lang LaSalle Inc	JLL XNYS	372.25 USD	4.00	12.56	17,004	 Real Estate Services	242.38	9.50
+Medpace Holdings Inc	MEDP XNAS	607.63 USD	-3.76	-0.68	16,996	 Life Sciences Tools & Services	22.19	22.27
+SoFi Technologies Inc	SOFI XNAS	13.07 USD	1.63	-53.87	16,962	 Consumer Lending		44.73
+Kaspi.kz AO	KSPI XNAS	88.96 USD	2.14	19.51	16,904	 Payments & Fintech		43.46
+Exelixis Inc	EXEL XNAS	67.25 USD	-0.30	55.92	16,903	 Commercial-Stage Biotech	13.34	7.57
+Neurocrine Biosciences Inc	NBIX XNAS	166.00 USD	1.55	15.66	16,802	 Commercial-Stage Biotech	321.90	22.29
+nVent Electric PLC	NVT XNYS	103.71 USD	-0.83	-1.16	16,759	 Building & Industrial Electricals	283.46	14.27
+Check Point Software Technologies Ltd	CHKP XNAS	163.77 USD	2.78	-11.90	16,721	 Cybersecurity	4.09	5.71
+Plains All American Pipeline LP	PAA XNAS	23.52 USD	-0.21	35.09	16,650	 Oil & Gas Midstream	267.81	13.70
+Fortress Transportation and Infrastructure Investors LLC	FTAI XNAS	161.21 USD	2.52	-1.70	16,485	 Aerospace	0.00	46.60
+Ovintiv Inc	OVV XNYS	61.02 USD	1.41	56.34	16,396	 Oil & Gas E&P	329.78	7.49
+Magna International Inc	MGA XNYS	63.14 USD	2.23	28.36	16,314	 Auto Parts	208.92	5.54
+H World Group Ltd	HTHT XNAS	51.73 USD	-0.60	11.95	16,271	 Hotels & Cruise Lines	11.42	19.28
+Curtiss-Wright Corp	CW XNYS	447.07 USD	-0.44	-19.49	16,216	 Defense	3.16	7.91
+James Hardie Industries PLC	JHX XNYS	28.83 USD	2.09	50.63	16,192	 Construction Materials	4.00	10.70
+Carlisle Companies Inc	CSL XNYS	411.61 USD	3.81	30.12	15,907	 Construction Materials	7.41	4.81
+Emera Inc	EMA XNYS	51.60 USD	-0.41	7.78	15,900	 Electric Utilities	-6.33	8.56
+Lamar Advertising Co	LAMR XNAS	156.39 USD	-0.10	17.99	15,886	 Diversified REITs	-71.57	7.63
+Burlington Stores Inc	BURL XNYS	250.06 USD	2.34	0.16	15,707	 Discount Stores	9.27	5.86
+Hesai Group	HSAI XNAS	12.38 USD	-2.60	-38.77	15,609	 Auto Parts		48.77
+Western Midstream Partners LP	WES XNYS	40.52 USD	-0.30	3.90	15,595	 Oil & Gas Refining & Marketing	37.98	6.75
+CNH Industrial NV	CNH XNYS	11.88 USD	-2.65	15.18	15,577	 Agricultural & Forestry Machinery	-5.48	4.13
+UL Solutions Inc	ULS XNYS	77.02 USD	1.57	-13.15	15,550	 Business Information & Analytics		5.82
+Jazz Pharmaceuticals PLC	JAZZ XNAS	245.29 USD	3.69	33.66	15,520	 Specialty & Generic Pharmaceuticals	14.32	12.54
+Clean Harbors Inc	CLH XNYS	294.11 USD	0.55	31.38	15,508	 Environmental Services & Equipment	3.39	13.91
+Glaukos Corp	GKOS XNYS	259.90 USD	1.14	149.07	15,385	 Medical Equipment	30.73	17.67
+WP Carey Inc	WPC XNYS	66.83 USD	0.66	-0.64	15,378	 Diversified REITs	39.18	7.95
+MACOM Technology Solutions Holdings Inc	MTSI XNAS	199.94 USD	-0.13	20.53	15,352	 Semiconductors	6.07	16.95
+Talen Energy Corp	TLN XNAS	351.61 USD	1.13	-7.22	15,296	 Independent Power Producers		
+Aramark	ARMK XNYS	57.80 USD	1.71	52.27	15,237	 Business Support Services	376.55	1.28
+Corebridge Financial Inc	CRBG XNYS	34.63 USD	1.14	17.07	15,184	 Life & Health Insurance		-28.13
+Cemex SAB de CV	CX XNYS	9.89 USD	3.78	-5.09	15,033	 Construction Materials	-2.96	4.95
+TransUnion	TRU XNYS	78.74 USD	2.09	-7.47	15,015	 Credit Bureaus & Risk Scoring	14.63	12.58
+DocuSign Inc	DOCU XNAS	80.75 USD	3.89	21.40	14,959	 Enterprise Software	262.79	17.25
+GFL Environmental Inc	GFL XNYS	42.79 USD	0.52	-5.23	14,937	 Environmental Services & Equipment	-63.31	9.53
+ICON PLC	ICLR XNAS	198.78 USD	0.26	13.89	14,891	 Life Sciences Tools & Services	267.95	24.15
+Kymera Therapeutics Inc	KYMR XNAS	173.77 USD	-0.09	163.13	14,834	 Clinical-Stage Biotech		2.87
+Posco Holdings Inc	PKX XNYS	46.96 USD	1.51	-10.11	14,818	 Iron & Steel	301.21	3.60
+ZTO Express (Cayman) Inc	ZTO XNYS	19.63 USD	1.97	-4.43	14,744	 Air Freight & Logistics	229.87	13.63
+Viper Energy Partners LP	VNOM XNAS	41.01 USD	2.83	13.38	14,730	 Oil & Gas E&P	3.28	40.08
+HF Sinclair Corp	DINO XNYS	85.76 USD	-0.65	63.32	14,696	 Oil & Gas Refining & Marketing	-75.26	19.16
+Sun Communities Inc	SUI XNYS	118.34 USD	0.61	-7.92	14,685	 Residential REITs	12.18	10.77
+Pinnacle Financial Partners Inc	PNFP XNAS	96.96 USD	1.22	-8.87	14,651	 Major Regional & National Banks		19.50
+Tempur Sealy International Inc	SGI XNYS	63.56 USD	2.88	-28.79	14,634	 Home Furnishings	14.91	15.25
+Manhattan Associates Inc	MANH XNAS	251.97 USD	0.93	42.64	14,629	 Logistics & Supply Chain Software	298.67	13.02
+Banco Santander-Chile	BSAC XNYS	30.83 USD	0.62	4.37	14,524	 Major Regional & National Banks		11.73
+Omega Healthcare Investors Inc	OHI XNYS	47.35 USD	0.62	4.07	14,409	 Healthcare REITs	5.35	6.07
+Blue Owl Capital Inc	OWL XNYS	9.21 USD	0.99	-36.26	14,397	 Alternative Asset Managers		62.95
+Sales 5-year change, %
+Lattice Semiconductor Corp	LSCC XNAS	98.23 USD	-11.14	46.59	14,275	 Semiconductors	1.33	5.10
+Toll Brothers Inc	TOL XNYS	154.50 USD	3.73	11.67	14,236	 Homebuilders	-2.03	9.15
+Wesco International Inc	WCC XNYS	292.33 USD	0.99	12.38	14,227	 Industrial Distributors	2.23	13.79
+Equitable Holdings Inc	EQH XNYS	53.18 USD	0.82	13.83	14,181	 Life & Health Insurance	10.04	-1.24
+DICK'S Sporting Goods Inc	DKS XNYS	158.59 USD	3.54	-23.29	14,102	 Specialty Retail	3.72	6.84
+Annaly Capital Management Inc	NLY XNYS	17.86 USD	1.82	-20.41	14,071	 Mortgage REITs	-63.46	35.16
+Tower Semiconductor Ltd	TSEM XNAS	121.74 USD	-9.75	28.55	14,016	 Semiconductors	266.64	4.35
+Penske Automotive Group Inc	PAG XNYS	213.13 USD	0.13	30.63	13,994	 Auto Dealers	251.75	9.24
+American Healthcare REIT Inc	AHR XNYS	60.24 USD	0.82	23.47	13,979	 Healthcare REITs		13.79
+Carlyle Group Inc	CG XNAS	39.44 USD	3.25	-25.08	13,958	 Alternative Asset Managers	39.13	18.07
+Renaissancere Holdings Ltd	RNR XNYS	344.87 USD	0.55	31.77	13,935	 Reinsurance		19.85
+TKO Group Holdings Inc	TKO XNYS	191.44 USD	1.05	2.14	13,867	 Sports Teams & Clubs		37.19
+RBC Bearings Inc	RBC XNAS	477.15 USD	0.85	7.72	13,847	 General Industrial Components & Machinery	3.55	25.17
+Lincoln Electric Holdings Inc	LECO XNAS	255.44 USD	0.28	7.45	13,833	 General Industrial Components & Machinery	-0.84	9.76
+CACI International Inc	CACI XNYS	619.14 USD	2.69	0.19	13,752	 Technology Consulting & Systems Integration	14.71	9.62
+RPM International Inc	RPM XNYS	107.45 USD	2.11	0.22	13,703	 Specialty Chemicals	-1.03	5.19
+EchoStar Corp	ECHO XNAS	85.74 USD	0.16	20.76	13,686	 Integrated Telecommunications Services	277.96	51.37
+Maplebear Inc	CART XNAS	57.68 USD	0.58	36.71	13,648	 Food & Grocery Delivery		20.43
+GameStop Corp	GME XNYS	26.97 USD	-1.86	28.06	13,606	 Computer & Electronics Retailers	-21.96	-9.34
+Dynatrace Inc	DT XNYS	47.37 USD	1.05	6.19	13,592	 Data Analytics, Observability & AI	26.64	23.47
+Tencent Music Entertainment Group	TME XNYS	9.54 USD	2.34	-50.24	13,535	 Streaming & Digital Media	249.77	2.45
+Sociedad Quimica y Minera de Chile SA	SQM XNYS	47.84 USD	2.05	-22.56	13,517	 Lithium - Producers	-14.22	20.25
+Encompass Health Corp	EHC XNYS	137.67 USD	0.80	18.49	13,508	 Healthcare Facilities & Services	7.66	10.72
+Logitech International SA	LOGI XNAS	101.18 USD	1.02	-10.00	13,461	 Computer Hardware	319.58	-1.53
+Crown Holdings Inc	CCK XNYS	124.52 USD	3.05	28.32	13,454	 Containers & Packaging	4.61	5.65
+Pan American Silver Corp	PAAS XNYS	32.56 USD	4.80	-17.33	13,425	 Diversified Miners	72.18	22.43
+Brookfield Reinsurance Ltd	BNT XNYS	40.33 USD	2.54	-12.50	13,415	 Life & Health Insurance		87.27
+Biomarin Pharmaceutical Inc	BMRN XNAS	68.86 USD	3.77	22.33	13,337	 Commercial-Stage Biotech	14.27	11.60
+American Financial Group Inc	AFG XNYS	160.76 USD	0.75	16.87	13,304	 Property & Casualty Insurance		7.44
+Wayfair Inc	W XNYS	97.11 USD	1.46	-11.55	13,288	 E-Commerce	34.63	-2.51
+Millicom International Cellular SA	TIGO XNAS	79.16 USD	0.05	47.41	13,262	 Integrated Telecommunications Services	242.76	6.89
+CNA Financial Corp	CNA XNYS	49.00 USD	0.55	4.86	13,260	 Property & Casualty Insurance		6.60
+Essential Utilities Inc	WTRG XNYS	46.23 USD	1.76	16.98	13,239	 Multi-Utilities	6.16	11.09
+BJ's Wholesale Club Holdings Inc	BJ XNYS	101.70 USD	2.63	18.31	13,146	 Discount Stores	1.41	2.13
+Embraer SA	EMBJ XNYS	17.81 USD	-1.49	16.81	13,122	 Aerospace	32.71	16.18
+Elanco Animal Health Inc	ELAN XNYS	26.24 USD	-0.76	11.99	13,115	 Specialty & Generic Pharmaceuticals	0.14	7.57
+Smith & Nephew PLC	SNN XNYS	30.92 USD	0.39	-7.48	13,078	 Medical Equipment	4.77	6.21
+SailPoint Parent LP	SAIL XNAS	22.87 USD	4.05	21.97	13,056	 Cybersecurity		30.00
+Aegon NV	AEG XNYS	8.37 USD	0.72	8.42	13,042	 Life & Health Insurance		-7.95
+Pershing Square Holdco LP	PS XNYS	32.36 USD	2.76		12,944	 Alternative Asset Managers		
+LATAM Airlines Group SA	LTM XNYS	46.52 USD	0.19	-1.36	12,935	 Airlines	1.76	29.45
+Watsco Inc	WSO XNYS	310.25 USD	2.33	-9.36	12,828	 Industrial Distributors	4.92	7.45
+Carpenter Technology Corp	CRS XNYS	258.78 USD	-0.34	-19.84	12,820	 Iron & Steel	398.77	16.19
+Dr Reddy's Laboratories Ltd	RDY XNYS	15.35 USD	1.19	10.59	12,796	 Specialty & Generic Pharmaceuticals	13.49	168.02
+Brightspring Health Services Inc	BTSG XNAS	64.22 USD	-1.76	77.31	12,778	 Healthcare Facilities & Services		18.27
+Penumbra Inc	PEN XNYS	323.55 USD	0.43	8.32	12,752	 Medical Equipment	23.03	20.16
+Jfrog Ltd	FROG XNAS	104.85 USD	0.27	67.09	12,699	 Development, DevOps & IT Operations	248.89	28.66
+Unum Group	UNM XNYS	81.51 USD	1.68	6.48	12,632	 Life & Health Insurance		-0.14
+Nutanix Inc	NTNX XNAS	46.30 USD	-15.19	-21.22	12,627	 Development, DevOps & IT Operations	256.87	15.40
+Bentley Systems Inc	BSY XNAS	43.31 USD	1.52	5.02	12,584	 Design & Engineering Software	263.02	13.38
+Sales 5-year change, %
+Chime Financial Inc	CHYM XNAS	33.03 USD	0.58	68.18	12,466	 Payments & Fintech		
+Five Below Inc	FIVE XNAS	218.09 USD	4.38	43.28	12,464	 Discount Stores	18.41	9.14
+QXO Inc	QXO XNYS	11.97 USD	8.62	-32.33	12,448	 IT Services & Consulting	-6.10	177.98
+MKS Instruments Inc	MKSI XNAS	183.82 USD	-3.92	23.37	12,429	 Semiconductor Equipment & Testing	-8.45	11.03
+Circle Internet Group Inc	CRCL XNYS	48.27 USD	1.15	-31.15	12,383	 Cryptocurrency		181.85
+MasTec Inc	MTZ XNYS	154.17 USD	1.13	-25.11	12,380	 Telecom Tower & Network Services	3.96	17.73
+Crane Company	CR XNYS	213.73 USD	1.21	16.90	12,360	 General Industrial Components & Machinery	304.31	-10.82
+Coca-Cola Consolidated Inc	COKE XNAS	218.64 USD	4.73	34.68	12,356	 Non-Alcoholic Beverages	35.71	7.62
+Futu Holdings Ltd	FUTU XNAS	87.94 USD	-0.17	-47.75	12,328	 Brokerages & Trading Platforms	-51.59	47.11
+Equity LifeStyle Properties Inc	ELS XNYS	63.21 USD	1.31	0.30	12,312	 Residential REITs	5.32	7.23
+Flutter Entertainment PLC	FLUT XNYS	70.76 USD	5.14	-63.89	12,303	 Casino & Gaming		22.10
+Rentokil Initial PLC	RTO XNYS	24.88 USD	0.93	-8.70	12,290	 Business Support Services	9.79	20.38
+Guidewire Software Inc	GWRE XNYS	148.47 USD	1.85	-30.74	12,268	 Financial Software	223.95	14.70
+SEI Investments Co	SEIC XNAS	102.96 USD	0.16	28.38	12,209	 Asset & Wealth Management	1.58	6.41
+Texas Roadhouse Inc	TXRH XNAS	185.00 USD	1.26	5.44	12,140	 Restaurants	12.16	19.64
+Fidelity National Financial Inc	FNF XNYS	45.19 USD	1.99	-21.01	12,119	 Property & Casualty Insurance		6.27
+Korea Electric Power Corp	KEP XNYS	9.32 USD	2.19	-47.79	12,052	 Electric Utilities	-1.73	10.76
+Suzano SA	SUZ XNYS	9.55 USD	0.95	7.67	12,026	 Paper Products		10.03
+Grupo Aeroportuario del Pacifico SAB de CV	PAC XNYS	231.37 USD	1.26	-1.85	12,015	 Airport Operators & Services	14.89	22.34
+American Homes 4 Rent	AMH XNYS	33.39 USD	1.80	4.05	11,936	 Residential REITs	6.57	9.74
+Magnum Ice Cream Company NV	MICC XNYS	19.49 USD	3.01		11,932	 Food Processing		
+Watts Water Technologies Inc	WTS XNYS	357.19 USD	0.40	28.57	11,921	 Building Products	2.27	10.08
+Range Resources Corp	RRC XNYS	50.63 USD	4.33	33.94	11,831	 Oil & Gas E&P	-21.98	10.95
+DT Midstream Inc	DTM XNYS	115.70 USD	1.29	-1.37	11,803	 Oil & Gas Midstream		10.51
+Madison Air Solutions Corp	MAIR XNYS	23.40 USD	1.74		11,740			
+Mueller Industries Inc	MLI XNYS	53.82 USD	2.26	-1.99	11,731	 Construction Materials	-3.08	2.08
+Coeur Mining Inc	CDE XNYS	11.75 USD	-2.27	-24.80	11,576	 Gold - Mid-Tiers	13.68	21.39
+Graco Inc	GGG XNYS	72.10 USD	-0.01	-13.00	11,563	 General Industrial Components & Machinery	-0.44	6.27
+Ally Financial Inc	ALLY XNYS	38.46 USD	2.94	-5.60	11,538	 Major Regional & National Banks		2.54
+New York Times Co	NYT XNYS	71.70 USD	1.79	10.94	11,465	 Consumer Publishing	3.64	6.37
+SiTime Corp	SITM XNAS	386.13 USD	-13.79	35.29	11,428	 Semiconductors	188.45	22.97
+Antero Resources Corp	AR XNYS	37.13 USD	4.09	9.21	11,403	 Oil & Gas E&P	6.50	10.21
+Gaming and Leisure Properties Inc	GLPI XNAS	39.01 USD	0.98	-9.91	11,348	 Hospitality REITs	9.26	6.70
+Wise PLC	WSE XNAS	11.68 USD	2.64		11,333	 Payments & Fintech		37.22
+Grab Holdings Ltd	GRAB XNAS	2.84 USD	2.53	-45.80	11,284	 Food & Grocery Delivery		48.35
+Freedom Holding Corp	FRHC XNAS	175.58 USD	2.50	32.02	11,202	 Brokerages & Trading Platforms	181.11	44.58
+Procore Technologies Inc	PCOR XNYS	74.56 USD	0.80	1.02	11,154	 Construction & Real Estate Tech Software	252.38	27.00
+Globalstar Inc	GSAT XNAS	85.87 USD	-0.52	41.02	11,130	 Telecom Tower & Network Services	-74.82	16.27
+Alamos Gold Inc	AGI XNYS	26.28 USD	3.34	-24.07	10,999	 Gold - Mid-Tiers	4.80	19.36
+Evercore Inc	EVR XNYS	289.33 USD	1.50	-7.96	10,988	 Investment Banking & Capital Markets	-2.58	11.17
+Sirius XM Holdings Inc	SIRI XNAS	32.51 USD	1.12	54.88	10,939	 Broadcasting	35.06	1.26
+Fresenius Medical Care AG & Co KGaA	FMS XNYS	21.17 USD	0.81	-12.01	10,929	 Healthcare Facilities & Services	281.59	1.91
+Equinox Gold Corp	EQX XNYS	9.07 USD	3.42	-29.03	10,844	 Gold - Mid-Tiers	183.89	16.94
+Halozyme Therapeutics Inc	HALO XNAS	95.11 USD	0.13	30.61	10,843	 Commercial-Stage Biotech	334.62	39.16
+Eastgroup Properties Inc	EGP XNYS	200.94 USD	0.19	11.03	10,805	 Industrial REITs	10.32	14.72
+Ryder System Inc	R XNYS	282.69 USD	1.21	63.99	10,804	 Ground Freight & Logistics	6.08	8.54
+Netskope Inc	NTSK XNAS	26.44 USD	3.56	42.69	10,803	 Cybersecurity		
+Repligen Corp	RGEN XNAS	168.13 USD	-0.17	-2.11	10,747	 Life Sciences Tools & Services	259.49	15.05
+AECOM	ACM XNYS	83.43 USD	3.24	-19.69	10,746	 Consulting & Design Services	-2.95	2.50
+Life Time Group Holdings Inc	LTH XNYS	47.81 USD	-0.25	73.60	10,738	 Gyms & Fitness Centers		25.86
+Sales 5-year change, %
+Regal Rexnord Corp	RRX XNYS	160.50 USD	1.52	9.07	10,688	 General Industrial Components & Machinery		9.27
+Stellantis NV	STLA XNYS	3.66 USD	6.40	-65.28	10,636	 Automakers	-2.02	-4.41
+OGE Energy Corp	OGE XNYS	51.39 USD	0.49	14.58	10,623	 Electric Utilities	-1.70	8.96
+SK Telecom Co Ltd	SKM XNYS	26.74 USD	2.89	32.97	10,620	 Integrated Telecommunications Services	5.15	1.23
+Ensign Group Inc	ENSG XNAS	182.01 USD	1.32	-2.95	10,618	 Healthcare Facilities & Services	16.07	16.05
+Frontline Plc	FRO XNYS	47.65 USD	0.25	98.62	10,607	 Shipping	28.97	9.98
+AGNC Investment Corp	AGNC XNAS	8.31 USD	1.84	-20.10	10,585	 Mortgage REITs	-41.20	41.17
+Moog Inc	MOG.A XNYS	334.16 USD	1.85	46.46	10,583	 Defense	-0.69	8.30
+On Holding AG	ONON XNYS	31.50 USD	0.06	-24.57	10,537	 Apparel		47.94
+First Horizon Corp	FHN XNYS	22.36 USD	0.63	-0.09	10,528	 Major Regional & National Banks		12.22
+Flowserve Corp	FLS XNYS	82.46 USD	-0.13	17.30	10,456	 General Industrial Components & Machinery	2.93	4.87
+Booz Allen Hamilton Holding Corp	BAH XNYS	87.91 USD	4.13	5.09	10,426	 Technology Consulting & Systems Integration	11.33	7.37
+Applied Industrial Technologies Inc	AIT XNYS	285.30 USD	0.01	11.54	10,417	 Industrial Distributors	347.63	8.95
+BWX Technologies Inc	BWXT XNYS	113.55 USD	0.36	-35.21	10,404	 Nuclear Power & SMRs	5.28	8.54
+Nextracker Inc	NXT XNAS	68.99 USD	4.91	-23.40	10,388	 Solar		24.38
+Pearson PLC	PSO XNYS	17.37 USD	1.34	33.51	10,359	 Education	-6.30	1.03
+Fabrinet	FN XNYS	289.70 USD	-0.14	-32.58	10,347	 Electronics Manufacturing Services	3.63	19.82
+TG Therapeutics Inc	TGTX XNAS	68.37 USD	-2.51	107.31	10,333	 Commercial-Stage Biotech	275.00	426.73
+HubSpot Inc	HUBS XNYS	210.21 USD	2.40	-43.42	10,265	 Enterprise Software	252.19	28.81
+Stifel Financial Corp	SF XNYS	68.68 USD	0.18	-14.57	10,249	 Asset & Wealth Management	10.02	10.86
+Krystal Biotech Inc	KRYS XNAS	345.27 USD	0.25	59.13	10,231	 Commercial-Stage Biotech		118.12
+Qiagen NV	QGEN XNYS	49.51 USD	0.14	-3.14	10,223	 Life Sciences Tools & Services	1.64	2.25
+CubeSmart	CUBE XNYS	45.47 USD	1.25	23.12	10,202	 Self-Storage REITs	7.69	10.58
+IONQ Inc	IONQ XNYS	23.54 USD	5.09	-49.98	10,180	 Quantum Computing		192.84
+Knight-Swift Transportation Holdings Inc	KNX XNYS	62.43 USD	1.48	37.39	10,162	 Ground Freight & Logistics	-9.36	9.83
+Avantor Inc	AVTR XNYS	14.93 USD	-2.67	25.99	10,116	 Life Sciences Tools & Services	3.00	0.49
+Allison Transmission Holdings Inc	ALSN XNYS	123.15 USD	4.67	40.20	10,114	 Auto Parts	-0.55	7.66
+Vaxcyte Inc	PCVX XNAS	63.57 USD	0.62	26.53	10,063	 Clinical-Stage Biotech		
+Wintrust Financial Corp	WTFC XNAS	149.00 USD	-0.13	9.16	10,055	 Major Regional & National Banks		17.39
+Toro Co	TTC XNYS	105.92 USD	1.35	48.41	10,026	 Heavy & Specialty Machinery	7.67	5.95
+Solstice Advanced Materials Inc	SOLS XNAS	63.63 USD	1.43	35.83	10,003			

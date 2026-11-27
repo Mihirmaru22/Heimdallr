@@ -32,6 +32,7 @@ env/
 .ruff_cache/
 .coverage
 htmlcov/
+backend/tests/e2e/.auth/
 
 # Environment variables & local data
 .env

@@ -1,0 +1,44 @@
+ Reading 10,021 homepages from Common Crawl, 4 at a time...
+Crawl CC-MAIN-2026-43: getting its index map (cluster.idx, downloaded once, a few hundred MB)...
+Crawl CC-MAIN-2026-39: getting its index map (cluster.idx, downloaded once, a few hundred MB)...
+Crawl CC-MAIN-2026-34: getting its index map (cluster.idx, downloaded once, a few hundred MB)...
+  500 done, 167 found, 2.4 sites/s
+  1,000 done, 257 found, 2.3 sites/s
+  1,500 done, 403 found, 2.4 sites/s
+  2,000 done, 414 found, 3.0 sites/s
+  2,500 done, 414 found, 3.7 sites/s
+  3,000 done, 414 found, 4.3 sites/s
+  3,500 done, 414 found, 4.9 sites/s
+  4,000 done, 414 found, 5.5 sites/s
+  4,500 done, 414 found, 6.1 sites/s
+  5,000 done, 414 found, 6.6 sites/s
+  5,500 done, 414 found, 7.1 sites/s
+  6,000 done, 414 found, 7.6 sites/s
+  6,500 done, 414 found, 8.1 sites/s
+  7,000 done, 414 found, 8.5 sites/s
+  7,500 done, 414 found, 8.9 sites/s
+  8,000 done, 414 found, 9.3 sites/s
+  8,500 done, 414 found, 9.7 sites/s
+  9,000 done, 414 found, 10.1 sites/s
+  9,500 done, 414 found, 10.4 sites/s
+  10,000 done, 414 found, 10.8 sites/s
+
+Crawls CC-MAIN-2026-43, CC-MAIN-2026-39, CC-MAIN-2026-34, 15.5 minutes, 10.80 sites/s
+Domains tried:                    10,021
+Homepage in Common Crawl:            414    4.1%
+  with a meta description:           275   66.4%
+  with 200+ chars of text:           377   91.1%
+  with a company mailbox:            103   24.9%
+  with a postal address:              55   13.3%
+Found in crawl:
+  CC-MAIN-2026-43: 309
+  CC-MAIN-2026-39: 62
+  CC-MAIN-2026-34: 43
+Found after following a redirect: 21
+Why the rest were not found:
+  no_capture:        925    9.2%
+  error_status:        188    1.9%
+  redirect_unfollowed:         10    0.1%
+Errors:
+  KeyError: 8,386
+  HTTPStatusError: 98

@@ -8,6 +8,19 @@ sources, and download an Excel file. Phase 1 runs entirely locally and makes no 
     docker compose up --build -d
     open http://localhost:8080
 
+### Local dev without Docker (`start.sh`)
+
+On macOS with Homebrew PostgreSQL, Redis, `uv`, and Node.js installed, you can launch the full stack (Backend API, Celery worker, Vite frontend, and native SearXNG if installed) in one terminal:
+
+    ./start.sh
+
+- **Web UI:** `http://localhost:5173`
+- **Backend API & Docs:** `http://localhost:8000` (`http://localhost:8000/api/docs`)
+- **Logs:** `backend/var/logs/api.log` and `backend/var/logs/worker.log`
+- **Stop:** Press `Ctrl+C` in the terminal running `start.sh` to shut down all services cleanly.
+
+It automatically stops any existing processes on ports `8000`/`5173`, starts PostgreSQL/Redis/SearXNG, runs `uv sync` and `alembic upgrade head`, and installs frontend dependencies if missing.
+
 - [Local setup, environment variables, hardware, troubleshooting](docs/local-setup.md)
 - [Security notes](docs/security.md)
 - Research: [free discovery sources](docs/research/free-discovery.md),

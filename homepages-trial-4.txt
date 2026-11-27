@@ -1,0 +1,130 @@
+Reading 10,021 homepages from Common Crawl, 4 at a time...
+Crawl CC-MAIN-2026-43: getting its index map (cluster.idx, downloaded once, a few hundred MB)...
+Crawl CC-MAIN-2026-39: getting its index map (cluster.idx, downloaded once, a few hundred MB)...
+Crawl CC-MAIN-2026-34: getting its index map (cluster.idx, downloaded once, a few hundred MB)...
+  500 done, 354 found, 2.7 sites/s
+  1,000 done, 641 found, 2.4 sites/s
+  1,500 done, 963 found, 2.2 sites/s
+  2,000 done, 1,297 found, 2.3 sites/s
+  2,500 done, 1,623 found, 2.2 sites/s
+  3,000 done, 1,956 found, 2.2 sites/s
+  3,500 done, 2,287 found, 2.2 sites/s
+  4,000 done, 2,612 found, 2.2 sites/s
+  4,500 done, 2,928 found, 2.1 sites/s
+  5,000 done, 3,267 found, 2.2 sites/s
+  5,500 done, 3,574 found, 2.2 sites/s
+  6,000 done, 3,893 found, 2.2 sites/s
+  6,500 done, 4,195 found, 2.2 sites/s
+  7,000 done, 4,587 found, 2.2 sites/s
+  7,500 done, 4,961 found, 2.2 sites/s
+  8,000 done, 5,304 found, 2.2 sites/s
+  8,500 done, 5,642 found, 2.2 sites/s
+  9,000 done, 6,017 found, 2.2 sites/s
+  9,500 done, 6,359 found, 2.2 sites/s
+  10,000 done, 6,710 found, 2.2 sites/s
+
+Crawls CC-MAIN-2026-43, CC-MAIN-2026-39, CC-MAIN-2026-34, 77.4 minutes, 2.16 sites/s
+Domains tried:                    10,021
+Homepage in Common Crawl:          6,727   67.1%
+  with a meta description:         4,471   66.5%
+  with 200+ chars of text:         5,848   86.9%
+  with a company mailbox:          1,828   27.2%
+  with a postal address:             814   12.1%
+Found in crawl:
+  own: 3,300
+  CC-MAIN-2026-43: 2,543
+  CC-MAIN-2026-39: 524
+  CC-MAIN-2026-34: 360
+Found after following a redirect: 1,457
+Why the rest were not found:
+  no_capture+dns_dead:      2,066   20.6%
+  no_capture+robots_unreachable:        363    3.6%
+  no_capture+site_http_403:        181    1.8%
+  no_capture+site_http_404:        163    1.6%
+  no_capture+robots_disallowed:        117    1.2%
+  error_status_403+site_http_403:         61    0.6%
+  no_capture+site_http_409:         30    0.3%
+  error_status_200+robots_disallowed:         22    0.2%
+  error_status_200+robots_unreachable:         20    0.2%
+  error_status_404+site_http_404:         20    0.2%
+  error_status_200+dns_dead:         15    0.1%
+  error_status_301+robots_unreachable:         13    0.1%
+  error_status_200+site_http_403:         11    0.1%
+  no_capture+site_http_500:         10    0.1%
+  no_capture+site_network:         10    0.1%
+  error_status_500+robots_unreachable:          9    0.1%
+  error_status_403+robots_unreachable:          9    0.1%
+  no_capture+site_http_503:          9    0.1%
+  no_capture+site_timeout:          9    0.1%
+  no_capture+site_http_445:          8    0.1%
+  error_status_301+site_http_403:          8    0.1%
+  error_status_404+site_http_403:          5    0.0%
+  error_status_522+robots_unreachable:          5    0.0%
+  error_status_502+robots_unreachable:          5    0.0%
+  error_status_500+site_http_500:          5    0.0%
+  error_status_503+robots_unreachable:          5    0.0%
+  error_status_429+robots_disallowed:          4    0.0%
+  redirect_unfollowed+site_http_404:          4    0.0%
+  no_capture+site_http_401:          4    0.0%
+  error_status_301+site_http_404:          4    0.0%
+  error_status_403+robots_disallowed:          4    0.0%
+  error_status_403+site_http_409:          3    0.0%
+  error_status_403+site_network:          3    0.0%
+  error_status_404+dns_dead:          3    0.0%
+  redirect_unfollowed+site_http_403:          3    0.0%
+  error_status_301+robots_disallowed:          3    0.0%
+  error_status_200+site_http_503:          3    0.0%
+  no_capture+site_http_429:          3    0.0%
+  error_status_302+robots_unreachable:          3    0.0%
+  no_capture+site_content_type:          3    0.0%
+  no_capture+site_too_large:          3    0.0%
+  error_status_404+robots_unreachable:          2    0.0%
+  error_status_403+dns_dead:          2    0.0%
+  error_status_200+site_http_404:          2    0.0%
+  error_status_301+site_redirect:          2    0.0%
+  error_status_456+site_http_456:          2    0.0%
+  no_capture+site_http_444:          2    0.0%
+  error_status_403+site_http_404:          2    0.0%
+  error_status_302+site_http_403:          2    0.0%
+  error_status_503+site_http_503:          2    0.0%
+  no_capture+site_http_406:          2    0.0%
+  no_capture+site_http_999:          2    0.0%
+  redirect_unfollowed+robots_unreachable:          2    0.0%
+  no_capture+site_redirect:          2    0.0%
+  no_capture+site_blocked:          2    0.0%
+  error_status_500+site_http_403:          2    0.0%
+  no_capture+site_http_522:          1    0.0%
+  no_capture+site_not_html:          1    0.0%
+  error_status_406+robots_unreachable:          1    0.0%
+  error_status_510+robots_unreachable:          1    0.0%
+  no_capture+site_http_405:          1    0.0%
+  error_status_429+site_http_409:          1    0.0%
+  error_status_406+site_http_403:          1    0.0%
+  error_status_200+site_redirect:          1    0.0%
+  error_status_465+site_http_404:          1    0.0%
+  error_status_521+robots_unreachable:          1    0.0%
+  error_status_308+robots_unreachable:          1    0.0%
+  redirect_unfollowed+robots_disallowed:          1    0.0%
+  error_status_406+robots_disallowed:          1    0.0%
+  error_status_301+site_http_500:          1    0.0%
+  error_status_403+site_http_451:          1    0.0%
+  error_status_503+site_http_444:          1    0.0%
+  error_status_525+robots_unreachable:          1    0.0%
+  error_status_304+robots_unreachable:          1    0.0%
+  error_status_502+dns_dead:          1    0.0%
+  error_status_404+site_http_445:          1    0.0%
+  error_status_520+dns_dead:          1    0.0%
+  error_status_465+site_network:          1    0.0%
+  error_status_406+site_http_409:          1    0.0%
+  error_status_404+site_http_500:          1    0.0%
+  error_status_522+dns_dead:          1    0.0%
+  error_status_423+site_http_423:          1    0.0%
+  no_capture+site_http_412:          1    0.0%
+  error_status_409+site_http_409:          1    0.0%
+  no_capture+site_http_520:          1    0.0%
+  error_status_404+site_network:          1    0.0%
+  no_capture+site_http_525:          1    0.0%
+  error_status_503+robots_disallowed:          1    0.0%
+  error_status_200+site_network:          1    0.0%
+  error_status_429+robots_unreachable:          1    0.0%
+  error_status_410+dns_dead:          1    0.0%
