@@ -24,7 +24,7 @@ import httpx
 
 from app.crawl.fetcher import Fetcher, FetchError, FetchResult
 from app.crawl.robots import RobotsCache
-from app.extract.deterministic import parse_page
+from app.extract.deterministic import extract_leadership, parse_page
 from app.kb.homepages import PARSE_CHARS, contacts_from
 
 TEXT_CHARS = 4000
@@ -40,6 +40,8 @@ CAREER_WORDS = ("career", "jobs", "job openings", "karriere", "carriere", "carri
 LOCATION_WORDS = ("locations", "our locations", "offices", "our offices", "global offices", "regional offices",
                   "branches", "our branches", "find us", "where to find", "where we are", "store locator",
                   "showrooms", "campuses")
+LEADERSHIP_WORDS = ("leadership", "executive team", "management team", "our team",
+                    "board of directors", "founders", "executives")
 SECURITY_WORDS = ("security", "trust center", "trust-center", "trust centre", "compliance",
                   "certifications", "infosec", "soc 2", "soc2", "iso 27001", "hipaa")
 JOB_BOARDS = ("greenhouse.io", "lever.co", "myworkdayjobs.com", "smartrecruiters.com", "workable.com",
@@ -82,6 +84,7 @@ class CompanyPage:
     emails: list = field(default_factory=list)
     addresses: list = field(default_factory=list)
     phones: list = field(default_factory=list)
+    people: list = field(default_factory=list)
 
 
 def _host(url: str) -> str:
@@ -134,6 +137,7 @@ def choose_links(links: list[tuple[str, str]], domain: str) -> dict[str, str]:
             ("locations", _score(url, text, LOCATION_WORDS) if _on_site(url, domain) else 0),
             ("careers", 2 if _on_board(url) else (_score(url, text, CAREER_WORDS) if _on_site(url, domain) else 0)),
             ("security", _security_score(url, text, domain)),
+            ("leadership", _score(url, text, LEADERSHIP_WORDS) if _on_site(url, domain) else 0),
         )
         for kind, score in candidates:
             if score and (kind not in best or (score, -len(url)) > best[kind][:2]):
@@ -180,7 +184,11 @@ def page_from(domain: str, kind: str, url: str, html: str,
         limit = SECURITY_TEXT_CHARS
     else:
         limit = TEXT_CHARS
-    return CompanyPage(domain, kind, url, doc.title[:500], doc.text[:limit], emails, addresses, phones), doc.links
+    ppl = extract_leadership(doc) if kind == "leadership" else []
+    return (
+        CompanyPage(domain, kind, url, doc.title[:500], doc.text[:limit], emails, addresses, phones, ppl),
+        doc.links,
+    )
 
 
 def page_reader(
@@ -303,6 +311,24 @@ def save(conn, domain: str, pages: list[CompanyPage], miss: str) -> None:
         from app.kb import branches
 
         branches.save_pages(conn, domain, pages)
+        lead_rows = [
+            (domain, None, None, name, role, None, None, None, None, "website_leadership", p.url)
+            for p in pages if getattr(p, "people", None)
+            for name, role in p.people
+        ]
+        if lead_rows and conn.execute("SELECT to_regclass('kb.company_person')").fetchone()[0]:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM kb.company_person WHERE domain = %s AND source = 'website_leadership'",
+                    (domain,),
+                )
+                cur.executemany(
+                    """INSERT INTO kb.company_person (
+                           domain, cik, company_number, full_name, raw_role,
+                           person_qid, officer_id, start_date, end_date, source, source_url
+                       ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    lead_rows,
+                )
 
 
 def select_sites(conn, limit: int, countries: str | None = None,

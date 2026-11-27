@@ -253,3 +253,88 @@ def load(path: Path, dsn: str | None = None, force: bool = False,
             )
         conn.commit()
     return cov
+
+
+PARENT_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS kb.gleif_parent (
+    lei text PRIMARY KEY,
+    direct_parent_lei text,
+    ultimate_parent_lei text,
+    branch_of_lei text
+);
+CREATE INDEX IF NOT EXISTS gleif_parent_direct_idx ON kb.gleif_parent (direct_parent_lei);
+CREATE INDEX IF NOT EXISTS gleif_parent_ult_idx ON kb.gleif_parent (ultimate_parent_lei);
+"""
+
+
+def parse_parent_rows(path: Path) -> list[tuple[str, str | None, str | None, str | None]]:
+    """Extract ACTIVE direct parent, ultimate parent, and branch-of LEI links from GLEIF RR CSV/ZIP."""
+    parents: dict[str, list[str | None]] = {}
+
+    def read_stream(stream: io.TextIOBase) -> None:
+        reader = csv.reader(stream)
+        header = next(reader, None)
+        if not header:
+            return
+        idx = {h.strip(): i for i, h in enumerate(header)}
+        p_child = idx.get("Relationship.StartNode.NodeID", 0)
+        p_parent = idx.get("Relationship.EndNode.NodeID", 2)
+        p_type = idx.get("Relationship.RelationshipType", 4)
+        p_stat = idx.get("Relationship.RelationshipStatus", 5)
+        for raw in reader:
+            if len(raw) <= max(p_child, p_parent, p_type, p_stat):
+                continue
+            if raw[p_stat].strip() != "ACTIVE":
+                continue
+            rel = raw[p_type].strip()
+            slot = 0 if rel == "IS_DIRECTLY_CONSOLIDATED_BY" else (
+                1 if rel == "IS_ULTIMATELY_CONSOLIDATED_BY" else (
+                    2 if rel == "IS_INTERNATIONAL_BRANCH_OF" else -1
+                )
+            )
+            if slot < 0:
+                continue
+            child = raw[p_child].strip()
+            parent = raw[p_parent].strip()
+            if not child or not parent or child == parent:
+                continue
+            cur = parents.setdefault(child, [None, None, None])
+            if cur[slot] is None:
+                cur[slot] = parent
+
+    if path.suffix.lower() == ".zip":
+        with zipfile.ZipFile(path) as zf:
+            names = [n for n in zf.namelist() if n.lower().endswith(".csv")]
+            with io.TextIOWrapper(zf.open(names[0]), encoding="utf-8", errors="replace", newline="") as f:
+                read_stream(f)
+    else:
+        with path.open(encoding="utf-8", errors="replace", newline="") as f:
+            read_stream(f)
+    return [(lei, vals[0], vals[1], vals[2]) for lei, vals in parents.items()]
+
+
+def load_parents(path: Path, dsn: str | None = None) -> int:
+    """Copy GLEIF Level 2 parent links atomically into kb.gleif_parent."""
+    import psycopg
+
+    rows = parse_parent_rows(path)
+    with psycopg.connect(dsn or kb_dsn()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(SCHEMA_SQL)
+            cur.execute(PARENT_SCHEMA_SQL)
+            cur.execute("DROP TABLE IF EXISTS kb.gleif_parent_load")
+            cur.execute(
+                "CREATE TABLE kb.gleif_parent_load "
+                "(lei text PRIMARY KEY, direct_parent_lei text, ultimate_parent_lei text, branch_of_lei text)"
+            )
+            with cur.copy(
+                "COPY kb.gleif_parent_load (lei, direct_parent_lei, ultimate_parent_lei, branch_of_lei) FROM STDIN"
+            ) as copy:
+                for row in rows:
+                    copy.write_row(row)
+            cur.execute("CREATE INDEX ON kb.gleif_parent_load (direct_parent_lei)")
+            cur.execute("CREATE INDEX ON kb.gleif_parent_load (ultimate_parent_lei)")
+            cur.execute("DROP TABLE IF EXISTS kb.gleif_parent")
+            cur.execute("ALTER TABLE kb.gleif_parent_load RENAME TO gleif_parent")
+        conn.commit()
+    return len(rows)

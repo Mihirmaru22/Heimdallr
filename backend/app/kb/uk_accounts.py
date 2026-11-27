@@ -309,5 +309,5 @@ def load(paths: list[Path], dsn: str | None = None,
                         "turnover": cov.with_turnover, "employees": cov.with_employees,
                     })),
                 )
-        conn.commit()
+                conn.commit()
     return cov

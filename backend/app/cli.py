@@ -451,26 +451,54 @@ def kb_load_uk_accounts(paths: list[str] | None, latest_n: int) -> None:
     else:
         dest = Path(settings.data_dir) / "uk_accounts"
         dest.mkdir(parents=True, exist_ok=True)
-        with httpx.Client(timeout=httpx.Timeout(120, connect=20), follow_redirects=True) as client:
+        with httpx.Client(
+            timeout=httpx.Timeout(120, connect=20), follow_redirects=True,
+            headers={"User-Agent": settings.user_agent},
+        ) as client:
             r = client.get(uk_accounts.ACCOUNTS_INDEX_URL)
             r.raise_for_status()
-            zips = re.findall(r"href=['\"]([^'\"]*Accounts_Bulk_Data-[^'\"]*\.zip)", r.text, re.I)
+            zips = list(dict.fromkeys(re.findall(r"href=['\"]([^'\"]*Accounts_Bulk_Data-[^'\"]*\.zip)", r.text, re.I)))
+            import psycopg
+
+            from app.kb.pdl import kb_dsn
+            with psycopg.connect(kb_dsn()) as conn:
+                loaded = {
+                    r[0] for r in conn.execute(
+                        "SELECT file_name FROM kb.load_log WHERE source = 'uk_accounts_ixbrl'"
+                    ).fetchall()
+                } if conn.execute("SELECT to_regclass('kb.load_log')").fetchone()[0] else set()
             for rel in zips[-latest_n:]:
                 name = Path(rel).name
+                if name in loaded:
+                    continue
                 zpath = dest / name
                 if not zpath.is_file():
-                    print(f"Downloading {name}...", flush=True)
-                    with client.stream("GET", uk_accounts.ACCOUNTS_BASE_URL + rel.lstrip("/")) as resp:
-                        resp.raise_for_status()
-                        tmp = zpath.with_suffix(".zip.part")
-                        with open(tmp, "wb") as f:
-                            for ch in resp.iter_bytes(1 << 20):
-                                f.write(ch)
-                        tmp.replace(zpath)
+                    url = uk_accounts.ACCOUNTS_BASE_URL + rel.lstrip("/")
+                    ok = False
+                    for attempt in range(4):
+                        time.sleep(0.8 if attempt == 0 else 5.0 * attempt)
+                        try:
+                            print(f"Downloading {name}...", flush=True)
+                            with client.stream("GET", url) as resp:
+                                if resp.status_code in (403, 429) and attempt < 3:
+                                    continue
+                                resp.raise_for_status()
+                                tmp = zpath.with_suffix(".zip.part")
+                                with open(tmp, "wb") as f:
+                                    for ch in resp.iter_bytes(1 << 20):
+                                        f.write(ch)
+                                tmp.replace(zpath)
+                            ok = True
+                            break
+                        except httpx.HTTPError as exc:
+                            print(f"  skip/retry {name}: {exc}", flush=True)
+                    if not ok:
+                        continue
                 files.append(zpath)
 
     if not files:
-        sys.exit("No UK Accounts ZIP files found.")
+        print("No new UK Accounts ZIP files to load (already up to date).")
+        return
     t0 = time.monotonic()
     cov = uk_accounts.load(files, progress=lambda n: print(f"  {n:,} UK accounts parsed", flush=True))
     print(f"Loaded {len(files)} file(s) in {time.monotonic() - t0:.1f}s: {cov.report()}")
@@ -539,7 +567,7 @@ def kb_load_mca(path: str, force: bool) -> None:
     print(f"Loaded in {time.monotonic() - t0:.1f}s: {cov.report()}")
 
 
-def kb_load_people(refresh: bool) -> None:
+def kb_load_people(refresh: bool, sec_officers: bool = False, limit: int = 550) -> None:
     import time
     from pathlib import Path
 
@@ -556,6 +584,34 @@ def kb_load_people(refresh: bool) -> None:
             conn, data_dir=Path(settings.data_dir), user_agent=settings.user_agent, refresh=refresh
         )
     print(f"Loaded {n:,} Wikidata leadership rows into kb.company_person in {time.monotonic() - t0:.1f}s.")
+    if sec_officers:
+        with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+            m = people.load_sec_officers(conn, limit=limit, user_agent=settings.user_agent)
+        print(f"Loaded {m:,} SEC Form 4 officer/director rows into kb.company_person.")
+
+
+def kb_link_registers(refresh: bool) -> None:
+    import time
+    from pathlib import Path
+
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import register_link
+    from app.kb.pdl import kb_dsn
+
+    settings = get_settings()
+    t0 = time.monotonic()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        page_stats = register_link.link_from_crawled_pages(conn)
+        pc_stats = register_link.link_via_name_and_postcode(conn)
+        lei_cnt = register_link.link_gleif_via_wikidata(
+            conn, data_dir=Path(settings.data_dir), user_agent=settings.user_agent, refresh=refresh
+        )
+    print(
+        f"Linked registers in {time.monotonic() - t0:.1f}s: "
+        f"pages={page_stats}, postcode={pc_stats}, wikidata_lei={lei_cnt:,}"
+    )
 
 
 def kb_link_sec(refresh: bool) -> None:
@@ -578,6 +634,92 @@ def kb_link_sec(refresh: bool) -> None:
         f"Linked SEC issuers in {time.monotonic() - t0:.1f}s: "
         f"checked={checked:,}, linked_domains={linked:,}, wikidata_qids={qids:,}"
     )
+
+
+def kb_load_hiring() -> None:
+    import time
+
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import hiring
+    from app.kb.pdl import kb_dsn
+
+    settings = get_settings()
+    t0 = time.monotonic()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        boards, saved = hiring.load_from_company_pages(conn, user_agent=settings.user_agent)
+    print(f"ATS hiring in {time.monotonic() - t0:.1f}s: boards_found={boards:,}, loaded={saved:,}")
+
+
+def kb_build_profile(snapshot: bool, bench: bool) -> None:
+    import psycopg
+
+    from app.kb import profile
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        stats = profile.refresh_company_profile(conn)
+        print(f"Built kb.company_profile: {stats}", flush=True)
+        if snapshot:
+            snap_n = profile.take_signal_snapshot(conn)
+            print(f"Recorded Snapshot #1 in kb.company_signal_history: {snap_n:,} domains", flush=True)
+        if bench:
+            for label, cnt, ms in profile.benchmark_queries(conn):
+                print(f"  Query [{ms:>6.2f} ms] ({cnt:,} hits): {label}", flush=True)
+
+
+def kb_load_gleif_parents(path: str | None) -> None:
+    import time
+    from pathlib import Path
+
+    import httpx
+
+    from app.config import get_settings
+    from app.kb import gleif
+
+    settings = get_settings()
+    if path:
+        f = Path(path)
+    else:
+        f = Path(settings.data_dir) / "gleif" / "rr.csv.zip"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        if not f.is_file():
+            meta = httpx.get(
+                "https://goldencopy.gleif.org/api/v2/golden-copies/publishes/latest", timeout=20
+            ).json()
+            url = meta["data"]["rr"]["full_file"]["csv"]["url"]
+            f.write_bytes(httpx.get(url, timeout=180, follow_redirects=True).content)
+    t0 = time.monotonic()
+    n = gleif.load_parents(f)
+    print(f"Loaded {n:,} GLEIF Level 2 parent links into kb.gleif_parent in {time.monotonic() - t0:.1f}s.", flush=True)
+
+
+def kb_enrich_sec(homepages_only: bool) -> None:
+    import time
+    from pathlib import Path
+
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import sp500
+    from app.kb.pdl import kb_dsn
+
+    settings = get_settings()
+    data_dir = Path(settings.data_dir)
+    t0 = time.monotonic()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        domains = [
+            r[0]
+            for r in conn.execute(
+                "SELECT DISTINCT domain FROM kb.sec_company WHERE domain IS NOT NULL ORDER BY domain"
+            ).fetchall()
+        ]
+        stats = sp500.enrich_sp500_domains(
+            conn, domains, data_dir=data_dir, user_agent=settings.user_agent,
+            model_path=_label_model_path(), js_fallback=True, subpages=not homepages_only,
+        )
+        print(f"Enriched {len(domains):,} SEC domains in {time.monotonic() - t0:.1f}s: {stats}", flush=True)
 
 
 def kb_load_sp500(skip_crawl: bool = False, refresh: bool = False, js_fallback: bool = True,
@@ -620,7 +762,7 @@ def kb_load_sp500(skip_crawl: bool = False, refresh: bool = False, js_fallback: 
 
 def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, concurrency: int, sample: bool,
                  crawl_count: int, again: bool, own_fetch: bool, biggest_first: bool = False,
-                 own_lanes: int = 128) -> None:
+                 own_lanes: int = 128, midmarket: bool = False) -> None:
     import asyncio
     import time
     from pathlib import Path
@@ -638,7 +780,9 @@ def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, c
             domains = [r[0] for r in conn.execute("SELECT domain FROM kb.homepage ORDER BY domain").fetchall()]
             domains = domains[:limit] if limit else domains
         else:
-            domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample, biggest_first=biggest_first)
+            domains = homepages.select_domains(
+                conn, limit=limit, iso2=iso2, sample=sample, biggest_first=biggest_first, midmarket=midmarket
+            )
         print(f"Reading {len(domains):,} homepages from Common Crawl, {concurrency} at a time...", flush=True)
         summary = homepages.Summary()
         started = time.monotonic()
@@ -1223,6 +1367,7 @@ def main() -> None:
     p.add_argument("--concurrency", type=int, default=4, help="requests at a time (default 4; be gentle)")
     p.add_argument("--sample", action="store_true", help="a random sample of domains (for trials)")
     p.add_argument("--again", action="store_true", help="re-read the domains already in kb.homepage")
+    p.add_argument("--midmarket", action="store_true", help="only companies in 51-200 or 201-500 bands")
     p.add_argument("--own-lanes", type=int, default=128,
                    help="with --own-fetch: different sites fetched at a time (default 128)")
     p.add_argument("--own-fetch", action="store_true",
@@ -1270,10 +1415,22 @@ def main() -> None:
     p = sub.add_parser("kb-load-mca", help="load India MCA / RoC company master CSV or ZIP")
     p.add_argument("file", help="India MCA CSV or .zip path")
     p.add_argument("--force", action="store_true", help="load even if fewer rows than existing table")
-    p = sub.add_parser("kb-load-people", help="load Wikidata corporate leadership into kb.company_person")
+    p = sub.add_parser("kb-load-people", help="load Wikidata & SEC Form 4 leadership into kb.company_person")
     p.add_argument("--refresh", action="store_true", help="refetch Wikidata SPARQL instead of using cache")
+    p.add_argument("--sec-officers", action="store_true", help="also load SEC Form 4 executives & directors")
+    p.add_argument("--limit", type=int, default=550, help="max SEC issuers for Form 4 scan (default 550)")
+    p = sub.add_parser("kb-link-registers", help="two-signal link of UK CH, CIN, and GLEIF LEI to domains")
+    p.add_argument("--refresh", action="store_true", help="ignore cached Wikidata LEI SPARQL")
     p = sub.add_parser("kb-link-sec", help="resolve domains/QIDs for all listed SEC issuers via Wikidata")
     p.add_argument("--refresh", action="store_true", help="ignore cached Wikidata SPARQL JSON")
+    p = sub.add_parser("kb-load-hiring", help="fetch ATS job-board department counts into kb.company_hiring")
+    p = sub.add_parser("kb-build-profile", help="rebuild provenance Golden Record kb.company_profile")
+    p.add_argument("--no-snapshot", action="store_true", help="skip recording kb.company_signal_history")
+    p.add_argument("--no-bench", action="store_true", help="skip real-query latency benchmark")
+    p = sub.add_parser("kb-load-gleif-parents", help="load GLEIF Level 2 parent links into kb.gleif_parent")
+    p.add_argument("--file", default=None, help="path to rr-golden-copy.csv.zip (auto-downloads if omitted)")
+    p = sub.add_parser("kb-enrich-sec", help="enrich all linked SEC issuer domains into Brahman")
+    p.add_argument("--homepages-only", action="store_true", help="skip subpages crawl")
     p = sub.add_parser("kb-load-sp500", help="link S&P 500 constituents via SEC+Wikidata and enrich into Brahman")
     p.add_argument("--skip-crawl", action="store_true", help="only update kb.sp500_member and sec_company websites")
     p.add_argument("--refresh", action="store_true", help="ignore cached Wikidata SPARQL JSON and refetch")
@@ -1343,9 +1500,19 @@ def main() -> None:
     if args.cmd == "kb-load-mca":
         return kb_load_mca(args.file, args.force)
     if args.cmd == "kb-load-people":
-        return kb_load_people(args.refresh)
+        return kb_load_people(args.refresh, args.sec_officers, args.limit)
+    if args.cmd == "kb-link-registers":
+        return kb_link_registers(args.refresh)
     if args.cmd == "kb-link-sec":
         return kb_link_sec(args.refresh)
+    if args.cmd == "kb-load-hiring":
+        return kb_load_hiring()
+    if args.cmd == "kb-build-profile":
+        return kb_build_profile(not args.no_snapshot, not args.no_bench)
+    if args.cmd == "kb-load-gleif-parents":
+        return kb_load_gleif_parents(args.file)
+    if args.cmd == "kb-enrich-sec":
+        return kb_enrich_sec(args.homepages_only)
     if args.cmd == "kb-load-sp500":
         return kb_load_sp500(args.skip_crawl, args.refresh, not args.no_js, args.homepages_only)
     if args.cmd == "kb-pages":
@@ -1363,7 +1530,7 @@ def main() -> None:
         return kb_load_companies_house(args.file, args.report_only, args.force)
     if args.cmd == "kb-homepages":
         return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample, args.crawls,
-                            args.again, args.own_fetch, args.biggest_first, args.own_lanes)
+                            args.again, args.own_fetch, args.biggest_first, args.own_lanes, args.midmarket)
     if args.cmd == "kb-load-pdl":
         return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":

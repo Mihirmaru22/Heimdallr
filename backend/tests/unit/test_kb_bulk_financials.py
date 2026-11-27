@@ -89,3 +89,16 @@ def test_wikidata_people_parser_keeps_qid_and_source_url():
     assert rows[0]["raw_role"] == "chief executive officer"
     assert rows[0]["person_qid"] == "Q265852"
     assert rows[0]["source_url"] == "https://www.wikidata.org/wiki/Q312"
+
+
+def test_parse_form4_xml_extracts_officers_and_directors():
+    xml = """<ownershipDocument><reportingOwner>
+        <reportingOwnerId><rptOwnerCik>0001234567</rptOwnerCik><rptOwnerName>Jane Doe</rptOwnerName></reportingOwnerId>
+        <reportingOwnerRelationship><isDirector>0</isDirector><isOfficer>1</isOfficer>
+            <officerTitle>Chief Financial Officer</officerTitle></reportingOwnerRelationship>
+    </reportingOwner></ownershipDocument>"""
+    rows = people.parse_form4_xml(xml, "acme.com", 42, "2026-10-01", "https://sec.gov/f4.xml")
+    assert len(rows) == 1
+    assert rows[0]["full_name"] == "Jane Doe"
+    assert rows[0]["raw_role"] == "Chief Financial Officer"
+    assert rows[0]["officer_id"] == "sec:1234567"

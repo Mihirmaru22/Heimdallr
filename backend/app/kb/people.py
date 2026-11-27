@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
+import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -147,3 +149,155 @@ def load_wikidata_people(conn, data_dir: Path | None = None, user_agent: str = "
             records,
         )
     return len(records)
+
+
+def parse_form4_xml(xml_text: str, domain: str | None, cik: int, filing_date: str | None,
+                    source_url: str) -> list[dict]:
+    """Parse reportingOwner officers and directors from one SEC Form 4 XML filing."""
+    if not xml_text or "<" not in xml_text:
+        return []
+    try:
+        root = ET.fromstring(xml_text.encode("utf-8", "replace"))  # noqa: S314 - official SEC EDGAR XML
+    except ET.ParseError:
+        return []
+    out: list[dict] = []
+    for owner in root.findall(".//reportingOwner"):
+        oid_el = owner.find("reportingOwnerId")
+        rel_el = owner.find("reportingOwnerRelationship")
+        if oid_el is None or rel_el is None:
+            continue
+        name = " ".join((oid_el.findtext("rptOwnerName") or "").split()).strip()
+        if not name or len(name) < 3:
+            continue
+        rpt_cik = (oid_el.findtext("rptOwnerCik") or "").strip()
+        is_off = (rel_el.findtext("isOfficer") or "").strip().lower() in ("1", "true")
+        is_dir = (rel_el.findtext("isDirector") or "").strip().lower() in ("1", "true")
+        title = " ".join((rel_el.findtext("officerTitle") or "").split()).strip()
+        if is_off and title:
+            role = title[:120]
+        elif is_off:
+            role = "officer"
+        elif is_dir:
+            role = "director"
+        else:
+            continue
+        out.append({
+            "domain": domain,
+            "cik": cik,
+            "company_number": None,
+            "full_name": name[:200],
+            "raw_role": role,
+            "person_qid": None,
+            "officer_id": f"sec:{int(rpt_cik)}" if rpt_cik.isdigit() else None,
+            "start_date": filing_date,
+            "end_date": None,
+            "source": "sec_form4",
+            "source_url": source_url,
+        })
+    return out
+
+
+async def _fetch_sec_officers_batch(ciks_doms: list[tuple[int, str | None]],
+                                    user_agent: str) -> list[dict]:
+    headers = {"User-Agent": f"{user_agent} (mailto:research@heimdallr.local)"}
+    slots = asyncio.Semaphore(8)
+    pace = asyncio.Lock()
+    out: list[dict] = []
+
+    async def get_limited(client: httpx.AsyncClient, url: str) -> httpx.Response | None:
+        async with slots:
+            async with pace:
+                await asyncio.sleep(0.11)  # stay cleanly under SEC 10 req/s limit
+            try:
+                resp = await client.get(url)
+                return resp if resp.status_code == 200 else None
+            except httpx.HTTPError:
+                return None
+
+    async def one_cik(client: httpx.AsyncClient, cik: int, dom: str | None) -> None:
+        sub = await get_limited(client, f"https://data.sec.gov/submissions/CIK{cik:010d}.json")
+        if sub is None:
+            return
+        try:
+            recent = sub.json().get("filings", {}).get("recent", {})
+        except ValueError:
+            return
+        forms = recent.get("form") or []
+        acns = recent.get("accessionNumber") or []
+        docs = recent.get("primaryDocument") or []
+        fdates = recent.get("filingDate") or []
+        picked = 0
+        for fm, acn, doc, fdt in zip(forms, acns, docs, fdates, strict=False):
+            if fm not in ("4", "4/A"):
+                continue
+            fname = str(doc or "").rsplit("/", 1)[-1]
+            if not fname.lower().endswith(".xml"):
+                continue
+            xml_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{str(acn).replace('-', '')}/{fname}"
+            resp = await get_limited(client, xml_url)
+            if resp is not None:
+                out.extend(parse_form4_xml(resp.text, dom, cik, str(fdt)[:10] or None, xml_url))
+            picked += 1
+            if picked >= 4:
+                break
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=6.0), headers=headers) as client:
+        for i in range(0, len(ciks_doms), 25):
+            await asyncio.gather(*(one_cik(client, c, d) for c, d in ciks_doms[i:i + 25]))
+    return out
+
+
+def load_sec_officers(conn, limit: int = 550, user_agent: str = "HeimdallrKB/1.0") -> int:
+    """Populate named executive officers & directors from latest SEC Form 4 filings for linked issuers."""
+    conn.execute(SCHEMA_SQL)
+    rows = conn.execute(
+        """SELECT DISTINCT ON (s.cik) s.cik, s.domain
+           FROM kb.sec_company s
+           LEFT JOIN kb.sp500_member m ON m.cik = s.cik
+           LEFT JOIN kb.sec_financial_latest f ON f.cik = s.cik
+           WHERE s.domain IS NOT NULL AND s.cik IS NOT NULL
+             AND NOT EXISTS (
+                 SELECT 1 FROM kb.company_person p WHERE p.cik = s.cik AND p.source = 'sec_form4'
+             )
+           ORDER BY s.cik, (m.symbol IS NOT NULL) DESC, f.annual_revenue DESC NULLS LAST"""
+    ).fetchall()
+    # Sort prioritized companies cleanly before applying limit.
+    if limit:
+        prio = conn.execute(
+            """SELECT cik, domain FROM (
+                   SELECT DISTINCT ON (s.cik) s.cik, s.domain,
+                          (m.symbol IS NOT NULL) AS is_sp, f.annual_revenue AS rev
+                   FROM kb.sec_company s
+                   LEFT JOIN kb.sp500_member m ON m.cik = s.cik
+                   LEFT JOIN kb.sec_financial_latest f ON f.cik = s.cik
+                   WHERE s.domain IS NOT NULL AND s.cik IS NOT NULL
+                     AND NOT EXISTS (
+                         SELECT 1 FROM kb.company_person p WHERE p.cik = s.cik AND p.source = 'sec_form4'
+                     )
+               ) t ORDER BY is_sp DESC, rev DESC NULLS LAST, cik LIMIT %s""",
+            (limit,),
+        ).fetchall()
+        rows = prio
+    if not rows:
+        return 0
+    raw_records = asyncio.run(_fetch_sec_officers_batch([(int(c), d) for c, d in rows], user_agent=user_agent))
+    dedup: dict[tuple[int, str, str], dict] = {}
+    for rec in raw_records:
+        key = (rec["cik"], rec["officer_id"] or rec["full_name"], rec["raw_role"])
+        prev = dedup.get(key)
+        if prev is None or (rec["start_date"] or "") > (prev["start_date"] or ""):
+            dedup[key] = rec
+    clean = list(dedup.values())
+    if clean:
+        with conn.cursor() as cur:
+            cur.executemany(
+                """INSERT INTO kb.company_person (
+                       domain, cik, company_number, full_name, raw_role,
+                       person_qid, officer_id, start_date, end_date, source, source_url
+                   ) VALUES (
+                       %(domain)s, %(cik)s, %(company_number)s, %(full_name)s, %(raw_role)s,
+                       %(person_qid)s, %(officer_id)s, %(start_date)s, %(end_date)s, %(source)s, %(source_url)s
+                   )""",
+                clean,
+            )
+    return len(clean)

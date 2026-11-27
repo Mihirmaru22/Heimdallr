@@ -288,3 +288,20 @@ def test_clean_mailto_unquotes_whitespace_and_address_strips_phone_tail():
     doc = parse_page("https://acme.com/", html)
     assert [c.value for c in _emails(doc)] == ["info@acme.com"]
     assert [c.value for c in _addresses(doc, "address")] == ["40-60 Delaware Ave, Sidney, NY 13838"]
+
+
+def test_extract_leadership_from_jsonld_and_headings():
+    from app.extract.deterministic import extract_leadership, parse_page
+
+    html = """<html><head>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"Person","name":"Alice Smith","jobTitle":"Chief Executive Officer"}
+    </script>
+    </head><body>
+    <h3>Bob Jones</h3><p>Chief Technology Officer</p>
+    </body></html>"""
+    doc = parse_page("https://acme.com/leadership", html)
+    assert extract_leadership(doc) == [
+        ("Alice Smith", "Chief Executive Officer"),
+        ("Bob Jones", "Chief Technology Officer"),
+    ]

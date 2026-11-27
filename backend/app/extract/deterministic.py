@@ -852,3 +852,55 @@ def extract_field(doc: PageDoc, spec: FieldSpec) -> list[Candidate]:
 
 def extract_page(doc: PageDoc, fields: list[FieldSpec]) -> dict[str, list[Candidate]]:
     return {f.name: extract_field(doc, f) for f in fields}
+
+
+_EXEC_ROLE_RE = re.compile(
+    r"\b(?:chief\s+[a-z]+\s+officer|ceo|cto|cfo|coo|ciso|cmo|cro|president|"
+    r"co-?founder|founder|chair(?:man|person|woman)|managing\s+(?:director|partner)|"
+    r"vice\s+president|svp|evp|vp\b|general\s+counsel|head\s+of\s+[a-z]+)\b",
+    re.I,
+)
+
+
+def extract_leadership(doc: PageDoc) -> list[tuple[str, str]]:
+    """Extract (full_name, raw_role) pairs from Schema.org Person / leadership cards without guessing emails."""
+    out: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add_pair(raw_name: str | None, raw_role: str | None) -> None:
+        name = " ".join((raw_name or "").split()).strip(" ,|-•")
+        role = " ".join((raw_role or "").split()).strip(" ,|-•")
+        if not name or not role or len(name) > 80 or len(role) > 120:
+            return
+        words = name.split()
+        if not (2 <= len(words) <= 5) or any(ch.isdigit() for ch in name) or "@" in name:
+            return
+        key = (name.lower(), role.lower())
+        if key not in seen:
+            seen.add(key)
+            out.append((name, role))
+
+    for item in doc.jsonld:
+        types = _types(item)
+        if "Person" in types:
+            add_pair(_first_str(item.get("name")), _first_str(item.get("jobTitle") or item.get("roleName")))
+        for f_key in ("founder", "founders"):
+            f_val = item.get(f_key)
+            for f in f_val if isinstance(f_val, list) else [f_val] if isinstance(f_val, dict) else []:
+                if isinstance(f, dict):
+                    add_pair(_first_str(f.get("name")), _first_str(f.get("jobTitle")) or "founder")
+
+    for h in doc.tree.css("h2, h3, h4"):
+        name = " ".join(h.text(separator=" ", strip=True).split())
+        if not (2 <= len(name.split()) <= 5) or len(name) > 60:
+            continue
+        sib = h.next
+        steps = 0
+        while sib is not None and steps < 3:
+            steps += 1
+            txt = " ".join(sib.text(separator=" ", strip=True).split())
+            if txt and len(txt) <= 90 and _EXEC_ROLE_RE.search(txt) and txt.lower() != name.lower():
+                add_pair(name, txt)
+                break
+            sib = sib.next
+    return out

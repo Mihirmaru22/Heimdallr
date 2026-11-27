@@ -82,7 +82,7 @@ class Homepage:
 
 
 def select_domains(conn, limit: int | None = None, iso2: str | None = None, sample: bool = False,
-                   biggest_first: bool = False) -> list[str]:
+                   biggest_first: bool = False, midmarket: bool = False) -> list[str]:
     """Distinct company domains to read, without platforms and without the ones already read; a
     random sample for trials. iso2 may list several countries ("GB,IN,US"). biggest_first orders by
     PDL's company size (largest band first), so a partial run covers the companies that matter most."""
@@ -95,7 +95,9 @@ def select_domains(conn, limit: int | None = None, iso2: str | None = None, samp
     size = "max(coalesce(nullif(regexp_replace(split_part(size, '-', 1), '[^0-9]', '', 'g'), '')::int, 0))"
     dom_filter = "(domain_rows <= %s OR domain = ANY(%s))" if sec_domains else "domain_rows <= %s"
     sql = (f"SELECT domain FROM (SELECT domain, {size} AS size FROM kb.pdl_company "  # noqa: S608 - fixed text, values are parameters
-           f"WHERE domain IS NOT NULL AND {dom_filter}" + (" AND iso2 = ANY(%s)" if countries else "")
+           f"WHERE domain IS NOT NULL AND {dom_filter}"
+           + (" AND size IN ('51-200', '201-500')" if midmarket else "")
+           + (" AND iso2 = ANY(%s)" if countries else "")
            + (" AND NOT EXISTS (SELECT 1 FROM kb.homepage h WHERE h.domain = kb.pdl_company.domain)"
               if biggest_first else "")
            + " GROUP BY domain) d")
