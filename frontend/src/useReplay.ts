@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Activity } from "./api";
 
-// Replays a finished run's real activity lines, in their recorded order, at a fixed speed (10x by default).
+// Replays a finished run's real activity lines, in their recorded order, in about `seconds` of wall time
+// (10 minutes by default).
 // Nothing is invented: the lines, their order and their timestamps are the stored ones. Time is only
 // compressed: a pause longer than GAP_CAP between two lines (waiting on a rate limit, say) counts as GAP_CAP,
-// then the whole run plays `speed` times faster.
+// then the whole run is sped up evenly to fit.
 const GAP_CAP = 15_000;
 const TICK = 250;
 
@@ -17,7 +18,7 @@ export interface Replay {
   recordedMs: number; // how long the run really took, first line to last
 }
 
-export function useReplay(all: Activity[], on: boolean, speed = 10): Replay | null {
+export function useReplay(all: Activity[], on: boolean, seconds = 600): Replay | null {
   const timeline = useMemo(() => {
     const t = all.map((l) => new Date(l.created_at).getTime());
     const c: number[] = [];
@@ -37,6 +38,7 @@ export function useReplay(all: Activity[], on: boolean, speed = 10): Replay | nu
 
   if (!on || !all.length) return null;
   const { t, c, total } = timeline;
+  const speed = Math.max(1, total / (seconds * 1000));
   const pos = elapsed * speed; // position on the compressed timeline
   // Lines whose compressed time has been reached (binary search: runs can have thousands of lines).
   let lo = 0, hi = c.length;

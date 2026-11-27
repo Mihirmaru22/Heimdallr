@@ -31,7 +31,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
     queryFn: () => api.get<Project>(`${base}/projects/${job.data!.project_id}`) });
   const terminal = progress.data?.terminal ?? false;
   const activity = useActivity(base, jobId!, !terminal);
-  // A finished run can be replayed: its real steps, in order, at 10x speed (for demos).
+  // A finished run can be replayed: its real steps, in order, sped up to about 10 minutes (for demos).
   // ?replay=1 in the address starts it as soon as the steps have loaded.
   const [params] = useSearchParams();
   const [replaying, setReplaying] = useState(false);
@@ -41,7 +41,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
       setReplaying(true); setReplayKey(1);
     }
   }, [params, terminal, activity.lines.length, replaying, replayKey]);
-  const replay = useReplay(activity.lines, replaying && terminal, 10);
+  const replay = useReplay(activity.lines, replaying && terminal, 600);
   useEffect(() => {
     if (!replay || replay.progress < 1) return;
     const t = setTimeout(() => setReplaying(false), 2500); // hold the last frame a moment, then show the finished run
@@ -76,7 +76,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
       <button onClick={() => retry.mutate()} disabled={retry.isPending}><Retry /> Retry</button>}
     {terminal && activity.lines.length > 0 && (replaying
       ? <button onClick={() => setReplaying(false)}><Stop /> Stop replay</button>
-      : <button onClick={() => { setReplayKey((k) => k + 1); setReplaying(true); }} title="Play this run's recorded steps again at 10x speed">
+      : <button onClick={() => { setReplayKey((k) => k + 1); setReplaying(true); }} title="Play this run's recorded steps again, sped up to about 10 minutes">
           <Play /> Replay run</button>)}
   </>;
 

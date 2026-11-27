@@ -251,7 +251,7 @@ export default function Research({ lines, live, state, title, question, elapsed,
         </div>
         <div className="rs-top-right">
           <span className={`rs-state ${moving ? "is-live" : ""}`}><span className="rs-state-dot" aria-hidden />
-            {replay ? `replay · ${Math.round(replay.speed)}× speed` : state.replace(/_/g, " ")}</span>
+            {replay ? `replay · ${replay.speed < 10 ? replay.speed.toFixed(1) : Math.round(replay.speed)}× speed` : state.replace(/_/g, " ")}</span>
           {replay
             ? <Elapsed elapsed={createdAt ? Math.max(0, (replay.now - new Date(createdAt).getTime()) / 1000) : null} since={null} live={false} now={now} />
             : <Elapsed elapsed={elapsed} since={createdAt} live={live} now={now} />}
