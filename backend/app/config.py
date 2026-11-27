@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     celery_eager: bool = False  # run tasks inline (tests, single-process demo)
 
     # Crawler identity and politeness
-    user_agent: str = "WebDataAI/0.1 (+http://localhost/crawler-info; contact: admin@example.invalid)"
+    user_agent: str = "Heimdallr/0.1 (+http://localhost/crawler-info; contact: admin@example.invalid)"
     # Sent only to hosts that answer the crawler's own User-Agent with 403 (CDN bot walls refuse every bot name,
     # even on pages robots.txt allows); robots.txt is still read and obeyed under user_agent's name. Empty = off.
     fallback_user_agent: str = (

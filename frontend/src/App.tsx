@@ -50,7 +50,7 @@ export default function App() {
     <div className="shell">
       <a href="#main" className="skip">Skip to content</a>
       <header className="topbar">
-        <Link to="/" className="brand" aria-label="WebData AI home"><BrandMark /> <span className="brand-name">WebData AI</span> <small>free models</small></Link>
+        <Link to="/" className="brand" aria-label="Heimdallr home"><BrandMark /> <span className="brand-name">Heimdallr</span> <small>free models</small></Link>
         <nav className="topnav" aria-label="Main">
           <NavLink to="/" end>Research</NavLink>
           <NavLink to="/database">Company database</NavLink>

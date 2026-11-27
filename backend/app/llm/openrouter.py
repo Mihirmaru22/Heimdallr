@@ -327,7 +327,7 @@ class OpenRouter:
         return self.state
 
     def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.api_key}", "X-Title": "WebData AI (local)"}
+        return {"Authorization": f"Bearer {self.api_key}", "X-Title": "Heimdallr (local)"}
 
     async def _http(self) -> httpx.AsyncClient:
         if self.client is None:

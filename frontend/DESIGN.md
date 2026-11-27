@@ -1,4 +1,4 @@
-# WebData AI frontend: design notes
+# Heimdallr frontend: design notes
 
 Written so later changes stay consistent. The app is a working tool: the run screen is the one place
 for theatre (the Globe), and the forms are calm, sectioned and precise.

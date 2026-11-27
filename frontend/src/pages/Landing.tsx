@@ -218,11 +218,14 @@ function SheetRows({ compact = false }: { compact?: boolean }) {
   );
 }
 
+// Front-page tagline: headline, then the smaller highlighted line under it. Change only this to swap it.
+const TAGLINE: [string, string] = ["Find the companies, jobs, services and places you're looking for.", "Answers you can trust."];
+
 export default function LandingPage() {
   return (
     <div className="landing force-dark">
       <header className="land-nav">
-        <Link to="/" className="brand" aria-label="WebData AI home"><BrandMark /> WebData AI</Link>
+        <Link to="/" className="brand" aria-label="Heimdallr home"><BrandMark /> Heimdallr</Link>
         <nav aria-label="Sections">
           <a href="#how">How it works</a><a href="#sources">Where it looks</a><a href="#result">What you get</a>
         </nav>
@@ -237,8 +240,8 @@ export default function LandingPage() {
         <div className="land-hero-scrim" aria-hidden />
         <div className="land-hero-copy">
           <span className="eyebrow-pill"><span className="pulse" aria-hidden /> Research engine on free models and open data</span>
-          <h1>Ask the web a question.<br /><em>Keep only what it can prove.</em></h1>
-          <p>WebData AI searches open sources, reads the pages, checks every claim and hands you a spreadsheet where each
+          <h1>{TAGLINE[0]} <em>{TAGLINE[1]}</em></h1>
+          <p>Heimdallr searches open sources, reads the pages, checks every claim and hands you a spreadsheet where each
             row links to its proof.</p>
           <div className="land-cta">
             <Link to="/login?mode=register" className="btn primary big-btn">Start researching <span className="ico-go"><Arrow /></span></Link>
@@ -305,7 +308,7 @@ export default function LandingPage() {
           </div>
         </Reveal>
       </section>
-      <footer className="land-foot"><BrandMark /> WebData AI · free models, open sources</footer>
+      <footer className="land-foot"><BrandMark /> Heimdallr · free models, open sources</footer>
     </div>
   );
 }

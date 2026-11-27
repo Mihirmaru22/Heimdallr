@@ -2752,7 +2752,7 @@ wheels = [
 ]
 
 [[package]]
-name = "webdata-ai"
+name = "heimdallr"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -1,6 +1,6 @@
 # Heimdallr
 
-This repository now holds **WebData AI**: describe the data you want in plain language, review the
+This repository holds **Heimdallr**: describe the data you want in plain language, review the
 fields it proposes, let it crawl the relevant websites politely, check the results with their
 sources, and download an Excel file. Phase 1 runs entirely locally and makes no AI model calls.
 
