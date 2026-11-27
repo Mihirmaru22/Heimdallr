@@ -31,7 +31,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
     queryFn: () => api.get<Project>(`${base}/projects/${job.data!.project_id}`) });
   const terminal = progress.data?.terminal ?? false;
   const activity = useActivity(base, jobId!, !terminal);
-  // A finished run can be replayed: its real steps, in order, sped up to about 90 seconds (for demos).
+  // A finished run can be replayed: its real steps, in order, at 10x speed (for demos).
   // ?replay=1 in the address starts it as soon as the steps have loaded.
   const [params] = useSearchParams();
   const [replaying, setReplaying] = useState(false);
@@ -41,7 +41,7 @@ export default function JobPage({ orgId }: { orgId: string }) {
       setReplaying(true); setReplayKey(1);
     }
   }, [params, terminal, activity.lines.length, replaying, replayKey]);
-  const replay = useReplay(activity.lines, replaying && terminal, 90);
+  const replay = useReplay(activity.lines, replaying && terminal, 10);
   useEffect(() => {
     if (!replay || replay.progress < 1) return;
     const t = setTimeout(() => setReplaying(false), 2500); // hold the last frame a moment, then show the finished run
@@ -76,14 +76,14 @@ export default function JobPage({ orgId }: { orgId: string }) {
       <button onClick={() => retry.mutate()} disabled={retry.isPending}><Retry /> Retry</button>}
     {terminal && activity.lines.length > 0 && (replaying
       ? <button onClick={() => setReplaying(false)}><Stop /> Stop replay</button>
-      : <button onClick={() => { setReplayKey((k) => k + 1); setReplaying(true); }} title="Play this run's recorded steps again, sped up to about 90 seconds">
+      : <button onClick={() => { setReplayKey((k) => k + 1); setReplaying(true); }} title="Play this run's recorded steps again at 10x speed">
           <Play /> Replay run</button>)}
   </>;
 
   return (
     <div>
       <Research key={replaying ? `replay-${replayKey}` : "run"} lines={replay?.lines ?? activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
-        replay={replay ? { now: replay.now, speed: replay.speed, progress: replay.progress, recordedMs: replay.recordedMs } : null}
+        replay={replay ? { now: replay.now, speed: replay.speed, progress: replay.progress, recordedMs: replay.recordedMs, replayMs: replay.replayMs } : null}
         title={schema.data?.spec.title || project.data?.name || "Research run"} question={schema.data?.nl_request}
         elapsed={progress.data?.elapsed_seconds ?? null} createdAt={job.data?.created_at ?? null} focus={schema.data?.spec.discovery.countries ?? []}
         stats={replay ? [] : stats} summary={`${rows.toLocaleString()} row${rows === 1 ? "" : "s"}, ${(progress.data?.valid_records ?? 0).toLocaleString()} with every field, from ${(c.fetched ?? 0).toLocaleString()} pages read.`} />

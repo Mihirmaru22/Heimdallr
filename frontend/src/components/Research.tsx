@@ -59,6 +59,19 @@ function group(lines: Activity[]): Block[] {
   return [...blocks.values()].sort((a, b) => a.first - b.first);
 }
 
+function useSteady<T>(value: T, holdMs: number): T {
+  const [shown, setShown] = useState(value);
+  const since = useRef(0);
+  useEffect(() => {
+    if (!holdMs) { setShown(value); return; }
+    const wait = since.current + holdMs - Date.now();
+    if (wait <= 0) { since.current = Date.now(); setShown(value); return; }
+    const t = setTimeout(() => { since.current = Date.now(); setShown(value); }, wait);
+    return () => clearTimeout(t);
+  }, [value, holdMs]);
+  return holdMs ? shown : value;
+}
+
 function useNow(on: boolean) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -138,7 +151,7 @@ function summary(b: Block, working: boolean): { icon: ReactNode; title: ReactNod
   };
 }
 
-function Step({ b, working, freshFrom }: { b: Block; working: boolean; freshFrom: number }) {
+function Step({ b, working, freshFrom, calm = false }: { b: Block; working: boolean; freshFrom: number; calm?: boolean }) {
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(false);
   const s = summary(b, working);
@@ -150,7 +163,7 @@ function Step({ b, working, freshFrom }: { b: Block; working: boolean; freshFrom
   const tail = working ? b.lines.filter((l) => l.data.kind !== "queued").slice(-4) : open ? b.lines : [];
   const lined = b.type === "source" ? b.lines.filter((l) => l.data.kind === "queued" && l.data.site).map((l) => l.data.site as string) : [];
   return (
-    <motion.li className={`rs-step ${s.cls}`} layout={!reduce ? "position" : false}
+    <motion.li className={`rs-step ${s.cls}`} layout={!reduce && !calm ? "position" : false}
       initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <button type="button" className="rs-head" onClick={() => setOpen((o) => !o)} aria-expanded={working || open}>
         <span className="rs-icon">{s.icon}</span>
@@ -182,7 +195,7 @@ function Step({ b, working, freshFrom }: { b: Block; working: boolean; freshFrom
 }
 
 // A replay of a finished run: its stored lines handed in one by one, sped up. `now` is the recorded time reached.
-export type ResearchReplay = { now: number; speed: number; progress: number; recordedMs: number };
+export type ResearchReplay = { now: number; speed: number; progress: number; recordedMs: number; replayMs: number };
 
 export default function Research({ lines, live, state, title, question, elapsed, createdAt, focus, stats, summary: done, actions, crumbs, replay = null }: {
   lines: Activity[]; live: boolean; focus: string[]; state: string; title: string; question?: string; elapsed: number | null;
@@ -192,8 +205,9 @@ export default function Research({ lines, live, state, title, question, elapsed,
   // A replay looks like a live run (spinners, steps streaming in), on the recorded clock.
   const moving = live || !!replay;
   const now = replay ? replay.now : tick;
-  // At 40x speed a step that worked for 12 recorded seconds would flash by; keep each one visible ~1.5 s.
-  const activeMs = replay ? Math.max(ACTIVE_MS, replay.speed * 1500) : ACTIVE_MS;
+  // Sped up, a step that worked for 12 recorded seconds would flash by and the list would flicker as steps
+  // open and fold; keep each one open for about 4 s of the replay.
+  const activeMs = replay ? Math.max(ACTIVE_MS, replay.speed * 4000) : ACTIVE_MS;
   const blocks = useMemo(() => group(lines), [lines]);
   // The globe draws the same lines: a beam per search, a dot per page read, a flare per site kept.
   // In a replay every line is new to the viewer, so it is handed over without its old timestamp and animates.
@@ -210,7 +224,8 @@ export default function Research({ lines, live, state, title, question, elapsed,
   const working = blocks.filter(isWorking);
   const hidden = all ? 0 : Math.max(0, blocks.length - SHOWN_BLOCKS);
   const shown = hidden ? blocks.slice(hidden) : blocks;
-  const current = lines.at(-1);
+  // In a replay several lines can land each second; the headline holds each one for at least 1.2 s so it reads.
+  const current = useSteady(lines.at(-1), replay ? 1200 : 0);
   const quiet = current ? Math.max(0, Math.round((now - at(current)) / 1000)) : 0;
 
   const evidence = lines.filter((l) => l.data.source && (l.data.kind === "kept" || l.data.kind === "dropped"));
@@ -248,7 +263,7 @@ export default function Research({ lines, live, state, title, question, elapsed,
         {moving ? <Spinner /> : <span className="rs-done ok">✓</span>}
         <div className="rs-now-body">
           <span className="rs-now-label">
-            {replay && <span className="rs-replay-tag">Replay of the recorded run, {duration(replay.recordedMs / 1000)} shown in about 90 s · </span>}
+            {replay && <span className="rs-replay-tag">Replay of the recorded run, {duration(replay.recordedMs / 1000)} shown in {duration(replay.replayMs / 1000)} · </span>}
             {moving ? (working.length > 1 ? `Working on ${working.length} things at once` : "Working") : "Finished"}
             {live && current && <span className="mono"> · last step {quiet}s ago</span>}
           </span>
@@ -306,7 +321,7 @@ export default function Research({ lines, live, state, title, question, elapsed,
             {hidden > 0 && <button type="button" className="rs-earlier" onClick={() => setAll(true)}>Show {hidden.toLocaleString()} earlier steps</button>}
             {shown.length === 0 && <p className="rs-empty">{live ? <><Spinner /> Waiting for the first step…</> : "No steps were recorded for this run."}</p>}
             <ol className="rs-steps">
-              {shown.map((b) => <Step key={b.key} b={b} working={isWorking(b)} freshFrom={firstSeen.current ?? 0} />)}
+              {shown.map((b) => <Step key={b.key} b={b} working={isWorking(b)} freshFrom={firstSeen.current ?? 0} calm={!!replay} />)}
             </ol>
           </div>
           {!follow && <button type="button" className="rs-jump" onClick={() => setFollow(true)}>Jump to latest ↓</button>}
