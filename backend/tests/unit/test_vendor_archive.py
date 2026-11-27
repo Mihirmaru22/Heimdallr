@@ -111,3 +111,34 @@ def test_sitemap_addresses_wrapped_in_cdata_are_read():
             "</sitemap><sitemap><loc> https://www.veeva.com/page-sitemap.xml </loc></sitemap></sitemapindex>")
     assert LOC.findall(text) == ["https://www.veeva.com/customer-stories-sitemap.xml",
                                  "https://www.veeva.com/page-sitemap.xml"]
+
+
+def test_maker_hosts_for_a_country_question_put_that_countrys_site_first_and_drop_other_countries():
+    from app.discovery.vendor_archive import for_countries
+
+    hosts = ["netsuite.com", "www.netsuite.com", "www.netsuite.cn", "www.oracle.com", "www.netsuite.co.uk",
+             "netsuite.co.uk"]
+    assert for_countries(hosts, ["GB"]) == ["www.netsuite.co.uk", "www.netsuite.com", "www.oracle.com"]
+    assert for_countries(hosts, []) == ["www.netsuite.com", "www.netsuite.cn", "www.oracle.com", "www.netsuite.co.uk"]
+    assert for_countries(["www.maker.de"], ["GB"]) == ["www.maker.de"]  # the maker's only site is kept
+
+
+def test_another_countrys_regional_sitemaps_are_read_last():
+    files = {
+        "https://www.oracle.com/sitemap.xml": "<sitemapindex>" + "".join(
+            f"<sitemap><loc>https://www.oracle.com/{c}/sitemap-wcs.xml</loc></sitemap>" for c in ("ae", "au", "uk"))
+            + "</sitemapindex>",
+        "https://www.oracle.com/uk/sitemap-wcs.xml": "<urlset><url><loc>https://www.oracle.com/uk/customers/acme/"
+            "</loc></url></urlset>",
+    }
+    fetched = []
+
+    async def fetch_xml(url):
+        fetched.append(url)
+        return files.get(url)
+
+    p = VendorArchiveProvider()
+    p.fetch_xml, p.countries = fetch_xml, ["GB"]
+    pages = asyncio.run(p.sitemap_pages("www.oracle.com", budget=2))
+    assert fetched == ["https://www.oracle.com/sitemap.xml", "https://www.oracle.com/uk/sitemap-wcs.xml"]
+    assert pages == ["https://www.oracle.com/uk/customers/acme/"]
