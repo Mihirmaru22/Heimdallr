@@ -181,23 +181,32 @@ function Step({ b, working, freshFrom }: { b: Block; working: boolean; freshFrom
   );
 }
 
-export default function Research({ lines, live, state, title, question, elapsed, createdAt, focus, stats, summary: done, actions, crumbs }: {
+// A replay of a finished run: its stored lines handed in one by one, sped up. `now` is the recorded time reached.
+export type ResearchReplay = { now: number; speed: number; progress: number; recordedMs: number };
+
+export default function Research({ lines, live, state, title, question, elapsed, createdAt, focus, stats, summary: done, actions, crumbs, replay = null }: {
   lines: Activity[]; live: boolean; focus: string[]; state: string; title: string; question?: string; elapsed: number | null;
-  createdAt: string | null; stats: ResearchStat[]; summary?: string; actions: ReactNode; crumbs: ReactNode;
+  createdAt: string | null; stats: ResearchStat[]; summary?: string; actions: ReactNode; crumbs: ReactNode; replay?: ResearchReplay | null;
 }) {
-  const now = useNow(live);
+  const tick = useNow(live);
+  // A replay looks like a live run (spinners, steps streaming in), on the recorded clock.
+  const moving = live || !!replay;
+  const now = replay ? replay.now : tick;
+  // At 40x speed a step that worked for 12 recorded seconds would flash by; keep each one visible ~1.5 s.
+  const activeMs = replay ? Math.max(ACTIVE_MS, replay.speed * 1500) : ACTIVE_MS;
   const blocks = useMemo(() => group(lines), [lines]);
   // The globe draws the same lines: a beam per search, a dot per page read, a flare per site kept.
+  // In a replay every line is new to the viewer, so it is handed over without its old timestamp and animates.
   const signals = useMemo(() => lines.map((l) => ({ id: l.id, kind: l.data.kind, site: l.data.site,
-    source: (l.data.source as string | undefined) ?? null, at: l.created_at })), [lines]);
+    source: (l.data.source as string | undefined) ?? null, at: replay ? undefined : l.created_at })), [lines, replay != null]);
   const [all, setAll] = useState(false);
   const [follow, setFollow] = useState(true);
   const box = useRef<HTMLDivElement>(null);
   // Lines already on screen when the page opened are history; only newer ones animate in.
   const firstSeen = useRef<number | null>(null);
-  if (firstSeen.current == null && (lines.length || !live)) firstSeen.current = lines.at(-1)?.id ?? 0;
+  if (firstSeen.current == null && (lines.length || !moving)) firstSeen.current = lines.at(-1)?.id ?? 0;
 
-  const isWorking = (b: Block) => live && b.type !== "note" && now - b.lastAt < ACTIVE_MS;
+  const isWorking = (b: Block) => moving && b.type !== "note" && now - b.lastAt < activeMs;
   const working = blocks.filter(isWorking);
   const hidden = all ? 0 : Math.max(0, blocks.length - SHOWN_BLOCKS);
   const shown = hidden ? blocks.slice(hidden) : blocks;
@@ -226,22 +235,27 @@ export default function Research({ lines, live, state, title, question, elapsed,
           {question && question !== title && <p className="rs-question">“{question}”</p>}
         </div>
         <div className="rs-top-right">
-          <span className={`rs-state ${live ? "is-live" : ""}`}><span className="rs-state-dot" aria-hidden />{state.replace(/_/g, " ")}</span>
-          <Elapsed elapsed={elapsed} since={createdAt} live={live} now={now} />
+          <span className={`rs-state ${moving ? "is-live" : ""}`}><span className="rs-state-dot" aria-hidden />
+            {replay ? `replay · ${Math.round(replay.speed)}× speed` : state.replace(/_/g, " ")}</span>
+          {replay
+            ? <Elapsed elapsed={createdAt ? Math.max(0, (replay.now - new Date(createdAt).getTime()) / 1000) : null} since={null} live={false} now={now} />
+            : <Elapsed elapsed={elapsed} since={createdAt} live={live} now={now} />}
           <div className="rs-actions">{actions}</div>
         </div>
       </header>
 
       <div className="rs-now" aria-live="polite">
-        {live ? <Spinner /> : <span className="rs-done ok">✓</span>}
+        {moving ? <Spinner /> : <span className="rs-done ok">✓</span>}
         <div className="rs-now-body">
           <span className="rs-now-label">
-            {live ? (working.length > 1 ? `Working on ${working.length} things at once` : "Working") : "Finished"}
+            {replay && <span className="rs-replay-tag">Replay of the recorded run, {duration(replay.recordedMs / 1000)} shown in about 90 s · </span>}
+            {moving ? (working.length > 1 ? `Working on ${working.length} things at once` : "Working") : "Finished"}
             {live && current && <span className="mono"> · last step {quiet}s ago</span>}
           </span>
-          <span className={`rs-now-text ${live ? "rs-shimmer" : ""}`}>
-            {live ? current?.message ?? "Getting the plan ready…" : done ?? current?.message ?? "No steps were recorded."}
+          <span className={`rs-now-text ${moving ? "rs-shimmer" : ""}`}>
+            {moving ? current?.message ?? "Getting the plan ready…" : done ?? current?.message ?? "No steps were recorded."}
           </span>
+          {replay && <span className="rs-replay-bar" aria-hidden><span style={{ width: `${replay.progress * 100}%` }} /></span>}
         </div>
         <div className="rs-tally mono" aria-label="So far">
           <span><b><AnimatedNumber value={sources} /></b> sources</span>
@@ -251,7 +265,7 @@ export default function Research({ lines, live, state, title, question, elapsed,
       </div>
       <div className="rs-rail-card rs-progress" aria-label="In progress">
         <span className="rs-label">In progress</span>
-        {working.length === 0 && <p className="muted small">{live ? "Nothing moving this second." : "Nothing running."}</p>}
+        {working.length === 0 && <p className="muted small">{moving ? "Nothing moving this second." : "Nothing running."}</p>}
         <ul className="rs-lanes">
           <AnimatePresence initial={false}>
             {working.filter((b) => b.type === "site").slice(-8).map((b) => {
@@ -299,14 +313,14 @@ export default function Research({ lines, live, state, title, question, elapsed,
         </div>
 
         <aside className="rs-rail" aria-label="Run totals">
-          <div className="rs-rail-card">
+          {stats.length > 0 && <div className="rs-rail-card">
             <span className="rs-label">Totals</span>
             <dl className="rs-stats">
               {stats.map(({ label, value, cls = "", hint }) => (
                 <div key={label} className={`rs-stat ${cls}`} title={hint}><dt>{label}</dt><dd className="mono"><AnimatedNumber value={value} /></dd></div>
               ))}
             </dl>
-          </div>
+          </div>}
           {evidence.length > 0 && (
             <div className="rs-rail-card">
               <span className="rs-label">Latest proof checks</span>

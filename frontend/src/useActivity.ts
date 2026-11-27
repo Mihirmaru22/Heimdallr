@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type Activity } from "./api";
 
-const MAX_LINES = 3000;
+// High enough to hold a whole long run, so a finished run can be replayed from its first step.
+const MAX_LINES = 20000;
 
 // The job's activity lines, polled every second while it runs. Shared by the feed and the lens so both
 // show the same steps at the same moment.

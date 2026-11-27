@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, display, type CompanyRow, type CrawlUrl, type ExportRow, type Job, type Page, type Progress,
   type Project, type RecordRow, type Schema } from "../api";
@@ -8,7 +8,8 @@ import RecordDrawer from "../components/RecordDrawer";
 import ActivityFeed from "../components/ActivityFeed";
 import Research, { type ResearchStat } from "../components/Research";
 import { useActivity } from "../useActivity";
-import { Download, Retry, Stop } from "../components/icons";
+import { useReplay } from "../useReplay";
+import { Download, Play, Retry, Stop } from "../components/icons";
 
 const URL_STATUSES = ["", "queued", "fetched", "skipped", "blocked_robots", "blocked_policy", "failed", "dead"];
 type Tab = "records" | "companies" | "activity" | "urls";
@@ -30,6 +31,22 @@ export default function JobPage({ orgId }: { orgId: string }) {
     queryFn: () => api.get<Project>(`${base}/projects/${job.data!.project_id}`) });
   const terminal = progress.data?.terminal ?? false;
   const activity = useActivity(base, jobId!, !terminal);
+  // A finished run can be replayed: its real steps, in order, sped up to about 90 seconds (for demos).
+  // ?replay=1 in the address starts it as soon as the steps have loaded.
+  const [params] = useSearchParams();
+  const [replaying, setReplaying] = useState(false);
+  const [replayKey, setReplayKey] = useState(0);
+  useEffect(() => {
+    if (params.get("replay") === "1" && terminal && activity.lines.length && !replaying && replayKey === 0) {
+      setReplaying(true); setReplayKey(1);
+    }
+  }, [params, terminal, activity.lines.length, replaying, replayKey]);
+  const replay = useReplay(activity.lines, replaying && terminal, 90);
+  useEffect(() => {
+    if (!replay || replay.progress < 1) return;
+    const t = setTimeout(() => setReplaying(false), 2500); // hold the last frame a moment, then show the finished run
+    return () => clearTimeout(t);
+  }, [replay?.progress]);
 
   const cancel = useMutation({ mutationFn: () => api.post(`${base}/jobs/${jobId}/cancel`), onSuccess: () => qc.invalidateQueries() });
   const retry = useMutation({ mutationFn: () => api.post(`${base}/jobs/${jobId}/retry`), onSuccess: () => qc.invalidateQueries() });
@@ -57,14 +74,19 @@ export default function JobPage({ orgId }: { orgId: string }) {
       disabled={cancel.isPending || state === "cancel_requested"}><Stop /> Cancel</button>}
     {(state === "failed" || state === "cancelled") &&
       <button onClick={() => retry.mutate()} disabled={retry.isPending}><Retry /> Retry</button>}
+    {terminal && activity.lines.length > 0 && (replaying
+      ? <button onClick={() => setReplaying(false)}><Stop /> Stop replay</button>
+      : <button onClick={() => { setReplayKey((k) => k + 1); setReplaying(true); }} title="Play this run's recorded steps again, sped up to about 90 seconds">
+          <Play /> Replay run</button>)}
   </>;
 
   return (
     <div>
-      <Research lines={activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
+      <Research key={replaying ? `replay-${replayKey}` : "run"} lines={replay?.lines ?? activity.lines} live={!terminal} state={state} crumbs={crumbs} actions={actions}
+        replay={replay ? { now: replay.now, speed: replay.speed, progress: replay.progress, recordedMs: replay.recordedMs } : null}
         title={schema.data?.spec.title || project.data?.name || "Research run"} question={schema.data?.nl_request}
         elapsed={progress.data?.elapsed_seconds ?? null} createdAt={job.data?.created_at ?? null} focus={schema.data?.spec.discovery.countries ?? []}
-        stats={stats} summary={`${rows.toLocaleString()} row${rows === 1 ? "" : "s"}, ${(progress.data?.valid_records ?? 0).toLocaleString()} with every field, from ${(c.fetched ?? 0).toLocaleString()} pages read.`} />
+        stats={replay ? [] : stats} summary={`${rows.toLocaleString()} row${rows === 1 ? "" : "s"}, ${(progress.data?.valid_records ?? 0).toLocaleString()} with every field, from ${(c.fetched ?? 0).toLocaleString()} pages read.`} />
       {progress.data?.error && <div className="error" role="alert"><strong>{progress.data.error}</strong></div>}
       <ErrorBox error={cancel.error || retry.error} />
 

@@ -137,3 +137,8 @@
   .rs-spin, .rs-bar::after, .rs-state-dot, .rs-stack .rs-fav { animation: none !important; }
   .rs-stream { scroll-behavior: auto; }
 }
+
+/* Replay of a finished run: an honest label and how far through it is. */
+.rs-replay-tag { text-transform: none; letter-spacing: 0; color: var(--accent); }
+.rs-replay-bar { display: block; height: 3px; margin-top: 8px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.rs-replay-bar > span { display: block; height: 100%; background: var(--accent); transition: width .1s linear; }
