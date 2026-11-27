@@ -47,6 +47,7 @@ from app.discovery.relevance import (
     unreadable,
 )
 from app.discovery.sitecheck import SiteChecker
+from app.discovery.websites import site_name
 from app.evidence.judge import proof_confidence
 from app.evidence.site import SiteProof
 from app.extract.deterministic import (
@@ -80,12 +81,14 @@ REGISTRY_CONFIDENCE = {"company_name": 0.92, "website_url": 0.93, "founded_year"
 # Proof columns: one piece of proof fills all of them, and the strongest piece wins (see proof_confidence).
 PROOF_KEYS = ("uses_technology", "evidence", "evidence_url", "evidence_date", "evidence_type")
 REGISTRY_METHODS = ("wikidata", "sec_edgar", "gleif", "sec_filings")
-PROOF_METHODS = ("case_studies", "news")  # sources whose page named the company and the product together
+# Sources whose page named the company and the product together.
+PROOF_METHODS = ("vendor_archive", "case_studies", "news")
 PROOF_NAME_CONFIDENCE = 0.96  # above a page's JSON-LD name (0.95)
 LEASE = timedelta(minutes=5)
 SOURCE_NAMES = {"seeds": "your starting websites", "wikidata": "Wikidata", "sec_edgar": "SEC EDGAR",
                 "gleif": "GLEIF", "searxng": "web search", "sec_filings": "SEC filings",
-                "case_studies": "case studies and customer stories", "news": "news articles (GDELT)"}
+                "case_studies": "case studies and customer stories", "news": "news articles (GDELT)",
+                "vendor_archive": "the maker's own customer stories and press releases"}
 RECORDS_EVERY = 20.0  # seconds between refreshes of the records shown while the crawl is still running
 # A site whose homepage does not say where it is: this many of its own contact or about pages are read to find out.
 COUNTRY_PAGES = 3
@@ -132,6 +135,19 @@ def _found_by(hint: dict[str, Any]) -> str:
     return f"; found by {hit['provider']} for {hit['query']!r}" + (f": {said[:200]}" if said else "")
 
 
+def reading_order(providers: list) -> list:
+    """Sources in the plan's order, except that those reading an open-ended set of candidates go last: they take
+    whatever reading time the bounded ones leave, including all of a source's share that could not be reached
+    (GDELT was down once, and its half of the hour went unused while case studies had stopped at theirs)."""
+    return sorted(providers, key=lambda p: bool(getattr(p, "open_ended", False)))
+
+
+def reading_share(now: float, deadline: float, readers_left: int, cap: float = 1.0) -> float:
+    """When the source whose turn it is must stop reading: an equal share of the budget left, among the sources
+    still to read (this one included), and never more than `cap` of it."""
+    return now + max(0.0, deadline - now) * min(1 / max(1, readers_left), cap)
+
+
 class CrawlRunner:
     def __init__(self, job_id: uuid.UUID, org_id: uuid.UUID, spec: ExtractionSpec, *, resolver=None,
                  redis=None, client=None, max_records: int | None = None) -> None:
@@ -163,6 +179,7 @@ class CrawlRunner:
             redis = aioredis.from_url(self.settings.redis_url)
         self.politeness = RedisPoliteness(redis, delay) if redis is not None else LocalPoliteness(delay)
         self.fetcher = Fetcher(self.client, self.politeness, resolver)
+        self.fetch_failures: dict[str, str] = {}  # address -> why a discovery source's fetch_page gave nothing
         # Pages a discovery source reads for proof may be PDFs (case studies often are); crawled pages stay HTML.
         self.doc_fetcher = Fetcher(self.client, self.politeness, resolver, allowed_types=DOCUMENT_TYPES)
         self.robots = RobotsCache(self.fetcher, self.settings.user_agent, self.settings.respect_robots)
@@ -258,14 +275,20 @@ class CrawlRunner:
         per_provider: list[list[Any]] = []
         flusher = asyncio.create_task(self._flush_every_second())  # sources that read documents report live
         cache_token = JOB_CACHE.set({})  # this job's searches, reused within the job only
-        from app.discovery.entities import GLEIF_GAP, EntityResolver
+        from app.discovery.entities import GLEIF_GAP, REGISTRY_RETRY_WAITS, EntityResolver
 
         # One registry matcher for the job: each name is looked up once, by whichever step needs it first.
-        self.entity_resolver = EntityResolver(self.client, gleif_gap=0.0 if self.settings.env == "test"
-                                              else GLEIF_GAP)
+        testing = self.settings.env == "test"
+        self.entity_resolver = EntityResolver(self.client, gleif_gap=0.0 if testing else GLEIF_GAP,
+                                              retry_waits=(0.0, 0.0) if testing else REGISTRY_RETRY_WAITS)
         self.read_deadline = time.monotonic() + self.spec.discovery.read_budget_minutes * 60
         try:
-            for provider in providers_for(self.spec):
+            providers = reading_order(providers_for(self.spec))
+            # The reading budget is shared: each source that reads proof pages gets an equal share of what is left
+            # when its turn comes, so one source cannot spend it all (case studies read for the whole hour once and
+            # no news article was read); time a source does not need passes to the next.
+            readers_left = sum(hasattr(p, "deadline") for p in providers)
+            for provider in providers:
                 label = SOURCE_NAMES.get(provider.name, provider.name)
                 if provider.name != "seeds":
                     self.note("search", self._discovery_line(provider.name), source=provider.name)
@@ -276,8 +299,14 @@ class CrawlRunner:
                     provider.fetch_text = self.fetch_text
                 if hasattr(provider, "fetch_page"):
                     provider.fetch_page = self.fetch_page
+                if hasattr(provider, "failure_of"):
+                    provider.failure_of = self.failure_of
+                if hasattr(provider, "fetch_xml"):
+                    provider.fetch_xml, provider.sitemaps_of = self.fetch_xml, self.sitemaps_of
                 if hasattr(provider, "deadline"):
-                    provider.deadline = self.read_deadline
+                    provider.deadline = reading_share(time.monotonic(), self.read_deadline, readers_left,
+                                                      getattr(provider, "max_share", 1.0))
+                    readers_left -= 1
                 if hasattr(provider, "resolver"):
                     provider.resolver = self.entity_resolver
                 try:
@@ -294,7 +323,6 @@ class CrawlRunner:
                 self.flush_activity()
                 notes += getattr(provider, "notes", [])
             per_provider.append(await self._resolve_entities(per_provider, notes))
-            await self._prove_listed(per_provider, notes)
         finally:
             flusher.cancel()
             JOB_CACHE.reset(cache_token)
@@ -362,7 +390,20 @@ class CrawlRunner:
         if d.countries:
             for r in named:
                 name, site = str(r.hint["company_name"]), registered_domain(r.url) or ""
-                res = await resolver.resolve(name, r.url)
+                # A website search kept without reading its homepage is the name's most popular site, not proof of
+                # which organisation this is: it must not be the second signal that settles a registry match.
+                # "AUSA" from a PTC story (a Barcelona maker) took ausa.org that way, then the US army association's
+                # Wikidata entry "matched by website", and was delivered as a US company (2026-11-25).
+                verified = not r.hint.get("_website_unverified")
+                res = await resolver.resolve(name, r.url if verified else "")
+                short = site_name(name, site) if verified and not res.country else ""
+                if short:
+                    # A headline taken for the name ("EnerSys Speeds Time") matches no registry; the part of it that
+                    # is the company's own (read) website's name does, and is the company's name.
+                    retry = await resolver.resolve(short, r.url)
+                    if retry.country:
+                        name, res = short, retry
+                        r.hint["company_name"] = short
                 self.facts += resolution_facts(name, site, res)
                 if res.country:
                     settled += 1
@@ -394,45 +435,6 @@ class CrawlRunner:
         self.flush_activity()
         return added
 
-    async def _prove_listed(self, per_provider: list[list[Any]], notes: list[str]) -> None:
-        """Companies a list or registry source found get their own proof search, before their sites are crawled,
-        so a vendor's announcement about a listed company is read. Companies a registry places outside the
-        requested countries are not searched (they would be "elsewhere" whatever the proof)."""
-        from app.discovery.case_studies import CaseStudiesProvider
-
-        d = self.spec.discovery
-        if not d.technology or "case_studies" not in d.providers:
-            return
-        with session_scope(self.org_id) as db:
-            proven = {n.casefold() for n in db.execute(select(Evidence.company).where(
-                Evidence.job_id == self.job_id, Evidence.kept.is_(True))).scalars()}
-        listed: dict[str, Any] = {}
-        for group in per_provider:
-            for r in group:
-                name = str(r.hint.get("company_name") or "")
-                if (not name or is_proof_source(r.method) or r.method == "seed" or name.casefold() in proven
-                        or (d.countries and r.hint.get("country") and r.hint["country"] not in d.countries)):
-                    continue
-                listed.setdefault(name.casefold(), r)
-        if not listed:
-            return
-        self.note("search", f"Searching each of {len(listed)} listed companies for its own proof of using "
-                            f"{d.technology}", source="case_studies")
-        prover = CaseStudiesProvider()
-        prover.fetch_page, prover.on_note, prover.deadline = self.fetch_page, self.note, self.read_deadline
-        prover.resolver = self.entity_resolver
-        found = await prover.prove(self.spec, [(str(r.hint["company_name"]), r.url) for r in listed.values()])
-        for name, row in found.items():
-            r = listed[name.casefold()]
-            r.hint.update({k: v for k, v in {
-                "uses_technology": row["verdict"], "evidence": row["quote"], "evidence_url": row["url"],
-                "evidence_date": row["evidence_date"], "evidence_type": row["source_type"]}.items() if v})
-            r.hint["_strength"] = row["strength"]
-        self.save_evidence("case_studies", prover.evidence)
-        self.save_facts(prover.facts)
-        notes += prover.notes
-        self.flush_activity()
-
     def _cancel_requested(self) -> bool:
         with session_scope(self.org_id) as db:
             job = db.get(CrawlJob, self.job_id)
@@ -454,20 +456,55 @@ class CrawlRunner:
 
     async def fetch_page(self, url: str) -> PageDoc | None:
         """A page for a discovery source, fetched like any crawled page: robots.txt respected, network rules
-        checked. None when it cannot be read or has no text."""
+        checked. None when it cannot be read or has no text; failure_of(url) then says why."""
         got = await self._fetch_doc(url)
+        if got is not None and unreadable(got[1]):
+            self.fetch_failures[url] = "no_text"
         return None if got is None or unreadable(got[1]) else got[1]
+
+    def failure_of(self, url: str) -> str:
+        """Why the last fetch_page of this address gave nothing: a FetchError kind, "robots" or "no_text"."""
+        return self.fetch_failures.get(url, "")
 
     async def _fetch_doc(self, url: str) -> tuple[Any, PageDoc] | None:
         """(fetch result, parsed page) under robots.txt and the network rules; None when nothing was fetched."""
-        decision = await self.robots.check(url)
-        if not decision.allowed:
-            return None
         try:
+            decision = await self.robots.check(url)
+            if not decision.allowed:
+                self.fetch_failures[url] = "robots"
+                return None
             result = await self.doc_fetcher.fetch(url)
+            return result, parse_page(normalize_url(result.final_url) or url, result.html())
+        except FetchError as exc:
+            self.fetch_failures[url] = exc.kind
+            return None
+        except Exception as exc:  # noqa: BLE001 - one page that cannot be read or parsed is that page's problem
+            log.warning("page %s could not be read: %s: %s", url, type(exc).__name__, str(exc)[:200])
+            self.fetch_failures[url] = "request"
+            return None
+
+    async def fetch_xml(self, url: str) -> str | None:
+        """A sitemap file's text for a discovery source: robots.txt respected, network rules checked; None when it
+        cannot be fetched."""
+        try:
+            if not (await self.robots.check(url)).allowed:
+                return None
+            fetcher = Fetcher(self.client, self.politeness, self.resolver,
+                              allowed_types=("application/xml", "text/xml", "text/plain", ""))
+            return (await fetcher.fetch(url, attempts=1)).text
         except FetchError:
             return None
-        return result, parse_page(normalize_url(result.final_url) or url, result.html())
+        except Exception as exc:  # noqa: BLE001 - one sitemap that cannot be read is that sitemap's problem
+            log.warning("sitemap %s could not be read: %s", url, type(exc).__name__)
+            return None
+
+    async def sitemaps_of(self, origin: str) -> list[str]:
+        """The sitemaps a host's robots.txt names (empty when it names none or cannot be read)."""
+        try:
+            await self.robots.check(origin + "/")
+        except Exception:  # noqa: BLE001 - no robots.txt answer means no named sitemaps
+            return []
+        return self.robots.sitemaps(origin + "/")
 
     async def fetch_text(self, url: str) -> str | None:
         doc = await self.fetch_page(url)
@@ -821,7 +858,7 @@ class CrawlRunner:
         doc = parse_page(final, result.text)
         hint = row.hint or {}
         company = str(hint.get("company_name") or "")
-        if row.depth == 0 and row.method in ("searxng", "wikidata", "case_studies", "news"):
+        if row.depth == 0 and row.method in ("searxng", "wikidata", "vendor_archive", "case_studies", "news"):
             reason, by = await self._homepage_reason(row, doc, site, final)
             if reason:
                 self.fact(site, company, "filter", "not met", reason, final, by)

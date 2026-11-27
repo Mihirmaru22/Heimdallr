@@ -157,8 +157,8 @@ async def test_only_users_become_results_and_every_rejection_says_why(db_clean):
     assert why["MAPLE MILLS LTD"] == "business address outside the US"
     assert why["Grifols SA"] == "business address outside the US"  # a 20-F filer, whatever its agent's address
     assert why["QUIET CO"] == "the product's name was not found in the document text"
-    # Rules settled Avient (plain own use), the competitor and the reseller; Globex's unreadable answer was
-    # asked of another model once.
+    # Rules settled Avient (plain own use), the competitor and the reseller; Globex's unreadable answer was asked
+    # of another model once, and still unreadable, its proof stays unreviewed.
     assert len(router.calls) == 2
     assert not any("avnt-10q" in u for u in seen)  # one document per company: its 10-K
 

@@ -3,8 +3,10 @@
 import json
 
 import httpx
+import pytest
 
 from app.discovery.case_studies import CaseStudiesProvider, adoption_queries, candidate_key
+from app.discovery.providers import DiscoveryError
 from app.discovery.relevance import pages_country
 from app.discovery.sitecheck import SiteChecker
 from app.discovery.websites import WebsiteFinder
@@ -54,7 +56,7 @@ async def test_a_technology_question_read_by_the_rules_keeps_its_technology_and_
                                       "name, website and the link proving they use it", [], NoModel())
     d = spec.discovery
     assert by == "rules" and d.technology == "Veeva Vault" and d.industry == "pharmaceutical"
-    assert d.countries == ["IN"] and d.providers[:2] == ["case_studies", "news"]
+    assert d.countries == ["IN"] and d.providers[:3] == ["vendor_archive", "case_studies", "news"]
     assert "uses_technology" in [f.name for f in spec.fields] and "evidence_url" in [f.name for f in spec.fields]
     assert any("Veeva Vault" in n for n in notes)
 
@@ -104,13 +106,14 @@ def test_filings_without_line_breaks_are_quoted_as_before():
     assert find_mentions(text, product_for("SAP S/4HANA")) == ["We completed our migration to SAP S/4HANA in 2024."]
 
 
-async def test_an_unreadable_proof_answer_is_asked_of_another_model():
+async def test_an_unreadable_proof_answer_is_asked_of_another_model_once_and_a_plain_sentence_needs_no_model():
     class BrokenThenFine:
         def __init__(self):
-            self.avoided = []
+            self.avoided, self.steps = [], []
 
-        async def chat(self, messages, avoid=None, **_kw):
+        async def chat(self, messages, avoid=None, step=None, **_kw):
             self.avoided.append(avoid)
+            self.steps.append(step)
             if avoid is None:
                 return Reply("Sure, here is what I found:", "broken:free")
             return Reply(json.dumps({"publisher": "news", "customers": [
@@ -120,9 +123,14 @@ async def test_an_unreadable_proof_answer_is_asked_of_another_model():
             pass
 
     router = BrokenThenFine()
-    sentence = "PTC today announced that Komatsu America Corp. has chosen Windchill."
-    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [sentence], sentence, "u")
-    assert [f.customer for f in found] == ["Komatsu America"] and router.avoided[:2] == [None, "broken:free"]
+    hedged = "PTC said Komatsu America Corp. may move to Windchill next year."
+    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [hedged], hedged, "u")
+    assert [f.customer for f in found] == ["Komatsu America"]
+    assert router.avoided == [None, "broken:free"] and router.steps == ["proof_read", "reask"]
+    plain = "PTC today announced that Komatsu America Corp. has chosen Windchill."
+    found, _why = await read_page(Judge(router), product_for("Windchill"), "Komatsu", [plain], plain, "u")
+    assert [f.customer for f in found] == ["Komatsu America Corp."] and found[0].agreement == "rules"
+    assert len(router.avoided) == 2  # the sentence says it: no model call
 
 
 def test_the_maker_is_recognised_from_the_product_s_name():
@@ -240,19 +248,14 @@ async def test_a_refusing_site_is_passed_over_and_unread_pages_stay_visible():
     assert not any(e["url"] == "https://www.partner.example/acme/" for e in p.evidence)  # a copy, not read
 
 
-async def test_adoption_searches_keep_the_product_name_and_the_place():
-    class Words:
-        async def chat(self, *_a, **_kw):
-            return Reply(json.dumps({"queries": ['"Windchill" selects PLM United States', "no product here",
-                                                 '"Windchill" site:ptc.com', '"Windchill" Konzern führt ein']}),
-                         "m:free")
-
-        async def aclose(self):
-            pass
-
-    out = await adoption_queries(Judge(Words()), "Windchill", "United States")
-    assert out == ['"Windchill" selects PLM United States', '"Windchill" Konzern führt ein']
-    assert await adoption_queries(Judge(NoModel()), "Windchill", "United States") == []
+async def test_adoption_searches_are_fixed_templates_so_the_same_question_asks_the_same_searches():
+    first = adoption_queries("Windchill", "United States", "US")
+    assert first == adoption_queries("Windchill", "United States", "US")  # every run the same
+    assert first == ['"Windchill" United States implemented', '"Windchill" United States "went live"',
+                     '"Windchill" United States selects', '"Windchill" United States customer']
+    assert all('"Windchill"' in q for q in adoption_queries("Windchill", "Japan", "JP"))
+    assert '"Windchill" 導入事例' in adoption_queries("Windchill", "Japan", "JP")  # the place's own words
+    assert adoption_queries("Windchill", "", "") == []
     q = CaseStudiesProvider.queries(product_for("Teamcenter"), "Germany")
     assert q[0] == '"Teamcenter" "case study" Germany'
 
@@ -284,3 +287,120 @@ async def test_a_busy_moment_does_not_switch_the_site_check_off_for_the_run():
     always_busy = SiteChecker(NoModel("no free model answered: a: rate limited"), wait=0)
     assert (await always_busy.check(_page("https://x.example/", "pharma"), spec))[1].startswith("unchecked")
     assert always_busy.unavailable is None  # the next site is asked again
+
+
+async def test_searches_name_each_country_by_its_standard_name():
+    p = CaseStudiesProvider(searxng_url="http://searx")
+    from app.spec.models import ExtractionSpec
+
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["case_studies"], "technology": "Oracle NetSuite", "countries": ["GB"]}})
+    qs = await p._context(product_for("Oracle NetSuite"), spec.discovery)
+    assert p.place == "United Kingdom" and '"NetSuite" United Kingdom implemented' in qs  # the short form stories use
+    assert not any("Britain" in q for q in qs)
+
+
+@pytest.mark.parametrize(("why", "passed_over"), [("http_403", 3), ("http_404", 0), ("no_text", 0), ("robots", 0)])
+async def test_only_a_site_that_refuses_us_is_passed_over_not_one_with_missing_or_textless_pages(why, passed_over):
+    pages = {f"https://refuser.example/story-{i}": None for i in range(5)}
+    story = ("<html><head><title>Acme picks Teamcenter</title></head><body><p>Acme Corp standardized on "
+             "Teamcenter.</p></body></html>")
+
+    def searx(request):
+        if "official website" in request.url.params["q"]:
+            return httpx.Response(200, json={"results": [{"url": "https://www.acme.com/"}] * 5})
+        if request.url.params["pageno"] != "1":
+            return httpx.Response(200, json={"results": []})
+        return httpx.Response(200, json={"results": [{"url": u} for u in [*pages, "https://partner.example/acme"]]})
+
+    async def fetch_page(url):
+        if url == "https://partner.example/acme":
+            return parse_page(url, story)
+        if url == "https://www.acme.com/":
+            return parse_page(url, "<html><body>Acme Corp makes things</body></html>")
+        return None
+
+    class Router:
+        async def chat(self, messages, **_kw):
+            return Reply(json.dumps({"publisher": "partner", "customers": [
+                {"name": "Acme Corp", "quote": 1, "relationship": "uses"}]}), "m:free")
+
+        async def aclose(self):
+            pass
+
+    p = CaseStudiesProvider(httpx.AsyncClient(transport=httpx.MockTransport(searx)), Judge(Router()), "http://searx")
+    p.fetch_page, p.failure_of = fetch_page, lambda url: why
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["case_studies"], "technology": "Teamcenter"}})
+    await p.discover(spec)
+    reasons = [e["reason"] for e in p.evidence if e["url"].startswith("https://refuser.example")]
+    assert sum("refused or gave no text" in r for r in reasons) == passed_over
+
+
+async def test_a_site_that_answers_between_two_stray_errors_is_not_passed_over():
+    pages = [f"https://answers.example/story-{i}" for i in range(6)]
+    calls = {"n": 0}
+
+    def searx(request):
+        if "official website" in request.url.params["q"]:
+            return httpx.Response(200, json={"results": [{"url": "https://www.acme.com/"}] * 5})
+        if request.url.params["pageno"] != "1":
+            return httpx.Response(200, json={"results": []})
+        return httpx.Response(200, json={"results": [{"url": u} for u in pages]})
+
+    async def fetch_page(url):
+        if url == "https://www.acme.com/":
+            return parse_page(url, "<html><body>Acme Corp makes things</body></html>")
+        calls["n"] += 1
+        if calls["n"] in (1, 3):  # the 1st and 3rd page read fail, the others answer
+            return None
+        return parse_page(url, "<html><body><p>Nothing about the product here at all.</p></body></html>")
+
+    class Router:
+        async def chat(self, messages, **_kw):
+            return Reply(json.dumps({"publisher": "other", "customers": []}), "m:free")
+
+        async def aclose(self):
+            pass
+
+    p = CaseStudiesProvider(httpx.AsyncClient(transport=httpx.MockTransport(searx)), Judge(Router()), "http://searx")
+    p.fetch_page, p.failure_of = fetch_page, lambda url: "network"
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["case_studies"], "technology": "Teamcenter"}})
+    with pytest.raises(DiscoveryError):
+        await p.discover(spec)
+    assert not any("refused or gave no text" in e["reason"] for e in p.evidence)
+
+
+async def test_a_website_kept_without_reading_its_homepage_is_marked_unverified():
+    story = ("<html><head><title>AUSA picks Teamcenter</title></head><body><p>Thanks to Teamcenter, AUSA Corp "
+             "integrated all its technical documentation with its ERP.</p></body></html>")
+
+    def searx(request):
+        if "official website" in request.url.params["q"]:
+            return httpx.Response(200, json={"results": [{"url": "https://www.ausacorp.org/"}] * 5})
+        if request.url.params["pageno"] != "1":
+            return httpx.Response(200, json={"results": []})
+        return httpx.Response(200, json={"results": [{"url": "https://maker.example/stories/ausa"}]})
+
+    async def fetch_page(url):
+        return parse_page(url, story) if url == "https://maker.example/stories/ausa" else None  # homepage unreadable
+
+    class Router:
+        async def chat(self, messages, **_kw):
+            return Reply(json.dumps({"publisher": "vendor", "customers": [
+                {"name": "AUSA Corp", "quote": 1, "relationship": "uses"}]}), "m:free")
+
+        async def aclose(self):
+            pass
+
+    p = CaseStudiesProvider(httpx.AsyncClient(transport=httpx.MockTransport(searx)), Judge(Router()), "http://searx")
+    p.fetch_page = fetch_page
+    spec = ExtractionSpec.model_validate({"entity": "company", "fields": [
+        {"name": "company_name", "type": "string", "semantic": "company_name", "required": True}],
+        "discovery": {"providers": ["case_studies"], "technology": "Teamcenter"}})
+    (ausa,) = await p.discover(spec)
+    assert ausa.hint["website_url"] == "https://www.ausacorp.org/" and ausa.hint["_website_unverified"] is True

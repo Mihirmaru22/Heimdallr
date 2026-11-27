@@ -70,6 +70,14 @@ def registered_domain(url_or_host: str) -> str:
     return ext.top_domain_under_public_suffix or (host or "")
 
 
+def public_suffix(url_or_host: str) -> str:
+    """The public suffix of a URL or host ("co.uk" for shop.example.co.uk), or ""."""
+    host = urlsplit(url_or_host).hostname if "://" in url_or_host else url_or_host
+    if not host or not re.fullmatch(r"[A-Za-z0-9.-]+", host):
+        return ""
+    return _extract(host).suffix.lower()
+
+
 def has_public_suffix(url_or_host: str) -> bool:
     """False for hosts no one can register, such as "www.example" with its ending missing."""
     host = urlsplit(url_or_host).hostname if "://" in url_or_host else url_or_host

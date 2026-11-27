@@ -84,6 +84,14 @@ def test_request_to_excel(make_user, crawl_env):
     usage = alice.get(alice.org("/usage")).json()
     assert usage["pages"] > 0 and usage["llm_requests"] == 0 and usage["export_rows"] == 1
 
+    # The catalog backfill is safe to repeat and makes a prior completed run searchable.
+    first_rebuild = alice.post(alice.org("/catalog/rebuild")).json()
+    second_rebuild = alice.post(alice.org("/catalog/rebuild")).json()
+    assert first_rebuild["jobs_scanned"] == 1 and first_rebuild["claims"] > 0
+    assert second_rebuild == first_rebuild
+    catalog = alice.get(alice.org("/catalog"), params={"q": "Acme Security", "include_review": True}).json()
+    assert catalog["total"] == 1 and catalog["items"][0]["name"] == "Acme Security Ltd"
+
 
 def test_formula_payload_from_a_site_is_neutralized(make_user, crawl_env):
     bob = make_user("bob@example.com")

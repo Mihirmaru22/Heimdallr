@@ -11,6 +11,8 @@ class Settings(BaseSettings):
 
     env: str = "development"
     database_url: str = "postgresql+psycopg://webdata:webdata@localhost:5432/webdata"
+    # The company database (app/kb). Empty = the same Postgres as the app, in its own "kb" schema.
+    kb_database_url: str = ""
     redis_url: str = "redis://localhost:6379/0"
     secret_key: str = "change-me-in-.env"  # noqa: S105 - signs export links; must be overridden outside dev
     cookie_secure: bool = False  # True when served over HTTPS
@@ -20,6 +22,11 @@ class Settings(BaseSettings):
 
     # Crawler identity and politeness
     user_agent: str = "WebDataAI/0.1 (+http://localhost/crawler-info; contact: admin@example.invalid)"
+    # Sent only to hosts that answer the crawler's own User-Agent with 403 (CDN bot walls refuse every bot name,
+    # even on pages robots.txt allows); robots.txt is still read and obeyed under user_agent's name. Empty = off.
+    fallback_user_agent: str = (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36")
     respect_robots: bool = True
     per_domain_concurrency: int = 2
     per_domain_delay_seconds: float = 1.0
@@ -45,6 +52,8 @@ class Settings(BaseSettings):
     tavily_api_key: SecretStr = SecretStr("")
     linkup_api_key: SecretStr = SecretStr("")
     exa_api_key: SecretStr = SecretStr("")
+    # Optional Companies House API key. Keep it in the runtime environment, never in source control.
+    companies_house_api_key: SecretStr = SecretStr("")
 
     # Free language models through OpenRouter (empty key = no model calls). Only ":free" models with zero
     # prices are ever used; see app/llm/openrouter.py. Optional preferred model ids, best first.

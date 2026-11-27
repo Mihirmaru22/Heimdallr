@@ -1,7 +1,11 @@
 """Command-line helpers: `python -m app.cli create-admin EMAIL` (prompts for a password) and
 `python -m app.cli refresh-sec` (downloads SEC EDGAR's company list for the sec_edgar source) and
 `python -m app.cli llm-status | llm-test | llm-enable` (the free OpenRouter models) and
-`python -m app.cli job-report JOB_ID` / `sec-check PRODUCT` (what a run planned and what each source answered)."""
+`python -m app.cli job-report JOB_ID` / `sec-check PRODUCT` (what a run planned and what each source answered) and
+`python -m app.cli kb-load-pdl FILE` (loads the PDL free company dataset into the company database) and
+`python -m app.cli kb-homepages --limit N` (reads company homepages from Common Crawl into kb.homepage) and
+`python -m app.cli kb-load-companies-house FILE` (loads the UK register snapshot into kb.uk_company) and
+`python -m app.cli kb-teach | kb-train | kb-classify` (homepage labels: teacher model, training, labelling)."""
 
 from __future__ import annotations
 
@@ -106,7 +110,8 @@ def score(job_ids: list[str], key_path: str | None) -> None:
     with session_scope(bypass=True) as db:
         cards = [score_job(db, uuid.UUID(j), key) for j in job_ids]
     names = list(dict.fromkeys(k for c in cards for k in c))
-    long = {n for n in names if n == "key: missing" or n.startswith("key: lost at")}  # printed under the table
+    long = {n for n in names if n == "key: missing" or n.startswith(("key: lost at", "key: candidate stage",
+                                                                     "company search note"))}  # under the table
     names = [n for n in names if n not in long]
     width = max(len(n) for n in names)
     print(" " * width + "  " + "  ".join(j[:8].ljust(22) for j in job_ids))
@@ -116,6 +121,28 @@ def score(job_ids: list[str], key_path: str | None) -> None:
         for j, c in zip(job_ids, cards, strict=True):
             if n in c:
                 print(f"{n} ({j[:8]}): {c[n]}")
+
+
+def candidates(job_id: str, key_path: str) -> None:
+    """For every company in the answer key: did any source name it, was its country known, and who named it.
+    Read from the finished job; no search or model call is made."""
+    import uuid
+
+    from app.services.candidates import ORDER, candidate_recall, scorecard_rows
+    from app.services.scorecard import load_key
+
+    key = load_key(key_path)
+    with session_scope(bypass=True) as db:
+        result = candidate_recall(db, uuid.UUID(job_id), key)
+    width = max([len(r["company"]) for r in result["rows"]] + [7])
+    print(f"Countries asked: {', '.join(result['countries']) or 'any'}")
+    for stage in ORDER:
+        for r in (r for r in result["rows"] if r["stage"] == stage):
+            print(f"  {r['company'].ljust(width)}  {stage:42}  {', '.join(r['named by']) or '-'}")
+    print()
+    for name, value in scorecard_rows(result).items():
+        if not name.startswith("key: candidate stage"):
+            print(f"{name}: {value}")
 
 
 def _table(rows: list[dict[str, str]]) -> None:
@@ -270,6 +297,318 @@ def sec_check(product_name: str, aliases: list[str]) -> None:
               f"{src.get('file_date')} states={src.get('biz_states')}")
 
 
+def kb_load_pdl(path: str, report_only: bool, force: bool) -> None:
+    from pathlib import Path
+
+    from app.kb import pdl
+
+    file = Path(path)
+    if not file.is_file():
+        sys.exit(f"No such file: {file}")
+
+    def progress(rows: int) -> None:
+        print(f"  {rows:,} rows read", flush=True)
+
+    if report_only:
+        coverage = pdl.scan(pdl.read_rows(file), progress=progress)
+    else:
+        print(f"Loading {file.name} into kb.{pdl.TABLE}...", flush=True)
+        try:
+            coverage = pdl.load(file, force=force, progress=progress)
+        except ValueError as exc:
+            sys.exit(str(exc))
+    print(coverage.report())
+
+
+def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
+    from pathlib import Path
+
+    from app.kb import companies_house, pdl
+
+    file = Path(path)
+    if not file.is_file():
+        sys.exit(f"No such file: {file}")
+
+    def progress(rows: int) -> None:
+        print(f"  {rows:,} rows read", flush=True)
+
+    if report_only:
+        coverage = companies_house.scan(pdl.read_rows(file), progress=progress)
+    else:
+        print(f"Loading {file.name} into kb.{companies_house.TABLE}...", flush=True)
+        try:
+            coverage = companies_house.load(file, force=force, progress=progress)
+        except ValueError as exc:
+            sys.exit(str(exc))
+    print(coverage.report())
+
+
+def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, concurrency: int, sample: bool,
+                 crawl_count: int, again: bool, own_fetch: bool, biggest_first: bool = False,
+                 own_lanes: int = 128) -> None:
+    import asyncio
+    import time
+    from pathlib import Path
+
+    import httpx
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import homepages
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        conn.execute(homepages.SCHEMA_SQL)
+        if again:  # the same domains as the last run, to compare like with like
+            domains = [r[0] for r in conn.execute("SELECT domain FROM kb.homepage ORDER BY domain").fetchall()]
+            domains = domains[:limit] if limit else domains
+        else:
+            domains = homepages.select_domains(conn, limit=limit, iso2=iso2, sample=sample, biggest_first=biggest_first)
+        print(f"Reading {len(domains):,} homepages from Common Crawl, {concurrency} at a time...", flush=True)
+        summary = homepages.Summary()
+        started = time.monotonic()
+        window = {"start": started, "stall": 0.0}
+        status: dict = {}
+
+        def on_page(page) -> None:
+            homepages.save(conn, page)
+            summary.add(page)
+            if summary.domains % 500 == 0:  # speed over the last 500 sites, so start-up time does not count
+                now = time.monotonic()
+                rate = 500 / max(0.1, now - window["start"])
+                waiting = status["cc_waiting"]() if "cc_waiting" in status else 0
+                print(f"  {summary.domains:,} done, {summary.found:,} found, {rate:.1f} sites/s; "
+                      f"event loop stalled up to {window['stall']:.1f} s; {waiting:,} waiting for Common Crawl",
+                      flush=True)
+                window.update(start=now, stall=0.0)
+
+        async def watch_loop() -> None:
+            """How long the event loop was blocked (0 = never): a long stall means something
+            synchronous is holding every fetch, not that the sites are slow."""
+            loop = asyncio.get_running_loop()
+            while True:
+                before = loop.time()
+                await asyncio.sleep(0.5)
+                window["stall"] = max(window["stall"], loop.time() - before - 0.5)
+
+        def on_crawl(name: str) -> None:
+            print(f"Crawl {name}: getting its index map (cluster.idx, downloaded once, a few hundred MB)...",
+                  flush=True)
+
+        async def run() -> list[str]:
+            settings = get_settings()
+            fetch_own = None
+            site_client = None
+            if own_fetch:
+                from concurrent.futures import ThreadPoolExecutor
+
+                from app.kb.sitefetch import own_fetcher
+
+                # DNS lookups run in the default thread pool (about 14 threads); with many sites at a time
+                # they would queue there and run into dns_alive's timeout, reading live sites as dead.
+                asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(2 * own_lanes))
+
+                site_client = httpx.AsyncClient(  # short: one try per site, a slow site is recorded as slow
+                    timeout=httpx.Timeout(10.0, connect=5.0),
+                    headers={"User-Agent": settings.user_agent}, follow_redirects=False)
+                fetch_own = own_fetcher(site_client, settings.user_agent, concurrency=own_lanes)
+            watcher = asyncio.create_task(watch_loop())
+            try:
+                return await homepages.collect(
+                    domains, crawl, on_page, Path(settings.data_dir), concurrency, user_agent=settings.user_agent,
+                    on_crawl=on_crawl, crawl_count=crawl_count, own_fetch=fetch_own,
+                    own_lanes=own_lanes, status=status)
+            finally:
+                watcher.cancel()
+                if site_client is not None:
+                    await site_client.aclose()
+
+        try:
+            used = asyncio.run(run())
+        except httpx.HTTPError as exc:
+            sys.exit(f"Common Crawl did not answer ({exc}). If index.commoncrawl.org is down, pass the crawl id, "
+                     "e.g. --crawl CC-MAIN-2026-44 (the newest is listed at commoncrawl.org/latest-crawl).")
+        seconds = time.monotonic() - started
+    print(f"\nCrawls {', '.join(used)}, {seconds / 60:.1f} minutes, {summary.domains / max(1.0, seconds):.2f} sites/s")
+    print(summary.report())
+
+
+def _label_model_path():
+    from pathlib import Path
+
+    from app.config import get_settings
+
+    return Path(get_settings().data_dir) / "kb" / "label_model.npz"
+
+
+def kb_teach(model: str, limit: int, export_sample: int, export_path: str | None, same_as: str | None,
+             export_pages: int = 0, import_file: str | None = None, tech_share: float = 0.5,
+             uncertain: bool = False) -> None:
+    import time
+    from pathlib import Path
+
+    import httpx
+    import psycopg
+
+    from app.kb import teach
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        conn.execute(teach.SCHEMA_SQL)
+        if export_sample:
+            path = Path(export_path or "teach_sample.csv")
+            print(f"Wrote the teacher labels of {teach.export_sample(conn, path, export_sample):,} pages "
+                  f"(one row per model) to {path}.")
+            return
+        if export_pages:
+            path = Path(export_path or "teach_pages.csv")
+            n = teach.export_pages(conn, path, export_pages, model, tech_share, uncertain)
+            print(f"Wrote {n:,} pages to {path} "
+                  f"(not yet labelled by {model}).")
+            return
+        if import_file:
+            summary = teach.import_labels(conn, Path(import_file), model)
+            print(summary.report())
+            return
+        rows = teach.select_pages(conn, limit, model, same_as)
+        if not rows:
+            print("No unlabelled homepages (kb-homepages fills kb.homepage).")
+            return
+        with httpx.Client(timeout=600) as client:
+            try:
+                client.get(f"{teach.OLLAMA_URL}/api/tags").raise_for_status()
+            except httpx.HTTPError as exc:
+                sys.exit(f"Ollama is not answering at {teach.OLLAMA_URL} ({exc}). Start it with: ollama serve")
+            print(f"Labelling {len(rows):,} homepages with {model} (one at a time; Ctrl-C is safe, "
+                  "labels so far are kept and a rerun continues)...", flush=True)
+            started = time.monotonic()
+
+            def progress(summary) -> None:
+                if summary.rows % 25 == 0:
+                    left = (len(rows) - summary.rows) * summary.seconds / summary.rows
+                    print(f"  {summary.rows:,} done, {summary.seconds / summary.rows:.1f} s per page, "
+                          f"about {left / 3600:.1f} h left", flush=True)
+
+            summary = teach.run(conn, client, model, rows, progress)
+    print(f"\n{(time.monotonic() - started) / 60:.1f} minutes")
+    print(summary.report())
+
+
+def kb_train(teacher: str) -> None:
+    import psycopg
+
+    from app.kb import classify, train
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn()) as conn:
+        rows = conn.execute(
+            """SELECT h.title, h.description, h.text, t.real_page, t.tech_company, t.micro_sector, t.offering,
+                      (SELECT industry FROM kb.pdl_company c WHERE c.domain = t.domain
+                       ORDER BY c.industry IS NULL LIMIT 1)
+               FROM kb.teach_label t JOIN kb.homepage h USING (domain)
+               WHERE t.error IS NULL AND t.model = %s""", (teacher,)
+        ).fetchall()
+    rows = [r for r in rows if classify.page_text(r[0], r[1], r[2])]
+    if len(rows) < 100:
+        sys.exit(f"Only {len(rows)} teacher labels from {teacher}; run kb-teach first (a few thousand pages).")
+    print(f"Embedding {len(rows):,} labelled homepages with {classify.MODEL}...", flush=True)
+    embedder = classify.Embedder()
+    vectors = embedder([classify.page_text(r[0], r[1], r[2]) for r in rows])
+    labels = [{"real_page": r[3], "tech_company": r[4], "micro_sector": r[5], "offering": r[6], "industry": r[7]}
+              for r in rows]
+    model = train.train(list(zip(vectors, labels, strict=True)), embedder.name)
+    path = _label_model_path()
+    model.save(path)
+    print(f"Saved {path}\n")
+    for report in model.reports:
+        print("\n".join(report.lines()) + "\n")
+
+
+def kb_classify(limit: int | None, again: bool, export_sample: int, export_path: str | None) -> None:
+    import time
+    from pathlib import Path
+
+    import psycopg
+
+    from app.kb import classify, train
+    from app.kb.pdl import kb_dsn
+
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        conn.execute(classify.SCHEMA_SQL)
+        if export_sample:
+            path = Path(export_path or "label_sample.csv")
+            n = classify.export_sample(conn, path, export_sample)
+            print(f"Wrote {n:,} labelled homepages to {path}.")
+            return
+        model_path = _label_model_path()
+        if not model_path.is_file():
+            sys.exit(f"No trained model at {model_path}: run kb-teach, then kb-train.")
+        model = train.LabelModel.load(model_path)
+        where = "h.found" + ("" if again else " AND l.domain IS NULL")
+        rows = conn.execute(
+            f"""SELECT h.domain, h.url, h.title, h.description, h.text,
+                       (SELECT industry FROM kb.pdl_company c WHERE c.domain = h.domain
+                        ORDER BY c.industry IS NULL LIMIT 1)
+                FROM kb.homepage h
+                LEFT JOIN kb.company_label l USING (domain) WHERE {where} ORDER BY h.domain"""  # noqa: S608
+            + (" LIMIT %s" if limit else ""), (limit,) if limit else ()).fetchall()
+        rows = [r for r in rows if classify.page_text(r[2], r[3], r[4])]
+        if not rows:
+            print("No homepages to label (kb-homepages fills kb.homepage; --again relabels).")
+            return
+        print(f"Loading the model {model.embed_model} (downloaded once, about 250 MB)...", flush=True)
+        embedder = classify.Embedder(model.embed_model)
+        labeller = classify.Classifier(embedder, model)
+        print(f"Labelling {len(rows):,} homepages...", flush=True)
+        summary = classify.Summary()
+        started = time.monotonic()
+        batch = 256
+        for i in range(0, len(rows), batch):
+            chunk = rows[i:i + batch]
+            labels = labeller.label([r[0] for r in chunk], [classify.page_text(r[2], r[3], r[4]) for r in chunk],
+                                    [r[5] for r in chunk])
+            with conn.transaction():
+                for row, label in zip(chunk, labels, strict=True):
+                    classify.save(conn, label, f"{embedder.name}+{model_path.name}", row[1])
+                    summary.add(label)
+            rate = summary.rows / max(1.0, time.monotonic() - started)
+            print(f"  {summary.rows:,} labelled, {rate:.0f} pages/s", flush=True)
+    print(f"\n{(time.monotonic() - started) / 60:.1f} minutes")
+    print(summary.report())
+
+
+def catalog_companies_house(org_id: str, name: str) -> None:
+    import uuid
+
+    from app.catalog_sources.companies_house import ingest_company
+
+    with session_scope(uuid.UUID(org_id)) as db:
+        result = ingest_company(db, uuid.UUID(org_id), name)
+    print(f"Companies House: {result['companies']} company, {result['claims']} claims")
+
+
+def catalog_usaspending(org_id: str, name: str, limit: int) -> None:
+    import uuid
+
+    from app.catalog_sources.usaspending import ingest_awards
+
+    with session_scope(uuid.UUID(org_id)) as db:
+        result = ingest_awards(db, uuid.UUID(org_id), name, limit=limit)
+    print(f"USAspending: {result['companies']} exact recipient matches, {result['claims']} award claims")
+
+
+def catalog_overture(org_id: str, path: str, bbox: list[float], release: str) -> None:
+    import uuid
+    from pathlib import Path
+
+    from app.catalog_sources.overture import ingest_extract
+
+    with session_scope(uuid.UUID(org_id)) as db:
+        result = ingest_extract(db, uuid.UUID(org_id), Path(path), bbox=tuple(bbox), release=release)
+    print(f"Overture Places: {result['records_read']} rows read, {result['companies']} candidate companies, "
+          f"{result['claims']} claims placed in review")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -286,6 +625,9 @@ def main() -> None:
     p = sub.add_parser("score", help="print the scorecard of one or more jobs side by side")
     p.add_argument("job_ids", nargs="+")
     p.add_argument("--key", help="answer key JSON: must_include / must_exclude companies")
+    p = sub.add_parser("candidates", help="for each answer-key company: did a source name it, with its country")
+    p.add_argument("job_id")
+    p.add_argument("--key", required=True)
     sub.add_parser("eval-history", help="score every finished run of the test questions in eval/keys")
     p = sub.add_parser("eval-run", help="run every test question again with its latest plan and score it")
     p.add_argument("--wait", type=int, default=3600, help="seconds to wait for the runs (default 3600)")
@@ -297,13 +639,91 @@ def main() -> None:
     p = sub.add_parser("sec-check", help="send one SEC full-text search and print SEC's answer")
     p.add_argument("product")
     p.add_argument("aliases", nargs="*", help="other names, as the planner's technology_aliases")
+    p = sub.add_parser("kb-load-pdl", help="load the PDL free company dataset into kb.pdl_company and report coverage")
+    p.add_argument("file", help="the downloaded file: CSV, pipe-delimited or JSON lines; .gz or .zip is fine")
+    p.add_argument("--report-only", action="store_true", help="read the file and print coverage, load nothing")
+    p.add_argument("--force", action="store_true", help="load even if the file has far fewer rows than the table")
+    p = sub.add_parser("kb-load-companies-house", help="load the UK Companies House snapshot into kb.uk_company")
+    p.add_argument("file", help="BasicCompanyDataAsOneFile-YYYY-MM-DD.zip (or the CSV inside it)")
+    p.add_argument("--report-only", action="store_true", help="read the file and print coverage, load nothing")
+    p.add_argument("--force", action="store_true", help="load even if the file has far fewer rows than the table")
+    p = sub.add_parser("kb-homepages", help="read company homepages from Common Crawl into kb.homepage")
+    p.add_argument("--limit", type=int, default=None, help="at most this many domains")
+    p.add_argument("--country", default=None, help="only companies in these countries (ISO codes, e.g. IN or GB,IN,US)")
+    p.add_argument("--biggest-first", action="store_true",
+                   help="largest companies (PDL size) first, skipping domains already read")
+    p.add_argument("--crawl", action="append", default=None,
+                   help="Common Crawl crawl id; repeat for several (default: the newest --crawls)")
+    p.add_argument("--crawls", type=int, default=3,
+                   help="look in the newest N crawls, newest first, until one has the homepage (default 3)")
+    p.add_argument("--concurrency", type=int, default=4, help="requests at a time (default 4; be gentle)")
+    p.add_argument("--sample", action="store_true", help="a random sample of domains (for trials)")
+    p.add_argument("--again", action="store_true", help="re-read the domains already in kb.homepage")
+    p.add_argument("--own-lanes", type=int, default=128,
+                   help="with --own-fetch: different sites fetched at a time (default 128)")
+    p.add_argument("--own-fetch", action="store_true",
+                   help="for homepages Common Crawl lacks: DNS check, then one robots-respecting fetch of the site")
+    p = sub.add_parser("kb-teach", help="teacher labels for kb-train from a local open model (Ollama)")
+    p.add_argument("--model", default="qwen2.5:7b", help="Ollama model (default qwen2.5:7b)")
+    p.add_argument("--limit", type=int, default=200, help="homepages to label this run (default 200)")
+    p.add_argument("--export-sample", type=int, default=0, metavar="N",
+                   help="write N random teacher labels to a CSV for checking by hand, label nothing")
+    p.add_argument("--out", default=None, help="the CSV for --export-sample (default teach_sample.csv)")
+    p.add_argument("--export-pages", type=int, default=0, metavar="N",
+                   help="write N pages not yet labelled by --model to a CSV, for labelling outside Ollama")
+    p.add_argument("--tech-share", type=float, default=0.5,
+                   help="share of exported pages from companies PDL files under Technology (default 0.5)")
+    p.add_argument("--uncertain", action="store_true",
+                   help="with --export-pages: the pages the trained classifier is least sure about first")
+    p.add_argument("--import", dest="import_file", default=None, metavar="FILE",
+                   help="read labels filled into an --export-pages CSV, saved under --model (e.g. claude)")
+    p.add_argument("--same-pages-as", default=None, metavar="MODEL",
+                   help="label only pages MODEL already labelled, to compare two models on the same pages")
+    p = sub.add_parser("kb-train", help="train the homepage classifier on the teacher labels and report its quality")
+    p.add_argument("--teacher", default="qwen2.5:7b", help="whose labels to learn from (default qwen2.5:7b)")
+    p = sub.add_parser("kb-classify", help="label homepages with the trained classifier")
+    p.add_argument("--limit", type=int, default=None, help="at most this many homepages")
+    p.add_argument("--again", action="store_true", help="relabel homepages that already have a label")
+    p.add_argument("--export-sample", type=int, default=0, metavar="N",
+                   help="write N random labelled homepages to a CSV for checking by hand, label nothing")
+    p.add_argument("--out", default=None, help="the CSV for --export-sample (default label_sample.csv)")
+    p = sub.add_parser("catalog-companies-house", help="import exact-match UK legal facts from Companies House")
+    p.add_argument("org_id")
+    p.add_argument("company_name")
+    p = sub.add_parser("catalog-usaspending", help="import exact federal award-recipient signals by company name")
+    p.add_argument("org_id")
+    p.add_argument("company_name")
+    p.add_argument("--limit", type=int, default=20)
+    p = sub.add_parser(
+        "catalog-overture", help="import a bounded Overture Places extract as review-only location claims"
+    )
+    p.add_argument("org_id")
+    p.add_argument("geojson")
+    p.add_argument("--bbox", nargs=4, required=True, type=float, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p.add_argument("--release", default="latest")
     args = parser.parse_args()
+    if args.cmd == "kb-teach":
+        return kb_teach(args.model, args.limit, args.export_sample, args.out, args.same_pages_as, args.export_pages,
+                        args.import_file, args.tech_share, args.uncertain)
+    if args.cmd == "kb-train":
+        return kb_train(args.teacher)
+    if args.cmd == "kb-classify":
+        return kb_classify(args.limit, args.again, args.export_sample, args.out)
+    if args.cmd == "kb-load-companies-house":
+        return kb_load_companies_house(args.file, args.report_only, args.force)
+    if args.cmd == "kb-homepages":
+        return kb_homepages(args.limit, args.country, args.crawl, args.concurrency, args.sample, args.crawls,
+                            args.again, args.own_fetch, args.biggest_first, args.own_lanes)
+    if args.cmd == "kb-load-pdl":
+        return kb_load_pdl(args.file, args.report_only, args.force)
     if args.cmd == "job-report":
         return job_report(args.job_id)
     if args.cmd == "score":
         return score(args.job_ids, args.key)
     if args.cmd == "sec-check":
         return sec_check(args.product, args.aliases)
+    if args.cmd == "candidates":
+        return candidates(args.job_id, args.key)
     if args.cmd == "eval-history":
         return eval_history()
     if args.cmd == "eval-run":
@@ -314,6 +734,12 @@ def main() -> None:
         refresh_sec(args.limit)
     elif args.cmd == "create-admin":
         create_admin(args.email.lower(), sys.stdin.readline().strip() if args.password_stdin else None)
+    elif args.cmd == "catalog-companies-house":
+        return catalog_companies_house(args.org_id, args.company_name)
+    elif args.cmd == "catalog-usaspending":
+        return catalog_usaspending(args.org_id, args.company_name, args.limit)
+    elif args.cmd == "catalog-overture":
+        return catalog_overture(args.org_id, args.geojson, args.bbox, args.release)
 
 
 if __name__ == "__main__":

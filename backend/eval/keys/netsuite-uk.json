@@ -1,0 +1,32 @@
+{
+  "question": "UK companies that use Oracle NetSuite",
+  "notes": "Set 1 benchmark from benchmark-set1-39-rows.md, Q2. The supplied diagnosis names 16 of its stated 17 expected rows; the unidentified denominator row is retained as an unresolved sentinel. No URL/quote evidence was provided in that file.",
+  "benchmark_source": "benchmark-set1-39-rows.md, Q2",
+  "must_include": [
+    {"company":"Tecni-Cable (TECNI)","country":"UK","evidence_status":"likely","evidence":"Delivered, Likely; proof came from an aggregator copy of a vendor story."},
+    {"company":"2i Testing","country":"UK","evidence_status":"expected","evidence":"Delivered, Confirmed; quote is from its site."},
+    {"company":"Manolo Blahnik","country":"UK","evidence_status":"expected","evidence":"Delivered, Confirmed; vendor press release."},
+    {"company":"Vivobarefoot","country":"UK","evidence_status":"expected","evidence":"Delivered, Mentioned; proof from 2018."},
+    {"company":"The Folio Society","country":"UK","evidence_status":"expected","evidence":"Delivered, Confirmed."},
+    {"company":"Lick","country":"UK","evidence_status":"expected","evidence":"Proof found; lost at country check because no +44 number and .com domain."},
+    {"company":"Emerald Technology","country":"UK","evidence_status":"expected","evidence":"Proof found (Confirmed); lost at country check."},
+    {"company":"Wharton Electronics","country":"UK","evidence_status":"expected","evidence":"Proof found; homepage was unreadable."},
+    {"company":"GRS Building Supplies","country":"UK","evidence_status":"expected","evidence":"Proof found; grs.com resolved to a different company."},
+    {"company":"Bloom & Wild","country":"UK","evidence_status":"expected","evidence":"Candidate at rank 4; Oracle blocked the page; title search recovered it."},
+    {"company":"PetShop.co.uk","country":"UK","evidence_status":"expected","evidence":"Candidate found; run selected a PDF copy instead of a readable result."},
+    {"company":"Deliveroo","country":"UK","evidence_status":"expected","evidence":"Rank 73, past the 30-page reading cap."},
+    {"company":"Orlebar Brown","country":"UK","evidence_status":"expected","evidence":"Not discovered among 201 search results; vendor press release exists."},
+    {"company":"Charlotte Tilbury","country":"UK","evidence_status":"expected","evidence":"Not discovered; vendor press release exists."},
+    {"company":"Oliver Bonas","country":"UK","evidence_status":"expected","evidence":"Not discovered."},
+    {"company":"Pret A Manger","country":"UK","evidence_status":"expected","evidence":"Not discovered; vendor press release exists."},
+    {"company":"[unidentified expected row 17]","country":"UK","evidence_status":"unresolved","why":"The supplied diagnosis says 17 expected companies but names only 16; it may be a count error."}
+  ],
+  "must_exclude": [
+    {"company":"Oracle","why":"Vendor"},
+    {"company":"NetSuite","why":"Product/vendor, not customer"},
+    {"company":"Rimini Street","why":"Consultant/reseller"},
+    {"company":"Cognizant","why":"Consultant/reseller"},
+    {"company":"Infosys","why":"Consultant/reseller"},
+    {"company":"Wipro","why":"Consultant/reseller"}
+  ]
+}

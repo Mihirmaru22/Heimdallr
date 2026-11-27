@@ -41,6 +41,19 @@ def domain_fits(domain: str, company: str) -> bool:
     return len(label) >= 3 and (label in "".join(words) or any(len(w) >= 3 and w in label for w in words))
 
 
+def site_name(company: str, domain: str) -> str:
+    """The start of a name that is its website's name, when the rest is not: "EnerSys" for "EnerSys Speeds Time"
+    on enersys.com (a story's headline taken as the customer's name, 2026-11-27). "" when no shorter start of the
+    name spells the domain."""
+    label = re.sub(r"[^a-z0-9]+", "", domain.split(".")[0].lower())
+    words = company.split()
+    for n in range(1, len(words)):
+        start = " ".join(words[:n])
+        if len(label) >= 3 and re.sub(r"[^a-z0-9]+", "", start.lower()) == label:
+            return start.strip(" ,;:-")
+    return ""
+
+
 def names_company(text: str, company: str) -> bool:
     """The page says the company's name: its distinctive words together, as written ("CommScope")."""
     words = [w for w in name_words(company) if len(w) >= 3]
@@ -48,6 +61,11 @@ def names_company(text: str, company: str) -> bool:
         return False
     flat = re.sub(r"[^a-z0-9]+", "", text.lower())
     return "".join(words) in flat or all(re.search(rf"\b{re.escape(w)}\b", text, re.I) for w in words)
+
+
+# The reason a website search gives when it kept a site whose homepage it could not read: search agreed on the site,
+# but nothing showed it is this company's (search for "AUSA" gives the US army association, not the Spanish maker).
+UNVERIFIED = "its homepage could not be read, so it is not verified"
 
 
 class WebsiteFinder:
@@ -120,7 +138,7 @@ class WebsiteFinder:
             if text is None:
                 if unverified_ok:
                     return url, (f"web search ({n} of the top {total} results) and the name in its domain; "
-                                 "its homepage could not be read, so it is not verified")
+                                 f"{UNVERIFIED}")
                 why = f"{best}'s homepage could not be read"
                 continue
             if not names_company(text, company):

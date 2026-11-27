@@ -8,8 +8,10 @@ import html
 import io
 import logging
 import random
+import re
 import time
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -26,6 +28,9 @@ PDF_TYPES = ("application/pdf",)
 DOCUMENT_TYPES = HTML_TYPES + PDF_TYPES
 MAX_PDF_PAGES = 40
 RETRY_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+# Hosts that refused the crawler's own User-Agent with a 403 and are read with the fallback (browser) one from
+# then on, for the life of the process: one refused request per host, not one per page.
+FALLBACK_HOSTS: set[str] = set()
 
 
 class FetchError(Exception):
@@ -73,6 +78,44 @@ class FetchResult:
         return pdf_html(self.body) if self.is_pdf else self.text
 
 
+SPACED_LETTERS = re.compile(r"(?<!\S)(?:[A-Za-z] ){2,}[A-Za-z](?!\S)")
+
+
+def pdf_paragraphs(text: str) -> list[str]:
+    """A PDF page's text lines joined back into paragraphs: a PDF breaks lines by width, so one sentence
+    ("... announced that Kemwell / BioPharma implemented Veeva Vault QMS") is otherwise split across two
+    paragraphs and neither half names both. A line ending a sentence, or a blank line, closes a paragraph."""
+    paras: list[str] = []
+    cur: list[str] = []
+    # A heading set in spaced capitals ("T O P L I N E") comes out one letter at a time and ran into the next words:
+    # "T O M L I N E SRAM" was taken for a customer's name (2026-11-27). Its letters are joined back into a word,
+    # and the heading ends there.
+    lines = SPACED_LETTERS.sub(lambda m: m.group(0).replace(" ", "") + "\n", text).splitlines()
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            if cur:
+                paras.append(" ".join(cur))
+                cur = []
+            continue
+        if any(c.isalpha() for c in line) and not any(c.islower() for c in line):
+            if cur:  # a heading in capitals stands alone: it is not the start of the next sentence
+                paras.append(" ".join(cur))
+                cur = []
+            paras.append(line)
+            continue
+        if cur and cur[-1].endswith("-") and line[:1].islower():
+            cur[-1] = cur[-1][:-1] + line  # a word hyphenated at the line end
+        else:
+            cur.append(line)
+        if line.endswith((".", "!", "?", ":", "\u201d", '"')) or sum(map(len, cur)) > 1500:  # 1500: tables
+            paras.append(" ".join(cur))
+            cur = []
+    if cur:
+        paras.append(" ".join(cur))
+    return paras
+
+
 def pdf_html(body: bytes) -> str:
     """A PDF's text as a minimal HTML page ("" when it has no extractable text, e.g. a scanned image)."""
     from pypdf import PdfReader
@@ -80,19 +123,19 @@ def pdf_html(body: bytes) -> str:
     try:
         reader = PdfReader(io.BytesIO(body))
         title = str((reader.metadata or {}).get("/Title") or "")
-        lines = [line.strip() for page in reader.pages[:MAX_PDF_PAGES]
-                 for line in (page.extract_text() or "").splitlines()]
+        texts = [page.extract_text() or "" for page in reader.pages[:MAX_PDF_PAGES]]
     except Exception as exc:  # noqa: BLE001 - a broken PDF is a page without text, not a crash
         log.info("PDF could not be read: %s", type(exc).__name__)
         return ""
-    body_html = "".join(f"<p>{html.escape(line)}</p>" for line in lines if line)
+    body_html = "".join(f"<p>{html.escape(para)}</p>" for text in texts for para in pdf_paragraphs(text))
     return f"<html><head><title>{html.escape(title)}</title></head><body>{body_html}</body></html>" if body_html else ""
 
 
 class Fetcher:
     def __init__(self, client: httpx.AsyncClient, politeness=None, resolver=None,
-                 allowed_types: tuple[str, ...] = HTML_TYPES) -> None:
+                 allowed_types: tuple[str, ...] = HTML_TYPES, use_fallback: bool = True) -> None:
         self.client = client
+        self.use_fallback = use_fallback  # off for the company-database homepage crawl: its own UA only
         self.politeness = politeness
         self.resolver = resolver
         self.allowed_types = allowed_types
@@ -111,13 +154,18 @@ class Fetcher:
         current = url
         for _hop in range(s.max_redirects + 1):
             try:
-                self._check(current)
+                # In a thread: the check resolves the host name (socket.getaddrinfo, which blocks), and a
+                # slow name server would otherwise stop every other fetch in the event loop meanwhile.
+                await asyncio.to_thread(self._check, current)
             except BlockedDestination as exc:
                 raise FetchError("blocked", str(exc), retryable=False) from None
             if self.politeness is not None:
                 await self.politeness.wait(current)
+            host = urlsplit(current).netloc.lower()
+            fallback = s.fallback_user_agent if self.use_fallback and host in FALLBACK_HOSTS else ""
+            headers = {"User-Agent": fallback} if fallback else None
             try:
-                async with self.client.stream("GET", current) as resp:
+                async with self.client.stream("GET", current, headers=headers) as resp:
                     if resp.status_code in (301, 302, 303, 307, 308):
                         location = resp.headers.get("location")
                         nxt = normalize_url(location, base=current) if location else None
@@ -130,6 +178,13 @@ class Fetcher:
                     if resp.status_code in RETRY_STATUSES:
                         retry_after = resp.headers.get("retry-after", "")
                         raise FetchError(f"http_{resp.status_code}", retry_after, retryable=True)
+                    if resp.status_code == 403 and self.use_fallback and s.fallback_user_agent and not fallback:
+                        # Some sites (CDN bot walls, e.g. Akamai) refuse every bot User-Agent, even on pages their
+                        # robots.txt allows. The owner chose (2026-11-25) to read such hosts with a browser one;
+                        # robots.txt is still obeyed under the crawler's own name, and politeness is unchanged.
+                        FALLBACK_HOSTS.add(host)
+                        log.info("403 to the crawler's User-Agent; reading %s with the fallback one", host)
+                        continue
                     if resp.status_code >= 400:
                         raise FetchError(f"http_{resp.status_code}", f"HTTP {resp.status_code}", retryable=False)
                     base_type = ctype.split(";")[0].strip().lower()
@@ -159,6 +214,14 @@ class Fetcher:
                 # the connection leaves no trace at all.
                 log.info("fetch failed (%s: %s): %s", type(exc).__name__, str(exc)[:200], current)
                 raise FetchError("network", type(exc).__name__, retryable=True) from None
+            except FetchError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - one page's failure is that page's, never the job's
+                # Anything else the request could not survive (a header the HTTP library will not encode, a
+                # malformed answer) makes this page unreadable; a UnicodeEncodeError on one news page once failed
+                # a whole job (2026-10-30).
+                log.warning("fetch failed (%s: %s): %s", type(exc).__name__, str(exc)[:200], current)
+                raise FetchError("request", type(exc).__name__, retryable=False) from None
         raise FetchError("redirect", "too many redirects", retryable=False)
 
     async def fetch(self, url: str, attempts: int | None = None) -> FetchResult:
