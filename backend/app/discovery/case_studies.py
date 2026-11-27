@@ -143,6 +143,16 @@ def with_summary(doc: PageDoc) -> str:
     return " ".join([*extra, doc.text]) if extra else doc.text
 
 
+def page_subject(url: str, product: Product | None = None) -> set[str]:
+    """The distinctive words of a page's address, which name what it is about ("cummins" in
+    ".../case-studies/cummins-optimizes-product-designs"): not everyday words, nor the product's own names."""
+    from app.evidence.products import common_word
+
+    path = url.split("://", 1)[-1].partition("/")[2].split("?", 1)[0].lower()
+    skip = {w.lower() for n in (product.names if product else []) for w in re.findall(r"[A-Za-z0-9]+", n)}
+    return {w for w in re.findall(r"[a-z][a-z0-9]{3,}", path) if w not in skip and not common_word(w)}
+
+
 class CaseStudiesProvider:
     name = "case_studies"
     what = "case studies and customer stories"  # what the pages are, in notes and the live feed
@@ -247,15 +257,19 @@ class CaseStudiesProvider:
             score += 2 * bool(countries_named(text) & set(countries) or site.rsplit(".", 1)[-1] in tlds)
         return (-score, self.order.get(url, len(self.order)))
 
-    def _repeated(self, url: str, sentences: list[str]) -> set[str]:
+    def _repeated(self, url: str, sentences: list[str], product: Product | None = None) -> set[str]:
         """The page's product sentences already seen on another page of the same site in this job, and records
-        this page's."""
+        this page's. A sentence naming the page's own subject is not repeated on that page: ptc.com's Cummins
+        story was dropped as boilerplate because a related-stories card on a page read earlier carried its
+        sentence (2026-11-27)."""
         seen = self.site_sentences.setdefault(registered_domain(url) or "", {})
+        subject = page_subject(url, product)
         out = set()
         for sentence in sentences:
             key = " ".join(sentence.split()).casefold()
             pages = seen.setdefault(key, set())
-            if pages - {url}:
+            if pages - {url} and not any(m.group(0)[0].isupper() for w in subject
+                                         for m in re.finditer(rf"\b{re.escape(w)}\b", sentence, re.I)):
                 out.add(key)
             pages.add(url)
         return out
@@ -452,7 +466,7 @@ class CaseStudiesProvider:
         body = with_summary(doc)
         text = f"{doc.title} {body}"
         sentences = [q for q in find_mentions(body, product, limit=PAGE_SENTENCES) if verify_quote(q, body)]
-        boilerplate = self._repeated(url, sentences)
+        boilerplate = self._repeated(url, sentences, product)
         if not sentences:
             self._record(**base, kept=False, reason="the product's name is not on the page")
             return [], True

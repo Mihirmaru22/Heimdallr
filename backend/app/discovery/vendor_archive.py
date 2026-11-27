@@ -126,8 +126,8 @@ def page_key(url: str) -> str:
 def choose(urls: list[str], product: Product, limit: int = MAX_CANDIDATES,
            searched: list[str] | tuple[str, ...] = ()) -> list[str]:
     """Pages worth reading, best first: pages a site search shows naming the product, stories whose address names
-    it, releases about it (see `release`), then the other stories (mostly about the maker's other products). Within each, the
-    shortest address of a page's language copies, in search or sitemap order."""
+    it, releases about it (see `release`), then the other stories (mostly about the maker's other products).
+    Within each, the shortest address of a page's language copies, in search or sitemap order."""
     best: dict[str, str] = {}
     hit = {page_key(u) for u in searched}
     for url in [*searched, *urls]:

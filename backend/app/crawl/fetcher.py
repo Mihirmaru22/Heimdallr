@@ -8,6 +8,7 @@ import html
 import io
 import logging
 import random
+import re
 import time
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
@@ -77,18 +78,31 @@ class FetchResult:
         return pdf_html(self.body) if self.is_pdf else self.text
 
 
+SPACED_LETTERS = re.compile(r"(?<!\S)(?:[A-Za-z] ){2,}[A-Za-z](?!\S)")
+
+
 def pdf_paragraphs(text: str) -> list[str]:
     """A PDF page's text lines joined back into paragraphs: a PDF breaks lines by width, so one sentence
     ("... announced that Kemwell / BioPharma implemented Veeva Vault QMS") is otherwise split across two
     paragraphs and neither half names both. A line ending a sentence, or a blank line, closes a paragraph."""
     paras: list[str] = []
     cur: list[str] = []
-    for raw in text.splitlines():
+    # A heading set in spaced capitals ("T O P L I N E") comes out one letter at a time and ran into the next words:
+    # "T O M L I N E SRAM" was taken for a customer's name (2026-11-27). Its letters are joined back into a word,
+    # and the heading ends there.
+    lines = SPACED_LETTERS.sub(lambda m: m.group(0).replace(" ", "") + "\n", text).splitlines()
+    for raw in lines:
         line = raw.strip()
         if not line:
             if cur:
                 paras.append(" ".join(cur))
                 cur = []
+            continue
+        if any(c.isalpha() for c in line) and not any(c.islower() for c in line):
+            if cur:  # a heading in capitals stands alone: it is not the start of the next sentence
+                paras.append(" ".join(cur))
+                cur = []
+            paras.append(line)
             continue
         if cur and cur[-1].endswith("-") and line[:1].islower():
             cur[-1] = cur[-1][:-1] + line  # a word hyphenated at the line end
