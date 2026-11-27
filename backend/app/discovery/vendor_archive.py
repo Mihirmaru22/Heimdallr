@@ -96,10 +96,25 @@ def names_product(url: str, product: Product) -> bool:
     return any(len(s) > 3 and s in path for s in (slug(n) for n in product.names))
 
 
+def product_site(url: str, product: Product) -> bool:
+    """The site is named after the product itself ("netsuite.co.uk" for Oracle NetSuite), not just its maker
+    ("oracle.com", "ptc.com"): everything it publishes is about that product."""
+    label = (registered_domain(url) or "").split(".")[0]
+    return len(label) > 3 and label in {slug(n) for n in product.names}
+
+
+def release(url: str, product: Product) -> bool:
+    """A news or release page about the product: its address names it, or it is in the newsroom of a site named
+    after the product. netsuite.co.uk's releases say "NS" or nothing ("oliver-bonas-sees-ns-as-the-perfect-fit",
+    "daring-foods-takes-on-the-meat-industry"), so an address test alone dropped two UK customers (2026-11-27)."""
+    kind = page_kind(url)
+    return (kind in ("news", "article", "other") and names_product(url, product)) \
+        or (kind == "news" and product_site(url, product))
+
+
 def keep(url: str, product: Product) -> bool:
     """A customer story, or a news or release page about the product, judged from the address alone."""
-    kind = page_kind(url)
-    return kind == "story" or (kind in ("news", "article", "other") and names_product(url, product))
+    return page_kind(url) == "story" or release(url, product)
 
 
 def page_key(url: str) -> str:
@@ -111,7 +126,7 @@ def page_key(url: str) -> str:
 def choose(urls: list[str], product: Product, limit: int = MAX_CANDIDATES,
            searched: list[str] | tuple[str, ...] = ()) -> list[str]:
     """Pages worth reading, best first: pages a site search shows naming the product, stories whose address names
-    it, releases naming it, then the other stories (mostly about the maker's other products). Within each, the
+    it, releases about it (see `release`), then the other stories (mostly about the maker's other products). Within each, the
     shortest address of a page's language copies, in search or sitemap order."""
     best: dict[str, str] = {}
     hit = {page_key(u) for u in searched}
@@ -125,7 +140,7 @@ def choose(urls: list[str], product: Product, limit: int = MAX_CANDIDATES,
 
     def rank(u: str) -> tuple:
         story, named = page_kind(u) == "story", names_product(u, product)
-        tier = 0 if page_key(u) in hit else 1 if story and named else 2 if named else 3
+        tier = 0 if page_key(u) in hit else 1 if story and named else 2 if named or release(u, product) else 3
         return (tier, order[u])
 
     return sorted(best.values(), key=rank)[:limit]

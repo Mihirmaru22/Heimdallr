@@ -142,3 +142,17 @@ def test_another_countrys_regional_sitemaps_are_read_last():
     pages = asyncio.run(p.sitemap_pages("www.oracle.com", budget=2))
     assert fetched == ["https://www.oracle.com/sitemap.xml", "https://www.oracle.com/uk/sitemap-wcs.xml"]
     assert pages == ["https://www.oracle.com/uk/customers/acme/"]
+
+
+def test_releases_on_a_site_named_after_the_product_are_kept_even_when_the_address_does_not_name_it():
+    netsuite = product_for("Oracle NetSuite")
+    uk = "https://www.netsuite.co.uk/portal/uk/"
+    oliver = uk + "company/newsroom/oliver-bonas-sees-ns-as-the-perfect-fit-for-its-growth-journey.shtml"
+    story = uk + "customer-testimonials/vivobarefoot-retail.shtml"
+    assert keep(oliver, netsuite)
+    # Only its news: a product page there is not a candidate, nor a maker's release about another product.
+    assert not keep(uk + "products/erp.shtml", netsuite)
+    assert not keep("https://www.oracle.com/news/announcement/oracle-database-23ai/", netsuite)
+    assert not keep("https://investor.ptc.com/news-releases/news-release-details/ptc-reports-q3-results", WINDCHILL)
+    # Such releases rank with the releases that name the product, ahead of stories that do not.
+    assert choose([story, oliver], netsuite) == [oliver, story]
