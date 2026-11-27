@@ -103,7 +103,7 @@ def detect(rule: Rule, doc: PageDoc, headers: list[tuple[str, str]]) -> str:
         m = pattern.regex.search(text) if pattern.regex else None
         if pattern.regex is None or m:
             total += pattern.confidence
-            found.append(say.format(match=(m.group(0) if m else "")[:120].strip()))
+            found.append(say.replace("{match}", (m.group(0) if m else "")[:120].strip()))
             return True
         return False
 

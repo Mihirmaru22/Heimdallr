@@ -91,11 +91,14 @@ def pdf_html(body: bytes) -> str:
 
 class Fetcher:
     def __init__(self, client: httpx.AsyncClient, politeness=None, resolver=None,
-                 allowed_types: tuple[str, ...] = HTML_TYPES) -> None:
+                 allowed_types: tuple[str, ...] = HTML_TYPES,
+                 max_bytes: int | None = None, truncate: bool = False) -> None:
         self.client = client
         self.politeness = politeness
         self.resolver = resolver
         self.allowed_types = allowed_types
+        self.max_bytes = max_bytes
+        self.truncate = truncate
         self.settings = get_settings()
 
     def _check(self, url: str) -> None:
@@ -137,17 +140,26 @@ class Fetcher:
                     base_type = ctype.split(";")[0].strip().lower()
                     if base_type and base_type not in self.allowed_types:
                         raise FetchError("content_type", f"skipped content type {base_type}", retryable=False)
+                    limit = self.max_bytes if self.max_bytes is not None else s.max_page_bytes
                     declared = resp.headers.get("content-length")
-                    if declared and declared.isdigit() and int(declared) > s.max_page_bytes:
+                    if not self.truncate and declared and declared.isdigit() and int(declared) > limit:
                         raise FetchError("too_large", f"page is {declared} bytes", retryable=False)
                     chunks: list[bytes] = []
                     size = 0
                     async for chunk in resp.aiter_bytes():
-                        size += len(chunk)
-                        if size > s.max_page_bytes:
-                            raise FetchError("too_large", f"page exceeds {s.max_page_bytes} bytes",
-                                             retryable=False)
-                        chunks.append(chunk)
+                        if self.truncate:
+                            take = chunk[:limit - size]
+                            if take:
+                                chunks.append(take)
+                                size += len(take)
+                            if size >= limit:
+                                break
+                        else:
+                            size += len(chunk)
+                            if size > limit:
+                                raise FetchError("too_large", f"page exceeds {limit} bytes",
+                                                 retryable=False)
+                            chunks.append(chunk)
                     return FetchResult(url, current, resp.status_code, ctype, b"".join(chunks), redirects,
                                        time.monotonic() - start,
                                        [(k.lower(), v) for k, v in resp.headers.multi_items()])

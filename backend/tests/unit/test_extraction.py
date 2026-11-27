@@ -275,3 +275,16 @@ def test_phone_links_are_decoded_and_one_number_written_two_ways_is_one_candidat
     doc = parse_page("https://x.co.uk/", '<html><body><a href="tel:%20+447464800215">Call</a>'
                                          '<p>Call +44 (0) 161 209 5200 or +441612095200.</p></body></html>')
     assert [c.value for c in _phones(doc)] == ["+447464800215", "+441612095200"]
+
+
+def test_clean_mailto_unquotes_whitespace_and_address_strips_phone_tail():
+    from app.extract.deterministic import _addresses, _emails, parse_page
+
+    html = (
+        '<html><body><a href="mailto:%20info@acme.com">Email</a>'
+        '<address>40-60 Delaware Ave, Sidney, NY 13838 · Phone: +1(800) 678-0141</address>'
+        "</body></html>"
+    )
+    doc = parse_page("https://acme.com/", html)
+    assert [c.value for c in _emails(doc)] == ["info@acme.com"]
+    assert [c.value for c in _addresses(doc, "address")] == ["40-60 Delaware Ave, Sidney, NY 13838"]

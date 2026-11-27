@@ -26,3 +26,17 @@ async def test_the_crawler_keeps_no_cookie_a_site_sets():
         assert list(client.cookies.jar) == []
     finally:
         await client.aclose()
+
+
+async def test_fetcher_truncate_caps_oversized_pages_without_failing():
+    body = b"<html><body>" + b"A" * 500 + b"</body></html>"
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda r: httpx.Response(
+                200, content=body, headers={"content-type": "text/html", "content-length": str(len(body))}
+            )
+        )
+    )
+    fetcher = Fetcher(client, resolver=lambda host, port: ["93.184.216.34"], max_bytes=64, truncate=True)
+    res = await fetcher.fetch("https://huge.example/", attempts=1)
+    assert res.status == 200 and len(res.body) == 64

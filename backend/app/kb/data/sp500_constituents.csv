@@ -1,0 +1,504 @@
+rank,symbol,name
+1,AAPL,Apple Inc.
+2,MSFT,Microsoft Corp
+3,NVDA,Nvidia Corp
+4,AMZN,Amazon.Com Inc
+5,GOOGL,Alphabet Inc. Class A Common Stock
+6,GOOG,Alphabet Inc. Class C Capital Stock
+7,META,"Meta Platforms, Inc. Class A Common Stock"
+8,TSLA,"Tesla, Inc. Common Stock"
+9,AVGO,Broadcom Inc. Common Stock
+10,LLY,Eli Lilly & Co.
+11,BRK.B,BERKSHIRE HATHAWAY Class B
+12,WMT,Walmart Inc. Common Stock
+13,JPM,JPMorgan Chase & Co.
+14,V,VISA Inc.
+15,MU,"Micron Technology, Inc."
+16,AMD,Advanced Micro Devices
+17,JNJ,Johnson & Johnson
+18,XOM,ExxonMobil Holdings Corporation
+19,MA,Mastercard Incorporated
+20,ABBV,ABBVIE INC.
+21,COST,Costco Wholesale Corp
+22,KO,Coca-Cola Company
+23,CVX,Chevron Corporation
+24,PG,Procter & Gamble Company
+25,PLTR,Palantir Technologies Inc. Class A Common Stock
+26,CSCO,"Cisco Systems, Inc. Common Stock (DE)"
+27,HD,"Home Depot, Inc."
+28,MRK,"Merck & Co., Inc."
+29,BAC,Bank of America Corporation
+30,GE,GE Aerospace
+31,ORCL,Oracle Corp
+32,UNH,UNITEDHEALTH GROUP INCORPORATED (Delaware)
+33,PANW,"Palo Alto Networks, Inc. Common Stock"
+34,INTC,Intel Corp
+35,PM,Philip Morris International Inc.
+36,RTX,RTX Corporation
+37,MS,Morgan Stanley
+38,TMO,"Thermo Fisher Scientific, Inc."
+39,AMGN,Amgen Inc
+40,CAT,Caterpillar Inc.
+41,AMAT,Applied Materials Inc
+42,TXN,Texas Instruments Incorporated
+43,NFLX,NetFlix Inc
+44,WFC,Wells Fargo & Co.
+45,LIN,Linde plc Ordinary Share
+46,LRCX,Lam Research Corp
+47,GS,Goldman Sachs Group Inc.
+48,IBM,International Business Machines Corporation
+49,GILD,Gilead Sciences Inc
+50,CRWD,"CrowdStrike Holdings, Inc. Class A Common Stock"
+51,DIS,The Walt Disney Company
+52,AXP,American Express Company
+53,ANET,Arista Networks
+54,MCD,McDonald's Corporation
+55,PEP,"PepsiCo, Inc."
+56,VZ,Verizon Communications
+57,GEV,GE Vernova Inc.
+58,DELL,Dell Technologies Inc.
+59,C,Citigroup Inc.
+60,ABT,Abbott Laboratories
+61,WELL,Welltower Inc.
+62,QCOM,Qualcomm Inc
+63,APH,Amphenol Corporation
+64,NEE,"NextEra Energy, Inc."
+65,UNP,Union Pacific Corp.
+66,BLK,"Blackrock, Inc."
+67,TMUS,"T-Mobile US, Inc."
+68,KLAC,KLA Corporation Common Stock
+69,DE,Deere & Company
+70,CRM,"Salesforce, Inc."
+71,PFE,Pfizer Inc.
+72,SCHW,The Charles Schwab Corporation
+73,ADI,"Analog Devices, Inc."
+74,TJX,"TJX Companies, Inc. (The)"
+75,DHR,Danaher Corporation
+76,COP,ConocoPhillips
+77,T,AT&T Inc.
+78,ISRG,Intuitive Surgical Inc.
+79,CB,Chubb Limited
+80,VRTX,Vertex Pharmaceuticals Inc
+81,ACN,Accenture PLC
+82,LMT,Lockheed Martin Corp.
+83,PGR,Progressive Corporation
+84,UBER,"Uber Technologies, Inc."
+85,SPGI,S&P Global Inc.
+86,LOW,Lowe's Companies Inc.
+87,BA,Boeing Company
+88,MO,"Altria Group, Inc."
+89,SYK,Stryker Corporation
+90,BMY,Bristol-Myers Squibb Co.
+91,APP,Applovin Corporation Class A Common Stock
+92,ADP,Automatic Data Processing
+93,MCK,McKesson Corporation
+94,ETN,"Eaton Corporation, plc Ordinary Shares"
+95,MDT,Medtronic plc
+96,SBUX,Starbucks Corp
+97,PLD,"PROLOGIS, INC."
+98,MRVL,"Marvell Technology, Inc. Common Stock"
+99,PH,Parker-Hannifin Corporation
+100,CME,CME Group Inc.
+101,BKNG,Booking Holdings Inc. Common Stock
+102,SO,The Southern Company
+103,COF,Capital One Financial
+104,STX,Seagate Technology Holdings PLC Ordinary Shares (Ireland)
+105,MAR,Marriott International Class A Common Stock
+106,NEM,Newmont Corporation
+107,CVS,CVS HEALTH CORPORATION
+108,MRSH,Marsh
+109,DUK,Duke Energy Corporation
+110,HCA,"HCA Healthcare, Inc."
+111,WDC,Western Digital Corp.
+112,REGN,Regeneron Pharmaceuticals Inc
+113,ABNB,"Airbnb, Inc. Class A Common Stock"
+114,ICE,Intercontinental Exchange Inc.
+115,FTNT,"Fortinet, Inc."
+116,BNY,Bank of New York Mellon Corporation
+117,WM,"Waste Management, Inc."
+118,MMM,3M Company
+119,GD,General Dynamics Corporation
+120,EQIX,"Equinix, Inc. Common Stock REIT"
+121,NOW,"SERVICENOW, INC."
+122,UPS,"United Parcel Service, Inc. Class B"
+123,CSX,CSX Corporation
+124,MPC,MARATHON PETROLEUM CORPORATION
+125,BX,Blackstone Inc.
+126,PSX,PHILLIPS 66
+127,CMCSA,Comcast Corp
+128,USB,U.S. Bancorp
+129,ADBE,Adobe Inc.
+130,CTAS,Cintas Corp
+131,VLO,Valero Energy Corporation
+132,MSI,"Motorola Solutions, Inc. New"
+133,WAT,Waters Corp
+134,MRNA,"Moderna, Inc. Common Stock"
+135,TT,Trane Technologies plc
+136,PNC,PNC Financial Services Group
+137,SHW,The Sherwin-Williams Company
+138,ECL,"Ecolab, Inc."
+139,GLW,Corning Incorporated
+140,EMR,Emerson Electric Co.
+141,MDLZ,"Mondelez International, Inc. Class A"
+142,AMT,American Tower Corporation
+143,PWR,"Quanta Services, Inc."
+144,ELV,"Elevance Health, Inc."
+145,RCL,Royal Caribbean Group
+146,KKR,KKR & Co. Inc.
+147,HWM,Howmet Aerospace Inc.
+148,SNDK,Sandisk Corporation Common Stock
+149,MCO,Moody's Corporation
+150,MNST,Monster Beverage Corporation
+151,TRV,"The Travelers Companies, Inc."
+152,WMB,Williams Companies Inc.
+153,CEG,Constellation Energy Corporation Common Stock
+154,JCI,Johnson Controls International plc
+155,HLT,Hilton Worldwide Holdings Inc. Common Stock
+156,ITW,Illinois Tool Works Inc.
+157,CDNS,Cadence Design Systems
+158,CL,Colgate-Palmolive Company
+159,NOC,Northrop Grumman Corp.
+160,TGT,Target Corporation
+161,SNPS,Synopsys Inc
+162,ORLY,"O'Reilly Automotive, Inc."
+163,RSG,Republic Services Inc.
+164,EOG,"EOG Resources, Inc."
+165,SPG,"Simon Property Group, Inc."
+166,AJG,Arthur J. Gallagher & Co.
+167,CVNA,Carvana Co.
+168,AON,Aon plc Class A
+169,NSC,Norfolk Southern Corp.
+170,DASH,"DoorDash, Inc. Class A Common Stock"
+171,FDX,FedEx Corporation
+172,SLB,SLB Limited
+173,INTU,Intuit Inc
+174,CI,The Cigna Group
+175,HON,"Honeywell International, Inc."
+176,ROST,Ross Stores Inc
+177,APO,"Apollo Global Management, Inc."
+178,GM,General Motors Company Common Stock
+179,KMI,"Kinder Morgan, Inc."
+180,APD,"Air Products & Chemicals, Inc."
+181,FCX,Freeport-McMoran Inc.
+182,AEP,"American Electric Power Company, Inc."
+183,COR,"Cencora, Inc."
+184,KMB,Kimberly-Clark Corp.
+185,ALL,The Allstate Corporation
+186,VRT,Vertiv Holdings Co Class A Common Stock
+187,GWW,"W.W. Grainger, Inc."
+188,BSX,Boston Scientific Corp.
+189,CAH,"Cardinal Health, Inc."
+190,CRH,CRH Public Limited Company
+191,PSA,Public Storage
+192,AFL,Aflac Inc.
+193,DLR,"Digital Realty Trust, Inc."
+194,URI,"United Rentals, Inc."
+195,TDG,TransDigm Group Incorporated
+196,MET,"MetLife, Inc."
+197,TRGP,Targa Resources Corp.
+198,NXPI,NXP Semiconductors N.V.
+199,EW,Edwards Lifesciences Corp
+200,FAST,Fastenal Co
+201,TEL,TE Connectivity plc
+202,BDX,"Becton, Dickinson and Co."
+203,D,"Dominion Energy, Inc Common Stock"
+204,NDAQ,"Nasdaq, Inc. Common Stock"
+205,HOOD,"Robinhood Markets, Inc. Class A Common Stock"
+206,MPWR,"Monolithic Power Systems, Inc."
+207,CMI,Cummins Inc.
+208,TFC,Truist Financial Corporation
+209,O,Realty Income Corporation
+210,DDOG,"Datadog, Inc. Class A Common Stock"
+211,PCAR,Paccar Inc
+212,IDXX,Idexx Laboratories Inc
+213,NUE,Nucor Corporation
+214,AZO,"AutoZone, Inc."
+215,DAL,"Delta Air Lines, Inc."
+216,OKE,"Oneok, Inc."
+217,NKE,"Nike, Inc."
+218,OXY,Occidental Petroleum Corporation
+219,GRMN,Garmin Ltd
+220,HPE,Hewlett Packard Enterprise Company
+221,AME,"Ametek, Inc."
+222,XEL,"Xcel Energy, Inc."
+223,SRE,Sempra
+224,ADSK,Autodesk Inc
+225,ETR,Entergy Corporation
+226,KDP,Keurig Dr Pepper Inc.
+227,EBAY,eBay Inc
+228,VMRK,Vivmark Residential
+229,A,Agilent Technologies Inc.
+230,FANG,"Diamondback Energy, Inc."
+231,HONA,Honeywell Aerospace Inc. Common Stock
+232,FERG,Ferguson Enterprises Inc.
+233,HUM,Humana Inc.
+234,LHX,"L3Harris Technologies, Inc."
+235,F,Ford Motor Company
+236,DVN,Devon Energy Corporation
+237,WAB,Wabtec Inc.
+238,EXC,Exelon Corporation
+239,PYPL,"PayPal Holdings, Inc. Common Stock"
+240,ROP,"Roper Technologies, Inc. Common Stock"
+241,CMG,"Chipotle Mexican Grill, Inc."
+242,FITB,Fifth Third Bancorp
+243,VYLR,Vylor Inc.
+244,VTR,"Ventas, Inc."
+245,BKR,Baker Hughes Company
+246,XYZ,"Block, Inc."
+247,KEYS,"Keysight Technologies, Inc."
+248,MSCI,"MSCI, Inc."
+249,BE,Bloom Energy Corporation
+250,YUM,"Yum! Brands, Inc."
+251,ED,"Consolidated Edison, Inc."
+252,CARR,Carrier Global Corporation
+253,STT,State Street Corporation
+254,VEEV,Veeva Systems Inc.
+255,AMP,"Ameriprise Financial, Inc."
+256,WDAY,"Workday, Inc. Class A Common Stock"
+257,LITE,Lumentum Holdings Inc. Common Stock
+258,LYV,Live Nation Entertainment Inc.
+259,AIG,"American International Group, Inc."
+260,TTWO,Take-Two Interactive Software Inc
+261,ROK,"Rockwell Automation, Inc."
+262,PAYX,Paychex Inc
+263,DHI,D.R. Horton Inc.
+264,IQV,IQVIA Holdings Inc.
+265,KR,The Kroger Co.
+266,PRU,"Prudential Financial, Inc."
+267,VST,Vistra Corp.
+268,SYY,Sysco Corporation
+269,CBRE,"CBRE GROUP, INC."
+270,EL,The Estee Lauder Companies Inc. Class A
+271,WEC,"WEC Energy Group, Inc."
+272,BIIB,Biogen Inc. Common Stock
+273,COHR,Coherent Corp.
+274,FIX,"Comfort Systems USA, Inc."
+275,MLM,Martin Marietta Materials
+276,GEHC,GE HealthCare Technologies Inc. Common Stock
+277,CCL,Carnival Corporation Ltd.
+278,PEG,Public Service Enterprise Group Incorporated
+279,HIG,"The Hartford Insurance Group, Inc."
+280,VMC,Vulcan Materials Company(Holding Company)
+281,CBOE,"Cboe Global Markets, Inc."
+282,HSY,The Hershey Company
+283,ODFL,Old Dominion Freight Line
+284,ACGL,Arch Capital Group Ltd
+285,CCI,Crown Castle Inc.
+286,OKTA,"Okta, Inc. Class A Common Stock"
+287,RMD,ResMed Inc.
+288,CIEN,Ciena Corporation
+289,UAL,"United Airlines Holdings, Inc. Common Stock"
+290,IBKR,"Interactive Brokers Group, Inc. Class A Common Stock"
+291,EXR,"Extra Space Storage, Inc."
+292,ZTS,ZOETIS INC.
+293,TER,"Teradyne, Inc. Common Stock"
+294,MTD,Mettler-Toledo International
+295,SKYD,Skydance Corporation
+296,WTW,Willis Towers Watson Public Limited Company Ordinary Shares
+297,NTAP,"NetApp, Inc"
+298,EQT,EQT CORP
+299,CNC,Centene Corporation
+300,IR,Ingersoll Rand Inc. Common Stock
+301,AEE,Ameren Corporation
+302,FISV,"Fiserv, Inc. Common Stock"
+303,ADM,Archer Daniels Midland Company
+304,DXCM,"DexCom, Inc."
+305,P,"Everpure, Inc."
+306,PCG,PG&E Corporation
+307,KHC,The Kraft Heinz Company
+308,MCHP,Microchip Technology Inc
+309,RJF,"Raymond James Financial, Inc."
+310,IRM,Iron Mountain Inc.
+311,MTB,M&T Bank Corp.
+312,STLD,Steel Dynamics Inc
+313,DG,Dollar General Corp.
+314,CPRT,Copart Inc
+315,ARES,Ares Management Corporation Class A Common Stock
+316,AWK,"American Water Works Company, Inc"
+317,NTRS,Northern Trust Corp
+318,ILMN,Illumina Inc
+319,OTIS,Otis Worldwide Corporation
+320,HBAN,Huntington Bancshares Inc
+321,LH,Labcorp Holdings Inc.
+322,CINF,Cincinnati Financial Corp
+323,ATO,Atmos Energy Corporation
+324,WRB,W.R. Berkley Corporation
+325,DGX,Quest Diagnostics Inc.
+326,VLTO,Veralto Corporation
+327,CPAY,"Corpay, Inc."
+328,TDY,Teledyne Technologies Incorporated
+329,DTE,DTE Energy Company
+330,VRSN,VeriSign Inc
+331,EXPE,"Expedia Group, Inc. Common Stock"
+332,CTSH,Cognizant Technology Solutions
+333,DLTR,Dollar Tree Inc.
+334,HPQ,HP Inc.
+335,TWLO,Twilio Inc.
+336,AXON,"Axon Enterprise, Inc. Common Stock"
+337,VICI,VICI Properties Inc. Common Stock
+338,FE,FirstEnergy Corp.
+339,EME,"EMCOR Group, Inc."
+340,PPG,"PPG Industries, Inc."
+341,ULTA,"Ulta Beauty, Inc. Common Stock"
+342,COIN,"Coinbase Global, Inc. Class A Common Stock"
+343,ES,Eversource Energy
+344,DOV,Dover Corporation
+345,DRI,"Darden Restaurants, Inc."
+346,CNP,"CenterPoint Energy, Inc."
+347,CHD,"Church & Dwight Co., Inc."
+348,PPL,PPL Corporation
+349,VRSK,"Verisk Analytics, Inc. Common Stock"
+350,HAL,Halliburton Company
+351,BRO,"Brown & Brown, Inc."
+352,WST,"West Pharmaceutical Services, Inc."
+353,CFG,"Citizens Financial Group, Inc."
+354,CASY,Casey's General Stores Inc
+355,EXPD,"Expeditors International of Washington, Inc."
+356,TPR,"Tapestry, Inc. Common Stock"
+357,GPN,"Global Payments, Inc."
+358,STE,STERIS plc
+359,ECHO,EchoStar Corporation
+360,INCY,Incyte Genomics Inc
+361,LVS,Las Vegas Sands Corp.
+362,WSM,"Williams-Sonoma, Inc."
+363,FLEX,Flex Ltd. Ordinary Shares
+364,PHM,"Pultegroup, Inc."
+365,OMC,Omnicom Group Inc.
+366,EIX,Edison International
+367,ON,ON Semiconductor Corp
+368,STZ,"Constellation Brands, Inc."
+369,RL,Ralph Lauren Corporation
+370,RF,Regions Financial Corp.
+371,JBL,Jabil Inc.
+372,PFG,"Principal Financial Group, Inc."
+373,VTRS,Viatris Inc. Common Stock
+374,Q,"Qnity Electronics, Inc."
+375,HUBB,Hubbell Incorporated
+376,LUV,Southwest Airlines Co.
+377,L,Loews Corporation
+378,CMS,CMS Energy Corporation
+379,XYL,Xylem Inc
+380,TROW,T Rowe Price Group Inc
+381,PKG,Packaging Corp of America
+382,TSN,"Tyson Foods, Inc."
+383,SW,Smurfit Westrock plc
+384,CDW,CDW Corporation
+385,EFX,"Equifax, Incorporated"
+386,NI,NiSource Inc.
+387,IFF,International Flavors & Fragrances Inc.
+388,BBY,"Best Buy Company, Inc."
+389,DOW,Dow Inc.
+390,SYF,SYNCHRONY FINANCIAL
+391,PTC,"PTC, INC"
+392,KEY,KeyCorp
+393,JBHT,JB Hunt Transport Services Inc
+394,BR,Broadridge Financial Solutions Inc
+395,AMCR,Amcor plc Ordinary Shares
+396,TSCO,Tractor Supply Co
+397,ZBH,"Zimmer Biomet Holdings, Inc."
+398,LEN,Lennar Corporation Class A
+399,EVRG,"Evergy, Inc."
+400,DD,"DuPont de Nemours, Inc. Common Stock"
+401,EXE,Expand Energy Corporation Common Stock
+402,FTV,Fortive Corporation
+403,GIS,"General Mills, Inc."
+404,NRG,"NRG Energy, Inc."
+405,SWKS,Skyworks Solutions Inc
+406,LNT,Alliant Energy Corporation Common Stock
+407,SNA,Snap-on Incorporated
+408,LYB,LyondellBasell Industries N.V. Class A
+409,ROL,"Rollins, Inc."
+410,SBAC,SBA Communications Corp
+411,FFIV,"F5, Inc. Common Stock"
+412,TPL,Texas Pacific Land Corporation
+413,ESS,"Essex Property Trust, Inc"
+414,GEN,Gen Digital Inc. Common Stock
+415,NDSN,Nordson Corp
+416,FDXF,"FedEx Freight Holding Company, Inc."
+417,RDDT,"Reddit, Inc."
+418,FOXA,Fox Corporation Class A Common Stock
+419,BALL,Ball Corporation
+420,KIM,Kimco Realty Corp.
+421,BEN,"Franklin Templeton, Inc."
+422,FOX,Fox Corporation Class B Common Stock
+423,CF,"CF Industries Holding, Inc."
+424,GPC,Genuine Parts Company
+425,HST,"Host Hotels & Resorts, Inc."
+426,IP,International Paper Co.
+427,BG,Bunge Global SA
+428,J,Jacobs Solutions Inc.
+429,CHTR,Charter Comm Inc Del CL A New
+430,RVTY,"Revvity, Inc."
+431,CHRW,"C.H. Robinson Worldwide, Inc."
+432,MAS,Masco Corporation
+433,TYL,"Tyler Technologies, Inc."
+434,IEX,IDEX Corporation
+435,SWK,"Stanley Black & Decker, Inc."
+436,ALLE,Allegion Public Limited Company
+437,EG,"Everest Group, Ltd."
+438,INVH,Invitation Homes Inc. Common Stock
+439,AIZ,"Assurant, Inc."
+440,LDOS,"Leidos Holdings, Inc."
+441,NVR,"NVR, Inc."
+442,CRL,"Charles River Laboratories International, Inc."
+443,FSLR,"First Solar, Inc."
+444,HAS,"Hasbro, Inc."
+445,SMCI,"Super Micro Computer, Inc. Common Stock"
+446,APA,APA Corporation Common Stock
+447,ZBRA,Zebra Technologies Corporation
+448,FICO,Fair Isaac Corporation
+449,SOLV,Solventum Corporation
+450,WY,Weyerhaeuser Company
+451,ERIE,Erie Indemnity Co
+452,AVY,Avery Dennison Corp.
+453,DOC,"Healthpeak Properties, Inc."
+454,FIS,"Fidelity National Information Services, Inc."
+455,BAX,Baxter International Inc.
+456,SJM,The J.M. Smucker Company
+457,TKO,"TKO Group Holdings, Inc."
+458,REG,Regency Centers Corporation
+459,TXT,"Textron, Inc."
+460,CSGP,CoStar Group Inc
+461,MAA,"Mid-America Apartment Communities, Inc."
+462,BF.B,Brown-Forman Corporation Class B
+463,CLX,Clorox Company
+464,MKC,"McCormick & Company, Incorporated Non-VTG CS"
+465,AKAM,Akamai Technologies Inc
+466,GDDY,GoDaddy Inc
+467,HRL,Hormel Foods Corporation
+468,JKHY,Henry (Jack) & Associates
+469,TRMB,Trimble Inc. Common Stock
+470,PNW,Pinnacle West Capital Corporation
+471,LULU,lululemon athletica inc.
+472,IVZ,Invesco LTD
+473,GNRC,GENERAC HOLDINGS INC
+474,LII,Lennox International Inc.
+475,DPZ,Domino's Pizza Inc.
+476,COO,"The Cooper Companies, Inc. Common Stock"
+477,HII,"Huntington Ingalls Industries, Inc."
+478,GL,Globe Life Inc.
+479,ALGN,Align Technology Inc
+480,IT,"Gartner, Inc."
+481,PNR,Pentair plc
+482,UDR,"UDR, Inc."
+483,FDS,Factset Research Systems
+484,DECK,Deckers Outdoor Corp
+485,TECH,Bio-Techne Corp.
+486,UHS,"Universal Health Services, Inc. Class B"
+487,AES,AES Corporation
+488,DVA,DaVita Inc.
+489,BXP,"BXP, Inc."
+490,CPT,Camden Property Trust
+491,PODD,Insulet Corporation
+492,FRT,Federal Realty Investment Trust
+493,HSIC,Henry Schein Inc
+494,ALB,Albemarle Corporation
+495,NWSA,News Corporation Class A Common Stock
+496,AOS,A.O. Smith Corporation
+497,WYNN,Wynn Resorts Ltd
+498,MGM,MGM RESORTS INTERNATIONAL
+499,NCLH,Norwegian Cruise Line Holdings Ltd. Ordinary Shares
+500,APTV,Aptiv PLC
+501,ARE,"Alexandria Real Estate Equities, Inc."
+502,MOS,The Mosaic Company
+503,NWS,News Corporation Class B Common Stock

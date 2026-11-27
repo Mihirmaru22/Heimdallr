@@ -8,6 +8,7 @@ reported as missing, never filled with a guess.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import unquote, urlsplit
@@ -261,8 +262,12 @@ NOT_CONTACT_RE = re.compile(
     r"payable|receivable|procurement|vendor|supplier|tax|fraud|counterfeit|recall|warranty|clinicaltrial|"
     r"grants?\b|grants?[._-]|secretar|medinfo|adverse")
 # Words in a mailbox that belong to a team rather than a person (mediarelations@, zoetismedia@).
-ROLE_WORD_RE = re.compile(r"info|contact|hello|sales|office|support|enquir|inquir|media|press|communicat|news|"
-                          r"customer|service|patient|general|admin|team|mail|help")
+ROLE_WORD_RE = re.compile(
+    r"info|contact|hello|sales|office|support|enquir|inquir|media|press|communicat|news|"
+    r"customer|service|patient|general|admin|team|mail|help|connect|business|ask|question|"
+    r"welcome|care|orders|booking|reserv|feedback|helpdesk|frontdesk|reception|relations|"
+    r"investor|proposals|customercare|desk"
+)
 JOBS_PAGE_RE = re.compile(r"^(jobs|careers?|recruiting|talent)\.|/(jobs|careers?|recruiting|join-us|vacancies)(/|$)",
                           re.I)
 NEWS_PAGE_RE = re.compile(r"/(press|news|media|stories|blog)[^/]*/.+", re.I)
@@ -277,14 +282,56 @@ def _same_company_domain(domain: str, site: str) -> bool:
     return reg == site or reg.split(".")[0] == site.split(".")[0]
 
 
+def _decode_cfemail(encoded: str) -> str | None:
+    """Decode Cloudflare's XOR hex email-protection token."""
+    h = encoded.strip()
+    if len(h) < 6 or len(h) % 2 != 0:
+        return None
+    try:
+        key = int(h[:2], 16)
+        out = "".join(chr(int(h[i:i + 2], 16) ^ key) for i in range(2, len(h), 2))
+    except ValueError:
+        return None
+    return out if EMAIL_RE.fullmatch(out) else None
+
+
+def emails_from_text(text: str, domain: str) -> list[dict[str, str]]:
+    """Same-company role mailboxes extracted cleanly from plain page text."""
+    if not text or not domain:
+        return []
+    site = registered_domain(f"https://{domain}/") or domain.lower()
+    seen: set[str] = set()
+    out: list[dict[str, str]] = []
+    for m in EMAIL_RE.finditer(text):
+        addr = m.group().lower()
+        if addr in seen or addr.endswith(IMAGE_SUFFIX) or "example." in addr or PLACEHOLDER_EMAIL_RE.search(addr):
+            continue
+        local, em_domain = addr.split("@", 1)
+        if not _same_company_domain(em_domain, site):
+            continue
+        if NOT_CONTACT_RE.search(local) or not ROLE_WORD_RE.search(local):
+            continue
+        if PERSONAL_MAILBOX_RE.match(local) and not ROLE_WORD_RE.search(local):
+            continue
+        seen.add(addr)
+        out.append({"email": addr, "method": "regex"})
+    return out
+
+
 def _emails(doc: PageDoc) -> list[Candidate]:
     site = registered_domain(doc.url)
     seen: dict[str, Candidate] = {}
     for a in doc.tree.css('a[href^="mailto:"]'):
-        addr = (a.attributes.get("href") or "")[7:].split("?")[0].strip()
+        addr = unquote((a.attributes.get("href") or "")[7:].split("?")[0]).strip()
         if EMAIL_RE.fullmatch(addr):
             same = addr.split("@")[-1].lower().endswith(site)
             seen.setdefault(addr.lower(), Candidate(addr, "mailto", 0.85 if same else 0.4, f"mailto:{addr}"))
+    for el in doc.tree.css("[data-cfemail], a[href*='/cdn-cgi/l/email-protection#']"):
+        token = el.attributes.get("data-cfemail") or (el.attributes.get("href") or "").partition("#")[2]
+        addr = _decode_cfemail(token)
+        if addr:
+            same = addr.split("@")[-1].lower().endswith(site)
+            seen.setdefault(addr.lower(), Candidate(addr, "cfemail", 0.85 if same else 0.4, f"cfemail:{addr}"))
     for org in _orgs(doc):
         addr = _first_str(org.get("email"))
         if addr and EMAIL_RE.fullmatch(addr.removeprefix("mailto:")):
@@ -327,11 +374,51 @@ def _emails(doc: PageDoc) -> list[Candidate]:
 
 # Numbers of other organizations that many sites print: FDA MedWatch (1-800-FDA-1088), on every US drug site.
 THIRD_PARTY_NUMBERS = {"8003321088"}
+PHONE_TEXT_RE = re.compile(r"\+\d[\d ()./-]{6,20}\d")
+LOCAL_PHONE_RE = re.compile(
+    r"(?:"
+    r"(?:\b1[-.\s]?)?\(\d{3}\)[-.\s]?\d{3}[-.\s]?\d{4}\b"
+    r"|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b"
+    r"|\b0\d{2,4}[-.\s]\d{3,4}[-.\s]?\d{3,4}\b"
+    r"|\b1800[-.\s]?\d{3}[-.\s]?\d{3,4}\b"
+    r"|(?:Tel|Telephone|Phone|Ph|Call|Mob|Fax)\s*[:.]?\s*\d[\d ()./-]{7,18}\d"
+    r")",
+    re.I,
+)
+_LABEL_PREFIX_RE = re.compile(r"^(?:Tel|Telephone|Phone|Ph|Call|Mob|Fax)\s*[:.]?\s*", re.I)
+_ISO_DATE_RE = re.compile(r"^(?:19|20)\d\d[-/.]\d{1,2}[-/.]\d{1,2}$")
+
+
+def _not_third_party(raw: str) -> bool:
+    return re.sub(r"\D", "", raw.upper().replace("FDA", "332"))[-10:] not in THIRD_PARTY_NUMBERS
+
+
+def phones_from_text(text: str, countries: Sequence[str] | None = None) -> list[dict[str, str]]:
+    """Validated E.164 phone numbers from plain text (international +, plus local iso2 format)."""
+    if not text:
+        return []
+    seen: set[str] = set()
+    out: list[dict[str, str]] = []
+    for m in PHONE_TEXT_RE.finditer(text):
+        normalized = _e164(m.group())
+        if normalized and normalized not in seen and _not_third_party(normalized):
+            seen.add(normalized)
+            out.append({"phone": normalized, "method": "regex"})
+    regions = [c.upper() for c in (countries or ()) if c]
+    if regions:
+        for m in LOCAL_PHONE_RE.finditer(text):
+            raw_num = _LABEL_PREFIX_RE.sub("", m.group()).strip()
+            if _ISO_DATE_RE.match(raw_num):
+                continue
+            normalized = _local_number(raw_num, regions)
+            if normalized and normalized not in seen and _not_third_party(normalized):
+                seen.add(normalized)
+                out.append({"phone": normalized, "method": "regex_local"})
+    return out
 
 
 def _phones(doc: PageDoc) -> list[Candidate]:
-    return [c for c in _phone_candidates(doc)
-            if re.sub(r"\D", "", c.value.upper().replace("FDA", "332"))[-10:] not in THIRD_PARTY_NUMBERS]
+    return [c for c in _phone_candidates(doc) if _not_third_party(c.value)]
 
 
 def _phone_candidates(doc: PageDoc) -> list[Candidate]:
@@ -345,7 +432,7 @@ def _phone_candidates(doc: PageDoc) -> list[Candidate]:
         tel = (_first_str(org.get("telephone")) or "").split("/")[0].strip()
         if tel:
             out.append(Candidate(tel, "jsonld", 0.9, f"JSON-LD telephone = {tel}"))
-    for m in re.finditer(r"\+\d[\d ()./-]{6,20}\d", doc.text):
+    for m in PHONE_TEXT_RE.finditer(doc.text):
         out.append(Candidate(m.group(), "regex", 0.55, _snippet(doc.text, m.group())))
     # One number written several ways ("+44 (0) 161 209 5200", "+441612095200") is one candidate.
     seen: set[str] = set()
@@ -428,28 +515,155 @@ def prefer_country_phones(cands: list[Candidate], countries: list[str]) -> list[
     return cands
 
 
+_US_STATES = (
+    "AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|"
+    "NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC"
+)
+_AU_STATES = "NSW|VIC|QLD|WA|SA|TAS|ACT|NT"
+_COUNTRIES_OPT = (
+    r"(?:[ ]*,?[ ]*(?:USA|U\.S\.A\.|United States|UK|United Kingdom|India|Germany|Deutschland|"
+    r"France|Canada|Australia|New Zealand|Singapore|Switzerland|Netherlands|Ireland))?"
+)
+ADDR_POSTAL_RE = re.compile(
+    rf"(?:"
+    rf"(?P<uk>\b[A-Z]{{1,2}}\d[A-Z\d]?[ ]+\d[A-Z]{{2}}\b)"
+    rf"|(?P<ca>\b[A-CEGHJ-NPR-TV-Z]\d[A-CEGHJ-NPR-TV-Z][ -]\d[A-CEGHJ-NPR-TV-Z]\d\b)"
+    rf"|(?P<us>\b(?:{_US_STATES})(?:,[ ]*|[ ]*[-–][ ]*|[ ]+)\d{{5}}(?:-\d{{4}})?\b)"
+    rf"|(?P<au>\b(?:{_AU_STATES})[ ]+\d{{4}}\b)"
+    rf"|(?P<in>(?:[-–, ]|PIN[ ]*[:\-]?[ ]*)\d{{6}}\b(?=[, .\n]|$)(?:[ ]*,?[ ]*India)?)"
+    rf"|(?P<eu>,[ ]*\d{{4,5}}[ ]+[A-Z][A-Za-z\u00C0-\u024F-]{{2,}}"
+    rf"(?:[ ][A-Z][A-Za-z\u00C0-\u024F-]{{2,}})?)"
+    rf"){_COUNTRIES_OPT}",
+)
+ADDR_STREET_RE = re.compile(
+    r"(?:\b(?:st(?:reet)?|rd|road|ave(?:nue)?|blvd|boulevard|dr(?:ive)?|ln|lane|way|ct|court|pl(?:ace)?|"
+    r"pkwy|parkway|cir(?:cle)?|sq(?:uare)?|suite|ste|floor|flr|bldg|building|block|sector|phase|plot|"
+    r"unit|box|p\.?o\.?\s*box|nagar|marg|chowk|colony|industrial|park|plaza|tower|center|centre|house|"
+    r"str(?:aße|asse)?|rue|calle|via|gasse|weg|laan)\b|#\s*\d)",
+    re.I,
+)
+ADDR_NOISE_RE = re.compile(r"(?:copyright|all rights reserved|privacy policy|cookie|terms of|@|https?://|\{|\})", re.I)
+_LEAD_NOISE_RE = re.compile(
+    r"^(?:get in touch|follow us|contact us|visit us|find us|phone(?:\s+number)?|call us|email)\s*[:\-,]?\s*",
+    re.I,
+)
+_ADDRESS_ORG_TYPES = ORG_TYPES | {
+    "Place", "CivicStructure", "FoodEstablishment", "MedicalOrganization",
+    "FinancialService", "LegalService", "HealthAndBeautyBusiness",
+}
+
+
+def _iter_address_items(raw: Any) -> list[tuple[str | None, str | None, str | None]]:
+    items = raw if isinstance(raw, list) else [raw]
+    out: list[tuple[str | None, str | None, str | None]] = []
+    for entry in items:
+        if isinstance(entry, dict) and "address" in entry and not any(
+            k in entry for k in ("streetAddress", "addressLocality", "postalCode")
+        ):
+            out.extend(_iter_address_items(entry.get("address")))
+            continue
+        full, locality, country = _address_text(entry)
+        if full or locality or country:
+            out.append((full, locality, country))
+    return out
+
+
+def addresses_from_text(text: str) -> list[dict[str, str]]:
+    """Extract multi-branch street addresses from plain page text anchored on postal codes."""
+    if not text:
+        return []
+    joined = "\n".join(ln.strip() for ln in text.splitlines() if ln.strip())
+    raw_cands: list[tuple[str, str, str]] = []
+    split_pat = r"(?:\s*[|•×·]\s*|\n{2,}|\[email\s+protected\]|(?:Ph|Tel|Fax|Fx|Phone|Email)\s*[:.]\s*\S+)"
+    for m in ADDR_POSTAL_RE.finditer(joined):
+        lo = max(0, m.start() - 160)
+        window = joined[lo:m.end()]
+        parts = re.split(split_pat, window, flags=re.I)
+        raw_lines = [c.strip(" ,;-–") for c in parts[-1].splitlines() if c.strip()]
+        picked: list[str] = []
+        for ln in reversed(raw_lines[-3:]):
+            picked.append(ln)
+            cur = ", ".join(reversed(picked))
+            if ADDR_STREET_RE.search(cur) and (len(picked) >= 2 or ":" in ln):
+                break
+        cand = re.sub(r"\s+", " ", ", ".join(reversed(picked))).strip(" ,;-–.")
+        cand = _LEAD_NOISE_RE.sub("", cand).strip(" ,;-–.")
+        if len(cand) > 180:
+            cand = cand[-180:].split(" ", 1)[-1]
+        if len(cand) < 15 or ADDR_NOISE_RE.search(cand) or not ADDR_STREET_RE.search(cand):
+            continue
+        code = (
+            m.group("uk") or m.group("ca") or m.group("us") or m.group("au") or m.group("in") or m.group("eu") or ""
+        ).strip(" ,-–")
+        country = next((c for g, c in (("us", "US"), ("uk", "GB"), ("ca", "CA"), ("in", "IN"), ("au", "AU"))
+                        if m.group(g)), "")
+        raw_cands.append((cand, code, country))
+
+    raw_cands.sort(key=lambda x: -len(x[0]))
+    kept: list[dict[str, str]] = []
+    seen_norms: set[str] = set()
+    seen_tails: set[tuple[str, str]] = set()
+    for cand, code, country in raw_cands:
+        norm = re.sub(r"\W+", "", cand.lower())
+        tail_key = (code.lower(), norm[-55:])
+        if any(norm in sn for sn in seen_norms) or tail_key in seen_tails:
+            continue
+        seen_norms.add(norm)
+        seen_tails.add(tail_key)
+        kept.append({"address": cand, "postal_code": code, "country": country, "method": "text"})
+    return kept
+
+
 def _addresses(doc: PageDoc, want: str) -> list[Candidate]:
-    out = []
-    for org in _orgs(doc):
-        location = org.get("location")
-        raw = org.get("address") or (location.get("address") if isinstance(location, dict) else None)
-        full, locality, country = _address_text(raw)
-        value = {"address": full, "headquarters": locality or full, "country": country}[want]
-        if value:
-            out.append(Candidate(value, "jsonld", 0.85, f"JSON-LD address: {full}"))
+    out: list[Candidate] = []
+    seen: set[str] = set()
+    addr_items = [i for i in doc.jsonld if _types(i) & _ADDRESS_ORG_TYPES]
+    for org in addr_items:
+        raw_sources: list[Any] = [org.get("address"), org.get("location")]
+        for sub_key in ("department", "subOrganization"):
+            sub = org.get(sub_key)
+            for s in sub if isinstance(sub, list) else [sub] if isinstance(sub, dict) else []:
+                if isinstance(s, dict):
+                    raw_sources.extend([s.get("address"), s.get("location")])
+        for raw in raw_sources:
+            if not raw:
+                continue
+            for full, locality, country in _iter_address_items(raw):
+                value = {"address": full, "headquarters": locality or full, "country": country}[want]
+                if value and value not in seen:
+                    seen.add(value)
+                    out.append(Candidate(value, "jsonld", 0.85, f"JSON-LD address: {full}"))
+    for item in doc.jsonld:
+        if "PostalAddress" in _types(item):
+            for full, locality, country in _iter_address_items(item):
+                value = {"address": full, "headquarters": locality or full, "country": country}[want]
+                if value and value not in seen:
+                    seen.add(value)
+                    out.append(Candidate(value, "jsonld", 0.85, f"JSON-LD address: {full}"))
     labels = HQ_LABELS if want == "headquarters" else ADDRESS_LABELS
     if want != "country":
         for value, evidence in _label_values(doc, list(labels)):
-            out.append(Candidate(value, "label", 0.6 if want == "headquarters" else 0.55, evidence))
+            if value not in seen:
+                seen.add(value)
+                out.append(Candidate(value, "label", 0.6 if want == "headquarters" else 0.55, evidence))
         if want == "address":
             for node in doc.tree.css("address"):
-                text = node.text(separator=", ", strip=True)
-                if 8 <= len(text) <= 300:
+                text = re.split(
+                    r"\s*[·|•,;-]?\s*\b(?:phone|tel|telephone|fax|email)\b\s*:",
+                    node.text(separator=", ", strip=True),
+                    maxsplit=1,
+                    flags=re.I,
+                )[0].strip(" ,·|•-")
+                if 8 <= len(text) <= 300 and text not in seen:
+                    seen.add(text)
                     out.append(Candidate(text, "html_address", 0.65, f"<address>{text}</address>"))
         if want == "headquarters":
             m = re.search(r"headquartered in ([A-Z][\w .,'-]{2,60}?)(?:[.;]|\s+(?:and|with|since)\b)", doc.text)
             if m:
-                out.append(Candidate(m.group(1).strip(" ,"), "pattern", 0.6, _snippet(doc.text, m.group(0))))
+                val = m.group(1).strip(" ,")
+                if val not in seen:
+                    seen.add(val)
+                    out.append(Candidate(val, "pattern", 0.6, _snippet(doc.text, m.group(0))))
     return out
 
 

@@ -291,3 +291,27 @@ def test_a_common_crawl_pause_does_not_hold_up_the_own_fetch(tmp_path, monkeypat
     assert status["cc_waiting"]() == 0  # the Common Crawl queue was emptied at the end
     assert len(pages) == 10 and all(p.miss == "no_capture+site_timeout" for p in pages)
     assert all(o.startswith("own:") for o in order[:10])  # no own fetch waited for Common Crawl
+
+
+def test_index_reader_breaks_www_redirect_loop_and_falls_back_to_www_surt():
+    block_coin = "\n".join([
+        _cdx_line("com,coinbase)/", "https://coinbase.com/", "x/r.warc.gz", 0, 10, status="302")[:-1]
+        + ', "redirect": "https://www.coinbase.com/"}',
+        _cdx_line("com,coinbase)/", "https://www.coinbase.com/", "x/403.warc.gz", 0, 10, status="403"),
+        _cdx_line("com,example,www)/", "https://www.example.com/", "x/ex.warc.gz", 0, 10, status="200"),
+    ]).encode()
+    gz = gzip.compress(block_coin)
+    idx = homepages.ClusterIndex([f"com,coinbase)/ 20261005	cdx-0.gz	0	{len(gz)}	1"])
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda r: httpx.Response(206, content=gz))
+    )
+    reader = homepages.IndexReader(client, "CC-MAIN-2026-47", idx)
+
+    async def go():
+        r1 = await reader.lookup("coinbase.com")
+        r2 = await reader.lookup("example.com")
+        return r1, r2
+
+    (rec1, miss1, _), (rec2, miss2, _) = asyncio.run(go())
+    assert rec1 is None and miss1 == "error_status_403"
+    assert rec2 is not None and miss2 == "" and rec2["url"] == "https://www.example.com/"

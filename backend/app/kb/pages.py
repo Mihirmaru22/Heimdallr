@@ -11,21 +11,25 @@ per request, refusals never retried. Nothing is guessed: a page is read only if 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
 
-from app.crawl.fetcher import Fetcher, FetchError
+from app.crawl.fetcher import Fetcher, FetchError, FetchResult
 from app.crawl.robots import RobotsCache
-from app.extract.deterministic import ROLE_WORD_RE, _addresses, _emails, parse_page
-from app.kb.homepages import PARSE_CHARS
+from app.extract.deterministic import parse_page
+from app.kb.homepages import PARSE_CHARS, contacts_from
 
 TEXT_CHARS = 4000
+CONTACT_TEXT_CHARS = 16000
+SECURITY_TEXT_CHARS = 12000
 JOB_ADS = 2
 
 CONTACT_WORDS = ("contact", "kontakt", "contacto", "contato", "contatti", "contactez", "impressum", "imprint",
@@ -33,24 +37,32 @@ CONTACT_WORDS = ("contact", "kontakt", "contacto", "contato", "contatti", "conta
 CAREER_WORDS = ("career", "jobs", "job openings", "karriere", "carriere", "carrière", "empleo", "trabaja con",
                 "vacatures", "vacanc", "join us", "join our team", "work with us", "work for us", "hiring",
                 "recruit", "stellenangebote", "stellen", "lavora con", "opportunit")
+LOCATION_WORDS = ("locations", "our locations", "offices", "our offices", "global offices", "regional offices",
+                  "branches", "our branches", "find us", "where to find", "where we are", "store locator",
+                  "showrooms", "campuses")
+SECURITY_WORDS = ("security", "trust center", "trust-center", "trust centre", "compliance",
+                  "certifications", "infosec", "soc 2", "soc2", "iso 27001", "hipaa")
 JOB_BOARDS = ("greenhouse.io", "lever.co", "myworkdayjobs.com", "smartrecruiters.com", "workable.com",
               "bamboohr.com", "ashbyhq.com", "jobvite.com", "icims.com", "teamtailor.com", "recruitee.com",
               "personio.de", "personio.com", "breezy.hr", "jazzhr.com", "applytojob.com", "successfactors.com",
               "taleo.net", "oraclecloud.com", "zohorecruit.com", "freshteam.com", "darwinbox.in", "keka.com")
+TRUST_CENTERS = ("vanta.com", "drata.com", "safebase.io", "secureframe.com", "conveyor.com", "whistic.com")
 JOB_PATH_RE = re.compile(r"/(jobs?|positions?|vacanc(y|ies)|openings?|careers?)/[^/?#]+", re.I)
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS kb.company_page (
     domain text NOT NULL,
-    kind text NOT NULL,          -- contact, careers, job
+    kind text NOT NULL,          -- contact, careers, job, security
     url text NOT NULL,
     title text,
     text text,
     emails jsonb,
     addresses jsonb,
+    phones jsonb NOT NULL DEFAULT '[]',
     fetched_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (domain, url)
 );
+ALTER TABLE kb.company_page ADD COLUMN IF NOT EXISTS phones jsonb NOT NULL DEFAULT '[]';
 CREATE TABLE IF NOT EXISTS kb.company_page_run (
     domain text PRIMARY KEY,     -- one row per site tried, so a site is not tried again
     found text,                  -- kinds found, e.g. "contact,careers,job"
@@ -69,6 +81,7 @@ class CompanyPage:
     text: str = ""
     emails: list = field(default_factory=list)
     addresses: list = field(default_factory=list)
+    phones: list = field(default_factory=list)
 
 
 def _host(url: str) -> str:
@@ -80,9 +93,13 @@ def _on_site(url: str, domain: str) -> bool:
     return host == domain or host.endswith("." + domain)
 
 
-def _on_board(url: str) -> bool:
+def _in_hosts(url: str, hosts: tuple[str, ...]) -> bool:
     host = _host(url)
-    return any(host == b or host.endswith("." + b) for b in JOB_BOARDS)
+    return any(host == h or host.endswith("." + h) for h in hosts)
+
+
+def _on_board(url: str) -> bool:
+    return _in_hosts(url, JOB_BOARDS)
 
 
 def _score(url: str, text: str, words: tuple[str, ...]) -> int:
@@ -93,17 +110,32 @@ def _score(url: str, text: str, words: tuple[str, ...]) -> int:
     return 1 if any(w.replace(" ", "-") in path or w.replace(" ", "") in path for w in words) else 0
 
 
+def _security_score(url: str, text: str, domain: str) -> int:
+    if _in_hosts(url, TRUST_CENTERS):
+        low = f"{url} {text}".lower()
+        return 2 if ("trust" in low or "security" in low or "compliance" in low) else 0
+    if not _on_site(url, domain):
+        return 0
+    score = _score(url, text, SECURITY_WORDS)
+    if score:
+        return score
+    host, path = _host(url), urlsplit(url).path.rstrip("/").lower()
+    return 1 if host.startswith(("security.", "trust.")) or path == "/trust" else 0
+
+
 def choose_links(links: list[tuple[str, str]], domain: str) -> dict[str, str]:
-    """The best contact and careers link among a homepage's links; shorter paths win ties."""
+    """The best contact, careers and security/trust links on a homepage; shorter paths win ties."""
     best: dict[str, tuple[int, int, str]] = {}
     for url, text in links:
         if not url.startswith(("http://", "https://")):
             continue
-        for kind, words, allowed in (("contact", CONTACT_WORDS, _on_site(url, domain)),
-                                     ("careers", CAREER_WORDS, _on_site(url, domain) or _on_board(url))):
-            score = _score(url, text, words) if allowed else 0
-            if kind == "careers" and _on_board(url):
-                score = max(score, 2)
+        candidates = (
+            ("contact", _score(url, text, CONTACT_WORDS) if _on_site(url, domain) else 0),
+            ("locations", _score(url, text, LOCATION_WORDS) if _on_site(url, domain) else 0),
+            ("careers", 2 if _on_board(url) else (_score(url, text, CAREER_WORDS) if _on_site(url, domain) else 0)),
+            ("security", _security_score(url, text, domain)),
+        )
+        for kind, score in candidates:
             if score and (kind not in best or (score, -len(url)) > best[kind][:2]):
                 best[kind] = (score, -len(url), url)
     return {kind: url for kind, (_s, _l, url) in best.items()}
@@ -123,51 +155,128 @@ def job_links(links: list[tuple[str, str]], careers_url: str, limit: int = JOB_A
     return out
 
 
-def page_from(domain: str, kind: str, url: str, html: str) -> tuple[CompanyPage, list[tuple[str, str]]]:
+_SITEMAP_LOC_RE = re.compile(r"<loc>\s*(https?://[^<\s]+)\s*</loc>", re.I)
+_SPA_HINT_RE = re.compile(r'(?:__NEXT_DATA__|data-reactroot|ng-version|id=["\'](?:root|app|__next)["\'])', re.I)
+
+
+def _playwright_shell() -> str | None:
+    root = Path.home() / ".cache" / "ms-playwright"
+    if not root.is_dir():
+        return None
+    for match in sorted(root.glob("chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"),
+                        reverse=True):
+        if match.is_file():
+            return str(match)
+    return None
+
+
+def page_from(domain: str, kind: str, url: str, html: str,
+              countries: Sequence[str] | None = None) -> tuple[CompanyPage, list[tuple[str, str]]]:
     doc = parse_page(url, html[:PARSE_CHARS])
-    emails = [{"email": c.value.lower(), "method": c.method} for c in _emails(doc)
-              if ROLE_WORD_RE.search(c.value.split("@")[0].lower())]
-    addresses = [{"address": c.value, "method": c.method} for c in _addresses(doc, "address")
-                 if c.method in ("jsonld", "html_address")]
-    return CompanyPage(domain, kind, url, doc.title[:500], doc.text[:TEXT_CHARS], emails, addresses), doc.links
+    emails, addresses, phones = contacts_from(doc, countries=countries)
+    if kind in ("contact", "locations"):
+        limit = CONTACT_TEXT_CHARS
+    elif kind == "security":
+        limit = SECURITY_TEXT_CHARS
+    else:
+        limit = TEXT_CHARS
+    return CompanyPage(domain, kind, url, doc.title[:500], doc.text[:limit], emails, addresses, phones), doc.links
 
 
-def page_reader(client: httpx.AsyncClient, user_agent: str, concurrency: int = 128,
-                resolver=None) -> Callable[[str, str], Awaitable[tuple[list[CompanyPage], str]]]:
+def page_reader(
+    client: httpx.AsyncClient,
+    user_agent: str,
+    concurrency: int = 128,
+    resolver=None,
+    on_fetch: Callable[[str, str, str, str, list[tuple[str, str]]], Awaitable[None] | None] | None = None,
+    countries_by_domain: dict[str, list[str]] | None = None,
+    js_render: Callable[[str], Awaitable[str | None]] | None = None,
+) -> Callable[[str, str], Awaitable[tuple[list[CompanyPage], str]]]:
     fetcher = Fetcher(client, resolver=resolver)
-    robots = RobotsCache(fetcher, user_agent, attempts=1)
+    robots = RobotsCache(fetcher, user_agent, attempts=2)
+    xml_fetcher = Fetcher(client, resolver=resolver, allowed_types=("application/xml", "text/xml", "text/plain"))
     slots = asyncio.Semaphore(concurrency)
 
-    async def get(url: str) -> str | None:
+    async def emit(domain: str, kind: str, url: str, html: str, headers: list[tuple[str, str]]) -> None:
+        if on_fetch is None:
+            return
+        if inspect.iscoroutinefunction(on_fetch):
+            await on_fetch(domain, kind, url, html, headers)
+        else:
+            await asyncio.to_thread(on_fetch, domain, kind, url, html, headers)
+
+    async def get(url: str) -> FetchResult | None:
         try:
             if not (await robots.check(url)).allowed:
                 return None
-            result = await fetcher.fetch(url, attempts=1)
+            result = await fetcher.fetch(url, attempts=2)
         except FetchError:
             return None
-        return result.text if result.is_html else None
+        return result if result.is_html else None
+
+    async def sitemap_links(home_url: str, domain: str) -> dict[str, str]:
+        parts = urlsplit(home_url)
+        candidates = robots.sitemaps(home_url)[:2] or [f"{parts.scheme}://{parts.netloc}/sitemap.xml"]
+        for sm_url in candidates:
+            try:
+                if not (await robots.check(sm_url)).allowed:
+                    continue
+                res = await xml_fetcher.fetch(sm_url, attempts=1)
+            except FetchError:
+                continue
+            locs = _SITEMAP_LOC_RE.findall(res.text[:1_000_000])
+            if locs:
+                found = choose_links([(loc, "") for loc in locs[:2500]], domain)
+                if found:
+                    return found
+        return {}
 
     async def read(domain: str, home_url: str) -> tuple[list[CompanyPage], str]:
+        countries = (countries_by_domain or {}).get(domain)
         async with slots:
-            html = await get(home_url)
-            if html is None:
+            home_res = await get(home_url)
+            if home_res is None:
                 return [], "home_unreadable"
-            _home, links = await asyncio.to_thread(page_from, domain, "home", home_url, html)
+            home_html = home_res.text
+            await emit(domain, "home", home_res.final_url, home_html, home_res.headers)
+            _home, links = await asyncio.to_thread(page_from, domain, "home", home_url, home_html, countries)
             chosen = choose_links(links, domain)
+            if not chosen:
+                chosen = await sitemap_links(home_res.final_url or home_url, domain)
+            spa_candidate = len(links) < 10 or _SPA_HINT_RE.search(home_html[:50_000])
+            if not chosen and js_render is not None and spa_candidate:
+                rendered = await js_render(home_res.final_url or home_url)
+                if rendered:
+                    _rhome, rlinks = await asyncio.to_thread(page_from, domain, "home", home_url, rendered, countries)
+                    chosen = choose_links(rlinks, domain)
+            elif "contact" not in chosen and chosen:
+                extra = await sitemap_links(home_res.final_url or home_url, domain)
+                if "contact" in extra:
+                    chosen["contact"] = extra["contact"]
             if not chosen:
                 return [], "no_contact_or_careers_link"
             pages: list[CompanyPage] = []
+            seen_urls: set[str] = set()
             for kind, url in chosen.items():
-                body = await get(url)
-                if body is None:
+                if url in seen_urls:
                     continue
-                page, page_links = await asyncio.to_thread(page_from, domain, kind, url, body)
+                seen_urls.add(url)
+                sub_res = await get(url)
+                if sub_res is None:
+                    continue
+                body = sub_res.text
+                await emit(domain, kind, sub_res.final_url, body, sub_res.headers)
+                page, page_links = await asyncio.to_thread(page_from, domain, kind, url, body, countries)
                 pages.append(page)
                 if kind == "careers":
                     for job_url in job_links(page_links, url):
-                        job = await get(job_url)
-                        if job is not None:
-                            pages.append((await asyncio.to_thread(page_from, domain, "job", job_url, job))[0])
+                        job_res = await get(job_url)
+                        if job_res is not None:
+                            job = job_res.text
+                            await emit(domain, "job", job_res.final_url, job, job_res.headers)
+                            pages.append(
+                                (await asyncio.to_thread(page_from, domain, "job", job_url, job, countries))[0]
+                            )
             return pages, "" if pages else "linked_pages_unreadable"
 
     return read
@@ -177,31 +286,51 @@ def save(conn, domain: str, pages: list[CompanyPage], miss: str) -> None:
     now = datetime.now(UTC)
     for p in pages:
         conn.execute(
-            """INSERT INTO kb.company_page (domain, kind, url, title, text, emails, addresses, fetched_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """INSERT INTO kb.company_page (domain, kind, url, title, text, emails, addresses, phones, fetched_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                ON CONFLICT (domain, url) DO UPDATE SET kind = EXCLUDED.kind, title = EXCLUDED.title,
                    text = EXCLUDED.text, emails = EXCLUDED.emails, addresses = EXCLUDED.addresses,
-                   fetched_at = EXCLUDED.fetched_at""",
-            (domain, p.kind, p.url, p.title, p.text.replace("\x00", ""), json.dumps(p.emails),
-             json.dumps(p.addresses), now))
+                   phones = EXCLUDED.phones, fetched_at = EXCLUDED.fetched_at""",
+            (domain, p.kind, p.url.replace("\x00", ""), p.title.replace("\x00", ""), p.text.replace("\x00", ""),
+             json.dumps(p.emails).replace("\\u0000", ""), json.dumps(p.addresses).replace("\\u0000", ""),
+             json.dumps(p.phones).replace("\\u0000", ""), now))
     conn.execute(
         """INSERT INTO kb.company_page_run (domain, found, miss, tried_at) VALUES (%s, %s, %s, %s)
            ON CONFLICT (domain) DO UPDATE SET found = EXCLUDED.found, miss = EXCLUDED.miss,
                tried_at = EXCLUDED.tried_at""",
         (domain, ",".join(sorted({p.kind for p in pages})) or None, miss or None, now))
+    if pages:
+        from app.kb import branches
+
+        branches.save_pages(conn, domain, pages)
 
 
-def select_sites(conn, limit: int, countries: str | None = None) -> list[tuple[str, str]]:
-    """(domain, homepage url) of found homepages not yet tried, biggest companies first."""
+def select_sites(conn, limit: int, countries: str | None = None,
+                 retry_misses: bool = False) -> list[tuple[str, str]]:
+    """(domain, homepage url) of found homepages not yet tried (or missed when retry_misses=True)."""
     from app.kb.teach import size_rank
 
     wanted = [c.strip().upper() for c in (countries or "").split(",") if c.strip()]
-    rows = conn.execute(
-        """SELECT h.domain, h.url, array_agg(p.size), bool_or(p.iso2 = ANY(%s))
-           FROM kb.homepage h JOIN kb.pdl_company p ON p.domain = h.domain
-           WHERE h.found AND h.url IS NOT NULL
-             AND NOT EXISTS (SELECT 1 FROM kb.company_page_run r WHERE r.domain = h.domain)
-           GROUP BY h.domain, h.url""", (wanted,)).fetchall()
+    if retry_misses:
+        rows = conn.execute(
+            """SELECT h.domain, h.url, array_agg(p.size), bool_or(p.iso2 = ANY(%s)), bool_or(h.crawl = %s)
+               FROM kb.homepage h JOIN kb.pdl_company p ON p.domain = h.domain
+               WHERE h.found AND h.url IS NOT NULL
+                 AND EXISTS (SELECT 1 FROM kb.company_page_run r WHERE r.domain = h.domain
+                             AND r.miss IN ('home_unreadable', 'no_contact_or_careers_link',
+                                            'linked_pages_unreadable'))
+               GROUP BY h.domain, h.url""",
+            (wanted, "own"),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """SELECT h.domain, h.url, array_agg(p.size), bool_or(p.iso2 = ANY(%s)), bool_or(h.crawl = %s)
+               FROM kb.homepage h JOIN kb.pdl_company p ON p.domain = h.domain
+               WHERE h.found AND h.url IS NOT NULL
+                 AND NOT EXISTS (SELECT 1 FROM kb.company_page_run r WHERE r.domain = h.domain)
+               GROUP BY h.domain, h.url""",
+            (wanted, "own"),
+        ).fetchall()
     rows = [r for r in rows if not wanted or r[3]]
-    rows.sort(key=lambda r: (-max(size_rank(x) for x in r[2]), r[0]))
+    rows.sort(key=lambda r: (not r[4], -max(size_rank(x) for x in r[2]), r[0]))
     return [(r[0], r[1]) for r in rows[:limit]]

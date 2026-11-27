@@ -306,17 +306,19 @@ def export_contacts(conn, path, limit: int, model: str) -> int:
     import csv
 
     rows = conn.execute(
-        """SELECT p.domain, p.kind, p.url, p.title, p.text, p.emails, p.addresses
+        """SELECT p.domain, p.kind, p.url, p.title, p.text, p.emails, p.addresses, p.phones
            FROM kb.company_page p
-           WHERE NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = p.domain AND t.model = %s
+           WHERE p.kind IN ('contact', 'careers', 'job')
+             AND NOT EXISTS (SELECT 1 FROM kb.teach_label t WHERE t.domain = p.domain AND t.model = %s
                              AND t.pages_read IS NOT NULL)
            ORDER BY p.domain, p.kind""", (model,)).fetchall()
     sizes = dict(conn.execute(
         "SELECT domain, array_agg(size) FROM kb.pdl_company WHERE domain = ANY(%s) GROUP BY domain",
         (list({r[0] for r in rows}),)).fetchall())
     sites: dict[str, dict[str, list[str]]] = {}
-    for domain, kind, url, title, text, emails, addresses in rows:
+    for domain, kind, url, title, text, emails, addresses, phones in rows:
         found = " ".join(filter(None, [", ".join(e["email"] for e in emails or []),
+                                       ", ".join(ph["phone"] for ph in phones or []),
                                        " / ".join(a["address"] for a in addresses or [])]))
         sites.setdefault(domain, {}).setdefault(kind, []).append(
             " ".join(f"{url} {title or ''} {found} {text or ''}".split()))

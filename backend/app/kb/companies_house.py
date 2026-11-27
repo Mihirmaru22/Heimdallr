@@ -38,7 +38,7 @@ def name_key(name: str) -> str:
     """'ACME (UK) LIMITED' and 'acme uk ltd' both become 'acme': for comparing names, not storing."""
     text = re.sub(r"[^\w ]+", " ", name.lower().replace("&", " and "))
     text = LEGAL_SUFFIX_RE.sub(" ", text)
-    return re.sub(r"\s+", " ", text).strip()
+    return re.sub(r"\s+", " ", text).strip()[:300]
 
 
 def _norm(header: str) -> str:
@@ -180,7 +180,7 @@ def overlap_with_pdl(cur) -> dict:
     cur.execute("DROP TABLE IF EXISTS kb.pdl_uk_keys")
     cur.execute("CREATE UNLOGGED TABLE kb.pdl_uk_keys (name_key text, city text)")
     cur.execute("SELECT name, city FROM kb.pdl_company WHERE iso2 = 'GB' AND name IS NOT NULL")
-    rows = [(name_key(n), c) for n, c in cur.fetchall()]
+    rows = [(name_key(n), (c or "")[:120] or None) for n, c in cur.fetchall() if len(n) <= 500]
     with cur.copy("COPY kb.pdl_uk_keys (name_key, city) FROM STDIN") as copy:
         for r in rows:
             copy.write_row(r)

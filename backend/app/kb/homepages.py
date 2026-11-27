@@ -33,7 +33,7 @@ import json
 import random
 import re
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,7 +46,11 @@ from app.extract.deterministic import (
     _addresses,
     _description,
     _emails,
+    _phones,
+    addresses_from_text,
+    emails_from_text,
     parse_page,
+    phones_from_text,
 )
 
 INDEX = "https://index.commoncrawl.org"
@@ -71,6 +75,7 @@ class Homepage:
     text: str = ""
     emails: list[dict] = field(default_factory=list)
     addresses: list[dict] = field(default_factory=list)
+    phones: list[dict] = field(default_factory=list)
     error: str = ""
     miss: str = ""  # why no homepage was found: no_capture, redirect_unfollowed, error_status, not_html
     redirected_to: str = ""  # the homepage moved here (another path or another domain)
@@ -82,13 +87,19 @@ def select_domains(conn, limit: int | None = None, iso2: str | None = None, samp
     random sample for trials. iso2 may list several countries ("GB,IN,US"). biggest_first orders by
     PDL's company size (largest band first), so a partial run covers the companies that matter most."""
     countries = [c.strip().upper() for c in (iso2 or "").split(",") if c.strip()]
+    sec_domains: list[str] = []
+    if conn.execute("SELECT to_regclass('kb.sec_company')").fetchone()[0]:
+        sec_domains = [r[0] for r in conn.execute(
+            "SELECT DISTINCT domain FROM kb.sec_company WHERE domain IS NOT NULL AND ticker IS NOT NULL"
+        ).fetchall()]
     size = "max(coalesce(nullif(regexp_replace(split_part(size, '-', 1), '[^0-9]', '', 'g'), '')::int, 0))"
+    dom_filter = "(domain_rows <= %s OR domain = ANY(%s))" if sec_domains else "domain_rows <= %s"
     sql = (f"SELECT domain FROM (SELECT domain, {size} AS size FROM kb.pdl_company "  # noqa: S608 - fixed text, values are parameters
-           "WHERE domain IS NOT NULL AND domain_rows <= %s" + (" AND iso2 = ANY(%s)" if countries else "")
+           f"WHERE domain IS NOT NULL AND {dom_filter}" + (" AND iso2 = ANY(%s)" if countries else "")
            + (" AND NOT EXISTS (SELECT 1 FROM kb.homepage h WHERE h.domain = kb.pdl_company.domain)"
               if biggest_first else "")
            + " GROUP BY domain) d")
-    params: list = [SHARED_DOMAIN_LIMIT] + ([countries] if countries else [])
+    params: list = [SHARED_DOMAIN_LIMIT] + ([sec_domains] if sec_domains else []) + ([countries] if countries else [])
     if sample:
         sql += " ORDER BY random()"
     elif biggest_first:
@@ -264,24 +275,36 @@ class IndexReader:
         With no usable capture of the homepage itself, the shortest page captured on the same host
         (/index.html, /home) stands in for it."""
         key = surt_key(domain)
+        seen_keys = {key}
         redirected_to = ""
         for _hop in range(3):
             host_prefix = key.split(")", 1)[0] + ")"
             exact, same_host = await self._records(key, host_prefix)
+            if _hop == 0 and not exact and not same_host and not domain.lower().startswith("www."):
+                www_key = surt_key(f"www.{domain}")
+                www_prefix = www_key.split(")", 1)[0] + ")"
+                exact, same_host = await self._records(www_key, www_prefix)
             good = [r for r in exact if self._good(r)]
             if good:
                 return self._best(good), "", redirected_to
             moves = [r for r in exact if str(r.get("status", "")).startswith("3") and r.get("redirect")]
             if moves:
                 move = self._best(moves)
-                redirected_to = urljoin(move["url"], move["redirect"])
-                key = url_key(redirected_to)
-                continue
+                target = urljoin(move["url"], move["redirect"])
+                next_key = url_key(target)
+                if next_key not in seen_keys:
+                    redirected_to = target
+                    seen_keys.add(next_key)
+                    key = next_key
+                    continue
             stand_in = [r for r in same_host if self._good(r) and urlsplit(r["url"]).path.count("/") <= 1]
             if stand_in:
                 return min(stand_in, key=lambda r: len(r["url"])), "", redirected_to
             if not exact and not same_host:
                 return None, "no_capture", redirected_to
+            errs = [str(r.get("status", "")) for r in exact if str(r.get("status", "")).startswith(("4", "5"))]
+            if errs:
+                return None, f"error_status_{Counter(errs).most_common(1)[0][0]}", redirected_to
             if any(str(r.get("status", "")).startswith("3") for r in exact):
                 return None, "redirect_unfollowed", redirected_to
             if any(r.get("status") == "200" for r in exact):
@@ -317,17 +340,36 @@ PARSE_CHARS = 400_000  # title, meta, JSON-LD and the opening text sit well insi
 # made parsing (structured-data extraction especially) the slowest step
 
 
-def extract(domain: str, crawl: str, url: str, fetched_at: str, html: str) -> Homepage:
-    doc = parse_page(url, html[:PARSE_CHARS])
-    descriptions = _description(doc)
+def contacts_from(doc, countries: Sequence[str] | None = None) -> tuple[list[dict], list[dict], list[dict]]:
+    """Role mailboxes, multi-branch postal addresses, and phones (international + local iso2) from a page."""
     emails = [{"email": c.value.lower(), "method": c.method} for c in _emails(doc)
               if ROLE_WORD_RE.search(c.value.split("@")[0].lower())]
     addresses = [{"address": c.value, "method": c.method} for c in _addresses(doc, "address")
-                 if c.method in ("jsonld", "html_address")]
+                 if c.method in ("jsonld", "html_address", "label")]
+    existing_norm = [re.sub(r"\W+", "", a["address"].lower()) for a in addresses]
+    for item in addresses_from_text(doc.text):
+        norm = re.sub(r"\W+", "", item["address"].lower())
+        if not any(norm in ex or ex in norm for ex in existing_norm):
+            existing_norm.append(norm)
+            addresses.append({"address": item["address"], "method": item["method"]})
+    phones = [{"phone": c.value, "method": c.method} for c in _phones(doc)]
+    if countries:
+        seen_ph = {p["phone"] for p in phones}
+        for p in phones_from_text(doc.text, countries=countries):
+            if p["phone"] not in seen_ph:
+                seen_ph.add(p["phone"])
+                phones.append(p)
+    return emails, addresses, phones
+
+
+def extract(domain: str, crawl: str, url: str, fetched_at: str, html: str) -> Homepage:
+    doc = parse_page(url, html[:PARSE_CHARS])
+    descriptions = _description(doc)
+    emails, addresses, phones = contacts_from(doc)
     return Homepage(
         domain=domain, found=True, crawl=crawl, url=url, fetched_at=fetched_at,
         title=doc.title[:500], description=(descriptions[0].value if descriptions else "")[:2000],
-        text=doc.text[:TEXT_CHARS], emails=emails, addresses=addresses,
+        text=doc.text[:TEXT_CHARS], emails=emails, addresses=addresses, phones=phones,
     )
 
 
@@ -470,26 +512,134 @@ CREATE TABLE IF NOT EXISTS kb.homepage (
     error text,
     collected_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE kb.homepage ADD COLUMN IF NOT EXISTS phones jsonb NOT NULL DEFAULT '[]';
 ALTER TABLE kb.homepage ADD COLUMN IF NOT EXISTS miss text;
 ALTER TABLE kb.homepage ADD COLUMN IF NOT EXISTS redirected_to text;
 """
 
 
+def country_map(conn, domains: Sequence[str]) -> dict[str, list[str]]:
+    """Ordered ISO-2 country hints per domain from kb.pdl_company using indexed domain lookup."""
+    if not domains:
+        return {}
+    rows = conn.execute(
+        "SELECT domain, array_agg(DISTINCT upper(iso2)) FILTER (WHERE iso2 IS NOT NULL) "
+        "FROM kb.pdl_company WHERE domain = ANY(%s) GROUP BY domain",
+        (list(set(domains)),),
+    ).fetchall()
+    return {d: (codes or []) for d, codes in rows if codes}
+
+
+def backfill_phones(conn, limit: int | None = None) -> tuple[int, int]:
+    """Backfill international + iso2 local phones on empty kb.homepage and kb.company_page rows."""
+    conn.execute(SCHEMA_SQL)
+    h_rows = conn.execute(
+        "SELECT domain, text FROM kb.homepage "
+        "WHERE found AND text IS NOT NULL AND (phones IS NULL OR phones = '[]'::jsonb) "
+        "ORDER BY domain LIMIT %s",
+        (limit,),
+    ).fetchall()
+    cp_rows: list[tuple[str, str, str]] = []
+    if conn.execute("SELECT to_regclass('kb.company_page')").fetchone()[0]:
+        cp_rows = conn.execute(
+            "SELECT domain, url, text FROM kb.company_page "
+            "WHERE kind IN ('contact', 'locations') AND text IS NOT NULL "
+            "  AND (phones IS NULL OR phones = '[]'::jsonb) "
+            "ORDER BY domain, url LIMIT %s",
+            (limit * 2 if limit else None,),
+        ).fetchall()
+
+    iso_by_domain = country_map(conn, [r[0] for r in h_rows] + [r[0] for r in cp_rows])
+    updated = 0
+    total_numbers = 0
+    hp_batch: list[tuple[str, str]] = []
+    for domain, text in h_rows:
+        found = phones_from_text(text, countries=iso_by_domain.get(domain))
+        if found:
+            updated += 1
+            total_numbers += len(found)
+            hp_batch.append((json.dumps(found), domain))
+    for i in range(0, len(hp_batch), 1000):
+        with conn.cursor() as cur:
+            cur.executemany("UPDATE kb.homepage SET phones = %s WHERE domain = %s", hp_batch[i:i + 1000])
+
+    cp_batch: list[tuple[str, str, str]] = []
+    for domain, url, text in cp_rows:
+        found = phones_from_text(text, countries=iso_by_domain.get(domain))
+        if found:
+            updated += 1
+            total_numbers += len(found)
+            cp_batch.append((json.dumps(found), domain, url))
+    for i in range(0, len(cp_batch), 1000):
+        with conn.cursor() as cur:
+            cur.executemany("UPDATE kb.company_page SET phones = %s WHERE domain = %s AND url = %s",
+                            cp_batch[i:i + 1000])
+    return updated, total_numbers
+
+
+def backfill_emails(conn, limit: int | None = None) -> tuple[int, int]:
+    """Backfill newly supported role mailboxes from stored homepage and contact-page text."""
+    conn.execute(SCHEMA_SQL)
+    updated = 0
+    total_emails = 0
+    h_rows = conn.execute(
+        "SELECT domain, text FROM kb.homepage "
+        "WHERE found AND text IS NOT NULL AND (emails IS NULL OR emails = '[]'::jsonb) "
+        "ORDER BY domain LIMIT %s",
+        (limit,),
+    ).fetchall()
+    hp_batch: list[tuple[str, str]] = []
+    for domain, text in h_rows:
+        found = emails_from_text(text, domain)
+        if found:
+            updated += 1
+            total_emails += len(found)
+            hp_batch.append((json.dumps(found), domain))
+    for i in range(0, len(hp_batch), 1000):
+        with conn.cursor() as cur:
+            cur.executemany("UPDATE kb.homepage SET emails = %s WHERE domain = %s", hp_batch[i:i + 1000])
+
+    if conn.execute("SELECT to_regclass('kb.company_page')").fetchone()[0]:
+        cp_rows = conn.execute(
+            "SELECT domain, url, text FROM kb.company_page "
+            "WHERE kind IN ('contact', 'locations') AND text IS NOT NULL "
+            "  AND (emails IS NULL OR emails = '[]'::jsonb) "
+            "ORDER BY domain, url LIMIT %s",
+            (limit * 2 if limit else None,),
+        ).fetchall()
+        cp_batch: list[tuple[str, str, str]] = []
+        for domain, url, text in cp_rows:
+            found = emails_from_text(text, domain)
+            if found:
+                updated += 1
+                total_emails += len(found)
+                cp_batch.append((json.dumps(found), domain, url))
+        for i in range(0, len(cp_batch), 1000):
+            with conn.cursor() as cur:
+                cur.executemany("UPDATE kb.company_page SET emails = %s WHERE domain = %s AND url = %s",
+                                cp_batch[i:i + 1000])
+    return updated, total_emails
+
+
 def save(conn, page: Homepage) -> None:
     conn.execute(
         """INSERT INTO kb.homepage (domain, found, crawl, url, fetched_at, title, description, text, emails,
-                                    addresses, error, collected_at, miss, redirected_to)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    addresses, phones, error, collected_at, miss, redirected_to)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (domain) DO UPDATE SET found = EXCLUDED.found, crawl = EXCLUDED.crawl, url = EXCLUDED.url,
                fetched_at = EXCLUDED.fetched_at, title = EXCLUDED.title, description = EXCLUDED.description,
                text = EXCLUDED.text, emails = EXCLUDED.emails, addresses = EXCLUDED.addresses,
-               error = EXCLUDED.error, collected_at = EXCLUDED.collected_at, miss = EXCLUDED.miss,
-               redirected_to = EXCLUDED.redirected_to""",
+               phones = EXCLUDED.phones, error = EXCLUDED.error, collected_at = EXCLUDED.collected_at,
+               miss = EXCLUDED.miss, redirected_to = EXCLUDED.redirected_to""",
         (page.domain, page.found, page.crawl, page.url or None, page.fetched_at or None, page.title or None,
          page.description or None, (page.text or None) and page.text.replace("\x00", ""),
-         json.dumps(page.emails), json.dumps(page.addresses), page.error or None, datetime.now(UTC),
-         page.miss or None, page.redirected_to or None),
+         json.dumps(page.emails), json.dumps(page.addresses), json.dumps(page.phones),
+         page.error or None, datetime.now(UTC), page.miss or None, page.redirected_to or None),
     )
+    if page.found and (page.addresses or page.text):
+        from app.kb import branches
+
+        branches.save_homepage(conn, page.domain, page.url, page.addresses, page.phones, page.text, page.emails)
 
 
 async def collect(domains: list[str], crawls: list[str] | None, on_page: Callable[[Homepage], None],

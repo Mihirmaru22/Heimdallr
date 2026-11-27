@@ -44,8 +44,8 @@ async def dns_alive(domain: str, timeout: float = 5.0) -> bool:
 def own_fetcher(client: httpx.AsyncClient, user_agent: str, concurrency: int = OWN_CONCURRENCY,
                 alive: Callable[[str], Awaitable[bool]] = dns_alive,
                 resolver=None) -> Callable[[str], Awaitable[Homepage]]:
-    fetcher = Fetcher(client, resolver=resolver)
-    robots = RobotsCache(fetcher, user_agent, attempts=1)
+    fetcher = Fetcher(client, resolver=resolver, max_bytes=1_000_000, truncate=True)
+    robots = RobotsCache(fetcher, user_agent, attempts=2)
     slots = asyncio.Semaphore(concurrency)
 
     async def fetch(domain: str) -> Homepage:
@@ -59,7 +59,7 @@ def own_fetcher(client: httpx.AsyncClient, user_agent: str, concurrency: int = O
                     if not decision.allowed:
                         last = "robots_disallowed" if "disallowed by" in decision.reason else "robots_unreachable"
                         continue
-                    result = await fetcher.fetch(url, attempts=1)
+                    result = await fetcher.fetch(url, attempts=2)
                 except FetchError as exc:
                     last = f"site_{exc.kind}"
                     if exc.kind.startswith("http_4") or exc.kind == "blocked":

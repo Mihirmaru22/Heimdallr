@@ -343,6 +343,281 @@ def kb_load_companies_house(path: str, report_only: bool, force: bool) -> None:
     print(coverage.report())
 
 
+def kb_load_gleif(path: str, report_only: bool, force: bool) -> None:
+    from pathlib import Path
+
+    from app.kb import gleif
+
+    file = Path(path)
+    if not file.is_file():
+        sys.exit(f"No such file: {file}")
+
+    def progress(rows: int) -> None:
+        print(f"  {rows:,} rows read", flush=True)
+
+    if report_only:
+        coverage = gleif.scan(gleif.iter_rows(file), progress=progress)
+    else:
+        print(f"Loading {file.name} into kb.{gleif.TABLE}...", flush=True)
+        try:
+            coverage = gleif.load(file, force=force, progress=progress)
+        except ValueError as exc:
+            sys.exit(str(exc))
+    print(coverage.report())
+
+
+def kb_load_sec(tickers_path: str, submissions_zip: str, report_only: bool, force: bool) -> None:
+    from pathlib import Path
+
+    from app.kb import sec_bulk
+
+    t_file, s_file = Path(tickers_path), Path(submissions_zip)
+    for f in (t_file, s_file):
+        if not f.is_file():
+            sys.exit(f"No such file: {f}")
+
+    def progress(rows: int) -> None:
+        print(f"  {rows:,} entities read", flush=True)
+
+    if report_only:
+        coverage = sec_bulk.scan(sec_bulk.iter_rows(t_file, s_file), progress=progress)
+    else:
+        print(f"Loading {s_file.name} into kb.{sec_bulk.TABLE}...", flush=True)
+        try:
+            coverage = sec_bulk.load(t_file, s_file, force=force, progress=progress)
+        except ValueError as exc:
+            sys.exit(str(exc))
+    print(coverage.report())
+
+
+def kb_load_sec_facts(path: str | None) -> None:
+    import time
+    from pathlib import Path
+
+    import httpx
+
+    from app.config import get_settings
+    from app.kb import sec_facts
+
+    settings = get_settings()
+    if path:
+        zpath = Path(path)
+        if not zpath.is_file():
+            sys.exit(f"File not found: {zpath}")
+    else:
+        zpath = Path(settings.data_dir) / "sec" / "companyfacts.zip"
+        zpath.parent.mkdir(parents=True, exist_ok=True)
+        print(f"Downloading {sec_facts.COMPANYFACTS_URL} -> {zpath}...", flush=True)
+        ua = {"User-Agent": f"{settings.user_agent} (mailto:research@heimdallr.local)"}
+        with httpx.Client(timeout=httpx.Timeout(120, connect=20), follow_redirects=True, headers=ua) as client:
+            with client.stream("GET", sec_facts.COMPANYFACTS_URL) as resp:
+                resp.raise_for_status()
+                tmp = zpath.with_suffix(".zip.part")
+                with open(tmp, "wb") as f:
+                    for chunk in resp.iter_bytes(chunk_size=1 << 20):
+                        f.write(chunk)
+                tmp.replace(zpath)
+
+    t0 = time.monotonic()
+
+    def progress(n: int) -> None:
+        print(f"  {n:,} SEC filers processed", flush=True)
+
+    cov = sec_facts.load(zpath, progress=progress)
+    print(f"Loaded in {time.monotonic() - t0:.1f}s: {cov.report()}")
+
+
+def kb_load_uk_accounts(paths: list[str] | None, latest_n: int) -> None:
+    import re
+    import time
+    from pathlib import Path
+
+    import httpx
+
+    from app.config import get_settings
+    from app.kb import uk_accounts
+
+    settings = get_settings()
+    files: list[Path] = []
+    if paths:
+        for p in paths:
+            path = Path(p)
+            if path.is_dir():
+                files.extend(sorted(path.glob("*.zip")))
+            elif path.is_file():
+                files.append(path)
+            else:
+                sys.exit(f"Path not found: {p}")
+    else:
+        dest = Path(settings.data_dir) / "uk_accounts"
+        dest.mkdir(parents=True, exist_ok=True)
+        with httpx.Client(timeout=httpx.Timeout(120, connect=20), follow_redirects=True) as client:
+            r = client.get(uk_accounts.ACCOUNTS_INDEX_URL)
+            r.raise_for_status()
+            zips = re.findall(r"href=['\"]([^'\"]*Accounts_Bulk_Data-[^'\"]*\.zip)", r.text, re.I)
+            for rel in zips[-latest_n:]:
+                name = Path(rel).name
+                zpath = dest / name
+                if not zpath.is_file():
+                    print(f"Downloading {name}...", flush=True)
+                    with client.stream("GET", uk_accounts.ACCOUNTS_BASE_URL + rel.lstrip("/")) as resp:
+                        resp.raise_for_status()
+                        tmp = zpath.with_suffix(".zip.part")
+                        with open(tmp, "wb") as f:
+                            for ch in resp.iter_bytes(1 << 20):
+                                f.write(ch)
+                        tmp.replace(zpath)
+                files.append(zpath)
+
+    if not files:
+        sys.exit("No UK Accounts ZIP files found.")
+    t0 = time.monotonic()
+    cov = uk_accounts.load(files, progress=lambda n: print(f"  {n:,} UK accounts parsed", flush=True))
+    print(f"Loaded {len(files)} file(s) in {time.monotonic() - t0:.1f}s: {cov.report()}")
+
+
+def kb_load_usaspending(path: str | None, fiscal_year: int) -> None:
+    import time
+    from pathlib import Path
+
+    import httpx
+
+    from app.config import get_settings
+    from app.kb import usaspending_bulk
+
+    settings = get_settings()
+    if path:
+        zpath = Path(path)
+        if not zpath.is_file():
+            sys.exit(f"File not found: {zpath}")
+    else:
+        name, url = usaspending_bulk.latest_full_contracts_url(fiscal_year)
+        zpath = Path(settings.data_dir) / "usaspending" / name
+        zpath.parent.mkdir(parents=True, exist_ok=True)
+        if not zpath.is_file():
+            print(f"Downloading {url} -> {zpath}...", flush=True)
+            tmp = zpath.with_suffix(".zip.part")
+            with httpx.Client(timeout=httpx.Timeout(120, connect=20), follow_redirects=True) as client:
+                for attempt in range(10):
+                    pos = tmp.stat().st_size if tmp.exists() else 0
+                    headers = {"Range": f"bytes={pos}-"} if pos else {}
+                    try:
+                        with client.stream("GET", url, headers=headers) as resp:
+                            if resp.status_code == 416:
+                                break
+                            resp.raise_for_status()
+                            mode = "ab" if (pos and resp.status_code == 206) else "wb"
+                            with open(tmp, mode) as f:
+                                for ch in resp.iter_bytes(1 << 20):
+                                    f.write(ch)
+                        break
+                    except httpx.HTTPError as exc:
+                        if attempt == 9:
+                            raise
+                        print(f"  download interrupted ({type(exc).__name__}), retrying...", flush=True)
+                        time.sleep(3)
+                tmp.replace(zpath)
+
+    t0 = time.monotonic()
+    cov = usaspending_bulk.load(
+        zpath, progress=lambda n: print(f"  {n:,} USAspending transactions read", flush=True)
+    )
+    print(f"Loaded in {time.monotonic() - t0:.1f}s: {cov.report()}")
+
+
+def kb_load_mca(path: str, force: bool) -> None:
+    import time
+    from pathlib import Path
+
+    from app.kb import india_mca
+
+    f = Path(path)
+    if not f.is_file():
+        sys.exit(f"File not found: {f}")
+    t0 = time.monotonic()
+    cov = india_mca.load(f, force=force, progress=lambda n: print(f"  {n:,} MCA rows read", flush=True))
+    print(f"Loaded in {time.monotonic() - t0:.1f}s: {cov.report()}")
+
+
+def kb_load_people(refresh: bool) -> None:
+    import time
+    from pathlib import Path
+
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import people
+    from app.kb.pdl import kb_dsn
+
+    settings = get_settings()
+    t0 = time.monotonic()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        n = people.load_wikidata_people(
+            conn, data_dir=Path(settings.data_dir), user_agent=settings.user_agent, refresh=refresh
+        )
+    print(f"Loaded {n:,} Wikidata leadership rows into kb.company_person in {time.monotonic() - t0:.1f}s.")
+
+
+def kb_link_sec(refresh: bool) -> None:
+    import time
+    from pathlib import Path
+
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import sp500
+    from app.kb.pdl import kb_dsn
+
+    settings = get_settings()
+    t0 = time.monotonic()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        checked, linked, qids = sp500.link_sec_domains(
+            conn, data_dir=Path(settings.data_dir), user_agent=settings.user_agent, refresh=refresh
+        )
+    print(
+        f"Linked SEC issuers in {time.monotonic() - t0:.1f}s: "
+        f"checked={checked:,}, linked_domains={linked:,}, wikidata_qids={qids:,}"
+    )
+
+
+def kb_load_sp500(skip_crawl: bool = False, refresh: bool = False, js_fallback: bool = True,
+                  homepages_only: bool = False) -> None:
+    import time
+    from pathlib import Path
+
+    import psycopg
+
+    from app.config import get_settings
+    from app.kb import sp500
+    from app.kb.pdl import kb_dsn
+
+    settings = get_settings()
+    data_dir = Path(settings.data_dir)
+    t0 = time.monotonic()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        records = sp500.sync_sp500(conn, data_dir=data_dir, user_agent=settings.user_agent, refresh=refresh)
+        resolved = [r["domain"] for r in records if r["domain"]]
+        unique = sorted(set(resolved))
+        print(
+            f"Synced {len(records):,} S&P 500 symbols ({len(unique):,} unique domains) "
+            f"in {time.monotonic() - t0:.1f}s.",
+            flush=True,
+        )
+        if not skip_crawl:
+            stats = sp500.enrich_sp500_domains(
+                conn, unique, data_dir=data_dir, user_agent=settings.user_agent,
+                model_path=_label_model_path(), js_fallback=js_fallback, subpages=not homepages_only,
+            )
+            print(
+                f"Enriched S&P 500 in {time.monotonic() - t0:.1f}s: "
+                f"domains={stats['unique_domains']}, homepage_found={stats['homepage_found']} "
+                f"(+{stats['homepage_new']} new), pages={stats['pages_domains']}, "
+                f"branches={stats['branches_domains']}, tech={stats['tech_domains']}, "
+                f"labels={stats['label_domains']} (+{stats['labelled_new']} new)",
+                flush=True,
+            )
+
+
 def kb_homepages(limit: int | None, iso2: str | None, crawl: list[str] | None, concurrency: int, sample: bool,
                  crawl_count: int, again: bool, own_fetch: bool, biggest_first: bool = False,
                  own_lanes: int = 128) -> None:
@@ -542,50 +817,102 @@ def kb_train(teacher: str) -> None:
         print("\n".join(report.lines()) + "\n")
 
 
-def kb_pages(limit: int, countries: str | None, lanes: int) -> None:
+def kb_pages(limit: int, countries: str | None, lanes: int, with_tech: bool = True,
+             retry_misses: bool = False, js_fallback: bool = False) -> None:
     import asyncio
+    import multiprocessing
+    import os
     import time
     from collections import Counter
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
     import httpx
     import psycopg
 
     from app.config import get_settings
-    from app.kb import pages
+    from app.kb import homepages, pages, tech
     from app.kb.pdl import kb_dsn
 
     settings = get_settings()
+    tech_index = tech.TechIndex.load() if with_tech else None
     with psycopg.connect(kb_dsn(), autocommit=True) as conn:
         conn.execute(pages.SCHEMA_SQL)
-        sites = pages.select_sites(conn, limit, countries)
+        if with_tech:
+            conn.execute(tech.SCHEMA_SQL)
+        sites = pages.select_sites(conn, limit, countries, retry_misses=retry_misses)
+        countries_by_domain = homepages.country_map(conn, [d for d, _u in sites])
         print(f"Reading contact and careers pages of {len(sites):,} sites, {lanes} at a time...", flush=True)
         done, kinds, misses = 0, Counter(), Counter()
+        tech_hits = 0
+        pending_tech: dict[str, list[tech.TechMatch]] = {}
         started = window = time.monotonic()
+        workers = min(6, max(2, (os.cpu_count() or 4) - 2)) if with_tech else 0
+        tech_pool = (
+            ProcessPoolExecutor(
+                max_workers=workers,
+                mp_context=multiprocessing.get_context("spawn"),
+                initializer=tech._pool_init,
+                max_tasks_per_child=1000,
+            )
+            if with_tech
+            else None
+        )
 
-        async def run() -> None:
-            nonlocal done, window
-            asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(2 * lanes))
-            client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0),
+        async def on_fetch(domain: str, kind: str, url: str, html: str, headers: list[tuple[str, str]]) -> None:
+            if tech_pool is None or kind != "home":
+                return
+            loop = asyncio.get_running_loop()
+            found_tech = await loop.run_in_executor(
+                tech_pool, tech._pool_scan, url, html[:pages.PARSE_CHARS], headers
+            )
+            if found_tech:
+                pending_tech.setdefault(domain, []).extend(found_tech)
+
+        async def run_batch(batch: list[tuple[str, str]], js_render=None) -> None:
+            nonlocal done, window, tech_hits
+            limits = httpx.Limits(max_connections=max(200, lanes * 2), max_keepalive_connections=lanes)
+            client = httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=6.0), limits=limits,
                                        headers={"User-Agent": settings.user_agent}, follow_redirects=False)
-            read = pages.page_reader(client, settings.user_agent, lanes)
+            read = pages.page_reader(
+                client,
+                settings.user_agent,
+                lanes,
+                on_fetch=on_fetch if with_tech else None,
+                countries_by_domain=countries_by_domain,
+                js_render=js_render,
+            )
             queue: asyncio.Queue = asyncio.Queue()
-            for site in sites:
+            for site in batch:
                 queue.put_nowait(site)
 
             async def worker() -> None:
-                nonlocal done, window
+                nonlocal done, window, tech_hits
                 while not queue.empty():
                     domain, url = queue.get_nowait()
-                    found, miss = await read(domain, url)
-                    pages.save(conn, domain, found, miss)
+                    try:
+                        found, miss = await read(domain, url)
+                        pages.save(conn, domain, found, miss)
+                        matches = pending_tech.pop(domain, [])
+                        if tech_index is not None:
+                            for p in found:
+                                matches.extend(tech.detect_compliance(f"{p.title}\n{p.text}"))
+                                if p.kind in ("careers", "job"):
+                                    matches.extend(tech_index.scan_job_text(f"{p.title}\n{p.text}"))
+                            if matches:
+                                tech_hits += tech.save_matches(conn, domain, matches)
+                    except Exception as exc:  # noqa: BLE001 - isolate bad site from sibling workers
+                        pending_tech.pop(domain, None)
+                        found, miss = [], f"error_{type(exc).__name__}"
+                        pages.save(conn, domain, [], miss)
+                        print(f"  skip {domain}: {type(exc).__name__}: {str(exc)[:120]}", flush=True)
                     done += 1
                     kinds.update({p.kind for p in found})
                     misses.update([miss] if miss else [])
                     if done % 500 == 0:
                         now = time.monotonic()
                         print(f"  {done:,} sites, {500 / max(0.1, now - window):.1f} sites/s; with contact page "
-                              f"{kinds['contact']:,}, careers {kinds['careers']:,}, job ads {kinds['job']:,}",
+                              f"{kinds['contact']:,}, locations {kinds['locations']:,}, careers {kinds['careers']:,}, "
+                              f"job ads {kinds['job']:,}, security {kinds['security']:,}, tech rows {tech_hits:,}",
                               flush=True)
                         window = now
 
@@ -594,10 +921,166 @@ def kb_pages(limit: int, countries: str | None, lanes: int) -> None:
             finally:
                 await client.aclose()
 
-        asyncio.run(run())
+        async def run() -> None:
+            asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(2 * lanes))
+            pw = browser = ctx = None
+            js_sem = asyncio.Semaphore(4)
+            js_render = None
+            shell = pages._playwright_shell() if js_fallback else None
+            if js_fallback:
+                from playwright.async_api import async_playwright
+
+                pw = await async_playwright().start()
+                browser = await pw.chromium.launch(headless=True, executable_path=shell)
+                ctx = await browser.new_context(ignore_https_errors=True)
+
+                async def render_js(target_url: str) -> str | None:
+                    async with js_sem:
+                        pg = await asyncio.wait_for(ctx.new_page(), timeout=5.0)
+                        try:
+                            await asyncio.wait_for(
+                                pg.goto(target_url, wait_until="domcontentloaded", timeout=10_000),
+                                timeout=12.0,
+                            )
+                            await pg.wait_for_timeout(1200)
+                            return await asyncio.wait_for(pg.content(), timeout=5.0)
+                        except Exception:  # noqa: BLE001 - one broken JS page never stops crawl
+                            return None
+                        finally:
+                            try:
+                                await asyncio.wait_for(pg.close(), timeout=3.0)
+                            except Exception:  # noqa: BLE001, S110
+                                pass
+
+                js_render = render_js
+            try:
+                for i in range(0, len(sites), 5000):
+                    await run_batch(sites[i:i + 5000], js_render=js_render)
+            finally:
+                if ctx is not None:
+                    await ctx.close()
+                if browser is not None:
+                    await browser.close()
+                if pw is not None:
+                    await pw.stop()
+
+        try:
+            asyncio.run(run())
+        finally:
+            if tech_pool is not None:
+                tech_pool.shutdown()
     print(f"\n{done:,} sites in {(time.monotonic() - started) / 60:.1f} minutes: contact page {kinds['contact']:,}, "
-          f"careers page {kinds['careers']:,}, sites with job ads {kinds['job']:,}")
+          f"locations {kinds['locations']:,}, careers page {kinds['careers']:,}, sites with job ads {kinds['job']:,}, "
+          f"security page {kinds['security']:,}")
     print("Not found: " + ", ".join(f"{k} {n:,}" for k, n in misses.most_common()))
+
+
+def kb_branches(limit: int | None) -> None:
+    import time
+
+    import psycopg
+
+    from app.kb import branches
+    from app.kb.pdl import kb_dsn
+
+    t0 = time.monotonic()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        hp_up, cp_up, saved = branches.backfill_branches(conn, limit)
+    print(f"Backfilled kb.company_branch in {time.monotonic() - t0:.1f}s: "
+          f"homepages_updated={hp_up:,}, company_pages_updated={cp_up:,}, branch_rows={saved:,}")
+
+
+def kb_load_overture(release: str | None, parts: int | None, local_dir: str | None,
+                     homepages_only: bool) -> None:
+    import time
+
+    import psycopg
+
+    from app.kb import branches
+    from app.kb.pdl import kb_dsn
+
+    t0 = time.monotonic()
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        rel, matched, saved = branches.load_overture(conn, release=release, parts=parts,
+                                                    local_dir=local_dir, homepages_only=homepages_only)
+    print(f"Loaded Overture {rel} in {time.monotonic() - t0:.1f}s: matched={matched:,}, branch_rows={saved:,}")
+
+
+def kb_tech(limit: int | None, dns: bool, from_db: bool, concurrency: int) -> None:
+    import asyncio
+    import time
+
+    import psycopg
+
+    from app.kb import tech
+    from app.kb.pdl import kb_dsn
+
+    if not dns and not from_db:
+        dns = from_db = True
+    with psycopg.connect(kb_dsn(), autocommit=True) as conn:
+        conn.execute(tech.SCHEMA_SQL)
+        if from_db:
+            t0 = time.monotonic()
+            from app.kb import branches, homepages
+
+            bp_rows, bp_nums = homepages.backfill_phones(conn, limit)
+            be_rows, be_cnt = homepages.backfill_emails(conn, limit)
+            bh_rows, bc_rows, br_saved = branches.backfill_branches(conn, limit)
+            idx = tech.TechIndex.load()
+            h_rows = conn.execute(
+                "SELECT domain, title, description, text FROM kb.homepage WHERE found LIMIT %s",
+                (limit,),
+            ).fetchall()
+            saved_c = 0
+            for dom, title, desc, text in h_rows:
+                m = tech.detect_compliance(" ".join(x for x in (title, desc, text) if x))
+                if m:
+                    saved_c += tech.save_matches(conn, dom, m)
+            p_saved = 0
+            if conn.execute("SELECT to_regclass('kb.company_page')").fetchone()[0]:
+                p_rows = conn.execute(
+                    "SELECT domain, kind, title, text FROM kb.company_page LIMIT %s",
+                    (limit * 3 if limit else None,),
+                ).fetchall()
+                for dom, kind, title, text in p_rows:
+                    body = f"{title or ''}\n{text or ''}"
+                    m = tech.detect_compliance(body)
+                    if kind in ("careers", "job"):
+                        m.extend(idx.scan_job_text(body))
+                    if m:
+                        p_saved += tech.save_matches(conn, dom, m)
+            print(f"DB scan ({len(h_rows):,} homepages + company_pages) in {time.monotonic() - t0:.1f}s: "
+                  f"phones={bp_rows:,} ({bp_nums:,} numbers), emails={be_rows:,} ({be_cnt:,} addresses), "
+                  f"branches={br_saved:,} (hp+{bh_rows:,}, cp+{bc_rows:,}), "
+                  f"homepage compliance={saved_c:,}, subpage tech/compliance={p_saved:,}", flush=True)
+        if dns:
+            t0 = time.monotonic()
+            domains = [r[0] for r in conn.execute(
+                "SELECT domain FROM kb.homepage WHERE found "
+                "AND NOT EXISTS (SELECT 1 FROM kb.company_dns_run r WHERE r.domain = kb.homepage.domain) "
+                "ORDER BY domain LIMIT %s",
+                (limit,),
+            ).fetchall()]
+            print(f"Checking DNS MX/TXT for {len(domains):,} found domains ({concurrency} concurrent)...", flush=True)
+            saved_dns = 0
+            done_dns = 0
+
+            def on_dns(domain: str, mx_hosts: list[str], matches: list[tech.TechMatch]) -> None:
+                nonlocal saved_dns, done_dns
+                done_dns += 1
+                if matches:
+                    saved_dns += tech.save_matches(conn, domain, matches)
+                conn.execute(
+                    "INSERT INTO kb.company_dns_run (domain, mx_hosts) VALUES (%s, %s) "
+                    "ON CONFLICT (domain) DO UPDATE SET mx_hosts = EXCLUDED.mx_hosts, checked_at = now()",
+                    (domain, ",".join(mx_hosts)[:300] or None),
+                )
+                if done_dns % 5000 == 0:
+                    print(f"  DNS {done_dns:,}/{len(domains):,} checked, {saved_dns:,} tech rows saved", flush=True)
+
+            checked, hits = asyncio.run(tech.scan_dns_domains(domains, concurrency=concurrency, on_result=on_dns))
+            print(f"DNS scan finished in {time.monotonic() - t0:.1f}s: "
+                  f"{checked:,} domains, {hits:,} matched ({saved_dns:,} rows)", flush=True)
 
 
 def kb_classify(limit: int | None, again: bool, export_sample: int, export_path: str | None,
@@ -767,10 +1250,57 @@ def main() -> None:
                    help="label only pages MODEL already labelled, to compare two models on the same pages")
     p = sub.add_parser("kb-train", help="train the homepage classifier on the teacher labels and report its quality")
     p.add_argument("--teacher", default="qwen2.5:7b", help="whose labels to learn from (default qwen2.5:7b)")
+    p = sub.add_parser("kb-load-gleif", help="load the GLEIF Golden Copy LEI2 snapshot into kb.gleif_company")
+    p.add_argument("file", help="GLEIF golden-copy CSV or .zip")
+    p.add_argument("--report-only", action="store_true", help="scan the file and report coverage, load nothing")
+    p.add_argument("--force", action="store_true", help="load even if the file has far fewer rows than the table")
+    p = sub.add_parser("kb-load-sec", help="load SEC EDGAR bulk company metadata into kb.sec_company")
+    p.add_argument("tickers", help="company_tickers_exchange.json")
+    p.add_argument("submissions", help="submissions.zip")
+    p.add_argument("--report-only", action="store_true", help="scan the files and report coverage, load nothing")
+    p.add_argument("--force", action="store_true", help="load even if the file has far fewer rows than the table")
+    p = sub.add_parser("kb-load-sec-facts", help="load SEC EDGAR companyfacts.zip XBRL financials")
+    p.add_argument("file", nargs="?", default=None, help="optional local companyfacts.zip path")
+    p = sub.add_parser("kb-load-uk-accounts", help="load UK Companies House Accounts iXBRL archives")
+    p.add_argument("paths", nargs="*", help="optional local ZIP file(s) or folder")
+    p.add_argument("--latest", type=int, default=1, help="download latest N daily archives if no paths given")
+    p = sub.add_parser("kb-load-usaspending", help="load USAspending Prime Contracts bulk archive")
+    p.add_argument("file", nargs="?", default=None, help="optional local contracts ZIP path")
+    p.add_argument("--fy", type=int, default=2026, help="fiscal year archive (default 2026)")
+    p = sub.add_parser("kb-load-mca", help="load India MCA / RoC company master CSV or ZIP")
+    p.add_argument("file", help="India MCA CSV or .zip path")
+    p.add_argument("--force", action="store_true", help="load even if fewer rows than existing table")
+    p = sub.add_parser("kb-load-people", help="load Wikidata corporate leadership into kb.company_person")
+    p.add_argument("--refresh", action="store_true", help="refetch Wikidata SPARQL instead of using cache")
+    p = sub.add_parser("kb-link-sec", help="resolve domains/QIDs for all listed SEC issuers via Wikidata")
+    p.add_argument("--refresh", action="store_true", help="ignore cached Wikidata SPARQL JSON")
+    p = sub.add_parser("kb-load-sp500", help="link S&P 500 constituents via SEC+Wikidata and enrich into Brahman")
+    p.add_argument("--skip-crawl", action="store_true", help="only update kb.sp500_member and sec_company websites")
+    p.add_argument("--refresh", action="store_true", help="ignore cached Wikidata SPARQL JSON and refetch")
+    p.add_argument("--no-js", action="store_true", help="skip Playwright SPA rendering fallback")
+    p.add_argument("--homepages-only", action="store_true",
+                   help="fetch missing homepages, DNS, and labels without crawling subpages")
     p = sub.add_parser("kb-pages", help="read each company's contact page, careers page and a few job ads")
     p.add_argument("--limit", type=int, default=10000, help="at most this many sites (default 10000)")
     p.add_argument("--country", default=None, help="only companies in these countries, e.g. GB,IN,US")
     p.add_argument("--lanes", type=int, default=128, help="different sites at a time (default 128)")
+    p.add_argument("--no-tech", action="store_true", help="skip webappanalyzer and job-ad tech extraction")
+    p.add_argument("--retry-misses", action="store_true",
+                   help="retry prior home_unreadable, no_contact_or_careers_link, and linked_pages_unreadable sites")
+    p.add_argument("--js-fallback", action="store_true",
+                   help="use headless Chromium when static HTML looks like an empty JS SPA")
+    p = sub.add_parser("kb-branches", help="extract plain-text addresses and populate kb.company_branch from DB")
+    p.add_argument("--limit", type=int, default=None, help="at most this many homepages")
+    p = sub.add_parser("kb-load-overture", help="load physical branch addresses from Overture Maps Places")
+    p.add_argument("--release", default=None, help="Overture release tag (default latest from STAC)")
+    p.add_argument("--parts", type=int, default=None, help="only read the first N Parquet shards")
+    p.add_argument("--local-dir", default=None, help="read downloaded *.parquet files from this folder")
+    p.add_argument("--homepages-only", action="store_true", help="match only against kb.homepage domains")
+    p = sub.add_parser("kb-tech", help="populate kb.company_tech from DNS MX/TXT and existing crawled pages")
+    p.add_argument("--limit", type=int, default=None, help="at most this many domains")
+    p.add_argument("--dns", action="store_true", help="run async DNS MX and TXT checks")
+    p.add_argument("--from-db", action="store_true", help="scan existing kb.homepage and kb.company_page rows")
+    p.add_argument("--concurrency", type=int, default=256, help="concurrent DNS queries (default 256)")
     p = sub.add_parser("kb-classify", help="label homepages with the trained classifier")
     p.add_argument("--limit", type=int, default=None, help="at most this many homepages")
     p.add_argument("--again", action="store_true", help="relabel homepages that already have a label")
@@ -800,8 +1330,33 @@ def main() -> None:
                         args.export_contacts)
     if args.cmd == "kb-train":
         return kb_train(args.teacher)
+    if args.cmd == "kb-load-gleif":
+        return kb_load_gleif(args.file, args.report_only, args.force)
+    if args.cmd == "kb-load-sec":
+        return kb_load_sec(args.tickers, args.submissions, args.report_only, args.force)
+    if args.cmd == "kb-load-sec-facts":
+        return kb_load_sec_facts(args.file)
+    if args.cmd == "kb-load-uk-accounts":
+        return kb_load_uk_accounts(args.paths or None, args.latest)
+    if args.cmd == "kb-load-usaspending":
+        return kb_load_usaspending(args.file, args.fy)
+    if args.cmd == "kb-load-mca":
+        return kb_load_mca(args.file, args.force)
+    if args.cmd == "kb-load-people":
+        return kb_load_people(args.refresh)
+    if args.cmd == "kb-link-sec":
+        return kb_link_sec(args.refresh)
+    if args.cmd == "kb-load-sp500":
+        return kb_load_sp500(args.skip_crawl, args.refresh, not args.no_js, args.homepages_only)
     if args.cmd == "kb-pages":
-        return kb_pages(args.limit, args.country, args.lanes)
+        return kb_pages(args.limit, args.country, args.lanes, with_tech=not args.no_tech,
+                        retry_misses=args.retry_misses, js_fallback=args.js_fallback)
+    if args.cmd == "kb-branches":
+        return kb_branches(args.limit)
+    if args.cmd == "kb-load-overture":
+        return kb_load_overture(args.release, args.parts, args.local_dir, args.homepages_only)
+    if args.cmd == "kb-tech":
+        return kb_tech(args.limit, args.dns, args.from_db, args.concurrency)
     if args.cmd == "kb-classify":
         return kb_classify(args.limit, args.again, args.export_sample, args.out, args.teacher)
     if args.cmd == "kb-load-companies-house":
